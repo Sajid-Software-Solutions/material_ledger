@@ -7,6 +7,7 @@ import 'language_provider.dart';
 import 'yorks_v1_permission_provider.dart';
 import 'yorks_v1_feature_flags_provider.dart';
 import 'yorks_v1_material_request_provider.dart';
+import '../services/analytics_service.dart';
 
 final yorksV1ProjectPortfolioDataClientProvider =
     Provider<YorksV1ProjectPortfolioDataClient?>((ref) {
@@ -29,6 +30,7 @@ final yorksV1ProjectPortfolioRepositoryProvider =
       return YorksV1SupabaseProjectPortfolioRepository(
         featureFlags: ref.watch(yorksV1FeatureFlagsProvider),
         dataClient: ref.watch(yorksV1ProjectPortfolioDataClientProvider),
+        analytics: ref.watch(analyticsServiceProvider),
       );
     });
 
@@ -73,6 +75,7 @@ final yorksV1ProjectOverviewProvider =
       return YorksV1ProjectOverviewRepository(
         featureFlags: ref.watch(yorksV1FeatureFlagsProvider),
         dataClient: client,
+        analytics: ref.watch(analyticsServiceProvider),
       ).getOverview();
     });
 

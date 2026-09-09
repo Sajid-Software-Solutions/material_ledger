@@ -166,20 +166,31 @@ class YorksV1SupabaseLogisticsRepository
   @override
   Future<YorksV1InventoryWorkspace> getInventory({String? search}) async {
     final stopwatch = Stopwatch()..start();
-    final response = await _invoke(
-      functionName: 'v1_inventory_workspace_projection',
-      parameters: {'p_search': search?.trim().isEmpty ?? true ? null : search},
-    );
-    final workspace = _inventoryWorkspace(response);
     final query = search?.trim() ?? '';
-    if (query.isNotEmpty) {
-      _analytics.recordMaterialSearch(
-        queryLength: query.length,
-        resultCount: workspace.items.length,
-        duration: stopwatch.elapsed,
+    final operation = _analytics.beginOperation(
+      query.isEmpty ? 'inventory_load' : 'inventory_search',
+      properties: const {AnalyticsProperty.workflow: 'inventory'},
+    );
+    try {
+      final response = await _invoke(
+        functionName: 'v1_inventory_workspace_projection',
+        parameters: {'p_search': query.isEmpty ? null : query},
       );
+      final workspace = _inventoryWorkspace(response);
+      operation.complete(resultCount: workspace.items.length);
+      if (query.isNotEmpty) {
+        _analytics.recordMaterialSearch(
+          queryLength: query.length,
+          resultCount: workspace.items.length,
+          duration: stopwatch.elapsed,
+          context: AnalyticsSearchContext.inventory,
+        );
+      }
+      return workspace;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
     }
-    return workspace;
   }
 
   @override
@@ -210,9 +221,7 @@ class YorksV1SupabaseLogisticsRepository
         : 'v1_adjust_inventory';
     final action = input.createsItem
         ? 'create_item'
-        : input.action != null
-        ? 'stock_movement'
-        : 'update_item';
+        : input.action ?? 'update_item';
     final properties = <AnalyticsProperty, Object?>{
       AnalyticsProperty.inventoryAction: action,
     };
@@ -242,14 +251,19 @@ class YorksV1SupabaseLogisticsRepository
         AnalyticsEvent.inventoryActionCompleted,
         properties: {...properties, AnalyticsProperty.success: true},
       );
+      if (input.createsItem) {
+        _analytics.capture(
+          AnalyticsEvent.inventoryItemCreated,
+          properties: properties,
+        );
+      }
       return item;
     } catch (error) {
       operation.fail(error);
       _analytics.capture(
-        AnalyticsEvent.inventoryActionCompleted,
+        AnalyticsEvent.inventoryActionFailed,
         properties: {
           ...properties,
-          AnalyticsProperty.success: false,
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );
@@ -317,7 +331,7 @@ class YorksV1SupabaseLogisticsRepository
       AnalyticsProperty.itemCount: input.rows.length,
     };
     _analytics.capture(
-      AnalyticsEvent.inventoryActionStarted,
+      AnalyticsEvent.inventoryImportStarted,
       properties: properties,
     );
     final operation = _analytics.beginOperation(
@@ -346,10 +360,9 @@ class YorksV1SupabaseLogisticsRepository
     } catch (error) {
       operation.fail(error);
       _analytics.capture(
-        AnalyticsEvent.inventoryImportCompleted,
+        AnalyticsEvent.inventoryImportFailed,
         properties: {
           ...properties,
-          AnalyticsProperty.success: false,
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );
@@ -433,10 +446,9 @@ class YorksV1SupabaseLogisticsRepository
     } catch (error) {
       operation.fail(error);
       _analytics.capture(
-        AnalyticsEvent.dispatchCompleted,
+        AnalyticsEvent.dispatchFailed,
         properties: {
           ...properties,
-          AnalyticsProperty.success: false,
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );
@@ -448,14 +460,44 @@ class YorksV1SupabaseLogisticsRepository
   Future<YorksV1LogisticsWorkspace> confirmReceipt(
     YorksV1ReceiptConfirmationInput input,
   ) async {
-    final response = await _invoke(
-      functionName: 'v1_confirm_receipt',
-      parameters: {
-        'p_payload': input.toRpcPayload(),
-        'p_idempotency_key': input.idempotencyKey,
+    final operation = _analytics.beginOperation(
+      'receipt_review',
+      properties: {
+        AnalyticsProperty.workflow: 'procurement',
+        AnalyticsProperty.itemCount: input.lines.length,
       },
     );
-    return _workspace(response);
+    try {
+      final response = await _invoke(
+        functionName: 'v1_confirm_receipt',
+        parameters: {
+          'p_payload': input.toRpcPayload(),
+          'p_idempotency_key': input.idempotencyKey,
+        },
+      );
+      final workspace = _workspace(response);
+      operation.complete();
+      final exceptionLineCount = input.lines
+          .where((line) => line.outcome != YorksV1ReceiptOutcome.received)
+          .length;
+      _analytics.capture(
+        AnalyticsEvent.receiptReviewCompleted,
+        properties: {
+          AnalyticsProperty.itemCount: input.lines.length,
+          AnalyticsProperty.receivedLineCount:
+              input.lines.length - exceptionLineCount,
+          AnalyticsProperty.exceptionLineCount: exceptionLineCount,
+          AnalyticsProperty.hasExceptions: exceptionLineCount > 0,
+          AnalyticsProperty.receiptOutcome: exceptionLineCount == 0
+              ? 'all_received'
+              : 'exceptions_present',
+        },
+      );
+      return workspace;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
   }
 
   @override
