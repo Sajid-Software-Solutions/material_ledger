@@ -4100,9 +4100,10 @@ class _YorksMobileMaterialRequestDraftFlowState
         primaryIcon: Icons.arrow_forward_rounded,
         onPrimary: _busy || _draft.lines.isEmpty
             ? null
-            : () => setState(
-                () => _step = _MobileMaterialRequestDraftStep.review,
-              ),
+            : () {
+                widget.controller.recordReviewReached();
+                setState(() => _step = _MobileMaterialRequestDraftStep.review);
+              },
       ),
     ],
   );

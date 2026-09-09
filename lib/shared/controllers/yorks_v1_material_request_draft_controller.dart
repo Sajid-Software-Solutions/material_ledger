@@ -106,6 +106,16 @@ class YorksV1MaterialRequestDraftController
 
   bool get isEditingBeforeApproval => _editingBeforeApproval;
 
+  void recordReviewReached() {
+    _analytics.capture(
+      AnalyticsEvent.materialRequestReviewOpened,
+      properties: {
+        AnalyticsProperty.itemCount: state.draft.lines.length,
+        AnalyticsProperty.entryPoint: 'draft_flow',
+      },
+    );
+  }
+
   YorksV1MaterialRequestPhase2Repository? get _phase2Repository =>
       _repository is YorksV1MaterialRequestPhase2Repository
       ? _repository as YorksV1MaterialRequestPhase2Repository
@@ -581,7 +591,9 @@ class YorksV1MaterialRequestDraftController
 
   void _captureItemChange(String action, {int count = 1}) {
     _analytics.capture(
-      AnalyticsEvent.materialRequestItemChanged,
+      action == 'remove'
+          ? AnalyticsEvent.materialRequestItemRemoved
+          : AnalyticsEvent.materialRequestItemAdded,
       properties: {
         AnalyticsProperty.actionType: action,
         AnalyticsProperty.itemCount: count,
@@ -640,7 +652,7 @@ class YorksV1MaterialRequestDraftController
   }
 
   Future<YorksV1MaterialRequest?> saveConnected() async {
-    _analytics.recordActionAttempt(
+    final feedback = _analytics.expectFeedback(
       action: 'save_material_request_draft',
       screen: AnalyticsScreen.materialRequestDraft,
       operationWasLoading: _connectedCommandInFlight,
@@ -655,7 +667,9 @@ class YorksV1MaterialRequestDraftController
       },
     );
     try {
-      final result = await _saveConnected();
+      final pending = _saveConnected();
+      feedback.feedbackObserved();
+      final result = await pending;
       if (result == null) {
         operation.fail(
           YorksV1DomainException(
@@ -682,9 +696,11 @@ class YorksV1MaterialRequestDraftController
     final draft = state.draft;
     if (!draft.canSubmitLocally) {
       _analytics.capture(
-        AnalyticsEvent.materialRequestValidationFailed,
+        AnalyticsEvent.formValidationFailed,
         properties: const {
-          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.invalidInput,
+          AnalyticsProperty.formType: 'material_request',
+          AnalyticsProperty.validationReason: 'incomplete_request',
+          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.validation,
         },
       );
       state = YorksV1MaterialRequestDraftState(
@@ -741,7 +757,7 @@ class YorksV1MaterialRequestDraftController
   }
 
   Future<YorksV1MaterialRequest?> submit() async {
-    _analytics.recordActionAttempt(
+    final feedback = _analytics.expectFeedback(
       action: 'submit_material_request',
       screen: AnalyticsScreen.materialRequestDraft,
       operationWasLoading: _connectedCommandInFlight,
@@ -766,7 +782,9 @@ class YorksV1MaterialRequestDraftController
       },
     );
     try {
-      final result = await _submitConnected();
+      final pending = _submitConnected();
+      feedback.feedbackObserved();
+      final result = await pending;
       if (result == null) {
         final error = YorksV1DomainException(
           state.errorCode ?? YorksV1DomainErrorCode.backendUnavailable,
@@ -821,9 +839,11 @@ class YorksV1MaterialRequestDraftController
     final draft = state.draft;
     if (!draft.canSubmitLocally) {
       _analytics.capture(
-        AnalyticsEvent.materialRequestValidationFailed,
+        AnalyticsEvent.formValidationFailed,
         properties: const {
-          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.invalidInput,
+          AnalyticsProperty.formType: 'material_request',
+          AnalyticsProperty.validationReason: 'incomplete_request',
+          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.validation,
         },
       );
       state = YorksV1MaterialRequestDraftState(
