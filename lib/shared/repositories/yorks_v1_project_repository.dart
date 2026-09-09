@@ -87,9 +87,11 @@ class YorksV1SupabaseProjectRepository implements YorksV1ProjectRepository {
     final validationErrors = input.validate();
     if (validationErrors.isNotEmpty) {
       _analytics.capture(
-        AnalyticsEvent.projectCreationValidationFailed,
+        AnalyticsEvent.formValidationFailed,
         properties: {
-          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.invalidInput,
+          AnalyticsProperty.formType: 'project_creation',
+          AnalyticsProperty.validationReason: 'invalid_input',
+          AnalyticsProperty.errorCategory: AnalyticsErrorCategory.validation,
           AnalyticsProperty.resultCount: validationErrors.length,
         },
       );
@@ -101,6 +103,11 @@ class YorksV1SupabaseProjectRepository implements YorksV1ProjectRepository {
         AnalyticsProperty.buildingCount: input.buildings.length,
         AnalyticsProperty.attachmentCount: input.attachments.length,
       },
+    );
+    _analytics.recordActionAttempt(
+      action: 'create_project',
+      screen: AnalyticsScreen.projectCreate,
+      operationWasLoading: false,
     );
     final operation = _analytics.beginOperation(
       'project_create',

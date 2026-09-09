@@ -1,314 +1,334 @@
 # Yorks privacy-safe product analytics
 
-Status: implemented behind an explicit opt-in; disabled by default. Session
-replay and PostHog exception autocapture are not enabled.
+Status: PostHog Analytics Phase 2, schema version `2`. Capture is opt-in per
+environment. Session Replay, exception autocapture, browser autocapture and
+production debug logging are disabled.
 
-This document governs external product telemetry. It is separate from the
-Yorks `YORKS_V1_ANALYTICS` feature, which is the protected, server-authoritative
-operational reporting workspace backed by
-`v1_get_operational_analytics_foundation`.
+This contract governs external product telemetry. It is separate from the
+protected `YORKS_V1_ANALYTICS` operational workspace and from Supabase's
+authoritative workflow, stock and audit records.
 
-## Goals and non-goals
+## Purpose and boundaries
 
-The integration answers a small set of product questions:
+Yorks analytics should reveal whether important workflows succeed, where
+people struggle, which user-visible operations are slow, and which safe error
+categories are increasing. Analytics must never block, delay or determine a
+business action.
 
-- Which role-safe workflows are entered and completed?
-- Where do users abandon Material Request, arrangement, approval and dispatch?
-- Which server-confirmed operations are slow or fail by category?
-- Where do search and action feedback create measurable friction?
-- Do explicitly reviewed feature-flag variants improve completion?
-
-It does not reproduce Yorks business data in PostHog. It is not an audit log,
-stock ledger, workflow authority, error-reporting replacement, employee
-monitoring system or source for commercial reporting. Supabase/Postgres remains
-authoritative for business state and Sentry remains the crash-reporting tool.
+PostHog is not Yorks' audit log, security authority, stock ledger, document
+store or commercial reporting source. Role/access changes, approvals,
+inventory corrections and other sensitive administrative actions remain
+server-authoritative and should ultimately be covered by an immutable
+Supabase audit trail.
 
 ## Architecture
 
-The path is:
-
 `route/controller/repository -> AnalyticsService -> privacy guard -> PostHog sink`
 
-`AnalyticsService` is injected through Riverpod. The application creates one
-`GuardedAnalyticsService`; disabled, invalid, CI and unsupported-platform builds
-are no-ops. Calls are queued in a bounded in-memory buffer until initialization
-finishes, serialized to preserve identity/reset order, and never awaited by a
-business command. SDK setup or transport failure is swallowed at the analytics
-boundary and cannot change authentication, navigation, RPC or storage results.
+- One Riverpod-provided `GuardedAnalyticsService` owns capture, identity,
+  common context, timing, friction detection and feature-flag reads.
+- `AnalyticsRouteMapper` converts GoRouter paths to fixed, identifier-free
+  screens and de-duplicates navigation events.
+- Controllers capture meaningful intent; repositories capture only after an
+  authoritative RPC/storage result is known.
+- The bounded pre-initialization queue and serialized fire-and-forget sink
+  preserve identity/reset order. Initialization and transport errors are
+  swallowed at the analytics boundary.
+- The native and web sinks apply a second event/property allowlist. Direct
+  `Posthog().capture()` is confined to the sink.
 
-Navigation is observed once at the root `GoRouter`. `AnalyticsRouteMapper`
-converts the URI path to a fixed `AnalyticsScreen` value before capture. It does
-not retain query parameters, UUIDs, project references, request IDs, supplier
-IDs, conversation IDs or document IDs. Widget rebuilds do not emit duplicate
-screen events.
+## Identity, GeoIP and privacy
 
-The web SDK is initialized manually from the build-time configuration. Browser
-autocapture, page views, page leave, dead-click capture, performance capture,
-surveys and replay are disabled. A final JavaScript sanitizer removes URL,
-pathname, host, referrer and title properties that the Flutter web bridge adds.
-Android and Apple native auto-init are also disabled so capture cannot start
-before Yorks applies its runtime policy.
+After a connected Supabase session is verified, `identify()` receives only
+the Auth UUID and exact server-controlled `app_metadata.role`. Local demo IDs,
+names, email addresses and profile data are never identified. Logout, rejected
+restore and remote sign-out reset the SDK identity.
 
-## Identity lifecycle
+PostHog's normal IP-derived GeoIP enrichment remains enabled. Yorks does not
+request GPS permission, send precise coordinates or collect background
+location for analytics. GeoIP can support regional reliability investigation,
+but it is not sufficient evidence for a security or disciplinary decision.
 
-- Before authentication, any allowed sign-in attempt event uses PostHog's
-  anonymous identity.
-- After a connected session is verified, `identify` receives only the stable
-  Supabase Auth UUID (`auth.currentUser.id`) and the exact server-controlled
-  `app_metadata.role` claim.
-- Email, name, phone, editable user metadata, profile fields and project
-  membership are not person properties.
-- Local-demo user IDs are never sent as external analytics identities.
-- Sign-out, rejected restore, remote sign-out and local session clearing call
-  `reset()` so another person cannot inherit the previous identity.
+The event seam accepts booleans, non-negative finite numbers, enums and short
+controlled categorical strings. It drops free text. Never send project,
+client, consultant, supplier or employee names; record/reference IDs; material
+descriptions; query text; comments; reasons; filenames; document contents;
+commercial values; tokens; URLs; SQL; raw exceptions; or stack traces.
 
 ## Configuration and environments
 
-The canonical launcher accepts these build values:
-
-| Variable | Meaning | Default |
-|---|---|---|
-| `POSTHOG_ENABLED` | Explicit telemetry opt-in | `false` |
-| `POSTHOG_PROJECT_TOKEN` | Environment-specific public project token | blank |
-| `POSTHOG_HOST` | Explicit HTTPS ingestion host; override for the project's region | `https://us.i.posthog.com` |
-| `POSTHOG_ENV` | Analytics environment; must match `R35_ENVIRONMENT` (`development` is accepted for local) | `R35_ENVIRONMENT` |
-| `POSTHOG_DEBUG` | SDK debug logging; accepted only in local debug builds | `false` |
-| `R35_ENVIRONMENT` | Yorks environment: `local`, `staging`, `production`, or `ci` | required by launcher |
-
-Example operator-only `.r35.staging.env` values:
-
-```dotenv
-POSTHOG_ENABLED=true
-POSTHOG_PROJECT_TOKEN=phc_replace_with_staging_project_token
-POSTHOG_HOST=https://us.i.posthog.com
-POSTHOG_ENV=staging
-POSTHOG_DEBUG=false
-```
-
-Use separate PostHog projects and tokens for staging and production. CI is
-always forced off. The launcher rejects a blank token, a non-HTTPS host, an
-environment mismatch, or debug logging outside local development. Tokens
-belong only in the ignored operator file or deployment environment, never
-committed source.
-
-Before production enablement, the release owner must confirm the intended
-PostHog region, retention period, access group, data-processing terms and which
-staff may view person-level events. The PostHog project token is not a
-service-role credential, but it is still environment-specific configuration.
-
-## Data contract
-
-The source of truth is
-`lib/shared/models/analytics_event.dart`. Event and property keys are enums;
-feature call sites cannot invent arbitrary keys. The service accepts only
-booleans, non-negative finite numbers, enums and short categorical strings
-matching `A-Z`, `a-z`, `0-9`, `_`, `.`, `+` or `-`. Longer text, spaces and
-email-shaped/free-text values are dropped. PostHog has a second event/property
-allowlist in `PostHogAnalyticsSink`.
-
-Every event automatically includes:
-
-| Property | Source |
+| Variable | Contract |
 |---|---|
-| `schema_version` | analytics contract, currently `1` |
-| `app_version` / `app_build` | build defines |
-| `environment` | validated `POSTHOG_ENV` matching `R35_ENVIRONMENT` |
-| `platform` | Flutter target |
-| `role` | exact server-controlled role after identification |
-| `screen_name` | last fixed route mapping, when available |
+| `POSTHOG_ENABLED` | Explicit opt-in; default `false` |
+| `POSTHOG_PROJECT_TOKEN` | Environment-specific public project token; never committed |
+| `POSTHOG_HOST` | HTTPS ingestion origin; default `https://us.i.posthog.com` |
+| `POSTHOG_ENV` | Must match `R35_ENVIRONMENT` |
+| `POSTHOG_DEBUG` | Effective only for local debug builds; always false in production |
 
-Allowed contextual properties are categorical dimensions and aggregates only:
-`source`, `action_type`, `object_type`, `workflow`, `outcome`,
-`error_category`, `result_count`, `item_count`, `building_count`,
-`attachment_count`, `duration_ms`, `retry_count`, `attempt_count`,
-`no_result_count`, `tap_count`, `operation_was_loading`, `cached`, `success`,
-`feature_flag`, `variant`, `query_length_bucket`, `file_type`,
-`file_size_bucket`, `inventory_action`, `arrangement_mode`, `request_timing`,
-`entry_mode`, `list_filter`, `record_state` and `feedback_expected_ms`.
+CI, unsupported platforms, missing/invalid configuration and environment
+mismatches are no-ops. Web, Android, iOS and macOS use manual initialization.
+Production Session Replay and Canvas Capture remain off.
 
-Never add any of the following, even hashed:
+## Schema version and naming
 
-- email, name, phone, address, employee number or free-form user/profile data;
-- project/client/supplier/company/building names or references;
-- Supabase row IDs, request IDs, document IDs, storage paths or URLs;
-- search text, MR descriptions, BOQ cell values, notes, reasons or chat text;
-- filenames, document contents, commercial values, quantities tied to a record;
-- access tokens, JWTs, keys, headers, exception messages or stack traces.
+Every event has `schema_version=2`. Version 2 changes custom event values from
+snake_case to lowercase `[object] [verb]` phrases and expands safe workflow,
+friction, performance and reliability coverage. Historical version 1 events
+remain in PostHog, but Yorks never dual-sends them.
 
-The Supabase Auth UUID is the one exception to the no-ID rule and may appear
-only as PostHog's `distinct_id`, never as a custom event property.
+Properties remain snake_case dimensions. Every event automatically receives
+`schema_version`, `environment`, `platform`, `app_version`, `app_build`, and,
+when available, `screen_name` and `role`. Call sites may add controlled
+`source`, `entry_point`, `network_state`, `workflow`, `operation`, counts,
+durations and outcome categories.
 
-## Event taxonomy
+Normalized error categories are `network`, `timeout`, `validation`,
+`permission_denied`, `conflict`, `database`, `storage`, `authentication`,
+`offline`, `insufficient_stock`, `feature_disabled`, and `unknown`. No error
+message crosses the analytics seam.
 
-The allowlist contains 49 business and diagnostic events, within the approved
-30–50 event budget. A `*_completed` event uses `success` and, only on failure,
-the normalized `error_category`; raw server messages are never sent.
+## Event catalog
 
-| Area | Events | Important properties |
-|---|---|---|
-| Authentication | `authentication_attempted`, `authentication_succeeded`, `authentication_failed`, `session_restored`, `user_signed_out` | `source`, `outcome` |
-| Projects | `project_creation_started`, `project_creation_validation_failed`, `project_creation_attempted`, `project_created`, `project_creation_failed`, `project_opened`, `project_access_changed`, `project_updated`, `project_update_failed` | counts, `action_type`, `success`, `error_category` |
-| Documents | `document_upload_attempted`, `document_upload_succeeded`, `document_upload_failed` | `object_type`, `file_type`, `file_size_bucket`, `duration_ms` |
-| Material Requests | `material_request_started`, `material_request_item_changed`, `material_request_draft_saved`, `material_request_review_opened`, `material_request_validation_failed`, `material_request_submission_attempted`, `material_request_submitted`, `material_request_submission_failed`, `material_request_opened`, `material_request_action_started`, `material_request_action_completed` | `item_count`, `source`, `request_timing`, `action_type`, `success` |
-| Approval | `approval_opened`, `approval_action_started`, `approval_action_completed` | `action_type`, `success`, `error_category` |
-| Procurement | `procurement_request_opened`, `arrangement_started`, `arrangement_save_attempted`, `arrangement_save_completed`, `dispatch_attempted`, `dispatch_completed` | `item_count`, `success`, `error_category` |
-| Inventory/search | `inventory_opened`, `material_search_completed`, `inventory_item_selected`, `inventory_action_started`, `inventory_action_completed`, `inventory_import_completed`, `material_search_struggle_detected` | query-length bucket, aggregate results, duration, action, counts |
-| UX/performance/reliability | `ui_repeated_action_detected`, `ui_action_no_feedback`, `operation_completed`, `feature_flag_interacted`, `reliability_error` | action, screen, duration, loading state, normalized error category |
+All events below are centrally defined in `analytics_event.dart`.
 
-Current call-site status:
+| Event | Purpose | Trigger | Properties | Authoritative source / sensitive-data rule |
+|---|---|---|---|---|
+| `authentication attempted` | Login intent | Before sign-in | `source` | Auth controller; no email |
+| `authentication succeeded` | Successful login | Verified result | `source`, `outcome` | Auth controller |
+| `authentication failed` | Login failure | Normalized result | `source`, `outcome` | Auth controller; no exception |
+| `session restored` | Valid returning session | Server revalidation succeeds | common | Auth controller |
+| `user signed out` | Explicit logout | Before logout/reset | common | Auth controller |
+| `project creation started` | Project funnel start | Create route entry | `entry_point` | Route mapper |
+| `project creation attempted` | Project submit intent | Valid input reaches repository | counts | Project repository; no party names |
+| `project created` | Project completion | Create RPC succeeds | `building_count`, `attachment_count` | Project repository |
+| `project creation failed` | Project failure | Create RPC fails | `error_category` | Project repository |
+| `project opened` | Project engagement | Identifier-free detail route | `source` | Route mapper |
+| `project access changed` | Access command outcome | Assignment/revocation returns | `action_type`, `success` | Project repository; no user/project ID |
+| `project updated` | Update success | Update RPC succeeds | common | Project repository |
+| `project update failed` | Update failure | Validation/RPC failure | `error_category` | Project repository |
+| `attachment upload started` | Upload intent | Before authorized upload | type/size buckets, `object_type` | Documents repository; no filename |
+| `attachment uploaded` | Upload completion | Storage finalize and reload succeed | type/size buckets, duration via operation | Documents repository |
+| `attachment upload failed` | Upload failure | Upload/finalize fails | buckets, `error_category` | Documents repository |
+| `material request started` | MR funnel start | Draft route entry | `source` | Route mapper |
+| `material request item added` | MR composition progress | One or more lines added | `action_type`, `item_count` | Draft controller; no descriptions |
+| `material request item removed` | MR composition change | A line is removed | `item_count` | Draft controller |
+| `material request draft saved` | Recovery/save outcome | Local recovery or server save succeeds | `source`, `item_count` | Draft controller |
+| `material request review reached` | Funnel review step | User enters real review step | `item_count`, `entry_point` | Draft controller |
+| `material request submit attempted` | Submit intent | Before connected submit | `source`, `item_count`, `request_timing` | Draft controller |
+| `material request submitted` | Submit success | Server returns submitted record | `source`, `item_count` | Draft controller |
+| `material request submission failed` | Submit failure | Connected submit fails | `source`, `error_category` | Draft controller |
+| `material request opened` | Request engagement | Detail route entry | `source` | Route mapper |
+| `material request approved` | Request approval | Decision RPC returns approved | `action_type` | MR repository |
+| `material request returned` | Returned for changes | Decision RPC returns returned | `action_type` | MR repository; no reason |
+| `material request decision failed` | Decision failure | Decision RPC fails | `action_type`, `error_category` | MR repository |
+| `approval started` | Arrangement decision intent | Before decision RPC | `action_type` | Arrangement repository |
+| `approval completed` | Arrangement decision result | Decision RPC succeeds/fails | `action_type`, `success`, `error_category` | Arrangement repository |
+| `procurement request opened` | Procurement engagement | Arrangement route entry | `source` | Route mapper |
+| `procurement started` | Procurement funnel stage | Begin-arrangement RPC succeeds | `workflow` via operation | Arrangement repository |
+| `procurement action started` | Arrangement save intent | Before save RPC | `item_count` | Arrangement repository |
+| `procurement action completed` | Arrangement save success | Save RPC succeeds | `item_count`, `success` | Arrangement repository |
+| `procurement action failed` | Arrangement failure | Begin/save RPC fails | `action_type`, `error_category` | Arrangement repository |
+| `dispatch attempted` | Dispatch intent | Before dispatch RPC | `item_count` | Logistics repository |
+| `dispatch completed` | Dispatch success | Dispatch RPC succeeds | `item_count`, `success` | Logistics repository |
+| `dispatch failed` | Dispatch failure | Dispatch RPC fails | `item_count`, `error_category` | Logistics repository |
+| `receipt review completed` | Delivery outcome | Receipt confirmation RPC succeeds | line counts, exception boolean, outcome category | Logistics repository; no line content or quantities |
+| `inventory opened` | Inventory engagement | Inventory route entry | `source` | Route mapper |
+| `inventory searched` | Search usage | Inventory search RPC completes | result count, query-length bucket, duration | Logistics repository; never query text |
+| `inventory search no results` | Search quality | Inventory result count is zero | query-length bucket, duration | Analytics service |
+| `material search completed` | MR candidate search | MR candidate RPC completes | result count, query-length bucket, duration | MR repository; never query text |
+| `inventory item selected` | Search usefulness | Detail projection succeeds | `source` | Logistics repository; no item ID |
+| `inventory item created` | Item-master creation | Create-item RPC succeeds | `inventory_action` | Logistics repository |
+| `stock action started` | Stock command intent | Before create/adjust RPC | `inventory_action` | Logistics repository |
+| `stock action completed` | Stock command success | Stock RPC succeeds | `inventory_action`, `success` | Logistics repository; no quantity/reference |
+| `stock action failed` | Stock command failure | Stock RPC fails | `inventory_action`, `error_category` | Logistics repository |
+| `inventory import started` | Import intent | Before import RPC | row count | Logistics repository |
+| `inventory import completed` | Import success | Import RPC succeeds | row/result counts | Logistics repository |
+| `inventory import failed` | Import failure | Import RPC fails | row count, `error_category` | Logistics repository; no workbook data |
+| `form validation failed` | Safe form friction | Reviewed validation boundary | `form_type`, `validation_reason`, count | Controller/repository; categorical reason only |
+| `validation loop detected` | Repeated validation friction | Same category three times within two minutes | form/category, attempts, duration | Analytics service |
+| `search struggle detected` | Search friction | Threshold reached before selection | context, attempts, zero results, duration | Analytics service |
+| `repeated action detected` | Unclear/slow feedback signal | Same meaningful action three times in two seconds | action, taps, duration, loading state | Analytics service |
+| `action produced no feedback` | Dead-action signal | Explicit feedback contract expires | action, screen, wait, loading state | Analytics service; critical actions only |
+| `operation completed` | Performance/success basis | Timed operation finishes once | operation, duration, success, cached, result count | Analytics operation handle |
+| `feature flag evaluated` | Experiment exposure basis | Non-security flag resolves | flag, variant | Analytics service |
+| `reliability error occurred` | Reliability rollup | Timed operation fails | operation, category, retryable, duration | Analytics service; no raw exception |
 
-- Active: authentication/session/reset, central screens and entry events,
-  project create/access, document upload, MR draft/item/submit/decision,
-  arrangement begin/save/decision, dispatch, inventory mutation/import/search
-  and generic operation timing.
-- Available as explicit UI contracts: `material_request_review_opened`,
-  `approval_opened`, `ui_action_no_feedback`, `feature_flag_interacted` and
-  `reliability_error`. Emit these only at a semantically verified call site;
-  their presence in the contract is not permission to infer an event from a
-  widget rebuild or raw error.
+## Legacy event migration
 
-The taxonomy intentionally contains no RFQ, quotation-comparison, Purchase
-Order, supplier-portal or multi-warehouse event because those workflows are
-outside approved Yorks V1 scope.
+All schema v1 snake_case events map mechanically to the schema v2 phrase with
+these deliberate semantic changes:
 
-## Friction detection
+| Legacy | Schema v2 |
+|---|---|
+| `project_creation_validation_failed` | `form validation failed` (`form_type=project_creation`) |
+| `document_upload_attempted` | `attachment upload started` |
+| `document_upload_succeeded` | `attachment uploaded` |
+| `document_upload_failed` | `attachment upload failed` |
+| `material_request_item_changed` | `material request item added` or `material request item removed` |
+| `material_request_review_opened` | `material request review reached` |
+| `material_request_validation_failed` | `form validation failed` (`form_type=material_request`) |
+| `material_request_submission_attempted` | `material request submit attempted` |
+| `material_request_action_completed` | `material request approved`, `material request returned`, or `material request decision failed` |
+| `arrangement_started` | `procurement started` |
+| `arrangement_save_attempted` | `procurement action started` |
+| `arrangement_save_completed` | `procurement action completed` or `procurement action failed` |
+| `inventory_action_started` | `stock action started` |
+| `inventory_action_completed` | `stock action completed` or `stock action failed` |
+| `material_search_struggle_detected` | `search struggle detected` |
+| `ui_repeated_action_detected` | `repeated action detected` |
+| `ui_action_no_feedback` | `action produced no feedback` |
+| `reliability_error` | `reliability error occurred` |
+| Every other v1 name | Replace underscores with spaces |
 
-The implementation avoids global tap capture and noisy heuristics.
+## Friction, performance and reliability
 
-- Repeated action: the same explicitly named action is invoked at least three
-  times within two seconds. The event reports the action category, stable
-  screen, tap count, elapsed milliseconds and whether a command was already
-  loading. It does not record coordinates, labels or text.
-- No feedback: a call site explicitly starts an expected-feedback timer and
-  cancels it when visual/loading/navigation feedback is observed. If four
-  seconds elapse, one event is emitted. It is not inferred from every button.
-- Search struggle: within a 30-second material-search sequence, at least three
-  completed attempts with at least two empty results, or 15 seconds without a
-  selection, emits one event. Only attempt/no-result counts and duration are
-  sent; the query is never retained or passed to analytics.
+- Repeated action: one signal after three identical important actions within
+  two seconds. A double click is not classified as struggle.
+- No feedback: only an explicit critical-action handle starts a four-second
+  timer. A known loading state counts as feedback and never starts the timer.
+- Search struggle: within 30 seconds, three searches including two zero-result
+  searches, or 15 seconds without selection, emits once per sequence.
+- Validation loop: three failures for the same controlled form/reason within
+  two minutes emits once per loop.
+- `beginOperation()` measures full repository/controller work, emits once, and
+  never awaits PostHog. Failures also emit the category-only reliability rollup.
 
-## Performance and reliability
-
-`beginOperation()` measures elapsed client time around important repository or
-controller work and emits `operation_completed` exactly once with `success`,
-`duration_ms`, optional aggregate result count and a normalized failure
-category. It does not attach the RPC name, URL, record ID, exception message or
-stack. Telemetry initialization is post-frame, bounded and asynchronous.
-
-The web startup gate retains the existing 2.9 MB gzip ceiling and adds only a
-50 kB raw parse-size allowance for the typed analytics runtime. The checked
-enabled build remains below both limits; the disabled build continues to
-tree-shake the transport implementation.
-
-Sentry remains the error tool with its existing privacy scrubber. PostHog's
-Flutter error autocapture, platform-dispatcher capture, isolate capture and logs
-are explicitly disabled to avoid duplicate reporting and accidental payloads.
-The `reliability_error` contract is reserved for a reviewed, category-only
-signal when an aggregate reliability question cannot be answered from
-`operation_completed`.
+Form abandonment is intentionally not inferred from route exit. MR drafts are
+durable recovery records and leaving the page is often legitimate; labeling
+that behavior as abandonment would be untrustworthy. Backtracking and a
+cross-workflow friction-free metric require a future privacy-reviewed workflow
+run key before they can be calculated exactly.
 
 ## Feature flags
 
-Call `AnalyticsService.isFeatureEnabled(AnalyticsFeatureFlag.someFlag)` only
-for non-security presentation experiments. The enum is the allowlist. Missing,
-late, failed and disabled flag reads return `false` within two seconds; the
-control experience must always be complete. Flags must never grant a role,
-project scope, commercial projection, route, workflow transition or stock
-authority. RLS and trusted RPC checks remain authoritative.
+`AnalyticsService.isFeatureEnabled(AnalyticsFeatureFlag)` is the only PostHog
+flag seam. It returns the safe control experience when analytics is disabled,
+not ready, offline, slow beyond two seconds, or throws. A flag may alter
+presentation only; it cannot grant routes, roles, commercial data, workflow
+authority or stock permissions.
 
-## Session replay decision
+## Session Replay policy
 
-Replay is intentionally off on web, Android and iOS. Default SDK masking is not
-accepted as proof because replay capture bypasses the Dart `beforeSend` guard
-and Yorks screens contain project, material, HR, chat and commercial context.
+Replay is off on web, Android, iOS and macOS. Web Canvas Capture is also off.
+A future staging-only experiment requires synthetic data, text/image/input and
+platform-view masking, payload inspection, recording-by-recording review,
+documented retention/sampling, and release-owner approval. Production must not
+enable `PostHogWidget`, `sessionReplay` or project recordings without that gate.
 
-Replay may be reconsidered only in a dedicated staging PostHog project after:
+## Five production dashboard definitions
 
-1. a build uses manual SDK setup and explicit text/image/input masking;
-2. representative Project, BOQ, MR, Inventory, Accounts, People and Chat screens
-   are exercised with synthetic sensitive data on web, Android and iOS;
-3. an authorized reviewer inspects the actual uploaded recordings frame by
-   frame and confirms no text, image, canvas, platform-view or accessibility
-   leakage;
-4. network payloads are inspected for URL/query, identifier and metadata leaks;
-5. the proof, SDK versions, sampling, retention and rollback switch are recorded
-   in a review artifact and approved by the release owner.
+Use `environment=production` and `schema_version=2` on every insight. Default
+range is last 30 days, daily interval; retain an app-version quick filter.
 
-Until that evidence exists, do not add `PostHogWidget`, do not turn on
-`sessionReplay`, and do not enable recordings in the PostHog project.
+The five pinned production dashboard shells were created in project `600792`
+on 9 September 2026: UX Health `2080195`, Material Request Funnel `2080196`,
+Performance `2080197`, Inventory Intelligence `2080198`, and Reliability
+`2080199`. They intentionally remain without tiles until the production schema
+reader observes version 2 events and verifies each event/property combination.
 
-## Exact PostHog project setup
+### 1. Yorks UX Health
 
-Create the following in both staging and production projects, starting in
-staging. Always add an `environment` filter so projects cannot be mixed.
+1. Multi-series line: total counts for `repeated action detected`, `action
+   produced no feedback`, `search struggle detected`, `inventory search no
+   results`, `form validation failed`, and `validation loop detected`;
+   breakdown separately by `screen_name`, `role`, `platform`, `app_version`.
+2. Slow critical operations: `operation completed`, `duration_ms > 2000`, bar
+   by `operation`; companion count for `duration_ms > 5000`.
+3. Important-action failure rate: `operation completed success=false` divided
+   by all `operation completed`, formula `A/B*100`, by `operation`.
+4. Reliability rate: `reliability error occurred` divided by all `operation
+   completed`, `A/B*100`, plus unique affected users.
+5. Form abandonment: mark as pending, not zero; no trustworthy event exists.
 
-1. **MR completion funnel** — ordered funnel:
-   `material_request_started` → `material_request_submitted` →
-   `arrangement_save_completed` where `success=true` →
-   `approval_action_completed` where `success=true` →
-   `dispatch_completed` where `success=true`. Show conversion and median time;
-   break down by `role`, then `platform`.
-2. **Project creation funnel** —
-   `project_creation_started` → `project_creation_attempted` →
-   `project_created`. Add a companion trend for
-   `project_creation_validation_failed` and `project_creation_failed`, broken
-   down by `error_category` and `platform`.
-3. **Workflow success rate** — trend `operation_completed`; formula percentage
-   with `success=true` over all operation events. Break down by `action_type`.
-   Add p50/p95 `duration_ms` for each action and filter out local builds.
-4. **Material search quality** — trend `material_search_completed`, show average
-   `result_count` and p95 `duration_ms`; add `material_search_struggle_detected`
-   and break down by `screen_name`, `query_length_bucket`, `role` and platform.
-5. **Interaction friction** — combined trends for
-   `ui_repeated_action_detected` and `ui_action_no_feedback`, broken down by
-   `action_type`, `screen_name` and `operation_was_loading`. Alert on a
-   week-over-week increase greater than 50% only when the weekly count is at
-   least 20.
-6. **Upload reliability** — formula success percentage using
-   `document_upload_succeeded` over `document_upload_attempted`; companion
-   failure trend by `file_type`, `file_size_bucket`, `object_type`, platform and
-   `error_category`.
-7. **Inventory command health** — trend `inventory_action_completed` and
-   `inventory_import_completed`, split by `success`, `inventory_action`, role
-   and platform. Add p95 duration from matching `operation_completed` events.
-8. **Stable screen paths** — Paths insight using `$screen`; exclude
-   `unknown`. Confirm nodes are fixed names only before saving the insight.
-9. **Weekly meaningful retention** — returning identified users whose return
-   event is one of `project_created`, `material_request_submitted`,
-   `arrangement_save_completed` with success, `dispatch_completed` with success
-   or `inventory_action_completed` with success. Do not use login alone as the
-   return criterion. Break down by role; hide cohorts smaller than the
-   organization's approved privacy threshold.
-10. **Release comparison** — trend meaningful completion events, broken down by
-    `app_version`, `app_build`, `platform` and `environment`. Use this during a
-    staged rollout to spot a version-specific regression.
+### 2. Material Request Funnel
 
-Dashboard layout:
+Ordered funnel, 30-day conversion window, unique users, show conversion,
+drop-off and median conversion time:
 
-- Row 1: MR completion funnel, project creation funnel, meaningful retention.
-- Row 2: workflow success rate, operation p95, upload reliability.
-- Row 3: search quality, interaction friction, inventory command health.
-- Row 4: stable screen paths and release comparison.
+`material request started` -> `material request item added` -> `material
+request review reached` -> `material request submit attempted` -> `material
+request submitted` -> `material request approved` -> `procurement started` ->
+`procurement action completed` -> `dispatch completed` -> `receipt review
+completed`.
 
-Do not make dashboards that expose the PostHog distinct ID to broad viewers.
-Use aggregate insights and role/platform/version breakdowns. Restrict person
-inspection and exports to the smallest approved group.
+For the final full-delivery view, filter `receipt review completed` by
+`receipt_outcome=all_received`; analyze `exceptions_present` separately rather
+than pretending missing/damaged lines are fully delivered.
 
-## Verification and release checklist
+Create separate breakdown views for `role`, `platform`, and `app_version`.
+There is no `order recorded` stage: Yorks V1 deliberately has no PO/RFQ suite.
 
-- Run the analytics unit tests and route-mapping tests.
-- Run `flutter analyze`, `flutter test`, the CI web/APK builds and
-  `./tool/r35.sh build-ios --no-codesign` on a configured macOS build host.
-- Build staging with its own token and verify events in PostHog Live Events.
-- Confirm events contain no URL/path/query, names, emails, UUID properties,
-  filenames, search strings, exception text or commercial values.
-- Verify login identifies to the Supabase Auth UUID and logout immediately
-  resets; repeat with two accounts on the same device.
-- Verify disabled and misconfigured builds perform no capture and remain fully
-  functional.
-- Verify no `$autocapture`, pageview, lifecycle, survey, push, replay,
-  `$exception` or log events appear.
-- Verify every completion event follows observed server success/failure and is
-  not emitted from optimistic UI state.
-- Promote only after staging payload inspection. Enabling telemetry is a
-  deployment configuration change; it does not authorize a production deploy.
+### 3. Performance
+
+1. `operation completed`: median (`p50`) and `p95` of `duration_ms`, breakdown
+   `operation`. Covered operations include `dashboard_load`,
+   `project_list_load`, `project_create`, `project_update`,
+   `material_request_load`, `material_request_submit`, `document_upload`,
+   `procurement_workspace_load`, `arrangement_begin`, `arrangement_save`,
+   `inventory_load`, `inventory_search`, `inventory_adjust`,
+   `inventory_import`, `dispatch_materials`, and `receipt_review`.
+2. Failure rate formula as above, breakdown by `operation`.
+3. Slow-operation counts at `>2000` and `>5000` ms, breakdown separately by
+   `platform`, `app_version`, and `screen_name`.
+
+Interpretive bands: under 500 ms excellent; 500-1000 acceptable; 1-2 seconds
+noticeable; 2-5 seconds poor; over 5 seconds serious. These are analysis bands,
+not application failure conditions.
+
+### 4. Inventory Intelligence
+
+1. Search count: `inventory searched`.
+2. Zero-result rate: `inventory search no results / inventory searched * 100`.
+3. Struggle rate: `search struggle detected search_context=inventory /
+   inventory searched * 100`.
+4. Selection rate: `inventory item selected / inventory searched * 100`.
+5. Item creation count: `inventory item created`.
+6. Stock success rate: `stock action completed / stock action started * 100`;
+   failure rate uses `stock action failed` as numerator.
+7. Import outcomes: compare `inventory import completed` and `inventory import
+   failed`.
+
+Break down stock insights by `role`, `platform`, and `inventory_action`. Never
+add the raw search query as a property or breakdown.
+
+### 5. Reliability
+
+1. `reliability error occurred` totals and unique users, breakdown separately
+   by `error_category`, `operation`, `screen_name`, `role`, `platform`, and
+   `app_version`.
+2. Category tiles filter `timeout`, `network`, `permission_denied`, `storage`,
+   and `database`.
+3. Upload failure tile: `attachment upload failed`.
+4. Critical failures: `operation completed success=false`, by `operation`.
+5. Serious latency: `operation completed duration_ms>5000`, by operation and
+   app version.
+
+## Product metric foundations
+
+Successful workflow rate is calculated separately per workflow so unmatched
+starts cannot distort the result: project `project created / project creation
+started`; MR `material request submitted / material request started`; stock
+`stock action completed / stock action started`; approval `approval completed
+success=true / approval started`; procurement `procurement action completed /
+procurement action started`; attachment `attachment uploaded / attachment
+upload started`.
+
+Friction-free completion is currently an investigation metric: completed
+workflow sessions excluding sessions containing `repeated action detected`,
+`validation loop detected`, `action produced no feedback`, or `reliability
+error occurred`, with an optional extreme-duration filter. It is not presented
+as an exact KPI until a privacy-safe workflow-run correlation key is approved.
+
+## Verification checklist
+
+- Unit-test readable unique event names, common context, identity/reset,
+  safe-value rejection, environment/debug gates, failure isolation, repeated
+  actions, no-feedback, search struggle, zero results and validation loops.
+- Search source for direct `Posthog().capture` and legacy event literals.
+- Run `flutter analyze`, `flutter test`, web build and Android build gates.
+- Verify a staging capture before production promotion. Confirm new schema v2
+  events arrive, common properties exist, query text/content is absent, and no
+  duplicate v1 event is emitted.
+- Dashboard shells may be created before ingestion. Create their saved insights
+  only after the schema reader confirms schema v2 events/properties exist in
+  that PostHog project.
