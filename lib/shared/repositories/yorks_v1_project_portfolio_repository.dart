@@ -1,9 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/yorks_v1_domain_error.dart';
+import '../models/analytics_event.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_project.dart';
 import '../models/yorks_v1_project_portfolio.dart';
+import '../services/analytics_service.dart';
 
 abstract interface class YorksV1ProjectOverviewDataClient {
   Future<Map<String, dynamic>> getOverview({required int limit});
@@ -32,11 +34,14 @@ class YorksV1ProjectOverviewRepository {
   const YorksV1ProjectOverviewRepository({
     required YorksV1FeatureFlags featureFlags,
     required YorksV1ProjectOverviewDataClient dataClient,
+    AnalyticsService analytics = const NoopAnalyticsService(),
   }) : _featureFlags = featureFlags,
-       _dataClient = dataClient;
+       _dataClient = dataClient,
+       _analytics = analytics;
 
   final YorksV1FeatureFlags _featureFlags;
   final YorksV1ProjectOverviewDataClient _dataClient;
+  final AnalyticsService _analytics;
 
   Future<YorksV1ProjectOverview> getOverview({int limit = 6}) async {
     if (!_featureFlags.projects) {
@@ -44,26 +49,37 @@ class YorksV1ProjectOverviewRepository {
         YorksV1DomainErrorCode.featureDisabled,
       );
     }
+    final operation = _analytics.beginOperation(
+      'dashboard_load',
+      properties: const {AnalyticsProperty.workflow: 'dashboard'},
+    );
     try {
-      return YorksV1ProjectOverview.fromRpcJson(
+      final overview = YorksV1ProjectOverview.fromRpcJson(
         await _dataClient.getOverview(limit: limit.clamp(1, 15)),
       );
-    } on YorksV1DomainException {
+      operation.complete();
+      return overview;
+    } on YorksV1DomainException catch (error) {
+      operation.fail(error);
       rethrow;
     } on PostgrestException catch (error) {
       final code = error.code;
-      throw YorksV1DomainException(
+      final mapped = YorksV1DomainException(
         code == '42501' || code == '28000'
             ? YorksV1DomainErrorCode.unauthorized
             : YorksV1DomainErrorCode.serverRejected,
         serverCode: code,
         cause: error,
       );
+      operation.fail(mapped);
+      throw mapped;
     } catch (error) {
-      throw YorksV1DomainException(
+      final mapped = YorksV1DomainException(
         YorksV1DomainErrorCode.backendUnavailable,
         cause: error,
       );
+      operation.fail(mapped);
+      throw mapped;
     }
   }
 }
@@ -182,11 +198,14 @@ class YorksV1SupabaseProjectPortfolioRepository
   const YorksV1SupabaseProjectPortfolioRepository({
     required YorksV1FeatureFlags featureFlags,
     YorksV1ProjectPortfolioDataClient? dataClient,
+    AnalyticsService analytics = const NoopAnalyticsService(),
   }) : _featureFlags = featureFlags,
-       _dataClient = dataClient;
+       _dataClient = dataClient,
+       _analytics = analytics;
 
   final YorksV1FeatureFlags _featureFlags;
   final YorksV1ProjectPortfolioDataClient? _dataClient;
+  final AnalyticsService _analytics;
 
   @override
   Future<List<YorksV1ProjectPortfolioItem>> listPortfolio() async {
@@ -202,12 +221,19 @@ class YorksV1SupabaseProjectPortfolioRepository
       );
     }
 
+    final operation = _analytics.beginOperation(
+      'project_list_load',
+      properties: const {AnalyticsProperty.workflow: 'project'},
+    );
     try {
       final projectRows = await client.listProjects();
       final projects = [
         for (final row in projectRows) YorksV1Project.fromRpcJson(row),
       ];
-      if (projects.isEmpty) return const [];
+      if (projects.isEmpty) {
+        operation.complete(resultCount: 0);
+        return const [];
+      }
 
       final ids = projects.map((project) => project.id).toList(growable: false);
       final results = await Future.wait([
@@ -243,16 +269,22 @@ class YorksV1SupabaseProjectPortfolioRepository
           right.project.reference,
         ),
       );
+      operation.complete(resultCount: portfolio.length);
       return List.unmodifiable(portfolio);
-    } on YorksV1DomainException {
+    } on YorksV1DomainException catch (error) {
+      operation.fail(error);
       rethrow;
     } on PostgrestException catch (error) {
-      throw _mapPostgrestException(error);
+      final mapped = _mapPostgrestException(error);
+      operation.fail(mapped);
+      throw mapped;
     } catch (error) {
-      throw YorksV1DomainException(
+      final mapped = YorksV1DomainException(
         YorksV1DomainErrorCode.backendUnavailable,
         cause: error,
       );
+      operation.fail(mapped);
+      throw mapped;
     }
   }
 

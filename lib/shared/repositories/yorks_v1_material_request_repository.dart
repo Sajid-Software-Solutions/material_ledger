@@ -291,11 +291,22 @@ class YorksV1SupabaseMaterialRequestRepository
 
   @override
   Future<YorksV1MaterialRequest> getRequest(String requestId) async {
-    final response = await _invoke(
-      functionName: 'v1_material_request_projection',
-      parameters: {'p_request_id': requestId},
+    final operation = _analytics.beginOperation(
+      'material_request_load',
+      properties: const {AnalyticsProperty.workflow: 'material_request'},
     );
-    return _single(response);
+    try {
+      final response = await _invoke(
+        functionName: 'v1_material_request_projection',
+        parameters: {'p_request_id': requestId},
+      );
+      final request = _single(response);
+      operation.complete();
+      return request;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
   }
 
   @override
@@ -387,9 +398,12 @@ class YorksV1SupabaseMaterialRequestRepository
     final properties = <AnalyticsProperty, Object?>{
       AnalyticsProperty.actionType: input.decision.wireValue,
     };
-    _analytics.capture(
-      AnalyticsEvent.materialRequestActionStarted,
-      properties: properties,
+    _analytics.recordActionAttempt(
+      action: input.decision == YorksV1MaterialRequestReviewDecision.approved
+          ? 'approve_material_request'
+          : 'return_material_request',
+      screen: AnalyticsScreen.materialRequestDetail,
+      operationWasLoading: false,
     );
     final operation = _analytics.beginOperation(
       'material_request_decide',
@@ -406,14 +420,16 @@ class YorksV1SupabaseMaterialRequestRepository
       final request = _single(response);
       operation.complete();
       _analytics.capture(
-        AnalyticsEvent.materialRequestActionCompleted,
-        properties: {...properties, AnalyticsProperty.success: true},
+        input.decision == YorksV1MaterialRequestReviewDecision.approved
+            ? AnalyticsEvent.materialRequestApproved
+            : AnalyticsEvent.materialRequestReturned,
+        properties: properties,
       );
       return request;
     } catch (error) {
       operation.fail(error);
       _analytics.capture(
-        AnalyticsEvent.materialRequestActionCompleted,
+        AnalyticsEvent.materialRequestDecisionFailed,
         properties: {
           ...properties,
           AnalyticsProperty.success: false,
@@ -461,6 +477,7 @@ class YorksV1SupabaseMaterialRequestRepository
       queryLength: query.trim().length,
       resultCount: results.length,
       duration: stopwatch.elapsed,
+      context: AnalyticsSearchContext.materialRequest,
     );
     return results;
   }
