@@ -92,6 +92,7 @@ abstract interface class AnalyticsService {
     required int queryLength,
     required int resultCount,
     required Duration duration,
+    AnalyticsSearchContext context = AnalyticsSearchContext.materialRequest,
   });
 
   void recordMaterialSearchSelection();
@@ -154,6 +155,7 @@ class NoopAnalyticsService implements AnalyticsService {
     required int queryLength,
     required int resultCount,
     required Duration duration,
+    AnalyticsSearchContext context = AnalyticsSearchContext.materialRequest,
   }) {}
 
   @override
@@ -173,6 +175,7 @@ class GuardedAnalyticsService implements AnalyticsService {
     DateTime Function()? now,
     this.repeatedActionWindow = const Duration(seconds: 2),
     this.noFeedbackWindow = const Duration(seconds: 4),
+    this.validationLoopWindow = const Duration(minutes: 2),
   }) : _configuration = configuration,
        _sink = sink,
        _now = now ?? DateTime.now;
@@ -189,8 +192,10 @@ class GuardedAnalyticsService implements AnalyticsService {
   final DateTime Function() _now;
   final Duration repeatedActionWindow;
   final Duration noFeedbackWindow;
+  final Duration validationLoopWindow;
   final List<Future<void> Function()> _backlog = [];
   final Map<String, _RepeatedActionState> _repeatedActions = {};
+  final Map<String, _ValidationFailureState> _validationFailures = {};
   final List<_SearchAttempt> _searchAttempts = [];
   Future<void> _serial = Future<void>.value();
   Future<void>? _initialization;
@@ -200,7 +205,9 @@ class GuardedAnalyticsService implements AnalyticsService {
   String? _identifiedUserId;
   String? _identifiedRole;
   AnalyticsScreen? _currentScreen;
+  AnalyticsSearchContext? _activeSearchContext;
   DateTime? _searchSequenceStartedAt;
+  DateTime? _lastSearchAttemptAt;
   bool _searchStruggleReported = false;
 
   @override
@@ -266,8 +273,11 @@ class GuardedAnalyticsService implements AnalyticsService {
     _identifiedUserId = null;
     _identifiedRole = null;
     _searchAttempts.clear();
+    _activeSearchContext = null;
     _searchSequenceStartedAt = null;
+    _lastSearchAttemptAt = null;
     _searchStruggleReported = false;
+    _validationFailures.clear();
     _submit(_sink.reset);
   }
 
@@ -279,6 +289,9 @@ class GuardedAnalyticsService implements AnalyticsService {
     if (!enabled) return;
     final safe = _properties(properties);
     _submit(() => _sink.capture(eventName: event.wireName, properties: safe));
+    if (event == AnalyticsEvent.formValidationFailed) {
+      _recordValidationFailure(properties);
+    }
   }
 
   @override
@@ -319,6 +332,11 @@ class GuardedAnalyticsService implements AnalyticsService {
       screen: screen,
       operationWasLoading: operationWasLoading,
     );
+    if (operationWasLoading) {
+      // A visible loading state is already feedback. Keep the repeat-action
+      // signal but do not start a misleading dead-action timer.
+      return const _NoopAnalyticsFeedbackHandle();
+    }
     return _GuardedAnalyticsFeedbackHandle(
       Timer(noFeedbackWindow, () {
         capture(
@@ -380,9 +398,20 @@ class GuardedAnalyticsService implements AnalyticsService {
     required int queryLength,
     required int resultCount,
     required Duration duration,
+    AnalyticsSearchContext context = AnalyticsSearchContext.materialRequest,
   }) {
     if (!enabled) return;
     final now = _now();
+    if (_activeSearchContext != context ||
+        (_lastSearchAttemptAt != null &&
+            now.difference(_lastSearchAttemptAt!) >
+                const Duration(seconds: 30))) {
+      _searchAttempts.clear();
+      _searchSequenceStartedAt = now;
+      _searchStruggleReported = false;
+    }
+    _activeSearchContext = context;
+    _lastSearchAttemptAt = now;
     _searchSequenceStartedAt ??= now;
     _searchAttempts.add(
       _SearchAttempt(resultCount: resultCount, recordedAt: now),
@@ -392,13 +421,26 @@ class GuardedAnalyticsService implements AnalyticsService {
           now.difference(attempt.recordedAt) > const Duration(seconds: 30),
     );
     capture(
-      AnalyticsEvent.materialSearchCompleted,
+      context == AnalyticsSearchContext.inventory
+          ? AnalyticsEvent.inventorySearched
+          : AnalyticsEvent.materialSearchCompleted,
       properties: {
         AnalyticsProperty.queryLengthBucket: _queryLengthBucket(queryLength),
         AnalyticsProperty.resultCount: resultCount,
         AnalyticsProperty.durationMs: duration.inMilliseconds,
+        AnalyticsProperty.searchContext: context,
       },
     );
+    if (context == AnalyticsSearchContext.inventory && resultCount == 0) {
+      capture(
+        AnalyticsEvent.inventorySearchNoResults,
+        properties: {
+          AnalyticsProperty.queryLengthBucket: _queryLengthBucket(queryLength),
+          AnalyticsProperty.durationMs: duration.inMilliseconds,
+          AnalyticsProperty.searchContext: context,
+        },
+      );
+    }
 
     final noResultCount = _searchAttempts
         .where((attempt) => attempt.resultCount == 0)
@@ -415,6 +457,44 @@ class GuardedAnalyticsService implements AnalyticsService {
         AnalyticsProperty.attemptCount: _searchAttempts.length,
         AnalyticsProperty.noResultCount: noResultCount,
         AnalyticsProperty.durationMs: elapsed.inMilliseconds,
+        AnalyticsProperty.searchContext: context,
+      },
+    );
+  }
+
+  void _recordValidationFailure(AnalyticsProperties properties) {
+    final form = properties[AnalyticsProperty.formType];
+    final reason = properties[AnalyticsProperty.validationReason];
+    final formValue = form is Enum ? analyticsWireName(form) : form?.toString();
+    final reasonValue = reason is Enum
+        ? analyticsWireName(reason)
+        : reason?.toString();
+    if (formValue == null || !_safeCategoricalValue.hasMatch(formValue)) return;
+    final safeReason =
+        reasonValue != null && _safeCategoricalValue.hasMatch(reasonValue)
+        ? reasonValue
+        : 'unspecified';
+    final key = '$formValue:$safeReason';
+    final now = _now();
+    final current = _validationFailures[key];
+    final withinWindow =
+        current != null &&
+        now.difference(current.firstAt) <= validationLoopWindow;
+    final next = withinWindow
+        ? current.copyWith(count: current.count + 1)
+        : _ValidationFailureState(firstAt: now, count: 1);
+    _validationFailures[key] = next;
+    if (next.count < 3 || next.reported) return;
+    _validationFailures[key] = next.copyWith(reported: true);
+    capture(
+      AnalyticsEvent.validationLoopDetected,
+      properties: {
+        AnalyticsProperty.formType: formValue,
+        AnalyticsProperty.validationReason: safeReason,
+        AnalyticsProperty.attemptCount: next.count,
+        AnalyticsProperty.durationMs: now
+            .difference(next.firstAt)
+            .inMilliseconds,
       },
     );
   }
@@ -422,7 +502,9 @@ class GuardedAnalyticsService implements AnalyticsService {
   @override
   void recordMaterialSearchSelection() {
     _searchAttempts.clear();
+    _activeSearchContext = null;
     _searchSequenceStartedAt = null;
+    _lastSearchAttemptAt = null;
     _searchStruggleReported = false;
   }
 
@@ -559,7 +641,7 @@ class _GuardedAnalyticsOperation implements AnalyticsOperation {
       properties: {
         ...this.properties,
         ...properties,
-        AnalyticsProperty.actionType: operation,
+        AnalyticsProperty.operation: operation,
         AnalyticsProperty.durationMs: _service
             ._now()
             .difference(startedAt)
@@ -575,19 +657,27 @@ class _GuardedAnalyticsOperation implements AnalyticsOperation {
   void fail(Object error, {AnalyticsProperties properties = const {}}) {
     if (_finished) return;
     _finished = true;
+    final category = analyticsErrorCategory(error);
+    final durationMs = _service._now().difference(startedAt).inMilliseconds;
+    final failureProperties = <AnalyticsProperty, Object?>{
+      ...this.properties,
+      ...properties,
+      AnalyticsProperty.operation: operation,
+      AnalyticsProperty.durationMs: durationMs,
+      AnalyticsProperty.success: false,
+      AnalyticsProperty.errorCategory: category,
+      AnalyticsProperty.retryable: _analyticsErrorIsRetryable(category),
+      AnalyticsProperty.networkState: category == AnalyticsErrorCategory.offline
+          ? 'offline'
+          : 'unknown',
+    };
     _service.capture(
       AnalyticsEvent.operationCompleted,
-      properties: {
-        ...this.properties,
-        ...properties,
-        AnalyticsProperty.actionType: operation,
-        AnalyticsProperty.durationMs: _service
-            ._now()
-            .difference(startedAt)
-            .inMilliseconds,
-        AnalyticsProperty.success: false,
-        AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
-      },
+      properties: failureProperties,
+    );
+    _service.capture(
+      AnalyticsEvent.reliabilityError,
+      properties: failureProperties,
     );
   }
 }
@@ -637,6 +727,25 @@ class _RepeatedActionState {
   );
 }
 
+class _ValidationFailureState {
+  const _ValidationFailureState({
+    required this.firstAt,
+    required this.count,
+    this.reported = false,
+  });
+
+  final DateTime firstAt;
+  final int count;
+  final bool reported;
+
+  _ValidationFailureState copyWith({int? count, bool? reported}) =>
+      _ValidationFailureState(
+        firstAt: firstAt,
+        count: count ?? this.count,
+        reported: reported ?? this.reported,
+      );
+}
+
 class _SearchAttempt {
   const _SearchAttempt({required this.resultCount, required this.recordedAt});
 
@@ -652,10 +761,11 @@ AnalyticsErrorCategory analyticsErrorCategory(Object error) {
       YorksV1DomainErrorCode.quantityCapExceeded ||
       YorksV1DomainErrorCode.immutableRecord ||
       YorksV1DomainErrorCode.incompleteReview =>
-        AnalyticsErrorCategory.invalidInput,
-      YorksV1DomainErrorCode.unauthenticated ||
+        AnalyticsErrorCategory.validation,
+      YorksV1DomainErrorCode.unauthenticated =>
+        AnalyticsErrorCategory.authentication,
       YorksV1DomainErrorCode.unauthorized =>
-        AnalyticsErrorCategory.unauthorized,
+        AnalyticsErrorCategory.permissionDenied,
       YorksV1DomainErrorCode.offline => AnalyticsErrorCategory.offline,
       YorksV1DomainErrorCode.conflict => AnalyticsErrorCategory.conflict,
       YorksV1DomainErrorCode.insufficientStock =>
@@ -663,15 +773,23 @@ AnalyticsErrorCategory analyticsErrorCategory(Object error) {
       YorksV1DomainErrorCode.featureDisabled =>
         AnalyticsErrorCategory.featureDisabled,
       YorksV1DomainErrorCode.backendUnavailable =>
-        AnalyticsErrorCategory.backendUnavailable,
+        AnalyticsErrorCategory.network,
       YorksV1DomainErrorCode.unexpectedResponse =>
-        AnalyticsErrorCategory.unexpectedResponse,
-      YorksV1DomainErrorCode.serverRejected =>
-        AnalyticsErrorCategory.serverRejected,
+        AnalyticsErrorCategory.database,
+      YorksV1DomainErrorCode.serverRejected => AnalyticsErrorCategory.database,
     };
   }
   if (error is TimeoutException) return AnalyticsErrorCategory.timeout;
-  if (error is AuthException) return AnalyticsErrorCategory.unauthorized;
+  if (error is AuthException) return AnalyticsErrorCategory.authentication;
   if (error is StorageException) return AnalyticsErrorCategory.storage;
   return AnalyticsErrorCategory.unknown;
 }
+
+bool _analyticsErrorIsRetryable(AnalyticsErrorCategory category) =>
+    switch (category) {
+      AnalyticsErrorCategory.offline ||
+      AnalyticsErrorCategory.network ||
+      AnalyticsErrorCategory.timeout ||
+      AnalyticsErrorCategory.database => true,
+      _ => false,
+    };
