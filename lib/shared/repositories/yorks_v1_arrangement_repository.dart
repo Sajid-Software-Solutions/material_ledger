@@ -52,11 +52,22 @@ class YorksV1SupabaseArrangementRepository
 
   @override
   Future<YorksV1ArrangementWorkspace> getWorkspace(String requestId) async {
-    final response = await _invoke(
-      functionName: 'v1_arrangement_projection',
-      parameters: {'p_request_id': requestId},
+    final operation = _analytics.beginOperation(
+      'procurement_workspace_load',
+      properties: const {AnalyticsProperty.workflow: 'procurement'},
     );
-    return _workspace(response);
+    try {
+      final response = await _invoke(
+        functionName: 'v1_arrangement_projection',
+        parameters: {'p_request_id': requestId},
+      );
+      final workspace = _workspace(response);
+      operation.complete();
+      return workspace;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
   }
 
   @override
@@ -99,6 +110,13 @@ class YorksV1SupabaseArrangementRepository
       return workspace;
     } catch (error) {
       operation.fail(error);
+      _analytics.capture(
+        AnalyticsEvent.procurementActionFailed,
+        properties: {
+          AnalyticsProperty.actionType: 'begin_arrangement',
+          AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
+        },
+      );
       rethrow;
     }
   }
@@ -150,10 +168,9 @@ class YorksV1SupabaseArrangementRepository
     } catch (error) {
       operation.fail(error);
       _analytics.capture(
-        AnalyticsEvent.arrangementSaveCompleted,
+        AnalyticsEvent.procurementActionFailed,
         properties: {
           ...properties,
-          AnalyticsProperty.success: false,
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );

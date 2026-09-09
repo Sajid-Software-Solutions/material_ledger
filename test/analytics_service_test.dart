@@ -32,9 +32,12 @@ void main() {
 
   test('taxonomy stays bounded, stable, and unique', () {
     final names = AnalyticsEvent.values.map((event) => event.wireName).toList();
-    expect(names, hasLength(49));
+    expect(names, hasLength(59));
     expect(names.toSet(), hasLength(names.length));
-    expect(names, everyElement(matches(RegExp(r'^[a-z0-9_]+$'))));
+    expect(names, everyElement(matches(RegExp(r'^[a-z0-9]+(?: [a-z0-9]+)*$'))));
+    expect(names, isNot(contains('material_request_opened')));
+    expect(names, contains('material request opened'));
+    expect(names, contains('reliability error occurred'));
   });
 
   test(
@@ -52,7 +55,7 @@ void main() {
         sink.operations,
         containsAllInOrder([
           'identify:3f784ff0-6bca-4cfe-ac06-105f4f7dcad0:project_engineer',
-          'capture:authentication_succeeded',
+          'capture:authentication succeeded',
           'reset',
         ]),
       );
@@ -67,6 +70,21 @@ void main() {
     expect(
       sink.operations.where((value) => value.startsWith('identify:')),
       isEmpty,
+    );
+  });
+
+  test('verified role changes re-identify the same Supabase user', () async {
+    const userId = '3f784ff0-6bca-4cfe-ac06-105f4f7dcad0';
+    analytics.identify(userId: userId, role: 'site_engineer');
+    analytics.identify(userId: userId, role: 'project_engineer');
+    await analytics.drain();
+
+    expect(
+      sink.operations.where((value) => value.startsWith('identify:')),
+      <String>[
+        'identify:$userId:site_engineer',
+        'identify:$userId:project_engineer',
+      ],
     );
   });
 
@@ -86,6 +104,8 @@ void main() {
     expect(properties, isNot(contains('outcome')));
     expect(properties['item_count'], 4);
     expect(properties['schema_version'], analyticsSchemaVersion);
+    expect(properties['app_version'], '1.2.3');
+    expect(properties['app_build'], '45');
     expect(properties['environment'], 'staging');
     expect(properties['platform'], 'android');
   });
@@ -112,7 +132,8 @@ void main() {
     await analytics.drain();
 
     final event = sink.events.singleWhere(
-      (item) => item.name == 'ui_repeated_action_detected',
+      (item) => item.name == 'repeated action detected',
+      orElse: () => throw StateError('missing repeated action event'),
     );
     expect(event.properties['tap_count'], 3);
     expect(event.properties['operation_was_loading'], isTrue);
@@ -132,7 +153,7 @@ void main() {
     await analytics.drain();
 
     expect(
-      sink.events.where((event) => event.name == 'ui_action_no_feedback'),
+      sink.events.where((event) => event.name == 'action produced no feedback'),
       hasLength(1),
     );
   });
@@ -158,13 +179,86 @@ void main() {
     await analytics.drain();
 
     final struggle = sink.events.singleWhere(
-      (event) => event.name == 'material_search_struggle_detected',
+      (event) => event.name == 'search struggle detected',
     );
     expect(struggle.properties['attempt_count'], 3);
     expect(struggle.properties['no_result_count'], 2);
     expect(
       struggle.properties.values.whereType<String>(),
       isNot(contains('duct tape')),
+    );
+  });
+
+  test(
+    'inventory search emits semantic result events without query text',
+    () async {
+      analytics.recordMaterialSearch(
+        queryLength: 9,
+        resultCount: 0,
+        duration: const Duration(milliseconds: 80),
+        context: AnalyticsSearchContext.inventory,
+      );
+      await analytics.drain();
+
+      expect(
+        sink.events.map((event) => event.name),
+        containsAll(<String>[
+          'inventory searched',
+          'inventory search no results',
+        ]),
+      );
+      expect(
+        sink.events
+            .expand((event) => event.properties.values)
+            .whereType<String>(),
+        isNot(contains('private material')),
+      );
+    },
+  );
+
+  test(
+    'three matching safe validation failures emit one loop signal',
+    () async {
+      for (var index = 0; index < 3; index++) {
+        analytics.capture(
+          AnalyticsEvent.formValidationFailed,
+          properties: const {
+            AnalyticsProperty.formType: 'material_request',
+            AnalyticsProperty.validationReason: 'incomplete_request',
+          },
+        );
+        now = now.add(const Duration(seconds: 5));
+      }
+      await analytics.drain();
+
+      expect(
+        sink.events.where((event) => event.name == 'validation loop detected'),
+        hasLength(1),
+      );
+    },
+  );
+
+  test('failed operation emits normalized reliability context', () async {
+    analytics.screenViewed(AnalyticsScreen.inventory);
+    analytics.identify(
+      userId: '3f784ff0-6bca-4cfe-ac06-105f4f7dcad0',
+      role: 'procurement',
+    );
+    final operation = analytics.beginOperation('inventory_load');
+    operation.fail(TimeoutException('sensitive backend detail'));
+    await analytics.drain();
+
+    final event = sink.events.singleWhere(
+      (item) => item.name == 'reliability error occurred',
+    );
+    expect(event.properties['operation'], 'inventory_load');
+    expect(event.properties['error_category'], 'timeout');
+    expect(event.properties['retryable'], isTrue);
+    expect(event.properties['screen_name'], 'inventory');
+    expect(event.properties['role'], 'procurement');
+    expect(
+      event.properties.values,
+      isNot(contains('sensitive backend detail')),
     );
   });
 
@@ -176,6 +270,13 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('sink failures remain isolated from the caller', () async {
+    sink.throwOnCapture = true;
+    analytics.capture(AnalyticsEvent.projectOpened);
+
+    await expectLater(analytics.drain(), completes);
   });
 
   test('disabled and CI configurations are no-ops', () async {
@@ -221,6 +322,19 @@ void main() {
     expect(unknownEnvironment.enabled, isFalse);
     expect(unsafeHost.enabled, isFalse);
     expect(
+      const AnalyticsConfiguration(
+        requestedEnabled: true,
+        projectToken: 'phc_test',
+        host: 'https://us.i.posthog.com',
+        environment: AnalyticsEnvironment.production,
+        platform: AnalyticsPlatform.web,
+        appVersion: '1',
+        appBuild: '1',
+        debugRequested: true,
+      ).debug,
+      isFalse,
+    );
+    expect(
       AnalyticsConfiguration.resolveEnvironment(
         postHogValue: 'staging',
         r35Value: 'production',
@@ -242,6 +356,7 @@ class _RecordingSink implements AnalyticsSink {
   final events = <_RecordedEvent>[];
   final screens = <_RecordedScreen>[];
   bool throwOnFlags = false;
+  bool throwOnCapture = false;
 
   @override
   Future<void> initialize(AnalyticsConfiguration configuration) async {
@@ -263,6 +378,7 @@ class _RecordingSink implements AnalyticsSink {
     required String eventName,
     required Map<String, Object> properties,
   }) async {
+    if (throwOnCapture) throw StateError('transport unavailable');
     operations.add('capture:$eventName');
     events.add(_RecordedEvent(eventName, properties));
   }
