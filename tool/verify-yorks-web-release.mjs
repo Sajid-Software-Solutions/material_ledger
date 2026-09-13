@@ -25,6 +25,7 @@ const checks = [
   ['/yorks/workforce', 'index.html'],
   ['/yorks/rentals', 'index.html'],
   ['/yorks/material-requests', 'index.html'],
+  ['/yorks/material-requests/company/new', 'index.html'],
   ['/yorks/team-chat', 'index.html'],
   ...['main.dart.js', 'flutter_bootstrap.js', 'flutter_service_worker.js', 'firebase-messaging-sw.js', 'manifest.json'].map(file => [`/${file}`, file]),
   ...deferredParts.map(file => [`/${file}`, file]),
