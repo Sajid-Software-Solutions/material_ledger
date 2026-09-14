@@ -6,8 +6,9 @@ was performed.
 
 ## Result
 
-- Browser builds use the browser's page zoom, trackpad/touch pinch and reset.
-  Yorks does not apply a second workspace transform on web.
+- Browser builds use Yorks' fixed-layout workspace transform for familiar
+  keyboard, modified-wheel and trackpad/touch pinch input. Magnification does
+  not change Flutter constraints, breakpoints or shell geometry.
 - Native builds use focal-point inspection zoom from 100% through 400% with
   touch pinch, trackpad pinch/pan, Ctrl/Command-wheel, keyboard shortcuts,
   middle-button pan and Space plus primary-button pan.
@@ -42,19 +43,21 @@ and 360px.
 
 ## Browser witness
 
-Chrome 152 on macOS loaded the CI-configured release web build without a
-reported browser error. At an emulated 360 by 800 mobile viewport:
+Chrome 152 on macOS loaded the corrected staging build without a reported
+browser error. At an emulated 360 by 800 mobile viewport, the Flutter layout
+remained 360 by 800 while the workspace content was composited at 200% and
+then reset to 100%.
 
-| State | Browser scale | Visual width | Layout width | Flutter view |
+| State | Browser scale | Layout width | Flutter view | Workspace scale |
 |---|---:|---:|---:|---:|
-| Initial | 1.0 | 360 | 360 | 360 by 800 |
-| Pinched | 2.0 | 180 | 360 | 360 by 800 |
-| Reset | 1.0 | 360 | 360 | 360 by 800 |
+| Initial | 1.0 | 360 | 360 by 800 | 100% |
+| Magnified | 1.0 | 360 | 360 by 800 | 200% |
+| Reset | 1.0 | 360 | 360 by 800 | 100% |
 
-This proves browser magnification without a responsive-layout switch during
-pinch. The event witness also proved that Ctrl/Command zoom input was not
-default-prevented, did not reach Flutter's competing handler, and ordinary
-wheel input still reached Flutter.
+This proves magnification without browser page scaling or a responsive-layout
+switch. Browser defaults are prevented only for zoom shortcuts and modified
+wheel input; those events continue to Flutter's workspace handler, while
+ordinary keyboard and wheel input remains untouched.
 
 ## Dedicated staging release
 
@@ -74,6 +77,21 @@ wheel input still reached Flutter.
   error.
 - Production remained on deployment `dpl_EFMtEEvZrhMcjttQbSFQZCXjzV6y`;
   its alias response retained the pre-release ETag and byte length.
+
+### Corrected fixed-layout browser preview
+
+- Source commit: `78493fdc10e81901290bcfd23d606d58940abceb`.
+- Vercel deployment: `dpl_txqbxTN7HF5HES7X4wDiCRYPXvca`.
+- Immutable preview:
+  `https://yorks-r35-8ceupuu5n-sajid-alis-projects-0ec775a2.vercel.app`.
+- Seventeen root, deep-route, PWA and JavaScript checks byte-matched the local
+  artifact. Corrected `main.dart.js` SHA-256 is
+  `2a7f56bd1655d35ec99e8d5afa073a1410131a2dfdd1795d54c41dc762c2d475`.
+- Live Ctrl-plus browser verification retained browser scale `1.0`, window and
+  Flutter-view dimensions `1280 by 633`, and showed no error overlay. The
+  Chrome-platform widget test separately proved that the workspace content
+  transformed while retaining its original layout constraints.
+- The production deployment and alias remained unchanged.
 
 The eight changed 1366px goldens differ only in the former control footprint:
 
