@@ -1,5 +1,5 @@
 Analyzer
-Analyzing material_ledger...                                    
+Analyzing material_ledger...
 No issues found! (ran in 7.1s)
 
 Flutter suite

@@ -1,6 +1,6 @@
 # Company Material Requests T02 — independent approval
 
-Status: **local implementation candidate; feature gated and not released**  
+Status: **local implementation candidate; feature gated and not released**
 Implemented: 18 September 2026
 
 T02 extends the approved T01 company-use request aggregate through one
