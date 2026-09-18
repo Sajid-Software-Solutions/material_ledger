@@ -164,6 +164,8 @@ class YorksV1MaterialRequestsScreen extends ConsumerWidget {
               RoutePaths.yorksV1MaterialRequestDraftPath(
                 draft.id,
                 projectId: draft.projectId,
+                entryMode:
+                    YorksV1MaterialRequestDraftEntryMode.resumePrivateDraft,
               ),
             ),
             onDelete: ownerAuthUserId == null
@@ -198,6 +200,7 @@ class YorksV1MaterialRequestsScreen extends ConsumerWidget {
                   RoutePaths.yorksV1MaterialRequestDraftPath(
                     const Uuid().v4(),
                     projectId: projectId,
+                    entryMode: YorksV1MaterialRequestDraftEntryMode.newDraft,
                   ),
                 )
               : null,
@@ -241,6 +244,7 @@ class YorksV1MaterialRequestsScreen extends ConsumerWidget {
                   RoutePaths.yorksV1MaterialRequestDraftPath(
                     const Uuid().v4(),
                     projectId: projectId,
+                    entryMode: YorksV1MaterialRequestDraftEntryMode.newDraft,
                   ),
                 )
               : null,
@@ -501,6 +505,8 @@ class _YorksMobileMaterialRequestsPageState
                           RoutePaths.yorksV1MaterialRequestDraftPath(
                             const Uuid().v4(),
                             projectId: widget.projectId,
+                            entryMode:
+                                YorksV1MaterialRequestDraftEntryMode.newDraft,
                           ),
                         )
                       : null,
@@ -517,6 +523,8 @@ class _YorksMobileMaterialRequestsPageState
                     RoutePaths.yorksV1MaterialRequestDraftPath(
                       draft.id,
                       projectId: draft.projectId,
+                      entryMode: YorksV1MaterialRequestDraftEntryMode
+                          .resumePrivateDraft,
                     ),
                   ),
                   onDeleteDraft: ownerAuthUserId == null
@@ -2086,12 +2094,14 @@ class YorksV1MaterialRequestDraftScreen extends ConsumerStatefulWidget {
   const YorksV1MaterialRequestDraftScreen({
     super.key,
     required this.draftId,
+    this.entryMode = YorksV1MaterialRequestDraftEntryMode.newDraft,
     this.boqGroupId,
     this.projectId,
     this.boqVersion,
   });
 
   final String draftId;
+  final YorksV1MaterialRequestDraftEntryMode entryMode;
   final String? boqGroupId;
   final String? projectId;
   final int? boqVersion;
@@ -2108,6 +2118,9 @@ class _YorksV1MaterialRequestDraftScreenState
   bool _hydratedFromServer = false;
   bool _runtimePolicyResolutionScheduled = false;
   bool _runtimePolicyResolved = false;
+  bool _entryResolutionScheduled = false;
+  bool _entryResolutionComplete = false;
+  bool _resolvedPrivateDraft = false;
   bool _workspacePresentationPrepared = false;
   bool? _sidebarWasExpanded;
   StateController<bool>? _sidebarController;
@@ -2167,9 +2180,33 @@ class _YorksV1MaterialRequestDraftScreenState
       yorksV1MaterialRequestDraftControllerProvider(key).notifier,
     );
     final runtimeConfiguration = ref.watch(yorksV1RuntimeConfigurationProvider);
+    final needsPrivateResolution =
+        widget.entryMode ==
+            YorksV1MaterialRequestDraftEntryMode.resumePrivateDraft ||
+        widget.entryMode == YorksV1MaterialRequestDraftEntryMode.legacy;
+    if (needsPrivateResolution && !_entryResolutionScheduled) {
+      _entryResolutionScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await controller.hydratePrivateDraft();
+        if (!mounted) return;
+        final resolved = controller.currentDraft;
+        setState(() {
+          _resolvedPrivateDraft =
+              resolved.hasRecoverableContent ||
+              resolved.privateSyncVersion > 0 ||
+              resolved.updatedAt.millisecondsSinceEpoch > 0;
+          _entryResolutionComplete = true;
+        });
+      });
+    }
+    final privateResolutionComplete =
+        !needsPrivateResolution || _entryResolutionComplete;
     final shouldHydrateFromServer =
-        state.draft.serverRecordVersion == 0 &&
-        state.draft.updatedAt.millisecondsSinceEpoch == 0;
+        _shouldHydrateFromServer(state) &&
+        (widget.entryMode.loadsNormalizedRequest ||
+            (widget.entryMode == YorksV1MaterialRequestDraftEntryMode.legacy &&
+                privateResolutionComplete &&
+                !_resolvedPrivateDraft));
     final serverDraft = shouldHydrateFromServer
         ? ref.watch(yorksV1MaterialRequestDetailProvider(widget.draftId))
         : null;
@@ -2183,9 +2220,12 @@ class _YorksV1MaterialRequestDraftScreenState
         });
       }
     }
+    final localEntryReady =
+        widget.entryMode == YorksV1MaterialRequestDraftEntryMode.newDraft ||
+        (privateResolutionComplete && _resolvedPrivateDraft);
     final runtimeDefaultCanBeApplied =
         runtimeConfiguration is AsyncData<YorksV1RuntimeConfiguration> &&
-        _serverDraftIsAbsent(serverDraft) &&
+        localEntryReady &&
         _isPristineForRuntimeDefault(state.draft);
     if (!_runtimePolicyResolved &&
         !_runtimePolicyResolutionScheduled &&
@@ -2199,17 +2239,14 @@ class _YorksV1MaterialRequestDraftScreenState
     final runtimePolicyAllowsAutomaticSeeding =
         _runtimePolicyResolved ||
         !_isPristineForRuntimeDefault(state.draft) ||
-        runtimeConfiguration is AsyncError ||
-        (runtimeConfiguration is AsyncData<YorksV1RuntimeConfiguration> &&
-            serverDraft is AsyncError &&
-            !_serverDraftIsAbsent(serverDraft));
+        runtimeConfiguration is AsyncError;
     final routeProjectId = widget.projectId?.trim();
     final canSeedProjectFromRoute =
         routeProjectId != null &&
         routeProjectId.isNotEmpty &&
         state.draft.projectId == null &&
         runtimePolicyAllowsAutomaticSeeding &&
-        (!_shouldHydrateFromServer(state) || serverDraft is AsyncError);
+        (localEntryReady || _hydratedFromServer);
     if (!_seededProjectFromRoute && canSeedProjectFromRoute) {
       _seededProjectFromRoute = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2224,6 +2261,42 @@ class _YorksV1MaterialRequestDraftScreenState
         _seedDraftFromBoq(controller, state.draft);
       });
     }
+    if (needsPrivateResolution && !privateResolutionComplete) {
+      return const Scaffold(
+        backgroundColor: AppColors.surface,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (widget.entryMode ==
+            YorksV1MaterialRequestDraftEntryMode.resumePrivateDraft &&
+        !_resolvedPrivateDraft) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        body: _RequestError(language: language, onRetry: () {}),
+      );
+    }
+    if (shouldHydrateFromServer) {
+      if (serverDraft is AsyncLoading<YorksV1MaterialRequest> ||
+          serverDraft == null ||
+          (serverDraft is AsyncData<YorksV1MaterialRequest> &&
+              !_hydratedFromServer)) {
+        return const Scaffold(
+          backgroundColor: AppColors.surface,
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (serverDraft is AsyncError<YorksV1MaterialRequest>) {
+        return Scaffold(
+          backgroundColor: AppColors.surface,
+          body: _RequestError(
+            language: language,
+            onRetry: () => ref.invalidate(
+              yorksV1MaterialRequestDetailProvider(widget.draftId),
+            ),
+          ),
+        );
+      }
+    }
     return _DraftForm(
       state: state,
       controller: controller,
@@ -2235,13 +2308,6 @@ class _YorksV1MaterialRequestDraftScreenState
   bool _shouldHydrateFromServer(YorksV1MaterialRequestDraftState state) =>
       state.draft.serverRecordVersion == 0 &&
       state.draft.updatedAt.millisecondsSinceEpoch == 0;
-
-  bool _serverDraftIsAbsent(AsyncValue<YorksV1MaterialRequest>? serverDraft) {
-    if (serverDraft is! AsyncError<YorksV1MaterialRequest>) return false;
-    final error = serverDraft.error;
-    return error is YorksV1DomainException &&
-        error.code == YorksV1DomainErrorCode.unauthorized;
-  }
 
   bool _isPristineForRuntimeDefault(YorksV1MaterialRequestDraft draft) =>
       draft.serverRecordVersion == 0 &&
@@ -2374,6 +2440,7 @@ String _materialRequestOpenPath(YorksV1MaterialRequest request) {
     return RoutePaths.yorksV1MaterialRequestDraftPath(
       request.id,
       projectId: request.projectId,
+      entryMode: YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft,
     );
   }
   return RoutePaths.yorksV1MaterialRequestPath(request.id);
@@ -2385,6 +2452,9 @@ String _mobileMaterialRequestActionPath(YorksV1MaterialRequest request) {
     return RoutePaths.yorksV1MaterialRequestDraftPath(
       request.id,
       projectId: request.projectId,
+      entryMode: request.state.isDraft
+          ? YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft
+          : YorksV1MaterialRequestDraftEntryMode.editExistingRequest,
     );
   }
   if (request.state == YorksV1MaterialRequestState.approvedForArrangement ||
@@ -2820,12 +2890,15 @@ class _DraftForm extends ConsumerWidget {
     // button leaves engineers guessing which row is blocking submission.
     final canAttemptSubmit =
         submitAccess.canWrite &&
+        !draft.hasPendingSave &&
         draft.pendingSubmissionApproval == null &&
         state.status != YorksV1MaterialRequestDraftSyncStatus.submitting;
     final isBusy =
+        draft.hasPendingSave ||
         draft.pendingSubmissionApproval != null ||
         !editAccess.canWrite ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.saving ||
+        state.status == YorksV1MaterialRequestDraftSyncStatus.checkingSave ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.submitting;
     final excelEnabled = ref.watch(yorksV1FeatureFlagsProvider).excel;
     final workbookFileService = ref.watch(
@@ -2855,9 +2928,13 @@ class _DraftForm extends ConsumerWidget {
           allowedTimings: allowedTimings,
           canEdit: editAccess.canWrite,
           canSubmit:
-              submitAccess.canWrite && draft.pendingSubmissionApproval == null,
+              submitAccess.canWrite &&
+              !draft.hasPendingSave &&
+              draft.pendingSubmissionApproval == null,
           onRecover: (retry) =>
               _recoverSubmission(context, ref, controller, retry: retry),
+          onRecoverSave: (retry) =>
+              _recoverDraftSave(context, ref, controller, retry: retry),
           canSubmitAndApprove: canOfferSubmitAndApprove,
           onSave: () => _save(context, ref, controller, draft),
           onSubmit: () => _submitForMobile(context, ref, controller),
@@ -3003,10 +3080,26 @@ class _DraftForm extends ConsumerWidget {
                   ],
                 ),
               );
-              final recovery =
-                  draft.pendingSubmissionApproval != null &&
-                      state.status !=
-                          YorksV1MaterialRequestDraftSyncStatus.submitting
+              final recovery = draft.hasPendingSave
+                  ? YorksV1SubmissionRecoveryPanel(
+                      save: true,
+                      language: language,
+                      checking:
+                          state.status ==
+                          YorksV1MaterialRequestDraftSyncStatus.checkingSave,
+                      canRetry: state.canRetryUnconfirmed,
+                      onCheck: () =>
+                          _recoverDraftSave(context, ref, controller),
+                      onRetry: () => _recoverDraftSave(
+                        context,
+                        ref,
+                        controller,
+                        retry: true,
+                      ),
+                    )
+                  : draft.pendingSubmissionApproval != null &&
+                        state.status !=
+                            YorksV1MaterialRequestDraftSyncStatus.submitting
                   ? YorksV1SubmissionRecoveryPanel(
                       language: language,
                       checking:
@@ -3029,6 +3122,12 @@ class _DraftForm extends ConsumerWidget {
                     YorksV1MaterialRequestDraftSyncStatus.savedToAccount)
                   _InlineMessage(
                     copy: YorksV1MaterialRequestStrings.savedToYourAccount,
+                    language: language,
+                  ),
+                if (state.localPersistenceFailed)
+                  _InlineMessage(
+                    copy: YorksV1MaterialRequestStrings
+                        .serverSavedLocalRecoveryFailed,
                     language: language,
                   ),
                 if (state.status ==
@@ -3274,10 +3373,12 @@ class _DraftForm extends ConsumerWidget {
     final wasServerReady = controller.currentDraft.canSubmitLocally;
     final saved = await controller.saveDraft();
     if (!context.mounted) return;
-    if (saved == null) {
+    if (!saved) {
       _snack(
         context,
-        wasServerReady
+        wasServerReady && controller.currentDraft.hasPendingSave
+            ? YorksV1MaterialRequestStrings.saveUnconfirmed.primary
+            : wasServerReady
             ? YorksV1MaterialRequestStrings.saveFailed.primary
             : YorksV1MaterialRequestStrings.savedLocally.primary,
       );
@@ -3299,6 +3400,18 @@ class _DraftForm extends ConsumerWidget {
     if (!context.mounted || result == null) return;
     ref.invalidate(yorksV1MaterialRequestListProvider);
     context.go(RoutePaths.yorksV1MaterialRequestPath(result.id));
+  }
+
+  Future<void> _recoverDraftSave(
+    BuildContext context,
+    WidgetRef ref,
+    YorksV1MaterialRequestDraftController controller, {
+    bool retry = false,
+  }) async {
+    final confirmed = await controller.reconcileDraftSave(retryIfAbsent: retry);
+    if (!context.mounted || !confirmed) return;
+    ref.invalidate(yorksV1MaterialRequestListProvider);
+    _snack(context, YorksV1MaterialRequestStrings.saved.primary);
   }
 
   Future<void> _submit(
@@ -3418,6 +3531,11 @@ String _materialRequestDraftContentFingerprint(
   final content = Map<String, dynamic>.from(draft.toJson())
     ..remove('submissionIdempotencyKey')
     ..remove('serverRecordVersion')
+    ..remove('localRevision')
+    ..remove('pendingSaveOperationId')
+    ..remove('pendingSaveExpectedVersion')
+    ..remove('pendingSaveRevision')
+    ..remove('pendingSavePayloadHash')
     ..remove('updatedAt');
   return jsonEncode(content);
 }
@@ -3526,7 +3644,7 @@ class _MaterialRequestDraftExitGuardState
     final canSaveOnServer = widget.controller.currentDraft.canSubmitLocally;
     try {
       final saved = await widget.controller.saveDraft();
-      if (canSaveOnServer && saved == null) return false;
+      if (canSaveOnServer && !saved) return false;
       ref.invalidate(yorksV1MaterialRequestListProvider);
       return true;
     } catch (_) {
@@ -3830,6 +3948,7 @@ class _YorksMobileMaterialRequestDraftFlow extends ConsumerStatefulWidget {
     required this.canSubmitAndApprove,
     required this.onSave,
     required this.onRecover,
+    required this.onRecoverSave,
     required this.onSubmit,
     required this.onSubmitAndApprove,
   });
@@ -3844,6 +3963,7 @@ class _YorksMobileMaterialRequestDraftFlow extends ConsumerStatefulWidget {
   final bool canSubmitAndApprove;
   final Future<void> Function() onSave;
   final Future<void> Function(bool retry) onRecover;
+  final Future<void> Function(bool retry) onRecoverSave;
   final Future<YorksV1MaterialRequest?> Function() onSubmit;
   final Future<YorksV1MaterialRequest?> Function() onSubmitAndApprove;
 
@@ -3898,9 +4018,12 @@ class _YorksMobileMaterialRequestDraftFlowState
   YorksV1MaterialRequestDraft get _draft => widget.state.draft;
 
   bool get _busy =>
+      _draft.hasPendingSave ||
       _draft.pendingSubmissionApproval != null ||
       !widget.canEdit ||
       widget.state.status == YorksV1MaterialRequestDraftSyncStatus.saving ||
+      widget.state.status ==
+          YorksV1MaterialRequestDraftSyncStatus.checkingSave ||
       widget.state.status == YorksV1MaterialRequestDraftSyncStatus.submitting;
 
   @override
@@ -3943,6 +4066,17 @@ class _YorksMobileMaterialRequestDraftFlowState
                   onPressed: _back,
                 ),
               ),
+              if (_draft.hasPendingSave)
+                YorksV1SubmissionRecoveryPanel(
+                  save: true,
+                  language: language,
+                  checking:
+                      widget.state.status ==
+                      YorksV1MaterialRequestDraftSyncStatus.checkingSave,
+                  canRetry: widget.state.canRetryUnconfirmed,
+                  onCheck: () => widget.onRecoverSave(false),
+                  onRetry: () => widget.onRecoverSave(true),
+                ),
               if (_draft.pendingSubmissionApproval != null &&
                   widget.state.status !=
                       YorksV1MaterialRequestDraftSyncStatus.submitting)
@@ -3986,6 +4120,23 @@ class _YorksMobileMaterialRequestDraftFlowState
                         ),
                       ),
                     ],
+                  ),
+                ),
+              if (widget.state.localPersistenceFailed)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.md,
+                    0,
+                  ),
+                  child: YorksV1ActiveText(
+                    copy: YorksV1MaterialRequestStrings
+                        .serverSavedLocalRecoveryFailed,
+                    language: language,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.warning,
+                    ),
                   ),
                 ),
               Expanded(
@@ -10148,6 +10299,8 @@ class _RequestDetailBody extends ConsumerWidget {
                     RoutePaths.yorksV1MaterialRequestDraftPath(
                       request.id,
                       projectId: request.projectId,
+                      entryMode: YorksV1MaterialRequestDraftEntryMode
+                          .editExistingRequest,
                     ),
                   )
                 : null,
@@ -10897,6 +11050,7 @@ class _MaterialRequestReplacementCardState
         RoutePaths.yorksV1MaterialRequestDraftPath(
           created.id,
           projectId: created.projectId,
+          entryMode: YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft,
         ),
       );
     } catch (_) {
@@ -11746,6 +11900,8 @@ class _RequestApprovalActionsState
                   RoutePaths.yorksV1MaterialRequestDraftPath(
                     widget.request.id,
                     projectId: widget.request.projectId,
+                    entryMode: YorksV1MaterialRequestDraftEntryMode
+                        .editExistingRequest,
                   ),
                 ),
         ),

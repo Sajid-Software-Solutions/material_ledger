@@ -7,6 +7,30 @@ import 'yorks_v1_project_strings.dart';
 /// Centralized bilingual-capable presentation copy for the Yorks V1 Material
 /// Request slice. Domain and database layers use stable codes, never this copy.
 abstract final class YorksV1MaterialRequestStrings {
+  static const saveUnconfirmed = TranslatableString(
+    en: 'The account save is not yet confirmed. Your device copy and the original save identity are preserved while Yorks checks the result.',
+    ar: 'لم يتم تأكيد الحفظ في الحساب بعد. تم الاحتفاظ بنسخة الجهاز وهوية الحفظ الأصلية أثناء التحقق من النتيجة.',
+    ur: 'اکاؤنٹ میں محفوظ ہونے کی ابھی تصدیق نہیں ہوئی۔ نتیجہ چیک کرتے وقت ڈیوائس کاپی اور اصل سیو شناخت محفوظ ہیں۔',
+    hi: 'अकाउंट सेव की अभी पुष्टि नहीं हुई है। परिणाम जाँचते समय डिवाइस कॉपी और मूल सेव पहचान सुरक्षित हैं।',
+  );
+  static const checkSaveStatus = TranslatableString(
+    en: 'Check save status',
+    ar: 'التحقق من حالة الحفظ',
+    ur: 'محفوظ ہونے کی حالت چیک کریں',
+    hi: 'सेव की स्थिति जाँचें',
+  );
+  static const retrySameSave = TranslatableString(
+    en: 'Retry same save',
+    ar: 'إعادة محاولة الحفظ نفسه',
+    ur: 'اسی سیو کو دوبارہ آزمائیں',
+    hi: 'यही सेव दोबारा आज़माएँ',
+  );
+  static const serverSavedLocalRecoveryFailed = TranslatableString(
+    en: 'Saved to your account, but this device could not refresh its recovery copy.',
+    ar: 'تم الحفظ في حسابك، لكن تعذر على هذا الجهاز تحديث نسخة الاسترداد.',
+    ur: 'آپ کے اکاؤنٹ میں محفوظ ہو گیا، لیکن یہ ڈیوائس اپنی ریکوری کاپی تازہ نہیں کر سکی۔',
+    hi: 'आपके अकाउंट में सेव हो गया, लेकिन यह डिवाइस अपनी रिकवरी कॉपी अपडेट नहीं कर सका।',
+  );
   static const submissionUnconfirmed = TranslatableString(
     en: 'Submission is not yet confirmed. Your entries are preserved. Check its status before trying again.',
     ar: 'لم يتم تأكيد الإرسال بعد. تم الاحتفاظ ببياناتك. تحقق من الحالة قبل المحاولة مجدداً.',

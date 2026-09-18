@@ -231,6 +231,8 @@ class YorksV1BoqGroupsScreen extends ConsumerWidget {
                             RoutePaths.yorksV1MaterialRequestDraftPath(
                               const Uuid().v4(),
                               projectId: projectId,
+                              entryMode:
+                                  YorksV1MaterialRequestDraftEntryMode.newDraft,
                             ),
                           )
                         : null,
@@ -2707,6 +2709,8 @@ class YorksV1BoqWorksheetScreen extends ConsumerWidget {
                             RoutePaths.yorksV1MaterialRequestDraftPath(
                               const Uuid().v4(),
                               projectId: projectId,
+                              entryMode:
+                                  YorksV1MaterialRequestDraftEntryMode.newDraft,
                             ),
                           )
                         : null,
@@ -2903,6 +2907,7 @@ class YorksV1BoqWorksheetScreen extends ConsumerWidget {
         boqGroupId: groupId,
         projectId: projectId,
         boqVersion: current.group.version,
+        entryMode: YorksV1MaterialRequestDraftEntryMode.newDraft,
       ),
     );
   }

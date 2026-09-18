@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import 'yorks_v1_domain_error.dart';
 import 'yorks_v1_item_description.dart';
 import 'yorks_v1_team_chat.dart';
@@ -27,6 +31,30 @@ enum YorksV1MaterialRequestTiming {
       if (timing.wireValue == value) return timing;
     }
     return null;
+  }
+}
+
+/// Presentation intent for the shared draft route. It prevents a generated
+/// local UUID from being mistaken for an existing normalized request.
+enum YorksV1MaterialRequestDraftEntryMode {
+  newDraft('new'),
+  resumePrivateDraft('private'),
+  resumeSavedDraft('saved'),
+  editExistingRequest('edit'),
+  legacy('legacy');
+
+  const YorksV1MaterialRequestDraftEntryMode(this.wireValue);
+
+  final String wireValue;
+
+  bool get loadsNormalizedRequest =>
+      this == resumeSavedDraft || this == editExistingRequest;
+
+  static YorksV1MaterialRequestDraftEntryMode fromWireValue(Object? value) {
+    for (final mode in values) {
+      if (mode.wireValue == value) return mode;
+    }
+    return legacy;
   }
 }
 
@@ -1458,6 +1486,11 @@ class YorksV1MaterialRequestDraft {
     required this.submissionIdempotencyKey,
     required this.updatedAt,
     this.serverRecordVersion = 0,
+    this.localRevision = 0,
+    this.pendingSaveOperationId,
+    this.pendingSaveExpectedVersion,
+    this.pendingSaveRevision,
+    this.pendingSavePayloadHash,
     this.pendingSubmissionApproval,
     this.privateSyncVersion = 0,
     this.privateSyncedAt,
@@ -1476,6 +1509,15 @@ class YorksV1MaterialRequestDraft {
   final String ownerAuthUserId;
   final String submissionIdempotencyKey;
   final int serverRecordVersion;
+  final int localRevision;
+
+  /// One durable logical save intent. It remains frozen across a timeout and
+  /// browser restart until the authoritative receipt is found or the same
+  /// idempotent operation is deliberately replayed.
+  final String? pendingSaveOperationId;
+  final int? pendingSaveExpectedVersion;
+  final int? pendingSaveRevision;
+  final String? pendingSavePayloadHash;
 
   /// Null means no unresolved submission. False/true freezes the original
   /// Submit/Approve intent until an authorized result check confirms it.
@@ -1504,6 +1546,11 @@ class YorksV1MaterialRequestDraft {
 
   YorksV1MaterialRequestDraft copyWith({
     int? serverRecordVersion,
+    int? localRevision,
+    Object? pendingSaveOperationId = _keep,
+    Object? pendingSaveExpectedVersion = _keep,
+    Object? pendingSaveRevision = _keep,
+    Object? pendingSavePayloadHash = _keep,
     Object? pendingSubmissionApproval = _keep,
     int? privateSyncVersion,
     Object? privateSyncedAt = _keep,
@@ -1523,6 +1570,19 @@ class YorksV1MaterialRequestDraft {
         ? this.submissionIdempotencyKey
         : submissionIdempotencyKey as String,
     serverRecordVersion: serverRecordVersion ?? this.serverRecordVersion,
+    localRevision: localRevision ?? this.localRevision,
+    pendingSaveOperationId: identical(pendingSaveOperationId, _keep)
+        ? this.pendingSaveOperationId
+        : pendingSaveOperationId as String?,
+    pendingSaveExpectedVersion: identical(pendingSaveExpectedVersion, _keep)
+        ? this.pendingSaveExpectedVersion
+        : pendingSaveExpectedVersion as int?,
+    pendingSaveRevision: identical(pendingSaveRevision, _keep)
+        ? this.pendingSaveRevision
+        : pendingSaveRevision as int?,
+    pendingSavePayloadHash: identical(pendingSavePayloadHash, _keep)
+        ? this.pendingSavePayloadHash
+        : pendingSavePayloadHash as String?,
     pendingSubmissionApproval: identical(pendingSubmissionApproval, _keep)
         ? this.pendingSubmissionApproval
         : pendingSubmissionApproval as bool?,
@@ -1575,11 +1635,26 @@ class YorksV1MaterialRequestDraft {
   YorksV1SaveMaterialRequestDraftInput toSaveInput() =>
       YorksV1SaveMaterialRequestDraftInput(draft: this);
 
+  bool get hasPendingSave =>
+      _trimToNull(pendingSaveOperationId) != null &&
+      pendingSaveExpectedVersion != null &&
+      pendingSaveRevision != null &&
+      _trimToNull(pendingSavePayloadHash) != null;
+
+  String savePayloadHash() => sha256
+      .convert(utf8.encode(jsonEncode(toSaveInput().toRpcPayload())))
+      .toString();
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'ownerAuthUserId': ownerAuthUserId,
     'submissionIdempotencyKey': submissionIdempotencyKey,
     'serverRecordVersion': serverRecordVersion,
+    'localRevision': localRevision,
+    'pendingSaveOperationId': pendingSaveOperationId,
+    'pendingSaveExpectedVersion': pendingSaveExpectedVersion,
+    'pendingSaveRevision': pendingSaveRevision,
+    'pendingSavePayloadHash': pendingSavePayloadHash,
     'pendingSubmissionApproval': pendingSubmissionApproval,
     'privateSyncVersion': privateSyncVersion,
     'privateSyncedAt': privateSyncedAt?.toUtc().toIso8601String(),
@@ -1599,6 +1674,15 @@ class YorksV1MaterialRequestDraft {
       ownerAuthUserId: _string(json['ownerAuthUserId']),
       submissionIdempotencyKey: _string(json['submissionIdempotencyKey']),
       serverRecordVersion: _nonNegativeInt(json['serverRecordVersion']),
+      localRevision: _nonNegativeInt(json['localRevision']),
+      pendingSaveOperationId: _trimToNull(json['pendingSaveOperationId']),
+      pendingSaveExpectedVersion: json['pendingSaveExpectedVersion'] is num
+          ? _nonNegativeInt(json['pendingSaveExpectedVersion'])
+          : null,
+      pendingSaveRevision: json['pendingSaveRevision'] is num
+          ? _nonNegativeInt(json['pendingSaveRevision'])
+          : null,
+      pendingSavePayloadHash: _trimToNull(json['pendingSavePayloadHash']),
       pendingSubmissionApproval: json['pendingSubmissionApproval'] is bool
           ? json['pendingSubmissionApproval'] as bool
           : null,
@@ -1746,6 +1830,32 @@ class YorksV1SaveMaterialRequestDraftInput {
     'delivery_note': _trimToNull(draft.deliveryNote),
     'lines': [for (final line in draft.lines) line.toRpcJson()],
   };
+}
+
+class YorksV1MaterialRequestDraftSaveAcknowledgement {
+  const YorksV1MaterialRequestDraftSaveAcknowledgement({
+    required this.requestId,
+    required this.recordVersion,
+    required this.operationId,
+    required this.payloadHash,
+    required this.committedAt,
+  });
+
+  final String requestId;
+  final int recordVersion;
+  final String operationId;
+  final String payloadHash;
+  final DateTime committedAt;
+
+  factory YorksV1MaterialRequestDraftSaveAcknowledgement.fromRpcJson(
+    Map<String, dynamic> json,
+  ) => YorksV1MaterialRequestDraftSaveAcknowledgement(
+    requestId: _requiredString(json, 'request_id'),
+    recordVersion: _positiveInt(json['record_version']),
+    operationId: _requiredString(json, 'operation_id'),
+    payloadHash: _requiredString(json, 'payload_hash'),
+    committedAt: _requiredDate(json, 'committed_at'),
+  );
 }
 
 class YorksV1SubmitMaterialRequestInput {

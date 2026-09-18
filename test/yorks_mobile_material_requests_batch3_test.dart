@@ -117,6 +117,31 @@ void main() {
     );
   });
 
+  testWidgets(
+    'new draft entry never probes the normalized request projection',
+    (tester) async {
+      await _setViewport(tester, const Size(1366, 768));
+      final repository = await _pumpDraft(tester);
+
+      expect(repository.getRequestCount, 0);
+      expect(find.text('Request Information'), findsWidgets);
+    },
+  );
+
+  testWidgets('saved draft denial never opens a replacement blank editor', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(1366, 768));
+    final repository = await _pumpDraft(
+      tester,
+      entryMode: YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft,
+    );
+
+    expect(repository.getRequestCount, 1);
+    expect(find.text('Add Custom Item'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   testWidgets('desktop custom item action waits for project selection', (
     tester,
   ) async {
@@ -3034,6 +3059,7 @@ Future<_MaterialRequestRepositoryFixture> _pumpDraft(
   String? boqGroupId,
   YorksV1RuntimeConfiguration? runtimeConfiguration,
   YorksV1MaterialRequest? serverRequest,
+  YorksV1MaterialRequestDraftEntryMode? entryMode,
   String? initialProjectId = _projectId,
   List<YorksV1MaterialRequestProjectOption>? projectOptions,
   YorksV1Role role = YorksV1Role.projectEngineer,
@@ -3083,6 +3109,11 @@ Future<_MaterialRequestRepositoryFixture> _pumpDraft(
       ],
       child: YorksV1MaterialRequestDraftScreen(
         draftId: _draftId,
+        entryMode:
+            entryMode ??
+            (serverRequest == null
+                ? YorksV1MaterialRequestDraftEntryMode.newDraft
+                : YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft),
         projectId: initialProjectId,
         boqGroupId: boqGroupId,
       ),
@@ -3389,6 +3420,7 @@ class _MaterialRequestRepositoryFixture
 
   final YorksV1MaterialRequest? serverRequest;
   int saveAndSubmitCount = 0;
+  int getRequestCount = 0;
   bool submissionResponseLost = false;
   int saveSubmitAndApproveCount = 0;
   final List<YorksV1AddMaterialRequestCommentInput> addCommentInputs = [];
@@ -3461,6 +3493,7 @@ class _MaterialRequestRepositoryFixture
 
   @override
   Future<YorksV1MaterialRequest> getRequest(String requestId) async {
+    getRequestCount++;
     if (serverRequest != null) return serverRequest!;
     throw const YorksV1DomainException(
       YorksV1DomainErrorCode.unauthorized,

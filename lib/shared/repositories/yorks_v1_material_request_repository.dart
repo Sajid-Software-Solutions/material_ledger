@@ -41,6 +41,21 @@ abstract interface class YorksV1MaterialRequestSubmissionRecoveryRepository {
   });
 }
 
+/// Additive save receipt contract. Older test/backends keep the original
+/// projection-returning save method, while production uses this interface to
+/// distinguish a committed save from an unconfirmed transport outcome.
+abstract interface class YorksV1MaterialRequestDraftSaveRecoveryRepository {
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement> saveDraftIdempotent(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  });
+
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement?> findDraftSaveResult(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  });
+}
+
 abstract interface class YorksV1MaterialRequestRepository {
   Future<List<YorksV1MaterialRequestProjectOption>> listDraftProjects();
 
@@ -191,6 +206,7 @@ abstract interface class YorksV1MaterialRequestOperationsRepository {
 class YorksV1SupabaseMaterialRequestRepository
     implements
         YorksV1MaterialRequestRepository,
+        YorksV1MaterialRequestDraftSaveRecoveryRepository,
         YorksV1MaterialRequestSubmissionRecoveryRepository,
         YorksV1MaterialRequestPhase2Repository,
         YorksV1MaterialRequestPhase3Repository,
@@ -394,6 +410,41 @@ class YorksV1SupabaseMaterialRequestRepository
       parameters: {'p_payload': input.toRpcPayload()},
     );
     return _single(response);
+  }
+
+  @override
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement> saveDraftIdempotent(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  }) async {
+    final response = await _invoke(
+      functionName: 'v1_save_material_request_draft_idempotent',
+      parameters: {
+        'p_payload': input.toRpcPayload(),
+        'p_idempotency_key': operationId,
+      },
+    );
+    return YorksV1MaterialRequestDraftSaveAcknowledgement.fromRpcJson(
+      _map(response),
+    );
+  }
+
+  @override
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement?> findDraftSaveResult(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  }) async {
+    final response = await _invoke(
+      functionName: 'v1_get_material_request_draft_save_result',
+      parameters: {
+        'p_payload': input.toRpcPayload(),
+        'p_idempotency_key': operationId,
+      },
+    );
+    if (response == null) return null;
+    return YorksV1MaterialRequestDraftSaveAcknowledgement.fromRpcJson(
+      _map(response),
+    );
   }
 
   @override

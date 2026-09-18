@@ -82,6 +82,7 @@ import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
 import '../shared/models/user_role.dart';
 import '../shared/models/yorks_v1_permission_management.dart';
+import '../shared/models/yorks_v1_material_request.dart';
 import '../shared/models/yorks_v1_role.dart';
 import '../shared/providers/yorks_v1_permission_provider.dart';
 import '../shared/screens/about_screen.dart';
@@ -261,9 +262,11 @@ abstract final class RoutePaths {
     String? boqGroupId,
     String? projectId,
     int? boqVersion,
+    YorksV1MaterialRequestDraftEntryMode? entryMode,
   }) {
     if ((boqGroupId == null || boqGroupId.trim().isEmpty) &&
-        (projectId == null || projectId.trim().isEmpty)) {
+        (projectId == null || projectId.trim().isEmpty) &&
+        entryMode == null) {
       return '/yorks/material-requests/draft/$draftId';
     }
     final query = <String, String>{};
@@ -274,6 +277,7 @@ abstract final class RoutePaths {
       query['project_id'] = projectId;
     }
     if (boqVersion != null) query['boq_version'] = '$boqVersion';
+    if (entryMode != null) query['entry_mode'] = entryMode.wireValue;
     return Uri(
       path: '/yorks/material-requests/draft/$draftId',
       queryParameters: query,
@@ -1570,6 +1574,9 @@ GoRouter createAppRouter({
           state.pageKey,
           YorksV1MaterialRequestDraftScreen(
             draftId: state.pathParameters['draftId'] ?? '',
+            entryMode: YorksV1MaterialRequestDraftEntryMode.fromWireValue(
+              state.uri.queryParameters['entry_mode'],
+            ),
             boqGroupId: state.uri.queryParameters['boq_group_id'],
             projectId: state.uri.queryParameters['project_id'],
             boqVersion: int.tryParse(

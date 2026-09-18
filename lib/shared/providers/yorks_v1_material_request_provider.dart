@@ -80,7 +80,6 @@ final yorksV1MaterialRequestDraftControllerProvider = StateNotifierProvider
           revision.state++;
         },
       );
-      unawaited(controller.hydratePrivateDraft());
       return controller;
     });
 

@@ -721,7 +721,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final second = controller.saveConnected();
 
-      expect(await second, isNull);
+      expect(await second, isFalse);
       blocker.complete();
       expect(await first, isNotNull);
       expect(repository.saveInputs, hasLength(1));
@@ -806,7 +806,7 @@ void main() {
         await controller.addCustomLine();
         final saved = await controller.saveDraft();
 
-        expect(saved, isNull);
+        expect(saved, isTrue);
         expect(repository.saveInputs, isEmpty);
         expect(store.readAll().single.lines.single.description, isEmpty);
         expect(controller.acceptedDraft.lines, hasLength(1));
@@ -814,6 +814,72 @@ void main() {
           controller.state.status,
           YorksV1MaterialRequestDraftSyncStatus.local,
         );
+      },
+    );
+
+    test(
+      'lost draft-save response persists one intent and reconciles its receipt after restart',
+      () async {
+        final store = _MemoryStore<YorksV1MaterialRequestDraft>();
+        final repository = _DraftSaveRecoveryRepository()
+          ..loseNextResponse = true
+          ..commitBeforeLoss = true;
+        final controller = await _validSaveController(repository, store);
+
+        expect(await controller.saveConnected(), isFalse);
+        expect(
+          controller.state.status,
+          YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
+        );
+        final pending = controller.currentDraft;
+        expect(pending.hasPendingSave, isTrue);
+        expect(store.readAll().single.pendingSaveOperationId, isNotEmpty);
+        final frozenTitle = pending.title;
+        await controller.setTitle('Must not replace unresolved save');
+        expect(controller.currentDraft.title, frozenTitle);
+        controller.dispose();
+
+        final reopened = YorksV1MaterialRequestDraftController(
+          ownerAuthUserId: _siteEngineer,
+          draftId: _draftId,
+          store: store,
+          repository: repository,
+          uuidFactory: _Ids().next,
+        );
+        addTearDown(reopened.dispose);
+        expect(reopened.currentDraft.hasPendingSave, isTrue);
+        expect(await reopened.reconcileDraftSave(), isTrue);
+        expect(repository.saveOperationIds, hasLength(1));
+        expect(repository.receiptReads, 1);
+        expect(reopened.currentDraft.serverRecordVersion, 1);
+        expect(reopened.currentDraft.hasPendingSave, isFalse);
+      },
+    );
+
+    test(
+      'unconfirmed draft save replays only the same operation and payload',
+      () async {
+        final store = _MemoryStore<YorksV1MaterialRequestDraft>();
+        final repository = _DraftSaveRecoveryRepository()
+          ..loseNextResponse = true
+          ..commitBeforeLoss = false;
+        final controller = await _validSaveController(repository, store);
+        addTearDown(controller.dispose);
+
+        expect(await controller.saveConnected(), isFalse);
+        final operationId = controller.currentDraft.pendingSaveOperationId;
+        final payloadHash = controller.currentDraft.pendingSavePayloadHash;
+        expect(await controller.reconcileDraftSave(), isFalse);
+        expect(repository.saveOperationIds, [operationId]);
+        expect(controller.state.canRetryUnconfirmed, isTrue);
+
+        expect(
+          await controller.reconcileDraftSave(retryIfAbsent: true),
+          isTrue,
+        );
+        expect(repository.saveOperationIds, [operationId, operationId]);
+        expect(repository.payloadHashes.toSet(), {payloadHash});
+        expect(repository.commitCount, 1);
       },
     );
 
@@ -2331,7 +2397,7 @@ void main() {
           await Future<void>.delayed(Duration.zero);
           controller.dispose();
           blocker.complete();
-          expect(await submission, isNull);
+          expect(await submission, saveOnly ? isFalse : isNull);
           expect(store.readAll(), hasLength(1));
         },
       );
@@ -3158,6 +3224,86 @@ class _RejectingRpcClient implements YorksV1MaterialRequestRpcClient {
     required Map<String, Object?> parameters,
   }) async =>
       throw PostgrestException(message: 'Private server detail', code: code);
+}
+
+Future<YorksV1MaterialRequestDraftController> _validSaveController(
+  YorksV1MaterialRequestRepository repository,
+  _MemoryStore<YorksV1MaterialRequestDraft> store,
+) async {
+  final controller = YorksV1MaterialRequestDraftController(
+    ownerAuthUserId: _siteEngineer,
+    draftId: _draftId,
+    store: store,
+    repository: repository,
+    uuidFactory: _Ids().next,
+  );
+  await controller.setProject(_projectId);
+  await controller.setScope(_scopeId);
+  await controller.addCustomLine();
+  await controller.updateLine(
+    controller.currentDraft.lines.single.id,
+    (line) => line.copyWith(description: 'Duct', quantity: '2', unit: 'Nos'),
+  );
+  return controller;
+}
+
+class _DraftSaveRecoveryRepository extends _FakeRequestRepository
+    implements YorksV1MaterialRequestDraftSaveRecoveryRepository {
+  bool loseNextResponse = false;
+  bool commitBeforeLoss = true;
+  int commitCount = 0;
+  int receiptReads = 0;
+  final List<String> saveOperationIds = [];
+  final List<String> payloadHashes = [];
+  final Map<String, YorksV1MaterialRequestDraftSaveAcknowledgement> receipts =
+      {};
+
+  @override
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement> saveDraftIdempotent(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  }) async {
+    saveOperationIds.add(operationId);
+    payloadHashes.add(input.draft.savePayloadHash());
+    if (!receipts.containsKey(operationId) &&
+        (!loseNextResponse || commitBeforeLoss)) {
+      commitCount++;
+      receipts[operationId] = YorksV1MaterialRequestDraftSaveAcknowledgement(
+        requestId: input.draft.id,
+        recordVersion: input.draft.serverRecordVersion + 1,
+        operationId: operationId,
+        payloadHash: 'server-payload-hash',
+        committedAt: DateTime.utc(2026, 9, 18, 10),
+      );
+    }
+    if (loseNextResponse) {
+      loseNextResponse = false;
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+        cause: TimeoutException('lost draft save response'),
+      );
+    }
+    final existing = receipts[operationId];
+    if (existing != null) return existing;
+    commitCount++;
+    return receipts[operationId] =
+        YorksV1MaterialRequestDraftSaveAcknowledgement(
+          requestId: input.draft.id,
+          recordVersion: input.draft.serverRecordVersion + 1,
+          operationId: operationId,
+          payloadHash: 'server-payload-hash',
+          committedAt: DateTime.utc(2026, 9, 18, 10),
+        );
+  }
+
+  @override
+  Future<YorksV1MaterialRequestDraftSaveAcknowledgement?> findDraftSaveResult(
+    YorksV1SaveMaterialRequestDraftInput input, {
+    required String operationId,
+  }) async {
+    receiptReads++;
+    return receipts[operationId];
+  }
 }
 
 Future<YorksV1MaterialRequestDraftController> _recoveryController(

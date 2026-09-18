@@ -13,6 +13,7 @@ class YorksV1SubmissionRecoveryPanel extends StatelessWidget {
     required this.canRetry,
     required this.onCheck,
     required this.onRetry,
+    this.save = false,
   });
 
   final AppLanguage language;
@@ -20,6 +21,7 @@ class YorksV1SubmissionRecoveryPanel extends StatelessWidget {
   final bool canRetry;
   final VoidCallback onCheck;
   final VoidCallback onRetry;
+  final bool save;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -32,9 +34,10 @@ class YorksV1SubmissionRecoveryPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              YorksV1MaterialRequestStrings.submissionUnconfirmed.active(
-                language,
-              ),
+              (save
+                      ? YorksV1MaterialRequestStrings.saveUnconfirmed
+                      : YorksV1MaterialRequestStrings.submissionUnconfirmed)
+                  .active(language),
             ),
             const SizedBox(height: AppSpacing.sm),
             Wrap(
@@ -42,7 +45,9 @@ class YorksV1SubmissionRecoveryPanel extends StatelessWidget {
               runSpacing: AppSpacing.sm,
               children: [
                 OutlinedButton.icon(
-                  key: const ValueKey('mr-check-submission'),
+                  key: ValueKey(
+                    save ? 'mr-check-draft-save' : 'mr-check-submission',
+                  ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(44, 44),
                   ),
@@ -55,22 +60,30 @@ class YorksV1SubmissionRecoveryPanel extends StatelessWidget {
                         )
                       : const Icon(Icons.refresh),
                   label: Text(
-                    YorksV1MaterialRequestStrings.checkSubmissionStatus.active(
-                      language,
-                    ),
+                    (save
+                            ? YorksV1MaterialRequestStrings.checkSaveStatus
+                            : YorksV1MaterialRequestStrings
+                                  .checkSubmissionStatus)
+                        .active(language),
                   ),
                 ),
                 if (canRetry)
                   OutlinedButton(
-                    key: const ValueKey('mr-retry-same-submission'),
+                    key: ValueKey(
+                      save
+                          ? 'mr-retry-same-draft-save'
+                          : 'mr-retry-same-submission',
+                    ),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(44, 44),
                     ),
                     onPressed: checking ? null : onRetry,
                     child: Text(
-                      YorksV1MaterialRequestStrings.retrySameSubmission.active(
-                        language,
-                      ),
+                      (save
+                              ? YorksV1MaterialRequestStrings.retrySameSave
+                              : YorksV1MaterialRequestStrings
+                                    .retrySameSubmission)
+                          .active(language),
                     ),
                   ),
               ],

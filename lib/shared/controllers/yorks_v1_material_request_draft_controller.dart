@@ -22,6 +22,7 @@ enum YorksV1MaterialRequestDraftSyncStatus {
   submitting,
   submitted,
   outcomeUnknown,
+  checkingSave,
   checkingSubmission,
   conflict,
   failed,
@@ -33,12 +34,21 @@ class YorksV1MaterialRequestDraftState {
     this.status = YorksV1MaterialRequestDraftSyncStatus.local,
     this.errorCode,
     this.canRetryUnconfirmed = false,
+    this.localPersistenceFailed = false,
   });
 
   final YorksV1MaterialRequestDraft draft;
   final YorksV1MaterialRequestDraftSyncStatus status;
   final YorksV1DomainErrorCode? errorCode;
   final bool canRetryUnconfirmed;
+  final bool localPersistenceFailed;
+}
+
+class _DraftSaveResult {
+  const _DraftSaveResult({required this.acknowledged, this.request});
+
+  final bool acknowledged;
+  final YorksV1MaterialRequest? request;
 }
 
 /// Local-recovery plus connected-command controller. Editing remains private
@@ -76,10 +86,12 @@ class YorksV1MaterialRequestDraftController
          ),
        ) {
     _acceptedDraft = state.draft;
-    if (state.draft.pendingSubmissionApproval != null) {
+    if (state.draft.pendingSubmissionApproval != null ||
+        state.draft.hasPendingSave) {
       state = YorksV1MaterialRequestDraftState(
         draft: state.draft,
         status: YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
+        canRetryUnconfirmed: state.draft.hasPendingSave,
       );
     }
   }
@@ -249,6 +261,11 @@ class YorksV1MaterialRequestDraftController
           ownerAuthUserId: draft.ownerAuthUserId,
           submissionIdempotencyKey: uuidFactory(),
           serverRecordVersion: draft.serverRecordVersion,
+          localRevision: draft.localRevision,
+          pendingSaveOperationId: draft.pendingSaveOperationId,
+          pendingSaveExpectedVersion: draft.pendingSaveExpectedVersion,
+          pendingSaveRevision: draft.pendingSaveRevision,
+          pendingSavePayloadHash: draft.pendingSavePayloadHash,
           privateSyncVersion: draft.privateSyncVersion,
           privateSyncedAt: draft.privateSyncedAt,
           projectId: draft.projectId,
@@ -379,6 +396,7 @@ class YorksV1MaterialRequestDraftController
       ownerAuthUserId: current.ownerAuthUserId,
       submissionIdempotencyKey: current.submissionIdempotencyKey,
       serverRecordVersion: request.recordVersion,
+      localRevision: current.localRevision,
       projectId: request.projectId,
       scopeId: request.scopeId,
       title: request.title,
@@ -662,8 +680,10 @@ class YorksV1MaterialRequestDraftController
   /// accepted by the server.  Incomplete input is still durable on this
   /// device and can be reopened and edited later; complete input is synced
   /// through the versioned draft RPC.
-  Future<YorksV1MaterialRequest?> saveDraft() async {
-    if (_inactive || state.draft.pendingSubmissionApproval != null) return null;
+  Future<bool> saveDraft() async {
+    if (_inactive || state.draft.pendingSubmissionApproval != null) {
+      return false;
+    }
     final draft = state.draft;
     if (!draft.canSubmitLocally) {
       await _persist(draft);
@@ -679,19 +699,24 @@ class YorksV1MaterialRequestDraftController
           AnalyticsProperty.itemCount: draft.lines.length,
         },
       );
-      return null;
+      return true;
     }
     return saveConnected();
   }
 
-  Future<YorksV1MaterialRequest?> saveConnected() async {
-    if (_inactive || state.draft.pendingSubmissionApproval != null) return null;
+  Future<bool> saveConnected() async {
+    if (_inactive || state.draft.pendingSubmissionApproval != null) {
+      return false;
+    }
+    if (state.draft.hasPendingSave) {
+      return reconcileDraftSave(retryIfAbsent: true);
+    }
     final feedback = _analytics.expectFeedback(
       action: 'save_material_request_draft',
       screen: AnalyticsScreen.materialRequestDraft,
       operationWasLoading: _connectedCommandInFlight,
     );
-    if (_inactive || _connectedCommandInFlight) return null;
+    if (_inactive || _connectedCommandInFlight) return false;
     _beginConnectedCommand();
     final operation = _analytics.beginOperation(
       'material_request_save_draft',
@@ -704,8 +729,8 @@ class YorksV1MaterialRequestDraftController
       final pending = _saveConnected();
       feedback.feedbackObserved();
       final result = await pending;
-      if (_inactive) return null;
-      if (result == null) {
+      if (_inactive) return false;
+      if (!result.acknowledged) {
         operation.fail(
           YorksV1DomainException(
             state.errorCode ?? YorksV1DomainErrorCode.backendUnavailable,
@@ -721,14 +746,14 @@ class YorksV1MaterialRequestDraftController
           },
         );
       }
-      return result;
+      return result.acknowledged;
     } finally {
       _connectedCommandInFlight = false;
     }
   }
 
-  Future<YorksV1MaterialRequest?> _saveConnected() async {
-    final draft = state.draft;
+  Future<_DraftSaveResult> _saveConnected() async {
+    var draft = state.draft;
     if (!draft.canSubmitLocally) {
       _analytics.capture(
         AnalyticsEvent.formValidationFailed,
@@ -743,7 +768,25 @@ class YorksV1MaterialRequestDraftController
         status: YorksV1MaterialRequestDraftSyncStatus.failed,
         errorCode: YorksV1DomainErrorCode.invalidInput,
       );
-      return null;
+      return const _DraftSaveResult(acknowledged: false);
+    }
+    final receiptRepository =
+        _repository is YorksV1MaterialRequestDraftSaveRecoveryRepository
+        ? _repository as YorksV1MaterialRequestDraftSaveRecoveryRepository
+        : null;
+    if (!_editingBeforeApproval && receiptRepository != null) {
+      final operationId = _uuidFactory();
+      final payloadHash = draft.savePayloadHash();
+      draft = draft.copyWith(
+        pendingSaveOperationId: operationId,
+        pendingSaveExpectedVersion: draft.serverRecordVersion,
+        pendingSaveRevision: draft.localRevision,
+        pendingSavePayloadHash: payloadHash,
+      );
+      await _persist(draft);
+      if (_inactive) {
+        return const _DraftSaveResult(acknowledged: false);
+      }
     }
     state = YorksV1MaterialRequestDraftState(
       draft: draft,
@@ -757,41 +800,95 @@ class YorksV1MaterialRequestDraftController
                 idempotencyKey: draft.submissionIdempotencyKey,
               ),
             )
-          : await _repository.saveDraft(draft.toSaveInput());
-      if (_inactive) return null;
+          : null;
+      final acknowledgement =
+          !_editingBeforeApproval && receiptRepository != null
+          ? await receiptRepository.saveDraftIdempotent(
+              draft.toSaveInput(),
+              operationId: draft.pendingSaveOperationId!,
+            )
+          : null;
+      final legacySaved = !_editingBeforeApproval && receiptRepository == null
+          ? await _repository.saveDraft(draft.toSaveInput())
+          : null;
+      if (_inactive) {
+        return const _DraftSaveResult(acknowledged: false);
+      }
+      final recordVersion =
+          acknowledgement?.recordVersion ??
+          saved?.recordVersion ??
+          legacySaved!.recordVersion;
       final updated = draft.copyWith(
-        serverRecordVersion: saved.recordVersion,
+        serverRecordVersion: recordVersion,
+        pendingSaveOperationId: null,
+        pendingSaveExpectedVersion: null,
+        pendingSaveRevision: null,
+        pendingSavePayloadHash: null,
         submissionIdempotencyKey: _editingBeforeApproval
             ? _uuidFactory()
             : draft.submissionIdempotencyKey,
-        updatedAt: DateTime.now().toUtc(),
+        updatedAt: acknowledgement?.committedAt ?? DateTime.now().toUtc(),
       );
-      await _persist(updated);
-      if (_inactive) return null;
       _acceptedDraft = updated;
       state = YorksV1MaterialRequestDraftState(
         draft: updated,
         status: YorksV1MaterialRequestDraftSyncStatus.saved,
       );
-      return saved;
+      try {
+        await _persist(updated);
+      } catch (_) {
+        if (!_inactive) {
+          state = YorksV1MaterialRequestDraftState(
+            draft: updated,
+            status: YorksV1MaterialRequestDraftSyncStatus.saved,
+            localPersistenceFailed: true,
+          );
+        }
+      }
+      return _DraftSaveResult(
+        acknowledged: true,
+        request: saved ?? legacySaved,
+      );
     } on YorksV1DomainException catch (error) {
-      if (_inactive) return null;
+      if (_inactive) return const _DraftSaveResult(acknowledged: false);
+      final outcomeUnknown =
+          draft.hasPendingSave &&
+          error.code == YorksV1DomainErrorCode.backendUnavailable;
+      final retained = outcomeUnknown
+          ? draft
+          : draft.copyWith(
+              pendingSaveOperationId: null,
+              pendingSaveExpectedVersion: null,
+              pendingSaveRevision: null,
+              pendingSavePayloadHash: null,
+            );
+      if (!outcomeUnknown && draft.hasPendingSave) {
+        try {
+          await _persist(retained);
+        } catch (_) {}
+      }
       state = YorksV1MaterialRequestDraftState(
-        draft: draft,
-        status: error.code == YorksV1DomainErrorCode.conflict
+        draft: retained,
+        status: outcomeUnknown
+            ? YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown
+            : error.code == YorksV1DomainErrorCode.conflict
             ? YorksV1MaterialRequestDraftSyncStatus.conflict
             : YorksV1MaterialRequestDraftSyncStatus.failed,
         errorCode: error.code,
+        canRetryUnconfirmed: outcomeUnknown,
       );
-      return null;
+      return const _DraftSaveResult(acknowledged: false);
     } catch (error) {
-      if (_inactive) return null;
+      if (_inactive) return const _DraftSaveResult(acknowledged: false);
       state = YorksV1MaterialRequestDraftState(
         draft: draft,
-        status: YorksV1MaterialRequestDraftSyncStatus.failed,
+        status: draft.hasPendingSave
+            ? YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown
+            : YorksV1MaterialRequestDraftSyncStatus.failed,
         errorCode: YorksV1DomainErrorCode.backendUnavailable,
+        canRetryUnconfirmed: draft.hasPendingSave,
       );
-      return null;
+      return const _DraftSaveResult(acknowledged: false);
     }
   }
 
@@ -806,11 +903,126 @@ class YorksV1MaterialRequestDraftController
     return _submitWorkflow(approveImmediately: true);
   }
 
+  Future<bool> reconcileDraftSave({bool retryIfAbsent = false}) async {
+    if (_inactive || _connectedCommandInFlight) return false;
+    final draft = state.draft;
+    final repository =
+        _repository is YorksV1MaterialRequestDraftSaveRecoveryRepository
+        ? _repository as YorksV1MaterialRequestDraftSaveRecoveryRepository
+        : null;
+    if (!draft.hasPendingSave || repository == null) return false;
+    if (draft.pendingSaveExpectedVersion != draft.serverRecordVersion ||
+        draft.pendingSaveRevision != draft.localRevision ||
+        draft.pendingSavePayloadHash != draft.savePayloadHash()) {
+      state = YorksV1MaterialRequestDraftState(
+        draft: draft,
+        status: YorksV1MaterialRequestDraftSyncStatus.conflict,
+        errorCode: YorksV1DomainErrorCode.conflict,
+      );
+      return false;
+    }
+    _beginConnectedCommand();
+    state = YorksV1MaterialRequestDraftState(
+      draft: draft,
+      status: YorksV1MaterialRequestDraftSyncStatus.checkingSave,
+    );
+    try {
+      var acknowledgement = await repository.findDraftSaveResult(
+        draft.toSaveInput(),
+        operationId: draft.pendingSaveOperationId!,
+      );
+      if (_inactive) return false;
+      if (acknowledgement == null && retryIfAbsent) {
+        acknowledgement = await repository.saveDraftIdempotent(
+          draft.toSaveInput(),
+          operationId: draft.pendingSaveOperationId!,
+        );
+      }
+      if (_inactive) return false;
+      if (acknowledgement == null) {
+        state = YorksV1MaterialRequestDraftState(
+          draft: draft,
+          status: YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
+          errorCode: YorksV1DomainErrorCode.backendUnavailable,
+          canRetryUnconfirmed: true,
+        );
+        return false;
+      }
+      return await _acceptDraftSaveAcknowledgement(draft, acknowledgement);
+    } on YorksV1DomainException catch (error) {
+      if (!_inactive) {
+        state = YorksV1MaterialRequestDraftState(
+          draft: draft,
+          status: YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
+          errorCode: error.code,
+          canRetryUnconfirmed:
+              error.code == YorksV1DomainErrorCode.backendUnavailable,
+        );
+      }
+      return false;
+    } catch (_) {
+      if (!_inactive) {
+        state = YorksV1MaterialRequestDraftState(
+          draft: draft,
+          status: YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
+          errorCode: YorksV1DomainErrorCode.backendUnavailable,
+          canRetryUnconfirmed: true,
+        );
+      }
+      return false;
+    } finally {
+      _connectedCommandInFlight = false;
+    }
+  }
+
+  Future<bool> _acceptDraftSaveAcknowledgement(
+    YorksV1MaterialRequestDraft draft,
+    YorksV1MaterialRequestDraftSaveAcknowledgement acknowledgement,
+  ) async {
+    if (acknowledgement.requestId != draft.id ||
+        acknowledgement.operationId != draft.pendingSaveOperationId ||
+        acknowledgement.recordVersion <= draft.serverRecordVersion) {
+      state = YorksV1MaterialRequestDraftState(
+        draft: draft,
+        status: YorksV1MaterialRequestDraftSyncStatus.conflict,
+        errorCode: YorksV1DomainErrorCode.unexpectedResponse,
+      );
+      return false;
+    }
+    final updated = draft.copyWith(
+      serverRecordVersion: acknowledgement.recordVersion,
+      pendingSaveOperationId: null,
+      pendingSaveExpectedVersion: null,
+      pendingSaveRevision: null,
+      pendingSavePayloadHash: null,
+      updatedAt: acknowledgement.committedAt,
+    );
+    _acceptedDraft = updated;
+    state = YorksV1MaterialRequestDraftState(
+      draft: updated,
+      status: YorksV1MaterialRequestDraftSyncStatus.saved,
+    );
+    try {
+      await _persist(updated);
+    } catch (_) {
+      if (!_inactive) {
+        state = YorksV1MaterialRequestDraftState(
+          draft: updated,
+          status: YorksV1MaterialRequestDraftSyncStatus.saved,
+          localPersistenceFailed: true,
+        );
+      }
+    }
+    return true;
+  }
+
   Future<YorksV1MaterialRequest?> _submitWorkflow({
     required bool approveImmediately,
     bool retryUnconfirmed = false,
   }) async {
-    if (_inactive || _connectedCommandInFlight) return null;
+    if (_inactive || _connectedCommandInFlight || state.draft.hasPendingSave) {
+      return null;
+    }
     if (state.draft.pendingSubmissionApproval != null && !retryUnconfirmed) {
       return reconcileSubmission();
     }
@@ -919,7 +1131,7 @@ class YorksV1MaterialRequestDraftController
     if (_editingBeforeApproval) {
       final saved = await _saveConnected();
       if (_inactive) return null;
-      if (saved != null) {
+      if (saved.acknowledged) {
         // A returned request may pass through this edit/approval cycle more
         // than once. Once this version reaches the server, its local recovery
         // copy must not survive as the starting point for a later return: the
@@ -938,7 +1150,7 @@ class YorksV1MaterialRequestDraftController
           status: YorksV1MaterialRequestDraftSyncStatus.submitted,
         );
       }
-      return saved;
+      return saved.request;
     }
     var draft = state.draft;
     if (!draft.canSubmitLocally) {
@@ -1193,7 +1405,8 @@ class YorksV1MaterialRequestDraftController
   }) async {
     if (_inactive ||
         (state.draft.pendingSubmissionApproval != null &&
-            !submissionConfirmed)) {
+            !submissionConfirmed) ||
+        (state.draft.hasPendingSave && !submissionConfirmed)) {
       return;
     }
     _recoveryGeneration++;
@@ -1264,11 +1477,13 @@ class YorksV1MaterialRequestDraftController
   Future<void> _replace(YorksV1MaterialRequestDraft draft) async {
     if (_inactive ||
         _connectedCommandInFlight ||
+        state.draft.hasPendingSave ||
         state.draft.pendingSubmissionApproval != null ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.submitted) {
       return;
     }
     final updated = draft.copyWith(
+      localRevision: state.draft.localRevision + 1,
       submissionIdempotencyKey: _uuidFactory(),
       updatedAt: DateTime.now().toUtc(),
     );
@@ -1284,6 +1499,7 @@ class YorksV1MaterialRequestDraftController
   void _schedulePrivateSync() {
     if (_inactive ||
         _connectedCommandInFlight ||
+        state.draft.hasPendingSave ||
         state.draft.pendingSubmissionApproval != null ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.submitted) {
       return;

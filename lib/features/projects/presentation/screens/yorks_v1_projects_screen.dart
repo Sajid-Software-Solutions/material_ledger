@@ -249,7 +249,10 @@ class YorksV1OverviewScreen extends ConsumerWidget {
           : null,
       onCreateRequest: createRequestAccess.canWrite
           ? () => context.push(
-              RoutePaths.yorksV1MaterialRequestDraftPath(const Uuid().v4()),
+              RoutePaths.yorksV1MaterialRequestDraftPath(
+                const Uuid().v4(),
+                entryMode: YorksV1MaterialRequestDraftEntryMode.newDraft,
+              ),
             )
           : null,
       onOpenProjects: () => context.go(RoutePaths.yorksV1Projects),
@@ -3367,6 +3370,7 @@ String _materialRequestOpenPath(YorksV1MaterialRequest request) {
     return RoutePaths.yorksV1MaterialRequestDraftPath(
       request.id,
       projectId: request.projectId,
+      entryMode: YorksV1MaterialRequestDraftEntryMode.resumeSavedDraft,
     );
   }
   return RoutePaths.yorksV1MaterialRequestPath(request.id);
@@ -3822,6 +3826,7 @@ class _YorksV1ProjectWorkspaceScreenState
                     RoutePaths.yorksV1MaterialRequestDraftPath(
                       const Uuid().v4(),
                       projectId: selectedProject.project.id,
+                      entryMode: YorksV1MaterialRequestDraftEntryMode.newDraft,
                     ),
                   )
                 : null;
