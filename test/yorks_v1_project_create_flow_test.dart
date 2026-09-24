@@ -33,6 +33,7 @@ void main() {
   Future<ProviderContainer> createContainer({
     required YorksV1Role? role,
     required _FakeProjectRepository repository,
+    YorksV1CurrentPermissionSnapshotState? permissionState,
     YorksV1ProjectTeamDirectoryRepository? teamDirectoryRepository,
     YorksV1DocumentFileService? documentFileService,
   }) async {
@@ -45,9 +46,10 @@ void main() {
         yorksV1CurrentRoleProvider.overrideWithValue(role),
         yorksV1CurrentPermissionSnapshotProvider.overrideWith(
           (ref) => YorksV1TestPermissionController(
-            yorksV1TrustedFeaturePermissionState(
-              role: role ?? YorksV1Role.admin,
-            ),
+            permissionState ??
+                yorksV1TrustedFeaturePermissionState(
+                  role: role ?? YorksV1Role.admin,
+                ),
           ),
         ),
         yorksV1ProjectRepositoryProvider.overrideWithValue(repository),
@@ -162,6 +164,47 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'temporary access failure retains the editable local project draft',
+    (tester) async {
+      final container = await createContainer(
+        role: YorksV1Role.projectEngineer,
+        repository: _FakeProjectRepository(),
+        permissionState: const YorksV1CurrentPermissionSnapshotState(
+          error: YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+          ),
+        ),
+      );
+      await _pumpScreen(tester, container);
+
+      expect(
+        find.text('Unable to verify access. Your work is safe.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('yorks-v1-project-reference')),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('yorks-v1-project-reference')),
+        'YRA-RECOVER-001',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        container
+            .read(yorksV1ProjectCreationDraftProvider(_authUserId))
+            .reference,
+        'YRA-RECOVER-001',
+      );
+      expect(
+        find.text(YorksV1ProjectStrings.noPermission.primary),
+        findsNothing,
+      );
+    },
+  );
 
   test('browser-dropped documents use the controlled picker validation', () {
     final selected = YorksV1SelectedDocument.checked(

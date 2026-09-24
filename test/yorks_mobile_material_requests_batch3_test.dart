@@ -117,6 +117,42 @@ void main() {
     );
   });
 
+  testWidgets('mobile MR draft retains local edits during access outage', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(360, 800));
+    await _pumpDraft(
+      tester,
+      permissionState: const YorksV1CurrentPermissionSnapshotState(
+        error: YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        ),
+      ),
+    );
+    expect(
+      find.text('Unable to verify access. Your work is safe.'),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('mobile-mr-delivery-note')),
+      'Keep this material list',
+    );
+    await tester.pumpAndSettle();
+
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(YorksV1MaterialRequestDraftScreen)),
+    );
+    final controller = scope.read(
+      yorksV1MaterialRequestDraftControllerProvider(
+        const YorksV1MaterialRequestDraftKey(
+          ownerAuthUserId: 'mobile-mr-user',
+          draftId: _draftId,
+        ),
+      ).notifier,
+    );
+    expect(controller.currentDraft.deliveryNote, 'Keep this material list');
+  });
+
   testWidgets(
     'new draft entry never probes the normalized request projection',
     (tester) async {
@@ -3063,6 +3099,7 @@ Future<_MaterialRequestRepositoryFixture> _pumpDraft(
   String? initialProjectId = _projectId,
   List<YorksV1MaterialRequestProjectOption>? projectOptions,
   YorksV1Role role = YorksV1Role.projectEngineer,
+  YorksV1CurrentPermissionSnapshotState? permissionState,
 }) async {
   final projects = projectOptions ?? _draftProjects.take(1).toList();
   final repository = _MaterialRequestRepositoryFixture(
@@ -3073,6 +3110,10 @@ Future<_MaterialRequestRepositoryFixture> _pumpDraft(
       overrides: [
         yorksV1AuthUserIdProvider.overrideWithValue('mobile-mr-user'),
         yorksV1CurrentRoleProvider.overrideWithValue(role),
+        if (permissionState != null)
+          yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+            (ref) => YorksV1TestPermissionController(permissionState),
+          ),
         yorksV1MaterialRequestRepositoryProvider.overrideWithValue(repository),
         yorksV1RuntimeConfigurationProvider.overrideWith(
           (ref) async => runtimeConfiguration ?? _runtimeConfiguration(),
