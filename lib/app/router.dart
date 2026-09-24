@@ -1075,12 +1075,22 @@ GoRouter createAppRouter({
         return _yorksV1ProjectFallbackPath();
       }
       if (path.startsWith('/yorks/material-requests/draft/')) {
+        final procurementEditRoute =
+            yorksV1Role == YorksV1Role.procurement &&
+            state.uri.queryParameters['entry_mode'] ==
+                YorksV1MaterialRequestDraftEntryMode
+                    .editExistingRequest
+                    .wireValue &&
+            (state.uri.queryParameters['project_id'] ?? '').trim().isNotEmpty;
         final structurallyEligible =
-            yorksV1Role?.canCreateMaterialRequest ?? false;
+            (yorksV1Role?.canCreateMaterialRequest ?? false) ||
+            procurementEditRoute;
         if (!structurallyEligible) return _yorksV1ProjectFallbackPath();
         final capabilityAllowed = _hybridRouteAllows(
           yorksV1PermissionResolver,
-          YorksV1CapabilityKeys.materialRequestsCreate,
+          procurementEditRoute
+              ? YorksV1CapabilityKeys.materialRequestsView
+              : YorksV1CapabilityKeys.materialRequestsCreate,
           legacyAllowed: structurallyEligible,
           projectId: state.uri.queryParameters['project_id'],
           organizationSummary: (state.uri.queryParameters['project_id'] ?? '')

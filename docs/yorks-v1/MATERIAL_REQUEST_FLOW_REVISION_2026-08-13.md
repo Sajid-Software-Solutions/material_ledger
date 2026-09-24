@@ -43,10 +43,21 @@ draft
   trusted decision with a required reason. Its number, original submission
   attribution, decision history and audit events are retained.
 - An edit in `awaiting_request_approval` replaces only the current Engineering
-  line snapshot. It is version-checked, audited and forbidden after approval,
-  after any arrangement exists, or after any reservation/dispatch activity.
+  line snapshot. It is version-checked and audited. The later approved
+  post-approval editing decision below governs the limited exception before
+  any arrangement exists.
 - The request approval freezes the exact approved Engineering version. It does
   not create inventory reservations or commercial facts.
+- **24 September 2026 amendment:** an eligible approver may enable an audited,
+  default-off post-approval edit window for an approved request before
+  Procurement begins arrangement. The approver may designate one active
+  Procurement editor and revoke the grant. The existing **Edit request** action
+  appears beside Approve for Procurement or Arrange. A saved edit becomes a
+  new request version awaiting Engineering approval; old decisions and revision
+  snapshots remain intact, and retained lines keep their IDs. Procurement
+  cannot approve its own edit or begin arrangement until reapproval. Any
+  arrangement, reservation or dispatch permanently closes this editing window
+  for that request.
 - Saving a complete arrangement for a request with a current approval creates
   approved line quantities from arranged quantities and makes positive lines
   dispatchable. Partial and unavailable decisions remain truthful exceptions.
@@ -85,8 +96,9 @@ draft
   separately holding valid Project Engineer authority.
 - Senior Mechanical Engineer / Project Manager: organization-wide read,
   edit, approve/return and comment with exact role preserved.
-- Procurement: reads/comments only after request approval, arranges and
-  dispatches; cannot approve or edit Engineering intent.
+- Procurement: reads/comments after request approval, arranges and dispatches;
+  a single explicitly designated active Procurement user may propose an edit
+  inside the pre-arrangement window, but cannot approve it.
 - Admin: audited override within the same versioned commands; no fabricated
   actor events.
 

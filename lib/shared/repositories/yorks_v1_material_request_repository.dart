@@ -122,6 +122,22 @@ abstract interface class YorksV1MaterialRequestRepository {
   Future<YorksV1MaterialRequest> close(YorksV1CloseMaterialRequestInput input);
 }
 
+/// Server-authoritative request-level grant, separate from general role
+/// capabilities. The protected RPC rechecks the actor, state and version.
+abstract interface class YorksV1MaterialRequestPostApprovalEditRepository {
+  Future<List<YorksV1MaterialRequestMention>> listProcurementEditors(
+    String requestId,
+  );
+
+  Future<YorksV1MaterialRequest> setPostApprovalEdit({
+    required String requestId,
+    required int expectedVersion,
+    required bool enabled,
+    String? procurementEditorAuthUserId,
+    required String idempotencyKey,
+  });
+}
+
 /// Additive Phase 2 collaboration boundary. Keeping it separate preserves
 /// source compatibility for existing test and rollout repositories while the
 /// production Supabase repository exposes the new server-paginated features.
@@ -210,7 +226,8 @@ class YorksV1SupabaseMaterialRequestRepository
         YorksV1MaterialRequestSubmissionRecoveryRepository,
         YorksV1MaterialRequestPhase2Repository,
         YorksV1MaterialRequestPhase3Repository,
-        YorksV1MaterialRequestOperationsRepository {
+        YorksV1MaterialRequestOperationsRepository,
+        YorksV1MaterialRequestPostApprovalEditRepository {
   const YorksV1SupabaseMaterialRequestRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -228,6 +245,44 @@ class YorksV1SupabaseMaterialRequestRepository
   final YorksV1MaterialRequestRpcClient? _rpcClient;
   final Duration _rpcTimeout;
   final AnalyticsService _analytics;
+
+  @override
+  Future<List<YorksV1MaterialRequestMention>> listProcurementEditors(
+    String requestId,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_list_material_request_procurement_editors',
+      parameters: {'p_request_id': requestId},
+    );
+    return _list(
+      response,
+    ).map(YorksV1MaterialRequestMention.fromRpcJson).toList(growable: false);
+  }
+
+  @override
+  Future<YorksV1MaterialRequest> setPostApprovalEdit({
+    required String requestId,
+    required int expectedVersion,
+    required bool enabled,
+    String? procurementEditorAuthUserId,
+    required String idempotencyKey,
+  }) async {
+    final response = await _invoke(
+      functionName: 'v1_set_material_request_post_approval_edit',
+      parameters: {
+        'p_payload': {
+          'request_id': requestId,
+          'expected_version': expectedVersion,
+          'enabled': enabled,
+          'procurement_editor_auth_user_id': enabled
+              ? procurementEditorAuthUserId
+              : null,
+        },
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+    return _single(response);
+  }
 
   @override
   Future<YorksV1MaterialRequest?> findSubmissionResult(

@@ -943,6 +943,54 @@ abstract final class YorksV1MaterialRequestStrings {
     ur: 'درخواست میں ترمیم کریں',
     hi: 'अनुरोध संपादित करें',
   );
+  static const editingAccess = TranslatableString(
+    en: 'Editing access',
+    ar: 'صلاحية التعديل',
+    ur: 'ترمیم کی رسائی',
+    hi: 'संपादन की अनुमति',
+  );
+  static const allowEditingAfterApproval = TranslatableString(
+    en: 'Allow editing after approval',
+    ar: 'السماح بالتعديل بعد الموافقة',
+    ur: 'منظوری کے بعد ترمیم کی اجازت دیں',
+    hi: 'अनुमोदन के बाद संपादन की अनुमति दें',
+  );
+  static const editingAccessHelp = TranslatableString(
+    en: 'Off by default. Available only before Procurement starts arrangement. Any saved change returns this request for Engineering approval.',
+    ar: 'معطّل افتراضياً. يتاح فقط قبل بدء ترتيبات المشتريات. أي تعديل محفوظ يعيد الطلب لموافقة الهندسة.',
+    ur: 'پہلے سے بند ہے۔ صرف پروکیورمنٹ کے انتظام شروع کرنے سے پہلے دستیاب ہے۔ محفوظ شدہ تبدیلی دوبارہ انجینئرنگ منظوری کے لیے جائے گی۔',
+    hi: 'डिफ़ॉल्ट रूप से बंद। खरीद व्यवस्था शुरू होने से पहले ही उपलब्ध। सहेजा गया बदलाव फिर इंजीनियरिंग अनुमोदन के लिए जाएगा।',
+  );
+  static const procurementEditor = TranslatableString(
+    en: 'Procurement editor',
+    ar: 'محرر المشتريات',
+    ur: 'پروکیورمنٹ ایڈیٹر',
+    hi: 'खरीद संपादक',
+  );
+  static const approversOnly = TranslatableString(
+    en: 'Approvers only',
+    ar: 'الموافقون فقط',
+    ur: 'صرف منظوری دینے والے',
+    hi: 'केवल अनुमोदक',
+  );
+  static const saveEditingAccess = TranslatableString(
+    en: 'Save access',
+    ar: 'حفظ الصلاحية',
+    ur: 'رسائی محفوظ کریں',
+    hi: 'अनुमति सहेजें',
+  );
+  static const amendmentNeedsApproval = TranslatableString(
+    en: 'Edited after approval · Engineering approval is required again before Procurement can arrange.',
+    ar: 'تم التعديل بعد الموافقة · يلزم اعتماد الهندسة مجدداً قبل ترتيب المشتريات.',
+    ur: 'منظوری کے بعد ترمیم ہوئی · پروکیورمنٹ انتظام سے پہلے دوبارہ انجینئرنگ منظوری ضروری ہے۔',
+    hi: 'अनुमोदन के बाद संपादित · खरीद व्यवस्था से पहले फिर इंजीनियरिंग अनुमोदन आवश्यक है।',
+  );
+  static const postApprovalSaveWarning = TranslatableString(
+    en: 'Saving this approved request sends the revised version for Engineering approval. Procurement cannot arrange it until approval is confirmed.',
+    ar: 'حفظ هذا الطلب المعتمد يرسل النسخة المعدلة لموافقة الهندسة. لا يمكن للمشتريات ترتيبها حتى تأكيد الموافقة.',
+    ur: 'اس منظور شدہ درخواست کو محفوظ کرنے سے ترمیم شدہ نسخہ انجینئرنگ منظوری کے لیے جائے گا۔ منظوری کی تصدیق تک پروکیورمنٹ انتظام نہیں کر سکتی۔',
+    hi: 'इस स्वीकृत अनुरोध को सहेजने पर संशोधित संस्करण इंजीनियरिंग अनुमोदन के लिए जाएगा। पुष्टि तक खरीद व्यवस्था नहीं कर सकती।',
+  );
   static const approveForProcurement = TranslatableString(
     en: 'Approve for Procurement',
     ar: 'الموافقة للمشتريات',

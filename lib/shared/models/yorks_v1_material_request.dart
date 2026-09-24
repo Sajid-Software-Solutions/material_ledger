@@ -1304,6 +1304,11 @@ class YorksV1MaterialRequest {
     this.itemCount,
     this.canEditBeforeApproval = false,
     this.canDecideRequest = false,
+    this.postApprovalEditEnabled = false,
+    this.postApprovalAmendmentPending = false,
+    this.procurementEditorAuthUserId,
+    this.canManagePostApprovalEdit = false,
+    this.canEditPostApproval = false,
     this.requestDecision,
     this.comments = const [],
     this.requestNumber,
@@ -1341,6 +1346,11 @@ class YorksV1MaterialRequest {
   final YorksV1MaterialRequestTiming timing;
   final bool canEditBeforeApproval;
   final bool canDecideRequest;
+  final bool postApprovalEditEnabled;
+  final bool postApprovalAmendmentPending;
+  final String? procurementEditorAuthUserId;
+  final bool canManagePostApprovalEdit;
+  final bool canEditPostApproval;
   final YorksV1MaterialRequestDecision? requestDecision;
   final List<YorksV1MaterialRequestComment> comments;
   final List<YorksV1MaterialRequestLine> lines;
@@ -1397,6 +1407,14 @@ class YorksV1MaterialRequest {
       timing: timing,
       canEditBeforeApproval: json['can_edit_before_approval'] == true,
       canDecideRequest: json['can_decide_request'] == true,
+      postApprovalEditEnabled: json['post_approval_edit_enabled'] == true,
+      postApprovalAmendmentPending:
+          json['post_approval_amendment_pending'] == true,
+      procurementEditorAuthUserId: _trimToNull(
+        json['procurement_editor_auth_user_id'],
+      ),
+      canManagePostApprovalEdit: json['can_manage_post_approval_edit'] == true,
+      canEditPostApproval: json['can_edit_post_approval'] == true,
       requestDecision: json['request_decision'] is Map
           ? YorksV1MaterialRequestDecision.fromRpcJson(
               Map<String, dynamic>.from(json['request_decision'] as Map),

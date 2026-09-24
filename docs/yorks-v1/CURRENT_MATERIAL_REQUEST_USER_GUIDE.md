@@ -18,6 +18,11 @@ evidence of their original releases, not current workflow authority.
 2. **Engineering approves the need.** Requests submitted by a creator without
    that authority are reviewed by an authorized Project Engineer, who either
    approves them for Procurement or returns them for changes with a reason.
+   Before Procurement starts arrangement, an approver may open **Editing
+   access** beside the workflow action and enable the default-off **Edit
+   request** option. They may also choose one named Procurement editor.
+   Saving any change sends a new request version back for Engineering approval;
+   Procurement cannot arrange or approve it while that review is pending.
 3. **Procurement arranges every line.** Procurement records Full, Partial or
    Cannot Provide Now and chooses Warehouse or External Supplier. Saving a
    complete arrangement makes its positive quantities ready for controlled
@@ -129,7 +134,7 @@ returns and outstanding need visible without comparing separate screens.
 |---|---|
 | Project Engineer | Create/edit requests, approve Engineering need, confirm receipts and close resolved requests for authorized projects |
 | Site Engineer | Create/edit their request, confirm receipts and close resolved requests; cannot approve unless separately holding Project Engineer authority |
-| Procurement | Arrange approved requests, reserve warehouse quantities, dispatch and confirm physical material returns |
+| Procurement | Arrange approved requests, reserve warehouse quantities, dispatch and confirm physical material returns; a named editor may propose changes before arrangement, subject to Engineering reapproval |
 | Admin | Audited administration/override through the same protected commands; does not fabricate missing workflow history |
 | Global Engineering roles | Organization-wide Project Engineer authority as defined in the source-of-truth role matrix |
 | Accountant | No technical MR, arrangement, dispatch, receipt or return mutation authority |

@@ -319,6 +319,15 @@ Submit requires connectivity and atomically:
 Until approval, the creator and an assigned/global Project Engineer may update
 the current Engineering intent through a version-checked audited command.
 Procurement cannot read or arrange the new request until Engineering approval.
+The 24 September 2026 approved exception allows an eligible approver to turn
+on post-approval editing for that request only, before Procurement starts any
+arrangement. It is off by default. An approver may name one active Procurement
+editor or limit editing to approvers, and may revoke the grant. Saving an edit
+creates a new version awaiting Engineering approval; Procurement never approves
+its own proposal and cannot arrange while reapproval is pending. The server
+enforces the cutoff, actor, capability, named grant and version under lock.
+Retained line IDs, protected commercial relations and all prior decision and
+revision evidence are preserved. No existing request is automatically enabled.
 The server-backed `draft` remains private to its creator and authorized Admin
 support, including discussion. Assigned/global Engineering participants become
 readers and may participate only after explicit submission; mentions identify
