@@ -45,6 +45,9 @@ bool yorksV1TrustedCommercialAccess(
   String capabilityKey,
 ) =>
     state.error == null &&
+    // Commercial values are a stricter read boundary than ordinary workflow
+    // CTAs: revoke local cost visibility when invalidation health is unknown.
+    state.isRevisionSignalHealthy &&
     state.isTrustedForWrites &&
     state.allows(capabilityKey);
 

@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +16,154 @@ import 'package:material_ledger/shared/services/password_hasher.dart';
 const _testLocalPassword = 'test-only-local-password';
 
 void main() {
+  test(
+    'session restoration distinguishes revoked credentials from outages',
+    () {
+      expect(
+        yorksV1IsConfirmedAuthRejection(
+          AuthRetryableFetchException(statusCode: '503'),
+        ),
+        isFalse,
+      );
+      expect(
+        yorksV1IsConfirmedAuthRejection(
+          const AuthApiException('temporarily unavailable', statusCode: '503'),
+        ),
+        isFalse,
+      );
+      expect(
+        yorksV1IsConfirmedAuthRejection(
+          const AuthApiException('invalid token', statusCode: '401'),
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test('restored mobile session survives a temporary Auth outage', () async {
+    var responseStatus = HttpStatus.serviceUnavailable;
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final serverSubscription = server.listen((request) async {
+      request.response.statusCode = responseStatus;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'code': responseStatus == HttpStatus.unauthorized
+              ? 'invalid_jwt'
+              : 'service_unavailable',
+          'msg': 'Verification unavailable',
+        }),
+      );
+      await request.response.close();
+    });
+    addTearDown(() async {
+      await serverSubscription.cancel();
+      await server.close(force: true);
+    });
+
+    SharedPreferences.setMockInitialValues({kAuthUserIdPrefKey: 'app-user'});
+    final prefs = await SharedPreferences.getInstance();
+    final client = SupabaseClient(
+      'http://127.0.0.1:${server.port}',
+      'test-publishable-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(
+      jsonEncode({
+        'access_token': 'test-access-token',
+        'refresh_token': 'test-refresh-token',
+        'token_type': 'bearer',
+        'user': {
+          'id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'app_metadata': {'role': 'admin', 'app_user_id': 'app-user'},
+          'aud': 'authenticated',
+          'created_at': '2026-08-24T09:00:00Z',
+        },
+      }),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        supabaseClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(authControllerProvider);
+
+    await controller.restoreSupabaseSession();
+    expect(container.read(authSessionProvider), 'app-user');
+    expect(prefs.getString(kAuthUserIdPrefKey), 'app-user');
+
+    responseStatus = HttpStatus.unauthorized;
+    await controller.restoreSupabaseSession();
+    expect(container.read(authSessionProvider), isNull);
+  });
+
+  test('late Auth verification cannot restore a signed-out identity', () async {
+    final requestStarted = Completer<void>();
+    final releaseResponse = Completer<void>();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final serverSubscription = server.listen((request) async {
+      if (!requestStarted.isCompleted) requestStarted.complete();
+      await releaseResponse.future;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'app_metadata': {'role': 'admin', 'app_user_id': 'app-user'},
+          'aud': 'authenticated',
+          'created_at': '2026-08-24T09:00:00Z',
+        }),
+      );
+      await request.response.close();
+    });
+    addTearDown(() async {
+      if (!releaseResponse.isCompleted) releaseResponse.complete();
+      await serverSubscription.cancel();
+      await server.close(force: true);
+    });
+
+    SharedPreferences.setMockInitialValues({kAuthUserIdPrefKey: 'app-user'});
+    final prefs = await SharedPreferences.getInstance();
+    final client = SupabaseClient(
+      'http://127.0.0.1:${server.port}',
+      'test-publishable-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    addTearDown(client.dispose);
+    await client.auth.recoverSession(
+      jsonEncode({
+        'access_token': 'test-access-token',
+        'refresh_token': 'test-refresh-token',
+        'token_type': 'bearer',
+        'user': {
+          'id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'app_metadata': {'role': 'admin', 'app_user_id': 'app-user'},
+          'aud': 'authenticated',
+          'created_at': '2026-08-24T09:00:00Z',
+        },
+      }),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        supabaseClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(authControllerProvider);
+
+    final verification = controller.restoreSupabaseSession();
+    await requestStarted.future;
+    await controller.clearLocalSession();
+    releaseResponse.complete();
+    await verification;
+
+    expect(container.read(authSessionProvider), isNull);
+    expect(prefs.getString(kAuthUserIdPrefKey), isNull);
+  });
+
   group('PasswordHasher', () {
     test('verify accepts the right password and rejects others', () {
       final pw = PasswordHasher.create('s3cret!');

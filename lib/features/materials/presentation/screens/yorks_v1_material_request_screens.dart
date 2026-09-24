@@ -10314,8 +10314,12 @@ class _RequestDetailBody extends ConsumerWidget {
       role: role,
       canArrange:
           arrangeAccess.isVisible &&
-          arrangementWorkspace != null &&
-          (arrangementWorkspace.canBegin || arrangementWorkspace.canSave),
+          // The request's protected state and the current permission are
+          // already known. A separate workbench fetch may be loading or fail
+          // transiently; keep the entry point so its retry view can recover.
+          (arrangementWorkspace == null ||
+              arrangementWorkspace.canBegin ||
+              arrangementWorkspace.canSave),
       canDispatch:
           logisticsWorkspace?.canDispatch == true && dispatchAccess.isVisible,
       canConfirmReceipt: receiptDispatch != null && receiptAccess.isVisible,

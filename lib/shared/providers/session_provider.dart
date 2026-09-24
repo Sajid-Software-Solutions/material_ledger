@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,7 @@ import '../services/password_hasher.dart';
 import '../services/push_service.dart';
 import 'language_provider.dart';
 import 'users_provider.dart';
+import '../sync/connectivity_service.dart';
 
 /// The signed-in user's full account record, or `null` when logged out.
 /// Resolved from the auth session id against the users store. This is the single
@@ -137,16 +139,58 @@ final authSessionLifecycleProvider = Provider<void>((ref) {
   unawaited(controller.restoreSupabaseSession());
   final subscription = client.auth.onAuthStateChange.listen(
     (state) => unawaited(controller.handleSupabaseAuthState(state)),
+    // A stream/transport failure says nothing about the actor's authority.
+    // A signedOut event or an authoritative server response clears the session.
     onError: (Object error, StackTrace stackTrace) =>
-        unawaited(controller.clearLocalSession()),
+        unawaited(controller.restoreSupabaseSession()),
   );
-  ref.onDispose(() => unawaited(subscription.cancel()));
+  final connectivity = ref.watch(connectivityProvider);
+  final connectivitySubscription = connectivity.onChange.listen((online) {
+    if (online) unawaited(controller.restoreSupabaseSession());
+  });
+  final lifecycle = _AuthSessionResumeObserver(
+    () => unawaited(controller.restoreSupabaseSession()),
+  );
+  WidgetsBinding.instance.addObserver(lifecycle);
+  ref.onDispose(() {
+    WidgetsBinding.instance.removeObserver(lifecycle);
+    unawaited(subscription.cancel());
+    unawaited(connectivitySubscription.cancel());
+  });
 });
+
+class _AuthSessionResumeObserver with WidgetsBindingObserver {
+  _AuthSessionResumeObserver(this.onResume);
+
+  final VoidCallback onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResume();
+  }
+}
+
+/// Only an explicit Auth rejection proves the retained session is invalid.
+/// Timeouts, connection failures and transient server errors leave the local
+/// session intact while protected RPCs continue to enforce current authority.
+bool yorksV1IsConfirmedAuthRejection(Object error) {
+  if (error is AuthRetryableFetchException) return false;
+  if (error is! AuthException) return false;
+  final code = error.code?.trim().toLowerCase();
+  return error.statusCode == '401' ||
+      error.statusCode == '403' ||
+      code == 'invalid_jwt' ||
+      code == 'session_not_found' ||
+      code == 'refresh_token_not_found' ||
+      code == 'refresh_token_already_used';
+}
 
 class AuthController {
   AuthController(this._ref);
   final Ref _ref;
   Future<void>? _restoreInFlight;
+  bool _restoreAgain = false;
+  int _sessionGeneration = 0;
   Future<SignInResult>? _materializationInFlight;
   String? _materializationInFlightKey;
   String? _lastMaterializationKey;
@@ -233,24 +277,53 @@ class AuthController {
   /// live session check, and a cached AppUser record is never authorization.
   Future<void> restoreSupabaseSession() {
     final active = _restoreInFlight;
-    if (active != null) return active;
-    final operation = _restoreSupabaseSessionOnce();
+    if (active != null) {
+      _restoreAgain = true;
+      return active;
+    }
+    final operation = _restoreSupabaseSessionUntilCurrent();
     _restoreInFlight = operation;
     return operation.whenComplete(() {
       if (identical(_restoreInFlight, operation)) _restoreInFlight = null;
     });
   }
 
+  Future<void> _restoreSupabaseSessionUntilCurrent() async {
+    do {
+      _restoreAgain = false;
+      await _restoreSupabaseSessionOnce();
+    } while (_restoreAgain);
+  }
+
   Future<void> _restoreSupabaseSessionOnce() async {
     final client = _ref.read(supabaseClientProvider);
     if (client == null) return;
-    if (client.auth.currentSession == null) {
+    final session = client.auth.currentSession;
+    if (session == null) {
       await clearLocalSession();
       return;
     }
+    final expectedLocalId = session.user.appMetadata['app_user_id'];
+    final sessionAppUserId =
+        expectedLocalId is String && expectedLocalId.trim().isNotEmpty
+        ? expectedLocalId.trim()
+        : session.user.id;
+    final retainedLocalId = _ref.read(authSessionProvider);
+    if (retainedLocalId != null && retainedLocalId != sessionAppUserId) {
+      // A different Auth identity cannot inherit the previous user's local
+      // presentation state, even while the new identity is being verified.
+      await clearLocalSession();
+    }
+    final generation = _sessionGeneration;
+    final accessToken = session.accessToken;
 
     try {
       final authUser = (await client.auth.getUser()).user;
+      if (generation != _sessionGeneration ||
+          client.auth.currentSession?.accessToken != accessToken) {
+        _restoreAgain = client.auth.currentSession != null;
+        return;
+      }
       if (authUser == null) {
         await _signOutSupabaseAndClear(client);
         return;
@@ -268,10 +341,13 @@ class AuthController {
           analytics.capture(AnalyticsEvent.sessionRestored);
         }
       }
-    } catch (_) {
-      // A restored session that cannot be verified must not unlock local
-      // routes. Do not reinterpret a network failure as bad credentials.
-      await clearLocalSession();
+    } catch (error) {
+      // Keep the known local identity through transport/database failures.
+      // Protected reads and commands still require current server authority;
+      // connectivity and foreground events retry this verification.
+      if (yorksV1IsConfirmedAuthRejection(error)) {
+        await clearLocalSession();
+      }
     }
   }
 
@@ -330,6 +406,8 @@ class AuthController {
     SupabaseClient client,
     User authUser,
   ) async {
+    final generation = _sessionGeneration;
+    final sessionAccessToken = client.auth.currentSession?.accessToken;
     // The stable AppUser.id is carried in server-owned app metadata. Fall back
     // to the Auth UUID only when that optional compatibility ID is absent.
     final metadataAppUserId = authUser.appMetadata['app_user_id'];
@@ -377,6 +455,11 @@ class AuthController {
         .select('is_active, canonical_role_snapshot')
         .eq('auth_user_id', authUser.id)
         .maybeSingle();
+    if (generation != _sessionGeneration ||
+        client.auth.currentSession?.accessToken != sessionAccessToken ||
+        client.auth.currentUser?.id != authUser.id) {
+      throw StateError('Auth identity changed during profile verification');
+    }
     if (profile == null) return SignInResult.accountSetupRequired;
     if (profile['is_active'] != true) return SignInResult.deactivated;
     if (profile['canonical_role_snapshot'] != expectedProfileRole) {
@@ -496,6 +579,7 @@ class AuthController {
   /// reports a remote logout or a restored session cannot be verified; it never
   /// tries to make a second network sign-out call from inside an Auth callback.
   Future<void> clearLocalSession() async {
+    _sessionGeneration++;
     final hadIdentity =
         _ref.read(authSessionProvider) != null ||
         _lastRevisionIdentityKey != null;

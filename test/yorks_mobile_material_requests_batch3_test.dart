@@ -2546,13 +2546,13 @@ void main() {
   });
 
   testWidgets(
-    'mobile MR lifecycle exposes only the real resolved primary action',
+    'mobile MR keeps Arrange entry while its workbench is unavailable',
     (tester) async {
       await _setViewport(tester, const Size(390, 844));
       await _pumpLifecycle(tester);
 
       expect(find.byKey(const ValueKey('mobile-mr-lifecycle')), findsOneWidget);
-      expect(find.text('Arrange Items'), findsNothing);
+      expect(find.text('Arrange Items'), findsOneWidget);
       expect(find.text('Current owner'), findsOneWidget);
       expect(find.text('Simple'), findsOneWidget);
       expect(find.text('Request discussion'), findsNothing);

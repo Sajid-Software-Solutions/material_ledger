@@ -127,6 +127,25 @@ void main() {
     expect(access.canWrite, isTrue);
   });
 
+  test('Realtime transport loss does not disable a confirmed action', () {
+    final confirmed = _state(
+      allowed: true,
+      error: const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      ),
+    );
+    final disconnected = confirmed.copyWith(isRevisionSignalHealthy: false);
+    final access = yorksV1FeatureActionAccess(
+      disconnected,
+      YorksV1CapabilityKeys.projectsEdit,
+      legacyAllowed: true,
+      projectId: projectId,
+    );
+
+    expect(access.availability, YorksV1ActionAvailability.allowed);
+    expect(access.canWrite, isTrue);
+  });
+
   test('shadow capability preserves the supplied legacy decision', () {
     final denied = yorksV1FeatureActionAccess(
       _state(allowed: true, mode: 'shadow'),

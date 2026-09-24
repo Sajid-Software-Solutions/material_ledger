@@ -90,14 +90,13 @@ class YorksV1CurrentPermissionSnapshotState {
 
   /// A confirmed snapshot remains usable while an ordinary background refresh
   /// is in flight. The protected command still re-authorizes on the server,
-  /// and the Realtime revision channel pauses writes immediately when an
-  /// actual authority change is signalled.
+  /// and a confirmed revision event pauses writes until replacement authority
+  /// arrives. Realtime transport health alone is not authorization.
   bool get isTrustedForWrites =>
       snapshot != null &&
       snapshot!.user.isActive &&
       !isInitialLoading &&
       !isStale &&
-      isRevisionSignalHealthy &&
       domainErrorCode != YorksV1DomainErrorCode.unauthenticated &&
       domainErrorCode != YorksV1DomainErrorCode.unauthorized;
 
@@ -338,6 +337,7 @@ class YorksV1CurrentPermissionSnapshotController
     YorksV1PermissionRevisionSignalSubscription? revisionSignalSubscription,
     Duration safetyRefreshInterval = const Duration(minutes: 15),
     Duration foregroundRefreshThreshold = const Duration(minutes: 2),
+    Duration verificationRetryInterval = const Duration(seconds: 3),
     DateTime Function()? now,
   }) : _enabled = enabled,
        _authUserId = authUserId?.trim(),
@@ -346,6 +346,7 @@ class YorksV1CurrentPermissionSnapshotController
        _revisionSignalSubscription = revisionSignalSubscription,
        _safetyRefreshInterval = safetyRefreshInterval,
        _foregroundRefreshThreshold = foregroundRefreshThreshold,
+       _verificationRetryInterval = verificationRetryInterval,
        _now = now ?? DateTime.now,
        super(
          YorksV1CurrentPermissionSnapshotState(
@@ -362,6 +363,7 @@ class YorksV1CurrentPermissionSnapshotController
   _revisionSignalSubscription;
   final Duration _safetyRefreshInterval;
   final Duration _foregroundRefreshThreshold;
+  final Duration _verificationRetryInterval;
   final DateTime Function() _now;
   final List<RealtimeChannel> _channels = [];
   final _disposedSignal = Completer<void>();
@@ -371,11 +373,14 @@ class YorksV1CurrentPermissionSnapshotController
   bool _queuedRefreshRequiresFreshAuthority = false;
   Completer<bool>? _initialJoin;
   Timer? _safetyRefreshTimer;
+  Timer? _verificationRetryTimer;
+  int _verificationRetryAttempt = 0;
   Timer? _assignmentTransitionTimer;
   StreamSubscription<AuthState>? _authSubscription;
   bool _observingLifecycle = false;
   DateTime? _leftForegroundAt;
   bool _revisionSignalHealthy = false;
+  int _authorizationGeneration = 0;
   Future<void>? _retryInFlight;
 
   Future<void> retryVerification() {
@@ -403,7 +408,7 @@ class YorksV1CurrentPermissionSnapshotController
         _markRevisionSignalUnavailable(error);
       }
     }
-    if (!_disposed) await refresh(authorityMayHaveChanged: true);
+    if (!_disposed) await refresh(authorityMayHaveChanged: state.isStale);
   }
 
   Future<void> start() async {
@@ -416,8 +421,8 @@ class YorksV1CurrentPermissionSnapshotController
     ]);
 
     // Do not hold the first protected projection behind a Realtime join. The
-    // snapshot can safely power read navigation immediately; it remains stale
-    // and write-disabled until the revision channel is confirmed healthy.
+    // snapshot can power actions immediately. The command rechecks authority
+    // on the server; a Realtime join is only an invalidation signal.
     await refresh();
     // Poll even when the first RPC failed. Otherwise a simultaneous initial
     // RPC + Realtime outage can strand the app on its verification state until
@@ -442,11 +447,13 @@ class YorksV1CurrentPermissionSnapshotController
       return;
     }
     _revisionSignalHealthy = true;
-    // A fast channel join may already have covered the first fetch. Only
-    // perform a second RPC when that first projection was completed before
-    // invalidation became trustworthy.
-    if (!state.isTrustedForWrites) {
-      await refresh(authorityMayHaveChanged: true);
+    // Close the gap between the first RPC and a late channel join. Keep the
+    // confirmed action available while this ordinary catch-up read runs; only
+    // a real revision event may mark it stale.
+    if (state.snapshot == null ||
+        state.isStale ||
+        !state.isRevisionSignalHealthy) {
+      await refresh(authorityMayHaveChanged: state.isStale);
     }
     if (!_disposed) _startSafetyRefresh();
   }
@@ -485,25 +492,30 @@ class YorksV1CurrentPermissionSnapshotController
           isRevisionSignalHealthy: _revisionSignalHealthy,
           clearError: true,
         );
+        final generation = _authorizationGeneration;
         try {
           final snapshot = await _repository.getCurrentSnapshot();
-          if (_disposed || _refreshQueued) continue;
+          if (_disposed || generation != _authorizationGeneration) return;
+          if (_refreshQueued) continue;
           state = YorksV1CurrentPermissionSnapshotState(
             snapshot: snapshot,
-            isStale: !_revisionSignalHealthy,
+            isStale: false,
             isRevisionSignalHealthy: _revisionSignalHealthy,
           );
+          _verificationRetryTimer?.cancel();
+          _verificationRetryTimer = null;
+          _verificationRetryAttempt = 0;
           _scheduleAssignmentTransition(snapshot);
         } catch (error, stackTrace) {
-          if (_disposed || _refreshQueued) continue;
+          if (_disposed || generation != _authorizationGeneration) return;
+          if (_refreshQueued) continue;
           final failure = _domainFailure(error);
           final previous = state.snapshot;
           final mustPurge =
               previous == null ||
               failure.code == YorksV1DomainErrorCode.unauthenticated ||
               failure.code == YorksV1DomainErrorCode.unauthorized;
-          final retainedAuthorityIsCurrent =
-              !mustPurge && !state.isStale && _revisionSignalHealthy;
+          final retainedAuthorityIsCurrent = !mustPurge && !state.isStale;
           state = YorksV1CurrentPermissionSnapshotState(
             snapshot: mustPurge ? null : previous,
             isStale: !mustPurge && !retainedAuthorityIsCurrent,
@@ -514,6 +526,13 @@ class YorksV1CurrentPermissionSnapshotController
           if (mustPurge) {
             _assignmentTransitionTimer?.cancel();
             _assignmentTransitionTimer = null;
+          } else if (state.isStale) {
+            _scheduleVerificationRetry();
+          }
+          if (previous == null &&
+              failure.code != YorksV1DomainErrorCode.unauthenticated &&
+              failure.code != YorksV1DomainErrorCode.unauthorized) {
+            _scheduleVerificationRetry();
           }
         }
         requireFreshAuthority = false;
@@ -523,12 +542,17 @@ class YorksV1CurrentPermissionSnapshotController
     }
   }
 
-  /// Used for logout, expired authentication, or a failed authorization
-  /// revision channel. It synchronously drops every presentation grant.
+  /// Used for logout or a confirmed authentication failure. It synchronously
+  /// drops every presentation grant.
   void invalidateForAuthorizationFailure([Object? error]) {
     if (_disposed) return;
+    _authorizationGeneration++;
+    _refreshQueued = false;
+    _queuedRefreshRequiresFreshAuthority = false;
     _assignmentTransitionTimer?.cancel();
     _assignmentTransitionTimer = null;
+    _verificationRetryTimer?.cancel();
+    _verificationRetryTimer = null;
     state = YorksV1CurrentPermissionSnapshotState(
       error: YorksV1DomainException(
         error is YorksV1DomainException
@@ -540,17 +564,29 @@ class YorksV1CurrentPermissionSnapshotController
     );
   }
 
+  void _scheduleVerificationRetry() {
+    if (_disposed || !_enabled || _verificationRetryTimer != null) return;
+    if (state.snapshot != null && !state.isStale) return;
+    final factor =
+        1 << (_verificationRetryAttempt > 4 ? 4 : _verificationRetryAttempt);
+    _verificationRetryAttempt++;
+    _verificationRetryTimer = Timer(_verificationRetryInterval * factor, () {
+      _verificationRetryTimer = null;
+      unawaited(refresh(authorityMayHaveChanged: state.isStale));
+    });
+  }
+
   void _markRevisionSignalUnavailable(Object? error) {
     if (_disposed) return;
     _revisionSignalHealthy = false;
-    final previous = state.snapshot;
-    if (previous == null) {
-      invalidateForAuthorizationFailure(error);
+    if (state.domainErrorCode == YorksV1DomainErrorCode.unauthenticated ||
+        state.domainErrorCode == YorksV1DomainErrorCode.unauthorized) {
       return;
     }
+    final previous = state.snapshot;
     state = YorksV1CurrentPermissionSnapshotState(
       snapshot: previous,
-      isStale: true,
+      isStale: state.isStale,
       isRevisionSignalHealthy: false,
       error: YorksV1DomainException(
         YorksV1DomainErrorCode.backendUnavailable,
@@ -558,6 +594,7 @@ class YorksV1CurrentPermissionSnapshotController
       ),
       stackTrace: StackTrace.current,
     );
+    if (previous == null || state.isStale) _scheduleVerificationRetry();
   }
 
   Future<bool> _subscribeToRevisionSignal() async {
@@ -629,7 +666,7 @@ class YorksV1CurrentPermissionSnapshotController
             _revisionSignalHealthy = true;
             if (!initialJoin.isCompleted) initialJoin.complete(true);
             if (wasJoined && reconnected) {
-              unawaited(refresh(authorityMayHaveChanged: true));
+              unawaited(refresh(authorityMayHaveChanged: state.isStale));
               _startSafetyRefresh();
             }
             return;
@@ -715,7 +752,7 @@ class YorksV1CurrentPermissionSnapshotController
           !_revisionSignalHealthy ||
           foregroundGap >= _foregroundRefreshThreshold;
       if (leftAt != null && authorityNeedsRefresh) {
-        unawaited(refresh(authorityMayHaveChanged: true));
+        unawaited(refresh(authorityMayHaveChanged: this.state.isStale));
       }
       return;
     }
@@ -730,6 +767,8 @@ class YorksV1CurrentPermissionSnapshotController
     if (!_disposedSignal.isCompleted) _disposedSignal.complete();
     _safetyRefreshTimer?.cancel();
     _safetyRefreshTimer = null;
+    _verificationRetryTimer?.cancel();
+    _verificationRetryTimer = null;
     _assignmentTransitionTimer?.cancel();
     _assignmentTransitionTimer = null;
     unawaited(_authSubscription?.cancel());
