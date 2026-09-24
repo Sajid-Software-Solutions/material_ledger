@@ -4023,12 +4023,7 @@ class _ArrangementSourceEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SourcePicker(
-          value: value,
-          enabled: enabled,
-          compact: true,
-          onChanged: onChanged,
-        ),
+        _SourcePicker(value: value, enabled: enabled, onChanged: onChanged),
         const SizedBox(height: AppSpacing.xs),
         _InventoryOrSupplierField(
           line: line,
@@ -4240,23 +4235,18 @@ class _SourcePicker extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onChanged,
-    this.compact = false,
   });
 
   final _EditableArrangementLine value;
   final bool enabled;
   final ValueChanged<_EditableArrangementLine> onChanged;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     if (value.decision == YorksV1ArrangementDecision.unavailable) {
-      return SizedBox(
-        width: 150,
-        child: Text(
-          YorksV1ArrangementStrings.noSourceRequired.primary,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-        ),
+      return Text(
+        YorksV1ArrangementStrings.noSourceRequired.primary,
+        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
       );
     }
     return Wrap(
