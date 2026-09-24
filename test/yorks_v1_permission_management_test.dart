@@ -539,12 +539,13 @@ void main() {
       final standaloneRpc = _RecordingPermissionRpc(
         _workspaceJson(revision: 8),
       );
-      await _repository(rpc: standaloneRpc)
-          .assignWorkforceOrganizationResponsibility(
-            targetAppUserId: 'usr-engineer',
-            reason: 'Restore retained Workforce responsibility.',
-            idempotencyKey: _idempotencyKey,
-          );
+      await _repository(
+        rpc: standaloneRpc,
+      ).assignWorkforceOrganizationResponsibility(
+        targetAppUserId: 'usr-engineer',
+        reason: 'Restore retained Workforce responsibility.',
+        idempotencyKey: _idempotencyKey,
+      );
       expect(
         standaloneRpc.functionName,
         'v1_assign_user_workforce_organization',
@@ -811,8 +812,9 @@ void main() {
         'authoritative_effective',
       );
       await expectLater(
-        _repository(rpc: _RecordingPermissionRpc(response))
-            .getCurrentSnapshot(),
+        _repository(
+          rpc: _RecordingPermissionRpc(response),
+        ).getCurrentSnapshot(),
         throwsA(_domainError(YorksV1DomainErrorCode.unexpectedResponse)),
       );
     });
@@ -823,8 +825,9 @@ void main() {
           'usr-other';
 
       await expectLater(
-        _repository(rpc: _RecordingPermissionRpc(response))
-            .getUserWorkspace(targetAppUserId: 'usr-engineer'),
+        _repository(
+          rpc: _RecordingPermissionRpc(response),
+        ).getUserWorkspace(targetAppUserId: 'usr-engineer'),
         throwsA(_domainError(YorksV1DomainErrorCode.unexpectedResponse)),
       );
     });
@@ -860,10 +863,8 @@ void main() {
           authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           client: null,
           repository: repository,
-          revisionSignalSubscription: ({
-            required onSignal,
-            required onUnavailable,
-          }) => join.future,
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) => join.future,
           safetyRefreshInterval: const Duration(hours: 1),
         );
         addTearDown(controller.dispose);
@@ -884,26 +885,28 @@ void main() {
       },
     );
 
-    test('retry rejoins revision signal without withdrawing confirmed write access', () async {
-      var joins = 0;
-      final controller = YorksV1CurrentPermissionSnapshotController(
-        enabled: true,
-        authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        client: null,
-        repository: _FakePermissionRepository(currentSnapshot: _snapshot()),
-        revisionSignalSubscription: ({
-          required onSignal,
-          required onUnavailable,
-        }) async => ++joins > 1,
-      );
-      addTearDown(controller.dispose);
-      await controller.start();
-      expect(controller.state.isTrustedForWrites, isTrue);
+    test(
+      'retry rejoins revision signal without withdrawing confirmed write access',
+      () async {
+        var joins = 0;
+        final controller = YorksV1CurrentPermissionSnapshotController(
+          enabled: true,
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          client: null,
+          repository: _FakePermissionRepository(currentSnapshot: _snapshot()),
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async =>
+                  ++joins > 1,
+        );
+        addTearDown(controller.dispose);
+        await controller.start();
+        expect(controller.state.isTrustedForWrites, isTrue);
 
-      await controller.retryVerification();
-      expect(joins, 2);
-      expect(controller.state.isTrustedForWrites, isTrue);
-    });
+        await controller.retryVerification();
+        expect(joins, 2);
+        expect(controller.state.isTrustedForWrites, isTrue);
+      },
+    );
     test(
       'unavailable revision signal keeps confirmed actions and polls',
       () async {
@@ -915,10 +918,8 @@ void main() {
           authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           client: null,
           repository: repository,
-          revisionSignalSubscription: ({
-            required onSignal,
-            required onUnavailable,
-          }) async => false,
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async => false,
           safetyRefreshInterval: const Duration(milliseconds: 5),
         );
 
@@ -958,10 +959,8 @@ void main() {
           authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           client: null,
           repository: repository,
-          revisionSignalSubscription: ({
-            required onSignal,
-            required onUnavailable,
-          }) async => false,
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async => false,
           safetyRefreshInterval: const Duration(milliseconds: 5),
         );
 
@@ -989,10 +988,8 @@ void main() {
           authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           client: null,
           repository: repository,
-          revisionSignalSubscription: ({
-            required onSignal,
-            required onUnavailable,
-          }) async => false,
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async => false,
           safetyRefreshInterval: const Duration(hours: 1),
           verificationRetryInterval: const Duration(milliseconds: 5),
         );
@@ -1363,30 +1360,33 @@ void main() {
       },
     );
 
-    test('revision signal loss retains confirmed actions without inventing revocation', () async {
-      void Function(Object? error)? unavailable;
-      final controller = YorksV1CurrentPermissionSnapshotController(
-        enabled: true,
-        authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        client: null,
-        repository: _FakePermissionRepository(currentSnapshot: _snapshot()),
-        revisionSignalSubscription:
-            ({required onSignal, required onUnavailable}) async {
-              unavailable = onUnavailable;
-              return true;
-            },
-        safetyRefreshInterval: const Duration(hours: 1),
-      );
-      await controller.start();
+    test(
+      'revision signal loss retains confirmed actions without inventing revocation',
+      () async {
+        void Function(Object? error)? unavailable;
+        final controller = YorksV1CurrentPermissionSnapshotController(
+          enabled: true,
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          client: null,
+          repository: _FakePermissionRepository(currentSnapshot: _snapshot()),
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async {
+                unavailable = onUnavailable;
+                return true;
+              },
+          safetyRefreshInterval: const Duration(hours: 1),
+        );
+        await controller.start();
 
-      unavailable!(StateError('channel closed'));
+        unavailable!(StateError('channel closed'));
 
-      expect(controller.state.snapshot?.revision, 7);
-      expect(controller.state.isStale, isFalse);
-      expect(controller.state.isRevisionSignalHealthy, isFalse);
-      expect(controller.state.isTrustedForWrites, isTrue);
-      controller.dispose();
-    });
+        expect(controller.state.snapshot?.revision, 7);
+        expect(controller.state.isStale, isFalse);
+        expect(controller.state.isRevisionSignalHealthy, isFalse);
+        expect(controller.state.isTrustedForWrites, isTrue);
+        controller.dispose();
+      },
+    );
 
     test(
       'reconnect and foreground refresh keep the last confirmed action',
@@ -1917,10 +1917,8 @@ YorksV1CurrentPermissionSnapshotController _currentController(
   authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   client: null,
   repository: repository,
-  revisionSignalSubscription: ({
-    required onSignal,
-    required onUnavailable,
-  }) async => true,
+  revisionSignalSubscription:
+      ({required onSignal, required onUnavailable}) async => true,
   safetyRefreshInterval: const Duration(hours: 1),
   now: now,
 );

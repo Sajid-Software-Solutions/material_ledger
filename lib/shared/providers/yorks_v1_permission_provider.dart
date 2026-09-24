@@ -151,13 +151,14 @@ class YorksV1HybridPermissionDecision {
   final YorksV1PermissionCapabilityAuthorizationMode? authorizationMode;
 }
 
-typedef YorksV1HybridPermissionResolver = bool? Function(
-  String capabilityKey, {
-  required bool legacyAllowed,
-  bool requireWrite,
-  bool organizationSummary,
-  String? projectId,
-});
+typedef YorksV1HybridPermissionResolver =
+    bool? Function(
+      String capabilityKey, {
+      required bool legacyAllowed,
+      bool requireWrite,
+      bool organizationSummary,
+      String? projectId,
+    });
 
 extension YorksV1HybridPermissionStateAccess
     on YorksV1CurrentPermissionSnapshotState {
@@ -283,10 +284,11 @@ extension YorksV1HybridPermissionStateAccess
   }
 }
 
-typedef YorksV1PermissionRevisionSignalSubscription = Future<bool> Function({
-  required Future<void> Function() onSignal,
-  required void Function(Object? error) onUnavailable,
-});
+typedef YorksV1PermissionRevisionSignalSubscription =
+    Future<bool> Function({
+      required Future<void> Function() onSignal,
+      required void Function(Object? error) onUnavailable,
+    });
 
 final yorksV1CurrentPermissionSnapshotProvider =
     StateNotifierProvider<
