@@ -3899,6 +3899,18 @@ class _MaterialRequestDraftExitGuardState
         return false;
       }
       ref.invalidate(yorksV1MaterialRequestListProvider);
+      if (saved && widget.controller.isEditingBeforeApproval) {
+        try {
+          await widget.controller.discardLocal(submissionConfirmed: true);
+        } catch (_) {
+          // The server-confirmed edit remains valid if local cleanup fails.
+        }
+        ref.invalidate(
+          yorksV1MaterialRequestDetailProvider(
+            widget.controller.currentDraft.id,
+          ),
+        );
+      }
       return true;
     } catch (_) {
       return false;
