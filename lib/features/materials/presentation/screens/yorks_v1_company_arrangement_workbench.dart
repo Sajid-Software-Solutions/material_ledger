@@ -240,7 +240,7 @@ class _YorksV1CompanyArrangementWorkbenchState
           ),
           child: Column(
             children: [
-              _header(compact),
+              _header(compact, phone),
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scroll,
@@ -298,7 +298,7 @@ class _YorksV1CompanyArrangementWorkbenchState
     );
   }
 
-  Widget _header(bool compact) => Container(
+  Widget _header(bool compact, bool phone) => Container(
     padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.xl),
     decoration: const BoxDecoration(
       border: Border(bottom: BorderSide(color: AppColors.line)),
@@ -320,9 +320,13 @@ class _YorksV1CompanyArrangementWorkbenchState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                YorksV1ArrangementStrings.arrangeMaterialRequest.active(
-                  widget.language,
-                ),
+                phone
+                    ? widget.request.requestNumber ??
+                          YorksV1CompanyMaterialRequestStrings.arrangeItems
+                              .active(widget.language)
+                    : YorksV1ArrangementStrings.arrangeMaterialRequest.active(
+                        widget.language,
+                      ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.titleLarge.copyWith(
@@ -330,7 +334,9 @@ class _YorksV1CompanyArrangementWorkbenchState
                 ),
               ),
               Text(
-                '${widget.request.requestNumber ?? ''} · ${widget.request.responsibleUnitName}',
+                phone
+                    ? widget.request.responsibleUnitName
+                    : '${widget.request.requestNumber ?? ''} · ${widget.request.responsibleUnitName}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
@@ -910,10 +916,12 @@ class _YorksV1CompanyArrangementWorkbenchState
           onChanged: (_) => _changed(),
         ),
       ),
-    if (draft.decision == 'unavailable')
-      OutlinedButton.icon(
-        key: ValueKey('company-arrangement-follow-up-${draft.line.id}'),
-        style: OutlinedButton.styleFrom(minimumSize: const Size(0, AppSpacing.minTapTarget)),
+      if (draft.decision == 'unavailable')
+        OutlinedButton.icon(
+          key: ValueKey('company-arrangement-follow-up-${draft.line.id}'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, AppSpacing.minTapTarget),
+          ),
           onPressed: _busy
               ? null
               : () async {
@@ -1001,7 +1009,9 @@ class _YorksV1CompanyArrangementWorkbenchState
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
         TextButton(
-          style: TextButton.styleFrom(minimumSize: const Size(0, AppSpacing.minTapTarget)),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, AppSpacing.minTapTarget),
+          ),
           onPressed: _busy
               ? null
               : phone && _mobileStage == _MobileStage.line
@@ -1020,7 +1030,9 @@ class _YorksV1CompanyArrangementWorkbenchState
         ),
         FilledButton.icon(
           key: const ValueKey('company-arrangement-save'),
-          style: FilledButton.styleFrom(minimumSize: const Size(0, AppSpacing.minTapTarget)),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, AppSpacing.minTapTarget),
+          ),
           onPressed: _busy || _outstanding.isEmpty
               ? null
               : phone && _mobileStage == _MobileStage.line

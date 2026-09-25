@@ -69,7 +69,12 @@ void main() {
         );
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
-        expect(find.text('Arrange Material Request'), findsOneWidget);
+        expect(
+          find.text(
+            width <= 720 ? 'Arrange items' : 'Arrange Material Request',
+          ),
+          findsOneWidget,
+        );
         await tester.tap(
           find.byKey(const ValueKey('company-arrangement-save')),
         );
