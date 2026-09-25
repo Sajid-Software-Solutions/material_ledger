@@ -28,7 +28,7 @@ detail page. A new request keeps Submit for Approval. Request History labels
 the saved edit; the approved status continues to describe the prior decision.
 
 Migration `20260925031723_material_request_save_edits_without_reapproval.sql`
-and the later `20260925114621_material_request_working_arrangement_edits.sql`
+and the later `20260925120351_material_request_working_arrangement_edits.sql`
 are forward-only and do not update existing requests or decisions. The latter
 extends the grant through the first unsaved working arrangement, preserving
 existing arrangement-line IDs and adding/removing only unsaved placeholders in
