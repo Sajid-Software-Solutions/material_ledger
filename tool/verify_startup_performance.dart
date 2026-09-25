@@ -17,7 +17,11 @@ import 'dart:io';
 // measure 10,287,901 raw / 2,773,546 gzip bytes with every staging module on.
 // Allow 30 kB raw parse growth for this reviewed slice; retain the transfer
 // ceiling and all other startup checks.
-const _mainDartJsRawBudget = 10300000;
+// The combined production candidate with Project MR save recovery and the
+// accepted Analytics rollout measured 10,302,539 raw / 2,778,300 gzip bytes
+// with the repository verifier.
+// Reserve a further 10 kB of raw parse headroom; keep the transfer ceiling.
+const _mainDartJsRawBudget = 10310000;
 const _mainDartJsGzipBudget = 2900000;
 const _indexHtmlRawBudget = 40000;
 
