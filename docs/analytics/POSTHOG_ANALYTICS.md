@@ -114,6 +114,9 @@ All events below are centrally defined in `analytics_event.dart`.
 | `material request item added` | MR composition progress | One or more lines added | `action_type`, `item_count` | Draft controller; no descriptions |
 | `material request item removed` | MR composition change | A line is removed | `item_count` | Draft controller |
 | `material request draft saved` | Recovery/save outcome | Local recovery or server save succeeds | `source`, `item_count` | Draft controller |
+| `material request draft delete attempted` | Explicit recovery deletion | After the user confirms deletion | common | Draft controller; no draft ID/title |
+| `material request draft deleted` | Confirmed deletion | Account deletion and device persistence both succeed | `success` | Never emitted for an unconfirmed or failed deletion |
+| `material request draft delete failed` | Rejected or unconfirmed deletion | Conflict, offline, authorization, pending workflow or storage failure | `success`, `error_category` | No raw error/content |
 | `material request review reached` | Funnel review step | User enters real review step | `item_count`, `entry_point` | Draft controller |
 | `material request submit attempted` | Submit intent | Before connected submit | `source`, `item_count`, `request_timing` | Draft controller |
 | `material request submitted` | Submit success | Server returns submitted record | `source`, `item_count` | Draft controller |

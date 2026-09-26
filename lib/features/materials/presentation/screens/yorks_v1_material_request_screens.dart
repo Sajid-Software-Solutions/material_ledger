@@ -1363,6 +1363,7 @@ class _RecoverableMaterialDraftNotice extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         for (final draft in visibleDrafts)
           _RecoverableDraftRow(
+            key: ValueKey('recoverable-draft-${draft.id}'),
             draft: draft,
             compact: compact,
             onResume: () => onResume(draft),
@@ -1378,8 +1379,9 @@ class _RecoverableMaterialDraftNotice extends StatelessWidget {
   }
 }
 
-class _RecoverableDraftRow extends StatelessWidget {
+class _RecoverableDraftRow extends ConsumerStatefulWidget {
   const _RecoverableDraftRow({
+    super.key,
     required this.draft,
     required this.compact,
     required this.onResume,
@@ -1392,15 +1394,34 @@ class _RecoverableDraftRow extends StatelessWidget {
   final Future<void> Function()? onDelete;
 
   @override
+  ConsumerState<_RecoverableDraftRow> createState() =>
+      _RecoverableDraftRowState();
+}
+
+class _RecoverableDraftRowState extends ConsumerState<_RecoverableDraftRow> {
+  bool _deleting = false;
+
+  Future<void> _delete() async {
+    if (_deleting || widget.onDelete == null) return;
+    setState(() => _deleting = true);
+    try {
+      await widget.onDelete!();
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final title = draft.title?.trim();
+    final language = ref.watch(languageProvider);
+    final title = widget.draft.title?.trim();
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: Material(
         color: AppColors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: InkWell(
-          onTap: onResume,
+          onTap: _deleting ? null : widget.onResume,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -1418,22 +1439,37 @@ class _RecoverableDraftRow extends StatelessWidget {
                               .materialRequestDraft
                               .primary
                         : title,
-                    maxLines: compact ? 1 : 2,
+                    maxLines: widget.compact ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.labelLarge,
                   ),
                 ),
                 TextButton(
-                  onPressed: onResume,
+                  onPressed: _deleting ? null : widget.onResume,
                   child: Text(
-                    YorksV1MaterialRequestStrings.resumeSavedDraft.primary,
+                    YorksV1MaterialRequestStrings.resumeSavedDraft.active(
+                      language,
+                    ),
                   ),
                 ),
-                if (onDelete != null)
+                if (widget.onDelete != null)
                   IconButton(
-                    tooltip: YorksV1MaterialRequestStrings.deleteDraft.primary,
-                    onPressed: () => unawaited(onDelete!()),
-                    icon: const Icon(Icons.delete_outline_rounded),
+                    tooltip: YorksV1MaterialRequestStrings.deleteDraft.active(
+                      language,
+                    ),
+                    onPressed: _deleting ? null : _delete,
+                    icon: _deleting
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              semanticsLabel: YorksV1MaterialRequestStrings
+                                  .deletingDraft
+                                  .active(language),
+                            ),
+                          )
+                        : const Icon(Icons.delete_outline_rounded),
                   ),
               ],
             ),
@@ -1455,6 +1491,11 @@ List<YorksV1MaterialRequestDraft> _mergeRecoverableDrafts(
     final current = byId[draft.id];
     if (current == null || draft.updatedAt.isAfter(current.updatedAt)) {
       byId[draft.id] = draft;
+    } else if (draft.privateSyncVersion > current.privateSyncVersion) {
+      byId[draft.id] = current.copyWith(
+        privateSyncVersion: draft.privateSyncVersion,
+        privateSyncedAt: draft.privateSyncedAt,
+      );
     }
   }
   final result = byId.values.toList(growable: false)
@@ -1495,12 +1536,19 @@ Future<void> _deleteRecoverableDraft(
     ownerAuthUserId: ownerAuthUserId,
     draftId: draft.id,
   );
+  final subscription = ref.listenManual(
+    yorksV1MaterialRequestDraftControllerProvider(key),
+    (previous, next) {},
+  );
   try {
     final controller = ref.read(
       yorksV1MaterialRequestDraftControllerProvider(key).notifier,
     );
-    await controller.hydratePrivateDraft();
-    await controller.discardLocal(requireServerConfirmation: true);
+    await controller.discardLocal(
+      requireServerConfirmation: true,
+      expectedDraft: draft,
+    );
+    if (!context.mounted) return;
     ref.invalidate(
       yorksV1MaterialRequestPrivateDraftsProvider(ownerAuthUserId),
     );
@@ -1509,6 +1557,29 @@ Future<void> _deleteRecoverableDraft(
       SnackBar(
         content: Text(
           YorksV1MaterialRequestStrings.draftDeleted.active(language),
+        ),
+      ),
+    );
+  } on YorksV1DomainException catch (error) {
+    if (!context.mounted) return;
+    ref.invalidate(
+      yorksV1MaterialRequestPrivateDraftsProvider(ownerAuthUserId),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error.code == YorksV1DomainErrorCode.conflict
+              ? YorksV1MaterialRequestStrings.draftDeleteConflict.active(
+                  language,
+                )
+              : error.code == YorksV1DomainErrorCode.invalidTransition
+              ? YorksV1MaterialRequestStrings.draftDeleteBlocked.active(
+                  language,
+                )
+              : YorksV1MaterialRequestStrings.draftDeleteFailed.active(
+                  language,
+                ),
         ),
       ),
     );
@@ -1521,6 +1592,8 @@ Future<void> _deleteRecoverableDraft(
         ),
       ),
     );
+  } finally {
+    subscription.close();
   }
 }
 
@@ -3076,13 +3149,17 @@ class _DraftForm extends ConsumerWidget {
         submitAccess.canWrite &&
         !draft.hasPendingSave &&
         draft.pendingSubmissionApproval == null &&
-        state.status != YorksV1MaterialRequestDraftSyncStatus.submitting;
+        state.status != YorksV1MaterialRequestDraftSyncStatus.submitting &&
+        state.status != YorksV1MaterialRequestDraftSyncStatus.deleting &&
+        state.status != YorksV1MaterialRequestDraftSyncStatus.deleted;
     final isBusy =
         draft.hasPendingSave ||
         draft.pendingSubmissionApproval != null ||
         !grantedEditAccess.isVisible ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.saving ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.checkingSave ||
+        state.status == YorksV1MaterialRequestDraftSyncStatus.deleting ||
+        state.status == YorksV1MaterialRequestDraftSyncStatus.deleted ||
         state.status == YorksV1MaterialRequestDraftSyncStatus.submitting;
     final excelEnabled = ref.watch(yorksV1FeatureFlagsProvider).excel;
     final workbookFileService = ref.watch(
@@ -3326,6 +3403,12 @@ class _DraftForm extends ConsumerWidget {
                     )
                   : null;
               final notices = [
+                if (state.status ==
+                    YorksV1MaterialRequestDraftSyncStatus.deleted)
+                  _InlineMessage(
+                    copy: YorksV1MaterialRequestStrings.draftDeletedElsewhere,
+                    language: language,
+                  ),
                 if (postApprovalEditor)
                   _InlineMessage(
                     copy: YorksV1MaterialRequestStrings.postApprovalSaveWarning,
@@ -3347,8 +3430,12 @@ class _DraftForm extends ConsumerWidget {
                   ),
                 if (state.localPersistenceFailed)
                   _InlineMessage(
-                    copy: YorksV1MaterialRequestStrings
-                        .serverSavedLocalRecoveryFailed,
+                    copy:
+                        state.status ==
+                            YorksV1MaterialRequestDraftSyncStatus.deleted
+                        ? YorksV1MaterialRequestStrings.draftDeviceCleanupFailed
+                        : YorksV1MaterialRequestStrings
+                              .serverSavedLocalRecoveryFailed,
                     language: language,
                   ),
                 if (state.status ==
@@ -3852,6 +3939,7 @@ class _MaterialRequestDraftExitGuardState
 
   bool get _hasUnsavedChanges =>
       widget.state.status != YorksV1MaterialRequestDraftSyncStatus.submitted &&
+      widget.state.status != YorksV1MaterialRequestDraftSyncStatus.deleted &&
       _materialRequestDraftContentFingerprint(widget.state.draft) !=
           _baselineFingerprint;
 
@@ -4299,6 +4387,8 @@ class _YorksMobileMaterialRequestDraftFlowState
       widget.state.status == YorksV1MaterialRequestDraftSyncStatus.saving ||
       widget.state.status ==
           YorksV1MaterialRequestDraftSyncStatus.checkingSave ||
+      widget.state.status == YorksV1MaterialRequestDraftSyncStatus.deleting ||
+      widget.state.status == YorksV1MaterialRequestDraftSyncStatus.deleted ||
       widget.state.status == YorksV1MaterialRequestDraftSyncStatus.submitting;
 
   @override
@@ -4390,6 +4480,12 @@ class _YorksMobileMaterialRequestDraftFlowState
                   YorksV1MaterialRequestDraftSyncStatus.syncingToAccount)
                 const LinearProgressIndicator(minHeight: 2),
               if (widget.state.status ==
+                  YorksV1MaterialRequestDraftSyncStatus.deleted)
+                _InlineMessage(
+                  copy: YorksV1MaterialRequestStrings.draftDeletedElsewhere,
+                  language: language,
+                ),
+              if (widget.state.status ==
                   YorksV1MaterialRequestDraftSyncStatus.savedToAccount)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
@@ -4428,8 +4524,12 @@ class _YorksMobileMaterialRequestDraftFlowState
                     0,
                   ),
                   child: YorksV1ActiveText(
-                    copy: YorksV1MaterialRequestStrings
-                        .serverSavedLocalRecoveryFailed,
+                    copy:
+                        widget.state.status ==
+                            YorksV1MaterialRequestDraftSyncStatus.deleted
+                        ? YorksV1MaterialRequestStrings.draftDeviceCleanupFailed
+                        : YorksV1MaterialRequestStrings
+                              .serverSavedLocalRecoveryFailed,
                     language: language,
                     style: AppTypography.bodySmall.copyWith(
                       color: AppColors.warning,

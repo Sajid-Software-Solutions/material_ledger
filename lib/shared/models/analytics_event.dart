@@ -30,6 +30,11 @@ enum AnalyticsEvent {
   materialRequestItemAdded('material request item added'),
   materialRequestItemRemoved('material request item removed'),
   materialRequestDraftSaved('material request draft saved'),
+  materialRequestDraftDeleteAttempted(
+    'material request draft delete attempted',
+  ),
+  materialRequestDraftDeleted('material request draft deleted'),
+  materialRequestDraftDeleteFailed('material request draft delete failed'),
   materialRequestReviewOpened('material request review reached'),
   materialRequestSubmissionAttempted('material request submit attempted'),
   materialRequestSubmitted('material request submitted'),

@@ -81,6 +81,11 @@ select is((public.v1_delete_my_material_request_private_draft(
 select is((public.v1_delete_my_material_request_private_draft(
   '{"draft_id":"b2500000-0000-4000-8000-000000000001","expected_sync_version":2}',
   'b2500000-0000-4000-8000-000000000005')->>'deleted')::boolean, true, 'An exact delete retry stays idempotent');
-select is(public.v1_get_my_material_request_private_draft('b2500000-0000-4000-8000-000000000001'), null::jsonb, 'Successful deletion remains server-authoritative');
+select set_config('request.method', '', true);
+select throws_ok(
+  $$select public.v1_get_my_material_request_private_draft('b2500000-0000-4000-8000-000000000001')$$,
+  '55000', 'V1_PRIVATE_DRAFT_DELETED',
+  'Owner receives confirmed retirement on another device'
+);
 select * from finish();
 rollback;

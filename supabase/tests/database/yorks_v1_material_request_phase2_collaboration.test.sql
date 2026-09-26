@@ -513,12 +513,11 @@ select lives_ok(
   )$$,
   'Owner can remove the cross-device recovery copy after submission or discard'
 );
-select is(
-  public.v1_get_my_material_request_private_draft(
-    'b2200000-0000-4000-8000-000000000001'
-  ),
-  null::jsonb,
-  'Deleted recovery draft is absent on the next device'
+select set_config('request.method', '', true);
+select throws_ok(
+  $$select public.v1_get_my_material_request_private_draft('b2200000-0000-4000-8000-000000000001')$$,
+  '55000', 'V1_PRIVATE_DRAFT_DELETED',
+  'Owner receives confirmed retirement on another device'
 );
 
 set local role anon;

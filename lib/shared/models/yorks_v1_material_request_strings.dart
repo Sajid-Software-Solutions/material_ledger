@@ -7,6 +7,24 @@ import 'yorks_v1_project_strings.dart';
 /// Centralized bilingual-capable presentation copy for the Yorks V1 Material
 /// Request slice. Domain and database layers use stable codes, never this copy.
 abstract final class YorksV1MaterialRequestStrings {
+  static const draftDeletedElsewhere = TranslatableString(
+    en: 'This draft was deleted. Return to Material Requests to start a new request.',
+    ar: 'تم حذف هذه المسودة. ارجع إلى طلبات المواد لبدء طلب جديد.',
+    ur: 'یہ ڈرافٹ حذف ہو چکا ہے۔ نئی درخواست شروع کرنے کے لیے مواد کی درخواستوں پر واپس جائیں۔',
+    hi: 'यह ड्राफ्ट हटा दिया गया है। नया अनुरोध शुरू करने के लिए सामग्री अनुरोध पर वापस जाएँ।',
+  );
+  static const draftDeviceCleanupFailed = TranslatableString(
+    en: 'This draft is deleted from your account. Device cleanup failed; reopen it to retry cleanup.',
+    ar: 'حُذفت المسودة من حسابك. تعذر تنظيف النسخة على الجهاز؛ أعد فتحها للمحاولة مرة أخرى.',
+    ur: 'یہ ڈرافٹ آپ کے اکاؤنٹ سے حذف ہو گیا ہے۔ ڈیوائس کی کاپی صاف نہیں ہو سکی؛ دوبارہ کھول کر کوشش کریں۔',
+    hi: 'यह ड्राफ्ट आपके खाते से हटा दिया गया है। डिवाइस की कॉपी हट नहीं सकी; दोबारा खोलकर प्रयास करें।',
+  );
+  static const deletingDraft = TranslatableString(
+    en: 'Deleting draft',
+    ar: 'جارٍ حذف المسودة',
+    ur: 'ڈرافٹ حذف ہو رہا ہے',
+    hi: 'ड्राफ्ट हटाया जा रहा है',
+  );
   static const catalogueSearchEmpty = TranslatableString(
     en: 'No matching materials. Keep your own description.',
     ar: 'لا توجد مواد مطابقة. يمكنك الاحتفاظ بوصفك.',
@@ -594,6 +612,18 @@ abstract final class YorksV1MaterialRequestStrings {
     ar: 'تعذر حذف المسودة. يرجى المحاولة مرة أخرى.',
     ur: 'ڈرافٹ حذف نہیں ہو سکا۔ دوبارہ کوشش کریں۔',
     hi: 'ड्राफ्ट हटाया नहीं जा सका। कृपया फिर से प्रयास करें।',
+  );
+  static const draftDeleteConflict = TranslatableString(
+    en: 'This draft changed while you were deleting it. Review the refreshed draft and try again.',
+    ar: 'تغيرت هذه المسودة أثناء حذفها. راجع المسودة المحدثة وحاول مرة أخرى.',
+    ur: 'حذف کے دوران یہ ڈرافٹ تبدیل ہو گیا۔ تازہ ڈرافٹ دیکھ کر دوبارہ کوشش کریں۔',
+    hi: 'हटाते समय यह ड्राफ़्ट बदल गया। नया ड्राफ़्ट देखें और फिर प्रयास करें।',
+  );
+  static const draftDeleteBlocked = TranslatableString(
+    en: 'A save or submission is still being checked. Open the draft and confirm that outcome before deleting.',
+    ar: 'لا يزال الحفظ أو الإرسال قيد التحقق. افتح المسودة وتحقق من النتيجة قبل الحذف.',
+    ur: 'محفوظ یا جمع کرنے کا نتیجہ ابھی چیک ہو رہا ہے۔ حذف کرنے سے پہلے ڈرافٹ کھول کر نتیجہ چیک کریں۔',
+    hi: 'सेव या सबमिशन का परिणाम जाँचा जा रहा है। हटाने से पहले ड्राफ़्ट खोलकर परिणाम जाँचें।',
   );
   static const attentionRequired = TranslatableString(
     en: 'Attention Required',

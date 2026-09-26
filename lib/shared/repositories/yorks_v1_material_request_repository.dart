@@ -887,7 +887,7 @@ class YorksV1SupabaseMaterialRequestRepository
     required int expectedSyncVersion,
     required String idempotencyKey,
   }) async {
-    await _invoke(
+    final result = await _invoke(
       functionName: 'v1_delete_my_material_request_private_draft',
       parameters: {
         'p_payload': {
@@ -897,6 +897,13 @@ class YorksV1SupabaseMaterialRequestRepository
         'p_idempotency_key': idempotencyKey,
       },
     );
+    if (result is! Map ||
+        result['deleted'] != true ||
+        result['draft_id'] != draftId) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+    }
   }
 
   @override
@@ -1030,6 +1037,7 @@ class YorksV1SupabaseMaterialRequestRepository
       'PGRST303' => YorksV1DomainErrorCode.unauthenticated,
       '42501' => YorksV1DomainErrorCode.unauthorized,
       '40001' || '23505' || '55P03' => YorksV1DomainErrorCode.conflict,
+      '55000' => YorksV1DomainErrorCode.invalidTransition,
       'PGRST002' || 'PGRST003' => YorksV1DomainErrorCode.backendUnavailable,
       '22023' ||
       '22007' ||
@@ -1037,6 +1045,13 @@ class YorksV1SupabaseMaterialRequestRepository
       '23514' => YorksV1DomainErrorCode.invalidInput,
       _ => YorksV1DomainErrorCode.serverRejected,
     };
-    return YorksV1DomainException(code, serverCode: error.code, cause: error);
+    return YorksV1DomainException(
+      code,
+      serverCode: error.code,
+      serverMessage: error.message == 'V1_PRIVATE_DRAFT_DELETED'
+          ? error.message
+          : null,
+      cause: error,
+    );
   }
 }

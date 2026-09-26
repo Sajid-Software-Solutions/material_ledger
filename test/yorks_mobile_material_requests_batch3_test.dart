@@ -37,6 +37,7 @@ import 'package:material_ledger/shared/providers/yorks_v1_team_chat_provider.dar
 import 'package:material_ledger/shared/providers/yorks_v1_workspace_presentation_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_boq_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_material_request_repository.dart';
+import 'package:material_ledger/shared/repositories/yorks_v1_material_request_draft_store.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_material_request_history_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_team_chat_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_chat_file_service.dart';
@@ -3127,6 +3128,102 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    for (final scenario in ['success', 'failure', 'leave']) {
+      testWidgets(
+        'draft deletion survives autoDispose and reports actual outcome $suffix $scenario',
+        (tester) async {
+          final fails = scenario == 'failure';
+          final visible = ValueNotifier(true);
+          addTearDown(visible.dispose);
+          await _setViewport(tester, size);
+          const owner = 'recoverable-draft-owner';
+          final repository = _DraftDeletionRepositoryFixture();
+          final draft = YorksV1MaterialRequestDraft(
+            id: 'recoverable-local-draft',
+            ownerAuthUserId: owner,
+            submissionIdempotencyKey: 'key',
+            updatedAt: DateTime.utc(2026),
+            title: 'Plant room materials',
+            privateSyncVersion: 1,
+          );
+          final store = YorksV1MaterialRequestDraftStore(
+            preferences: _preferences,
+            key: 'yorks_v1_material_request_drafts_v1_$owner',
+          );
+          await store.writeAll([draft]);
+          await tester.pumpWidget(
+            _scope(
+              overrides: [
+                yorksV1AuthUserIdProvider.overrideWithValue(owner),
+                yorksV1CurrentRoleProvider.overrideWithValue(
+                  YorksV1Role.projectEngineer,
+                ),
+                yorksV1MaterialRequestRepositoryProvider.overrideWithValue(
+                  repository,
+                ),
+                yorksV1MaterialRequestListProvider(
+                  null,
+                ).overrideWith((ref) async => [_submittedRequest]),
+              ],
+              child: ValueListenableBuilder<bool>(
+                valueListenable: visible,
+                builder: (context, show, child) => show
+                    ? const YorksV1MaterialRequestsScreen()
+                    : const SizedBox(),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('Delete draft').hitTestable());
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.tap(find.widgetWithText(FilledButton, 'Delete draft'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(repository.deleteCalls, 1);
+          expect(store.readAll(), hasLength(1));
+          expect(find.text('Draft deleted'), findsNothing);
+          expect(find.byType(CircularProgressIndicator), findsOneWidget);
+          expect(
+            tester
+                .widget<TextButton>(
+                  find.widgetWithText(TextButton, 'Resume saved draft'),
+                )
+                .onPressed,
+            isNull,
+          );
+          if (!fails) {
+            await expectLater(
+              find.byType(MaterialApp),
+              matchesGoldenFile('goldens/r35/mr_draft_deleting_$suffix.png'),
+            );
+          }
+          if (scenario == 'leave') {
+            visible.value = false;
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 500));
+          }
+          if (fails) {
+            repository.pending.completeError(
+              const YorksV1DomainException(YorksV1DomainErrorCode.offline),
+            );
+          } else {
+            repository.pending.complete();
+          }
+          await tester.pumpAndSettle();
+          expect(store.readAll().length, fails ? 1 : 0);
+          expect(
+            find.text('Plant room materials'),
+            fails ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.text(YorksV1MaterialRequestStrings.draftDeleted.primary),
+            fails || scenario == 'leave' ? findsNothing : findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 
   testWidgets(
@@ -3663,6 +3760,30 @@ YorksV1RuntimeConfiguration _runtimeConfiguration({
   requireExternalSourceReadiness: false,
   pushEnabled: true,
 );
+
+class _DraftDeletionRepositoryFixture extends _MaterialRequestRepositoryFixture
+    implements YorksV1MaterialRequestPhase2Repository {
+  final pending = Completer<void>();
+  int deleteCalls = 0;
+  @override
+  Future<void> deletePrivateDraft({
+    required String draftId,
+    required int expectedSyncVersion,
+    required String idempotencyKey,
+  }) async {
+    deleteCalls++;
+    await pending.future;
+  }
+
+  @override
+  Future<List<YorksV1PrivateMaterialRequestDraftRecord>> listPrivateDrafts({
+    required String ownerAuthUserId,
+    required String Function() submissionIdempotencyKeyFactory,
+    int limit = 30,
+  }) async => [];
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _MaterialRequestRepositoryFixture
     implements YorksV1MaterialRequestRepository {

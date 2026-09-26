@@ -97,6 +97,7 @@ explicit V7-to-V1 conflict resolution.
 | [`evidence/r38-configuration-20260814/README.md`](evidence/r38-configuration-20260814/README.md) | R38 Configuration Centre security, behavior and responsive visual evidence |
 | [`evidence/r38-5-team-chat-20260814/README.md`](evidence/r38-5-team-chat-20260814/README.md) | R38.5 Team Chat desktop, tablet and mobile visual/security evidence |
 | [`MIGRATION_AND_ROLLBACK_PLAN.md`](MIGRATION_AND_ROLLBACK_PLAN.md) | Additive migration, reconciliation, quarantine and rollback |
+| [`MATERIAL_REQUEST_DRAFT_LIFECYCLE.md`](MATERIAL_REQUEST_DRAFT_LIFECYCLE.md) | Private recovery deletion, retirement, concurrency and telemetry contract |
 | [`TEST_AND_ACCEPTANCE_PLAN.md`](TEST_AND_ACCEPTANCE_PLAN.md) | Canonical scenarios, R39 phase gates and platform/security evidence |
 | [`YORKS_PERFORMANCE_REVIEW.md`](YORKS_PERFORMANCE_REVIEW.md) | Measured production performance findings, incremental fixes, release evidence and remaining attribution |
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | Dependency-ordered Batches 0–10 |

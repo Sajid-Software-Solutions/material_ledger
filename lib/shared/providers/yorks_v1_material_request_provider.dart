@@ -10,7 +10,7 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_material_request.dart';
 import '../models/yorks_v1_material_request_document.dart';
 import '../models/yorks_v1_role.dart';
-import '../repositories/storage.dart';
+import '../repositories/yorks_v1_material_request_draft_store.dart';
 import '../repositories/yorks_v1_material_request_repository.dart';
 import '../services/analytics_service.dart';
 import '../sync/connectivity_service.dart';
@@ -27,6 +27,14 @@ const _yorksV1MaterialRequestDraftKeyPrefix =
 /// state: incomplete drafts are not exposed through server request lists.
 final yorksV1MaterialRequestLocalDraftRevisionProvider =
     StateProvider.family<int, String>((ref, ownerAuthUserId) => 0);
+
+final yorksV1MaterialRequestDraftStoreProvider =
+    Provider.family<YorksV1MaterialRequestDraftStore, String>((ref, owner) {
+      return YorksV1MaterialRequestDraftStore(
+        preferences: ref.watch(sharedPreferencesProvider),
+        key: '${_yorksV1MaterialRequestDraftKeyPrefix}_$owner',
+      );
+    });
 
 class YorksV1MaterialRequestDraftKey {
   const YorksV1MaterialRequestDraftKey({
@@ -54,15 +62,15 @@ final yorksV1MaterialRequestDraftControllerProvider = StateNotifierProvider
       YorksV1MaterialRequestDraftState,
       YorksV1MaterialRequestDraftKey
     >((ref, key) {
-      final store = ref
-          .watch(storageProvider)
-          .collection<YorksV1MaterialRequestDraft>(
-            '${_yorksV1MaterialRequestDraftKeyPrefix}_${key.ownerAuthUserId}',
-            toJson: (draft) => draft.toJson(),
-            fromJson: YorksV1MaterialRequestDraft.fromJson,
-          );
+      final store = ref.watch(
+        yorksV1MaterialRequestDraftStoreProvider(key.ownerAuthUserId),
+      );
       const uuid = Uuid();
       final controller = YorksV1MaterialRequestDraftController(
+        retainForDeletion: () {
+          final link = ref.keepAlive();
+          return link.close;
+        },
         ownerAuthUserId: key.ownerAuthUserId,
         draftId: key.draftId,
         store: store,
@@ -226,13 +234,9 @@ final yorksV1MaterialRequestLocalDraftsProvider =
       ref.watch(
         yorksV1MaterialRequestLocalDraftRevisionProvider(ownerAuthUserId),
       );
-      final store = ref
-          .watch(storageProvider)
-          .collection<YorksV1MaterialRequestDraft>(
-            '${_yorksV1MaterialRequestDraftKeyPrefix}_$ownerAuthUserId',
-            toJson: (draft) => draft.toJson(),
-            fromJson: YorksV1MaterialRequestDraft.fromJson,
-          );
+      final store = ref.watch(
+        yorksV1MaterialRequestDraftStoreProvider(ownerAuthUserId),
+      );
       final drafts = store
           .readAll()
           .where(
