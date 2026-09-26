@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/accounts/application/accounts_portfolio_providers.dart';
@@ -21,6 +22,9 @@ import 'package:material_ledger/features/accounts/domain/accounts_receivables_mo
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/presentation/screens/yorks_accounts_screens.dart';
+import 'package:material_ledger/features/accounts/presentation/screens/yorks_project_accounts_overview.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
+import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_document.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -31,6 +35,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    // Use the shipped typeface so layout goldens reveal real wrapping and
+    // density, rather than the rectangular Ahem test-font placeholders.
+    final font = FontLoader('NexusSans')
+      ..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'));
+    final arabic = FontLoader('NotoSansArabic')
+      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
+    await Future.wait([font.load(), arabic.load()]);
+  });
 
   testWidgets('Accounts portfolio is a dense desktop register', (tester) async {
     await _pumpPortfolio(tester, const Size(1440, 1000));
@@ -190,6 +204,171 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Project Accounts dashboard renders authorized desktop data', (
+    tester,
+  ) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(1366, 900),
+      YorksProjectAccountsTab.overview,
+    );
+
+    expect(find.text('Commercial progress by building'), findsOneWidget);
+    expect(find.text('Client collections'), findsOneWidget);
+    expect(find.text('Position by building'), findsOneWidget);
+    expect(find.text('Baseline snapshot'), findsOneWidget);
+    expect(find.text('Substation Building'), findsWidgets);
+    expect(find.text('AED 8,400,000.00'), findsWidgets);
+    expect(find.text('Client Certified'), findsOneWidget);
+    expect(find.text('Amount Paid Till Date'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await expectLater(
+      find.byType(YorksProjectAccountsScreen),
+      matchesGoldenFile(
+        'goldens/yorks_r39_project_accounts_dashboard_desktop.png',
+      ),
+    );
+  });
+
+  testWidgets('Embedded project Accounts does not duplicate project chrome', (
+    tester,
+  ) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(1366, 900),
+      YorksProjectAccountsTab.overview,
+      overviewRepository: _Repository(projectOverview: _adminProjectOverview),
+    );
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('BOQ'), findsNothing);
+    expect(find.text('Material Requests'), findsNothing);
+    expect(find.text('Material Movement'), findsNothing);
+    expect(find.byTooltip('Project actions'), findsNothing);
+    expect(find.text('Commercial progress by building'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Project Accounts dashboard stays usable at tablet width', (
+    tester,
+  ) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(820, 1180),
+      YorksProjectAccountsTab.overview,
+    );
+    expect(find.text('Commercial progress by building'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await expectLater(
+      find.byType(YorksProjectAccountsScreen),
+      matchesGoldenFile(
+        'goldens/yorks_r39_project_accounts_dashboard_tablet.png',
+      ),
+    );
+  });
+
+  for (final size in [const Size(1440, 900), const Size(1024, 768)]) {
+    testWidgets(
+      'Project Accounts dashboard has no overflow at ${size.width}px',
+      (tester) async {
+        await _pumpProjectTab(tester, size, YorksProjectAccountsTab.overview);
+        expect(find.text('Commercial progress by building'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('Project Accounts dashboard uses cards at 390px', (tester) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(390, 844),
+      YorksProjectAccountsTab.overview,
+    );
+    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('Client collections'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await expectLater(
+      find.byType(YorksProjectAccountsScreen),
+      matchesGoldenFile(
+        'goldens/yorks_r39_project_accounts_dashboard_mobile.png',
+      ),
+    );
+  });
+
+  testWidgets('Project Accounts dashboard shows building position at 360px', (
+    tester,
+  ) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(360, 800),
+      YorksProjectAccountsTab.overview,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Position by building'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Substation Building'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Progress-only viewer sees no commercial dashboard amounts', (
+    tester,
+  ) async {
+    await _pumpProjectTab(
+      tester,
+      const Size(1366, 900),
+      YorksProjectAccountsTab.overview,
+      overviewRepository: const _ProgressOnlyOverviewRepository(),
+      projectRepository: const _ProgressOnlyProjectRepository(),
+    );
+    expect(find.text('Commercial progress by building'), findsOneWidget);
+    expect(find.textContaining('AED'), findsNothing);
+    expect(find.text('Client collections'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Uninitialized project Accounts offers baseline setup only to an authorized configurator',
+    (tester) async {
+      var opened = false;
+      final emptyBaseline = YorksAccountsBaselineProjection(
+        schemaVersion: 2,
+        projectId: 'project-322',
+        baseline: null,
+        physicalBuildings: _baseline.physicalBuildings,
+        stageTemplates: _baseline.stageTemplates,
+        buildingAllocations: const [],
+        stageAllocations: const [],
+        capabilities: _accountsCapabilities,
+        commands: YorksAccountsCommandAvailability.fromRpcJson(const {}),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: YorksProjectAccountsOverview(
+              overview: _projectOverview,
+              baseline: emptyBaseline,
+              progress: _progress,
+              language: AppLanguage.english,
+              onBilling: () => opened = true,
+              onClaims: () {},
+              onReceipts: () {},
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Set commercial baseline'), findsNWidgets(2));
+      expect(find.text('AED 8,400,000.00'), findsNothing);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Set commercial baseline'),
+      );
+      expect(opened, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'Accounts refresh keeps confirmed page visible beneath its loading indicator',
     (tester) async {
@@ -226,7 +405,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(_projectOverview.projectName), findsWidgets);
+      expect(find.text('Billing Progress'), findsOneWidget);
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(YorksProjectAccountsScreen)),
@@ -247,7 +426,7 @@ void main() {
         find.byKey(const ValueKey('accounts-background-loading')),
         findsOneWidget,
       );
-      expect(find.text(_projectOverview.projectName), findsWidgets);
+      expect(find.text('Billing Progress'), findsOneWidget);
       repository.pending!.complete(_projectOverview);
       await tester.pumpAndSettle();
       expect(
@@ -447,6 +626,7 @@ Future<void> _pumpProjectTab(
   Size size,
   YorksProjectAccountsTab tab, {
   YorksAccountsPortfolioRepository overviewRepository = const _Repository(),
+  YorksAccountsRepository projectRepository = const _ProjectRepository(),
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
   tester.view.physicalSize = size;
@@ -472,9 +652,7 @@ Future<void> _pumpProjectTab(
         yorksAccountsPortfolioRepositoryProvider.overrideWithValue(
           overviewRepository,
         ),
-        yorksAccountsRepositoryProvider.overrideWithValue(
-          const _ProjectRepository(),
-        ),
+        yorksAccountsRepositoryProvider.overrideWithValue(projectRepository),
         yorksAccountsReceivablesRepositoryProvider.overrideWithValue(
           const _ReceivablesRepository(),
         ),
@@ -490,6 +668,7 @@ Future<void> _pumpProjectTab(
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
         home: YorksProjectAccountsScreen(
           projectId: 'project-322',
           initialTab: tab,
@@ -530,7 +709,9 @@ Future<void> _pumpProjectTab(
 }
 
 final class _Repository implements YorksAccountsPortfolioRepository {
-  const _Repository();
+  const _Repository({this.projectOverview});
+
+  final YorksAccountsProjectOverviewProjection? projectOverview;
 
   @override
   Future<YorksAccountsPortfolioProjection> getPortfolio(
@@ -540,7 +721,65 @@ final class _Repository implements YorksAccountsPortfolioRepository {
   @override
   Future<YorksAccountsProjectOverviewProjection> getProjectOverview(
     String projectId,
-  ) async => _projectOverview;
+  ) async => projectOverview ?? _projectOverview;
+}
+
+final class _ProgressOnlyOverviewRepository
+    implements YorksAccountsPortfolioRepository {
+  const _ProgressOnlyOverviewRepository();
+
+  @override
+  Future<YorksAccountsPortfolioProjection> getPortfolio(
+    YorksAccountsPortfolioFilters filters,
+  ) async => _projection;
+
+  @override
+  Future<YorksAccountsProjectOverviewProjection> getProjectOverview(
+    String projectId,
+  ) async => YorksAccountsProjectOverviewProjection(
+    projectId: projectId,
+    projectReference: 'YRA-322',
+    projectName: 'Nexus Power Transmission Phase 1',
+    projectSite: 'Abu Dhabi',
+    clientName: null,
+    actorExactRole: 'project_engineer',
+    capabilities: const YorksAccountsProjectUiCapabilities(
+      viewProjectAccounts: true,
+      viewValues: false,
+      viewSupplierCosts: false,
+      suggestProgress: false,
+      confirmProgress: false,
+      prepareClaim: false,
+      manageInvoices: false,
+      manageSupplierBills: false,
+      approveSupplierPayment: false,
+      canExport: false,
+    ),
+    baseline: const {'status': 'active'},
+    progress: const {'confirmed_percent': '12.5', 'building_position': []},
+    receivables: null,
+    supplier: null,
+  );
+}
+
+final class _ProgressOnlyProjectRepository implements YorksAccountsRepository {
+  const _ProgressOnlyProjectRepository();
+
+  @override
+  Future<YorksAccountsBaselineProjection> getBaseline(String projectId) async =>
+      _baseline.withoutProtectedValues();
+
+  @override
+  Future<YorksAccountsProgressProjection> listProgress(
+    String projectId, {
+    String? buildingScopeId,
+    String? stageKey,
+    String? actionOwner,
+    bool? hasEvidence,
+  }) async => _progress.withoutProtectedValues();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _CountingPortfolioRepository
@@ -815,6 +1054,20 @@ final _projectOverview = YorksAccountsProjectOverviewProjection(
     'pdc_exposure': '0',
     'recent_invoices': const [],
   },
+  supplier: null,
+);
+
+final _adminProjectOverview = YorksAccountsProjectOverviewProjection(
+  projectId: _projectOverview.projectId,
+  projectReference: _projectOverview.projectReference,
+  projectName: _projectOverview.projectName,
+  projectSite: _projectOverview.projectSite,
+  clientName: _projectOverview.clientName,
+  actorExactRole: 'admin',
+  capabilities: _projectOverview.capabilities,
+  baseline: _projectOverview.baseline,
+  progress: _projectOverview.progress,
+  receivables: _projectOverview.receivables,
   supplier: null,
 );
 

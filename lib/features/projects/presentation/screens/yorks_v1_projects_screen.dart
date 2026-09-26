@@ -51,6 +51,7 @@ import '../../../company_overview/application/company_analytics_providers.dart';
 import '../../../company_overview/domain/company_analytics_models.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
 import '../../../materials/presentation/screens/yorks_v1_material_request_screens.dart';
+import '../../../accounts/presentation/screens/yorks_accounts_screens.dart';
 
 /// The normalized, R35-aligned project portfolio.
 ///
@@ -58,7 +59,14 @@ import '../../../materials/presentation/screens/yorks_v1_material_request_screen
 /// the Yorks V1 rollout. Its rows are server-authorized non-commercial V1
 /// projections and route into connected BOQ, request and document flows.
 class YorksV1ProjectsScreen extends ConsumerStatefulWidget {
-  const YorksV1ProjectsScreen({super.key});
+  const YorksV1ProjectsScreen({
+    super.key,
+    this.initialState,
+    this.initialSearch,
+  });
+
+  final YorksV1ProjectLifecycle? initialState;
+  final String? initialSearch;
 
   @override
   ConsumerState<YorksV1ProjectsScreen> createState() =>
@@ -89,7 +97,13 @@ class YorksV1OverviewScreen extends ConsumerWidget {
     ref.watch(yorksV1MaterialRequestLiveRefreshProvider);
     final permissions = ref.watch(yorksV1CurrentPermissionSnapshotProvider);
     final user = ref.watch(currentUserProvider);
-    final projectOverview = ref.watch(yorksV1ProjectOverviewProvider);
+    final featureFlags = ref.watch(yorksV1FeatureFlagsProvider);
+    final executive =
+        role == YorksV1Role.admin || (role?.isGlobalProjectEngineer ?? false);
+    final admin = role == YorksV1Role.admin;
+    final AsyncValue<YorksV1ProjectOverview> projectOverview = ref.watch(
+      yorksV1ProjectOverviewProvider,
+    );
     final projects = projectOverview.whenData(
       (overview) => overview.items
           .where(
@@ -102,9 +116,8 @@ class YorksV1OverviewScreen extends ConsumerWidget {
           )
           .toList(growable: false),
     );
-    final requestOverview = ref.watch(
-      yorksV1MaterialRequestOverviewProvider(6),
-    );
+    final AsyncValue<YorksV1MaterialRequestOverview> requestOverview = ref
+        .watch(yorksV1MaterialRequestOverviewProvider(6));
     final requests = requestOverview.whenData(
       (overview) => overview.items
           .where(
@@ -136,10 +149,6 @@ class YorksV1OverviewScreen extends ConsumerWidget {
       legacyAllowed: role?.canBrowseInventory == true,
       organizationSummary: true,
     );
-    final executive =
-        role == YorksV1Role.admin || (role?.isGlobalProjectEngineer ?? false);
-    final admin = role == YorksV1Role.admin;
-    final featureFlags = ref.watch(yorksV1FeatureFlagsProvider);
     final canOpenAnalytics =
         featureFlags.analytics &&
         permissions.hybridAllows(
@@ -148,7 +157,7 @@ class YorksV1OverviewScreen extends ConsumerWidget {
           organizationSummary: true,
         );
     final AsyncValue<CompanyAnalyticsProjection?> companyAnalytics =
-        canOpenAnalytics
+        admin && canOpenAnalytics
         ? ref
               .watch(
                 companyAnalyticsProjectionProvider(
@@ -158,7 +167,8 @@ class YorksV1OverviewScreen extends ConsumerWidget {
               .whenData<CompanyAnalyticsProjection?>((value) => value)
         : const AsyncData<CompanyAnalyticsProjection?>(null);
     final canAccessRentals = admin && ref.watch(canAccessRentalsProvider);
-    final AsyncValue<YorksV1InventoryWorkspace?> inventory = canBrowseInventory
+    final shouldLoadInventory = canBrowseInventory;
+    final AsyncValue<YorksV1InventoryWorkspace?> inventory = shouldLoadInventory
         ? ref
               .watch(yorksV1InventoryWorkspaceProvider(null))
               .whenData<YorksV1InventoryWorkspace?>((value) => value)
@@ -205,12 +215,12 @@ class YorksV1OverviewScreen extends ConsumerWidget {
           final operations = <Future<Object?>>[
             ref.refresh(yorksV1ProjectOverviewProvider.future),
             ref.refresh(yorksV1MaterialRequestOverviewProvider(6).future),
-            if (canBrowseInventory)
+            if (shouldLoadInventory)
               ref.refresh(yorksV1InventoryWorkspaceProvider(null).future),
             if (admin) ref.refresh(yorksV1ConfigurationCentreProvider.future),
             if (canAccessRentals)
               ref.refresh(yorksV1RentalPortfolioProvider.future),
-            if (canOpenAnalytics)
+            if (admin && canOpenAnalytics)
               ref.refresh(
                 companyAnalyticsProjectionProvider(
                   const CompanyAnalyticsFilters(months: 6),
@@ -3434,8 +3444,15 @@ NexusStatusTone _requestTone(YorksV1MaterialRequestState state) {
 }
 
 class _YorksV1ProjectsScreenState extends ConsumerState<YorksV1ProjectsScreen> {
-  String _search = '';
-  YorksV1ProjectLifecycle? _stateFilter;
+  late String _search;
+  late YorksV1ProjectLifecycle? _stateFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _search = widget.initialSearch?.trim() ?? '';
+    _stateFilter = widget.initialState;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3563,10 +3580,12 @@ class YorksV1ProjectWorkspaceScreen extends ConsumerStatefulWidget {
     super.key,
     required this.projectId,
     this.initialTab = YorksV1ProjectWorkspaceTab.overview,
+    this.initialAccountsTab = YorksProjectAccountsTab.overview,
   });
 
   final String projectId;
   final YorksV1ProjectWorkspaceTab initialTab;
+  final YorksProjectAccountsTab initialAccountsTab;
 
   @override
   ConsumerState<YorksV1ProjectWorkspaceScreen> createState() =>
@@ -3647,8 +3666,6 @@ class _YorksV1ProjectWorkspaceScreenState
       yorksV1DocumentWorkspaceProvider(widget.projectId),
     );
     final mobile = YorksMobileUi.isActive(context);
-    final compactRoute =
-        MediaQuery.sizeOf(context).width < AppSpacing.yorksV1DesktopBreakpoint;
 
     Widget mobileFrame({
       required String title,
@@ -3713,19 +3730,6 @@ class _YorksV1ProjectWorkspaceScreenState
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: !mobile && compactRoute
-          ? AppBar(
-              backgroundColor: AppColors.surface,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => context.canPop()
-                    ? context.pop()
-                    : context.go(RoutePaths.yorksV1Projects),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-            )
-          : null,
       body: SafeArea(
         top: false,
         child: portfolio.when(
@@ -3877,6 +3881,7 @@ class _YorksV1ProjectWorkspaceScreenState
                     activeMember: activeMember,
                     canActAsProjectEngineer: requestApproveAccess.isVisible,
                     showAccounts: showAccounts,
+                    initialAccountsTab: widget.initialAccountsTab,
                     onActivate: activateAction,
                     showNewRequest:
                         projectStateIsEditable && requestCreateAccess.isVisible,
@@ -4825,6 +4830,7 @@ class _ProjectWorkspaceBody extends StatelessWidget {
     required this.activeMember,
     required this.canActAsProjectEngineer,
     required this.showAccounts,
+    required this.initialAccountsTab,
     required this.onActivate,
     required this.showNewRequest,
     required this.onNewRequest,
@@ -4848,6 +4854,7 @@ class _ProjectWorkspaceBody extends StatelessWidget {
   final bool activeMember;
   final bool canActAsProjectEngineer;
   final bool showAccounts;
+  final YorksProjectAccountsTab initialAccountsTab;
   final VoidCallback? onActivate;
   final bool showNewRequest;
   final VoidCallback? onNewRequest;
@@ -4875,6 +4882,9 @@ class _ProjectWorkspaceBody extends StatelessWidget {
         activeMember: activeMember,
         canActAsProjectEngineer: canActAsProjectEngineer,
         showAccounts: showAccounts,
+        initialAccountsTab: initialAccountsTab,
+        showNewRequest: showNewRequest,
+        onNewRequest: onNewRequest,
         onTabChanged: onTabChanged,
         onOpenRequests: () => onTabChanged(YorksV1ProjectWorkspaceTab.requests),
         onOpenRequest: (request) =>
@@ -4886,10 +4896,9 @@ class _ProjectWorkspaceBody extends StatelessWidget {
       builder: (context, constraints) {
         final desktop =
             constraints.maxWidth >= AppSpacing.yorksV1DesktopBreakpoint;
-        final horizontal = desktop
-            ? AppSpacing.xxxl + AppSpacing.xs
-            : AppSpacing.lg;
+        final horizontal = desktop ? AppSpacing.xl : AppSpacing.lg;
         if (tab == YorksV1ProjectWorkspaceTab.requests ||
+            tab == YorksV1ProjectWorkspaceTab.accounts ||
             tab == YorksV1ProjectWorkspaceTab.documents) {
           return ColoredBox(
             color: AppColors.surface,
@@ -4911,28 +4920,33 @@ class _ProjectWorkspaceBody extends StatelessWidget {
                   onOpenChat: onOpenChat,
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontal,
-                      AppSpacing.xl,
-                      horizontal,
-                      0,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: AppSpacing.pageMaxWidth,
-                      ),
-                      child: tab == YorksV1ProjectWorkspaceTab.requests
-                          ? YorksV1MaterialRequestsScreen(
-                              projectId: project.id,
-                              embedded: true,
-                            )
-                          : YorksV1DocumentsScreen(
-                              projectId: project.id,
-                              embedded: true,
+                  child: tab == YorksV1ProjectWorkspaceTab.accounts
+                      ? YorksProjectAccountsScreen(
+                          projectId: project.id,
+                          initialTab: initialAccountsTab,
+                        )
+                      : Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            horizontal,
+                            AppSpacing.xl,
+                            horizontal,
+                            0,
+                          ),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: AppSpacing.pageMaxWidth,
                             ),
-                    ),
-                  ),
+                            child: tab == YorksV1ProjectWorkspaceTab.requests
+                                ? YorksV1MaterialRequestsScreen(
+                                    projectId: project.id,
+                                    embedded: true,
+                                  )
+                                : YorksV1DocumentsScreen(
+                                    projectId: project.id,
+                                    embedded: true,
+                                  ),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -4962,7 +4976,9 @@ class _ProjectWorkspaceBody extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     horizontal,
-                    AppSpacing.xxxl,
+                    tab == YorksV1ProjectWorkspaceTab.overview
+                        ? AppSpacing.md
+                        : AppSpacing.xl,
                     horizontal,
                     0,
                   ),
@@ -4974,14 +4990,15 @@ class _ProjectWorkspaceBody extends StatelessWidget {
                       YorksV1ProjectWorkspaceTab.overview =>
                         _ProjectR35Overview(
                           item: item,
+                          language: language,
                           groups: groups,
                           requests: requests,
                           scopes: scopes,
                           documents: documents,
-                          onOpenBoq: () =>
-                              onTabChanged(YorksV1ProjectWorkspaceTab.boq),
                           onOpenRequests: () =>
                               onTabChanged(YorksV1ProjectWorkspaceTab.requests),
+                          onOpenRequest: (request) =>
+                              context.push(_materialRequestOpenPath(request)),
                           onOpenDocuments: () => onTabChanged(
                             YorksV1ProjectWorkspaceTab.documents,
                           ),
@@ -5761,6 +5778,9 @@ class _MobileProjectWorkspace extends StatelessWidget {
     required this.activeMember,
     required this.canActAsProjectEngineer,
     required this.showAccounts,
+    required this.initialAccountsTab,
+    required this.showNewRequest,
+    required this.onNewRequest,
     required this.onTabChanged,
     required this.onOpenRequests,
     required this.onOpenRequest,
@@ -5778,6 +5798,9 @@ class _MobileProjectWorkspace extends StatelessWidget {
   final bool activeMember;
   final bool canActAsProjectEngineer;
   final bool showAccounts;
+  final YorksProjectAccountsTab initialAccountsTab;
+  final bool showNewRequest;
+  final VoidCallback? onNewRequest;
   final ValueChanged<YorksV1ProjectWorkspaceTab> onTabChanged;
   final VoidCallback onOpenRequests;
   final ValueChanged<YorksV1MaterialRequest> onOpenRequest;
@@ -5801,6 +5824,23 @@ class _MobileProjectWorkspace extends StatelessWidget {
               child: YorksV1BoqGroupsScreen(
                 projectId: item.project.id,
                 embedded: true,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (tab == YorksV1ProjectWorkspaceTab.accounts) {
+      return ColoredBox(
+        color: AppColors.mobileSurface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            tabs,
+            Expanded(
+              child: YorksProjectAccountsScreen(
+                projectId: item.project.id,
+                initialTab: initialAccountsTab,
               ),
             ),
           ],
@@ -5845,6 +5885,19 @@ class _MobileProjectWorkspace extends StatelessWidget {
             if (tab == YorksV1ProjectWorkspaceTab.overview) ...[
               _MobileProjectHero(item: item, scopes: scopes),
               const SizedBox(height: 10),
+              if (showNewRequest) ...[
+                SizedBox(
+                  height: AppSpacing.minTapTarget,
+                  child: FilledButton.icon(
+                    onPressed: onNewRequest,
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(
+                      YorksV1MaterialRequestStrings.newRequest.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
             ],
             tabs,
             const SizedBox(height: 13),
@@ -5904,19 +5957,9 @@ class _MobileProjectHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.navy, AppColors.navyHover],
-        ),
-        borderRadius: BorderRadius.circular(17),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.navy.withValues(alpha: .20),
-            blurRadius: 26,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: AppColors.surfaceContainerLowest,
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5929,7 +5972,7 @@ class _MobileProjectHero extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.labelLarge.copyWith(
-                    color: AppColors.onPrimary,
+                    color: AppColors.muted,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -5943,7 +5986,7 @@ class _MobileProjectHero extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppTypography.headlineSmall.copyWith(
-              color: AppColors.onPrimary,
+              color: AppColors.navy,
               fontSize: 22,
               height: 1.18,
               fontWeight: FontWeight.w800,
@@ -5953,9 +5996,9 @@ class _MobileProjectHero extends StatelessWidget {
           Row(
             children: [
               const Icon(
-                Icons.business_outlined,
+                Icons.location_on_outlined,
                 size: 16,
-                color: AppColors.blueContainerStrong,
+                color: AppColors.muted,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -5967,7 +6010,7 @@ class _MobileProjectHero extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.blueContainerStrong,
+                    color: AppColors.muted,
                   ),
                 ),
               ),
@@ -6125,7 +6168,9 @@ class _MobileProjectOverview extends StatelessWidget {
     final pending = requestItems
         ?.where(
           (request) =>
-              request.state == YorksV1MaterialRequestState.awaitingApproval,
+              request.state == YorksV1MaterialRequestState.awaitingApproval ||
+              request.state ==
+                  YorksV1MaterialRequestState.awaitingRequestApproval,
         )
         .length;
     final inProgress = requestItems
@@ -6273,19 +6318,23 @@ class _MobileProjectKpiGrid extends StatelessWidget {
   final List<_MobileProjectKpi> entries;
 
   @override
-  Widget build(BuildContext context) => GridView.builder(
-    shrinkWrap: true,
-    physics: const NeverScrollableScrollPhysics(),
-    itemCount: entries.length,
-    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 2,
-      crossAxisSpacing: 9,
-      mainAxisSpacing: 9,
-      mainAxisExtent: 82,
-    ),
-    itemBuilder: (context, index) =>
-        _MobileProjectKpiTile(entry: entries[index], large: true),
-  );
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final tileHeight = 82.0 + ((textScale - 1) * 32).clamp(0.0, 48.0);
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: entries.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 9,
+        mainAxisSpacing: 9,
+        mainAxisExtent: tileHeight,
+      ),
+      itemBuilder: (context, index) =>
+          _MobileProjectKpiTile(entry: entries[index], large: true),
+    );
+  }
 }
 
 class _MobileProjectRecordGrid extends StatelessWidget {
@@ -6509,21 +6558,30 @@ class _MobileRequestStatePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final attention = state == YorksV1MaterialRequestState.awaitingApproval;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 25),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: attention ? AppColors.warningContainer : AppColors.blueContainer,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-      ),
-      child: Text(
-        yorksV1MaterialRequestStateCopy(state).primary,
-        maxLines: 1,
-        style: AppTypography.labelSmall.copyWith(
-          color: attention ? AppColors.warning : AppColors.blue,
-          fontSize: 8,
-          fontWeight: FontWeight.w800,
+    final attention =
+        state == YorksV1MaterialRequestState.awaitingApproval ||
+        state == YorksV1MaterialRequestState.awaitingRequestApproval;
+    final label = yorksV1MaterialRequestStateCopy(state).primary;
+    return Tooltip(
+      message: label,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 25, maxWidth: 112),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: attention
+              ? AppColors.warningContainer
+              : AppColors.blueContainer,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.labelSmall.copyWith(
+            color: attention ? AppColors.warning : AppColors.blue,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );
@@ -6670,45 +6728,63 @@ class _ProjectR35Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    color: AppColors.navy,
     padding: const EdgeInsets.fromLTRB(
-      AppSpacing.xxxl + AppSpacing.xs,
-      AppSpacing.xxxl,
-      AppSpacing.xxxl + AppSpacing.xs,
+      AppSpacing.xl,
+      AppSpacing.lg,
+      AppSpacing.xl,
       0,
+    ),
+    decoration: const BoxDecoration(
+      color: AppColors.surfaceContainerLowest,
+      border: Border(bottom: BorderSide(color: AppColors.line)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 700;
+            final stacked = constraints.maxWidth < 860;
             final copy = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   project.reference.toUpperCase(),
                   style: AppTypography.eyebrow.copyWith(
-                    color: AppColors.blueContainerStrong,
-                    letterSpacing: 1.45,
+                    color: AppColors.muted,
+                    letterSpacing: .6,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   project.name,
-                  style: AppTypography.headlineLarge.copyWith(
-                    color: AppColors.onPrimary,
+                  style: AppTypography.headlineMedium.copyWith(
+                    color: AppColors.navy,
+                    height: 1.08,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 if (project.siteLocation?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    project.siteLocation!,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.blueContainerStrong,
-                    ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 17,
+                        color: AppColors.muted,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          project.siteLocation!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -6717,15 +6793,22 @@ class _ProjectR35Hero extends StatelessWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
+                if (showNewRequest)
+                  SizedBox(
+                    height: AppSpacing.minTapTarget,
+                    child: FilledButton.icon(
+                      onPressed: onNewRequest,
+                      icon: const Icon(Icons.add_rounded),
+                      label: Text(
+                        YorksV1MaterialRequestStrings.newRequest.primary,
+                      ),
+                    ),
+                  ),
                 if (onOpenChat != null)
                   SizedBox(
                     height: AppSpacing.minTapTarget,
                     child: OutlinedButton.icon(
                       onPressed: onOpenChat,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.onPrimary,
-                        side: const BorderSide(color: AppColors.lineStrong),
-                      ),
                       icon: const Icon(Icons.forum_outlined),
                       label: Text(YorksV1TeamChatStrings.openChat.primary),
                     ),
@@ -6735,28 +6818,9 @@ class _ProjectR35Hero extends StatelessWidget {
                     height: AppSpacing.minTapTarget,
                     child: OutlinedButton.icon(
                       onPressed: onActivate,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.onPrimary,
-                        side: const BorderSide(color: AppColors.lineStrong),
-                      ),
                       icon: const Icon(Icons.play_circle_outline_rounded),
                       label: Text(
                         YorksV1ProjectStrings.activateProject.primary,
-                      ),
-                    ),
-                  ),
-                if (showNewRequest)
-                  SizedBox(
-                    height: AppSpacing.minTapTarget,
-                    child: FilledButton.icon(
-                      onPressed: onNewRequest,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.surfaceContainerLowest,
-                        foregroundColor: AppColors.navy,
-                      ),
-                      icon: const Icon(Icons.add_rounded),
-                      label: Text(
-                        YorksV1MaterialRequestStrings.newRequest.primary,
                       ),
                     ),
                   ),
@@ -6765,26 +6829,36 @@ class _ProjectR35Hero extends StatelessWidget {
                     height: AppSpacing.minTapTarget,
                     child: OutlinedButton.icon(
                       onPressed: onEdit,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.onPrimary,
-                        side: const BorderSide(color: AppColors.lineStrong),
-                      ),
                       icon: const Icon(Icons.edit_outlined),
                       label: Text(YorksV1ProjectStrings.editProject.primary),
                     ),
                   ),
                 if (showArchive)
                   SizedBox(
+                    width: AppSpacing.minTapTarget,
                     height: AppSpacing.minTapTarget,
-                    child: TextButton.icon(
-                      onPressed: onArchive,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.errorContainer,
-                      ),
-                      icon: const Icon(Icons.archive_outlined),
-                      label: Text(
-                        YorksV1ProjectStrings.safeDeleteProject.primary,
-                      ),
+                    child: PopupMenuButton<String>(
+                      tooltip: YorksV1ProjectStrings.safeDeleteProject.primary,
+                      icon: const Icon(Icons.more_horiz_rounded),
+                      onSelected: (_) => onArchive?.call(),
+                      itemBuilder: (_) => [
+                        PopupMenuItem<String>(
+                          value: 'archive',
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.archive_outlined,
+                                color: AppColors.error,
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text(
+                                YorksV1ProjectStrings.safeDeleteProject.primary,
+                                style: const TextStyle(color: AppColors.error),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -6794,7 +6868,7 @@ class _ProjectR35Hero extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       copy,
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       actions,
                     ],
                   )
@@ -6807,7 +6881,7 @@ class _ProjectR35Hero extends StatelessWidget {
                   );
           },
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        const SizedBox(height: AppSpacing.md),
         _ProjectWorkspaceTabs(
           selected: selected,
           onSelected: onSelected,
@@ -7032,33 +7106,27 @@ class _ProjectWorkspaceTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
-    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
     child: InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      hoverColor: AppColors.onPrimary.withValues(alpha: .07),
-      focusColor: AppColors.onPrimary.withValues(alpha: .10),
-      highlightColor: AppColors.onPrimary.withValues(alpha: .06),
-      splashColor: AppColors.onPrimary.withValues(alpha: .08),
+      hoverColor: AppColors.blueContainer.withValues(alpha: .45),
+      focusColor: AppColors.blueContainer,
+      highlightColor: AppColors.blueContainer.withValues(alpha: .55),
       child: Container(
         constraints: const BoxConstraints(minHeight: AppSpacing.minTapTarget),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border(
             bottom: BorderSide(
-              color: selected
-                  ? AppColors.blueContainerStrong
-                  : Colors.transparent,
-              width: 4,
+              color: selected ? AppColors.blue : Colors.transparent,
+              width: 3,
             ),
           ),
         ),
         child: Text(
           label,
           style: AppTypography.labelLarge.copyWith(
-            color: selected ? AppColors.onPrimary : AppColors.lineStrong,
+            color: selected ? AppColors.blue : AppColors.inkSecondary,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -7070,240 +7138,154 @@ class _ProjectWorkspaceTabButton extends StatelessWidget {
 class _ProjectR35Overview extends StatelessWidget {
   const _ProjectR35Overview({
     required this.item,
+    required this.language,
     required this.groups,
     required this.requests,
     required this.scopes,
     required this.documents,
-    required this.onOpenBoq,
     required this.onOpenRequests,
+    required this.onOpenRequest,
     required this.onOpenDocuments,
   });
 
   final YorksV1ProjectPortfolioItem item;
+  final AppLanguage language;
   final AsyncValue<List<YorksV1BoqGroup>> groups;
   final AsyncValue<List<YorksV1MaterialRequest>> requests;
   final AsyncValue<List<YorksV1MaterialRequestScopeOption>> scopes;
   final AsyncValue<YorksV1DocumentWorkspace> documents;
-  final VoidCallback onOpenBoq;
   final VoidCallback onOpenRequests;
+  final ValueChanged<YorksV1MaterialRequest> onOpenRequest;
   final VoidCallback onOpenDocuments;
 
   @override
   Widget build(BuildContext context) {
-    final groupItems = groups.valueOrNull ?? const <YorksV1BoqGroup>[];
-    final requestItems =
-        requests.valueOrNull ?? const <YorksV1MaterialRequest>[];
-    final documentItems =
-        documents.valueOrNull?.documents ?? const <YorksV1Document>[];
-    final boqItems = groupItems.fold<int>(
+    final groupItems = groups.valueOrNull;
+    final requestItems = requests.valueOrNull;
+    final scopeItems = scopes.valueOrNull;
+    final documentWorkspace = documents.valueOrNull;
+    final boqItems = groupItems?.fold<int>(
       0,
       (total, group) => total + group.rowCount,
     );
     final openRequests = requestItems
-        .where(
-          (request) =>
-              request.state != YorksV1MaterialRequestState.received &&
-              request.state != YorksV1MaterialRequestState.closed &&
-              request.state != YorksV1MaterialRequestState.cancelled,
-        )
+        ?.where((request) => !_projectRequestIsClosed(request.state))
         .length;
-    final buildingItems = (scopes.valueOrNull ?? const [])
-        .where((scope) => !scope.isCommon)
-        .toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _ProjectMetricGrid(
-          metrics: [
-            _ProjectMetric(
-              label: YorksV1ProjectStrings.boqGroups.primary,
-              value: '${groupItems.length}',
-              detail: YorksV1ProjectStrings.foldersOfMaterials.primary,
-            ),
-            _ProjectMetric(
-              label: YorksV1ProjectStrings.boqItems.primary,
-              value: '$boqItems',
-              detail: YorksV1ProjectStrings.availableToRequest.primary,
-            ),
-            _ProjectMetric(
-              label: YorksV1ProjectStrings.requests.primary,
-              value: '${requestItems.length}',
-              detail:
-                  '$openRequests ${YorksV1ProjectStrings.currentlyOpen.primary}',
-            ),
-            _ProjectMetric(
-              label: YorksV1ProjectStrings.documents.primary,
-              value: '${documentItems.length}',
-              detail: YorksV1ProjectStrings.projectLevelFiles.primary,
-            ),
-            _ProjectMetric(
-              label: YorksV1ProjectStrings.buildings.primary,
-              value: '${item.activeBuildingCount}',
-              detail: YorksV1ProjectStrings.plusCommonScope.primary,
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _ProjectR35Guide(),
-        const SizedBox(height: AppSpacing.lg),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 900;
-            final cards = [
-              _ProjectModuleCard(
-                icon: Icons.folder_outlined,
-                title: YorksV1ProjectStrings.boq,
-                badge:
-                    '${groupItems.length} ${YorksV1ProjectStrings.groups.primary}',
-                description: YorksV1ProjectStrings.boqModuleDescription.primary,
-                primaryMetric: YorksV1ProjectStrings.items.primary,
-                primaryValue: '$boqItems',
-                secondaryMetric: YorksV1ProjectStrings.ready.primary,
-                secondaryValue: '$boqItems',
-                onOpen: onOpenBoq,
-              ),
-              _ProjectModuleCard(
-                icon: Icons.assignment_outlined,
-                title: YorksV1ProjectStrings.materialRequests,
-                badge:
-                    '$openRequests ${YorksV1ProjectStrings.currentlyOpen.primary}',
-                description:
-                    YorksV1ProjectStrings.requestsModuleDescription.primary,
-                primaryMetric: YorksV1ProjectStrings.total.primary,
-                primaryValue: '${requestItems.length}',
-                secondaryMetric: YorksV1ProjectStrings.received.primary,
-                secondaryValue:
-                    '${requestItems.where((item) => item.state == YorksV1MaterialRequestState.received).length}',
-                onOpen: onOpenRequests,
-              ),
-              _ProjectModuleCard(
-                icon: Icons.description_outlined,
-                title: YorksV1ProjectStrings.documents,
-                badge:
-                    '${documentItems.length} ${YorksV1ProjectStrings.files.primary}',
-                description:
-                    YorksV1ProjectStrings.documentsModuleDescription.primary,
-                primaryMetric: YorksV1ProjectStrings.files.primary,
-                primaryValue: '${documentItems.length}',
-                secondaryMetric: YorksV1ProjectStrings.links.primary,
-                secondaryValue:
-                    '${documentItems.fold<int>(0, (total, item) => total + item.links.length)}',
-                onOpen: onOpenDocuments,
-              ),
-            ];
-            return wide
-                ? Row(
-                    // This lives inside the page's vertical scroll view, so
-                    // it has an unbounded height. `stretch` would force the
-                    // module cards to an infinite height on web. Their common
-                    // minimum height keeps the R35 row visually consistent
-                    // without making the scroll viewport invalid.
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var index = 0; index < cards.length; index++) ...[
-                        Expanded(child: cards[index]),
-                        if (index != cards.length - 1)
-                          const SizedBox(width: AppSpacing.lg),
-                      ],
-                    ],
-                  )
-                : Column(
-                    children: [
-                      for (var index = 0; index < cards.length; index++) ...[
-                        cards[index],
-                        if (index != cards.length - 1)
-                          const SizedBox(height: AppSpacing.md),
-                      ],
-                    ],
-                  );
-          },
-        ),
-        const SizedBox(height: AppSpacing.xxxl),
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    YorksV1ProjectStrings.recentMaterialRequests.primary,
-                    style: AppTypography.titleLarge.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    YorksV1ProjectStrings.recentRequestsDescription.primary,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: AppSpacing.minTapTarget,
-              child: OutlinedButton(
-                onPressed: onOpenRequests,
-                child: Text(YorksV1ShellStrings.viewAll.primary),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _RecentProjectRequests(
-          requests: requests,
-          onOpenRequests: onOpenRequests,
-        ),
-        const SizedBox(height: AppSpacing.xxxl),
-        _ProjectInformationSection(item: item, buildings: buildingItems),
-      ],
-    );
-  }
-}
+    final buildingCount = scopeItems?.where((scope) => !scope.isCommon).length;
 
-class _ProjectInformationSection extends StatelessWidget {
-  const _ProjectInformationSection({
-    required this.item,
-    required this.buildings,
-  });
-
-  final YorksV1ProjectPortfolioItem item;
-  final List<YorksV1MaterialRequestScopeOption> buildings;
-
-  @override
-  Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-        final team = _ProjectTeamCard(item: item);
-        final buildingCard = _ProjectBuildingsCard(
-          buildings: buildings,
-          count: item.activeBuildingCount,
-        );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        final split = constraints.maxWidth >= 1000;
+        final railWidth = constraints.maxWidth >= 1180 ? 322.0 : 292.0;
+        final main = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              YorksV1ProjectStrings.projectInformation.primary,
-              style: AppTypography.titleLarge.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+            _ProjectActionRequiredPanel(
+              requests: requests,
+              language: language,
+              onOpenRequests: onOpenRequests,
             ),
             const SizedBox(height: AppSpacing.md),
-            if (wide)
+            _ProjectRecentRequestsPanel(
+              requests: requests,
+              language: language,
+              onOpenRequest: onOpenRequest,
+              onViewAll: onOpenRequests,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ProjectRecentActivityPanel(
+              requests: requests,
+              groups: groups,
+              documents: documents,
+              language: language,
+              onViewAll: onOpenRequests,
+            ),
+          ],
+        );
+        final rail = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ProjectOverviewTeamPanel(item: item, language: language),
+            const SizedBox(height: AppSpacing.md),
+            _ProjectOverviewScopesPanel(
+              scopes: scopes,
+              fallbackBuildingCount: item.activeBuildingCount,
+              language: language,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _ProjectOverviewDocumentsPanel(
+              documents: documents,
+              language: language,
+              onOpen: onOpenDocuments,
+            ),
+          ],
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _ProjectOverviewMetricGrid(
+              metrics: [
+                _ProjectOverviewMetric(
+                  icon: Icons.assignment_outlined,
+                  label: YorksV1ProjectStrings.materialRequests.active(
+                    language,
+                  ),
+                  value: requestItems == null ? '—' : '${requestItems.length}',
+                  detail: openRequests == null
+                      ? '—'
+                      : '$openRequests ${YorksV1ProjectStrings.currentlyOpen.active(language)}',
+                  emphasizedDetail: openRequests != null,
+                ),
+                _ProjectOverviewMetric(
+                  icon: Icons.inventory_2_outlined,
+                  label: YorksV1ProjectStrings.boqGroups.active(language),
+                  value: groupItems == null ? '—' : '${groupItems.length}',
+                  detail: YorksV1ProjectStrings.foldersOfMaterials.active(
+                    language,
+                  ),
+                ),
+                _ProjectOverviewMetric(
+                  icon: Icons.format_list_bulleted_rounded,
+                  label: YorksV1ProjectStrings.boqItems.active(language),
+                  value: boqItems == null ? '—' : '$boqItems',
+                  detail: YorksV1ProjectStrings.availableToRequest.active(
+                    language,
+                  ),
+                ),
+                _ProjectOverviewMetric(
+                  icon: Icons.apartment_rounded,
+                  label: YorksV1ProjectStrings.buildings.active(language),
+                  value: buildingCount == null ? '—' : '$buildingCount',
+                  detail: YorksV1ProjectStrings.plusCommonScope.active(
+                    language,
+                  ),
+                ),
+                _ProjectOverviewMetric(
+                  icon: Icons.description_outlined,
+                  label: YorksV1ProjectStrings.documents.active(language),
+                  value: documentWorkspace == null
+                      ? '—'
+                      : '${documentWorkspace.documents.length}',
+                  detail: YorksV1ProjectStrings.projectLevelFiles.active(
+                    language,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            if (split)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: team),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(child: buildingCard),
+                  Expanded(child: main),
+                  const SizedBox(width: AppSpacing.md),
+                  SizedBox(width: railWidth, child: rail),
                 ],
               )
             else ...[
-              team,
+              main,
               const SizedBox(height: AppSpacing.md),
-              buildingCard,
+              rail,
             ],
           ],
         );
@@ -7312,10 +7294,924 @@ class _ProjectInformationSection extends StatelessWidget {
   }
 }
 
-class _ProjectTeamCard extends ConsumerWidget {
-  const _ProjectTeamCard({required this.item});
+bool _projectRequestIsClosed(YorksV1MaterialRequestState state) =>
+    state == YorksV1MaterialRequestState.received ||
+    state == YorksV1MaterialRequestState.closed ||
+    state == YorksV1MaterialRequestState.cancelled;
+
+class _ProjectOverviewMetric {
+  const _ProjectOverviewMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    this.emphasizedDetail = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final bool emphasizedDetail;
+}
+
+class _ProjectOverviewMetricGrid extends StatelessWidget {
+  const _ProjectOverviewMetricGrid({required this.metrics});
+
+  final List<_ProjectOverviewMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 1020
+          ? 5
+          : constraints.maxWidth >= 680
+          ? 3
+          : 2;
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: metrics.length,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: AppSpacing.sm,
+          mainAxisSpacing: AppSpacing.sm,
+          mainAxisExtent: 100,
+        ),
+        itemBuilder: (context, index) {
+          final metric = metrics[index];
+          return Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLowest,
+              border: Border.all(color: AppColors.line),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.shadow,
+                  blurRadius: 12,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: AppSpacing.minTapTarget,
+                  height: AppSpacing.minTapTarget,
+                  decoration: BoxDecoration(
+                    color: AppColors.blueContainer,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Icon(metric.icon, color: AppColors.blue, size: 23),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        metric.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        metric.value,
+                        style: AppTypography.headlineMedium.copyWith(
+                          color: AppColors.navy,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        metric.detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.labelSmall.copyWith(
+                          color: metric.emphasizedDetail
+                              ? AppColors.blue
+                              : AppColors.muted,
+                          fontWeight: metric.emphasizedDetail
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class _ProjectOverviewPanel extends StatelessWidget {
+  const _ProjectOverviewPanel({
+    required this.title,
+    required this.child,
+    this.description,
+    this.action,
+    this.padding = const EdgeInsets.all(AppSpacing.md),
+  });
+
+  final String title;
+  final String? description;
+  final Widget? action;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: AppColors.surfaceContainerLowest,
+      border: Border.all(color: AppColors.line),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.md,
+            AppSpacing.sm,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.titleMedium.copyWith(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (description != null) ...[
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        description!,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (action != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                action!,
+              ],
+            ],
+          ),
+        ),
+        Padding(padding: padding, child: child),
+      ],
+    ),
+  );
+}
+
+class _ProjectActionRequiredPanel extends StatelessWidget {
+  const _ProjectActionRequiredPanel({
+    required this.requests,
+    required this.language,
+    required this.onOpenRequests,
+  });
+
+  final AsyncValue<List<YorksV1MaterialRequest>> requests;
+  final AppLanguage language;
+  final VoidCallback onOpenRequests;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = requests.valueOrNull;
+    final approvalCount = items
+        ?.where(
+          (request) =>
+              request.state ==
+                  YorksV1MaterialRequestState.awaitingRequestApproval ||
+              request.state == YorksV1MaterialRequestState.awaitingApproval,
+        )
+        .length;
+    final deliveryCount = items
+        ?.where(
+          (request) =>
+              request.state == YorksV1MaterialRequestState.dispatched ||
+              request.state == YorksV1MaterialRequestState.partiallyReceived,
+        )
+        .length;
+    return _ProjectOverviewPanel(
+      title: YorksV1ProjectStrings.actionRequired.active(language),
+      description: YorksV1ProjectStrings.actionRequiredDescription.active(
+        language,
+      ),
+      action: SizedBox(
+        height: AppSpacing.minTapTarget,
+        child: OutlinedButton(
+          onPressed: onOpenRequests,
+          child: Text(YorksV1ProjectStrings.viewAllActions.active(language)),
+        ),
+      ),
+      child: requests.when(
+        loading: () => const SizedBox(
+          height: 68,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (_, _) => _ProjectOverviewMessage(
+          icon: Icons.cloud_off_outlined,
+          message: YorksV1ProjectStrings.requestsUnavailable.active(language),
+        ),
+        data: (_) {
+          final actions = <Widget>[
+            if ((approvalCount ?? 0) > 0)
+              _ProjectActionTile(
+                icon: Icons.priority_high_rounded,
+                tone: AppColors.warning,
+                background: AppColors.warningContainer,
+                title:
+                    '$approvalCount ${YorksV1ProjectStrings.requestsAwaitingApproval.active(language)}',
+                description: YorksV1ProjectStrings
+                    .requestsAwaitingApprovalDescription
+                    .active(language),
+                actionLabel: YorksV1ProjectStrings.reviewRequests.active(
+                  language,
+                ),
+                onPressed: onOpenRequests,
+              ),
+            if ((deliveryCount ?? 0) > 0)
+              _ProjectActionTile(
+                icon: Icons.local_shipping_outlined,
+                tone: AppColors.blue,
+                background: AppColors.blueContainer,
+                title:
+                    '$deliveryCount ${YorksV1ProjectStrings.deliveriesReadyForReceipt.active(language)}',
+                description: YorksV1ProjectStrings
+                    .deliveriesReadyForReceiptDescription
+                    .active(language),
+                actionLabel: YorksV1ProjectStrings.reviewDeliveries.active(
+                  language,
+                ),
+                onPressed: onOpenRequests,
+              ),
+          ];
+          if (actions.isEmpty) {
+            return _ProjectOverviewMessage(
+              icon: Icons.check_circle_outline_rounded,
+              message: YorksV1ProjectStrings.noAttentionRequired.active(
+                language,
+              ),
+            );
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) => constraints.maxWidth >= 700
+                ? Row(
+                    children: [
+                      for (var index = 0; index < actions.length; index++) ...[
+                        Expanded(child: actions[index]),
+                        if (index != actions.length - 1)
+                          const SizedBox(width: AppSpacing.sm),
+                      ],
+                    ],
+                  )
+                : Column(
+                    children: [
+                      for (var index = 0; index < actions.length; index++) ...[
+                        actions[index],
+                        if (index != actions.length - 1)
+                          const SizedBox(height: AppSpacing.sm),
+                      ],
+                    ],
+                  ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProjectActionTile extends StatelessWidget {
+  const _ProjectActionTile({
+    required this.icon,
+    required this.tone,
+    required this.background,
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color tone;
+  final Color background;
+  final String title;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 68),
+    padding: const EdgeInsets.all(AppSpacing.sm),
+    decoration: BoxDecoration(
+      border: Border.all(color: AppColors.line),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: AppSpacing.minTapTarget,
+          height: AppSpacing.minTapTarget,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: Icon(icon, color: tone, size: 24),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelLarge.copyWith(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelSmall.copyWith(
+                  color: AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        SizedBox(
+          height: AppSpacing.minTapTarget,
+          child: OutlinedButton(
+            onPressed: onPressed,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(actionLabel),
+                const SizedBox(width: AppSpacing.xs),
+                const Icon(Icons.arrow_forward_rounded, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProjectRecentRequestsPanel extends StatelessWidget {
+  const _ProjectRecentRequestsPanel({
+    required this.requests,
+    required this.language,
+    required this.onOpenRequest,
+    required this.onViewAll,
+  });
+
+  final AsyncValue<List<YorksV1MaterialRequest>> requests;
+  final AppLanguage language;
+  final ValueChanged<YorksV1MaterialRequest> onOpenRequest;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) => _ProjectOverviewPanel(
+    title: YorksV1ProjectStrings.recentMaterialRequests.active(language),
+    description: YorksV1ProjectStrings.recentRequestsDescription.active(
+      language,
+    ),
+    action: SizedBox(
+      height: AppSpacing.minTapTarget,
+      child: OutlinedButton(
+        onPressed: onViewAll,
+        child: Text(AppStrings.viewAll.active(language)),
+      ),
+    ),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      0,
+      AppSpacing.md,
+      AppSpacing.md,
+    ),
+    child: requests.when(
+      loading: () => const SizedBox(
+        height: 150,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => _ProjectOverviewMessage(
+        icon: Icons.cloud_off_outlined,
+        message: YorksV1ProjectStrings.requestsUnavailable.active(language),
+      ),
+      data: (items) {
+        final recent = [...items]
+          ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+        final visible = recent.take(4).toList(growable: false);
+        if (visible.isEmpty) {
+          return _ProjectOverviewMessage(
+            icon: Icons.assignment_outlined,
+            message: YorksV1ProjectStrings.noRecentRequests.active(language),
+          );
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) => constraints.maxWidth >= 700
+              ? _ProjectRequestTable(
+                  items: visible,
+                  language: language,
+                  onOpen: onOpenRequest,
+                )
+              : Column(
+                  children: [
+                    for (var index = 0; index < visible.length; index++) ...[
+                      _ProjectCompactRequestRow(
+                        request: visible[index],
+                        language: language,
+                        onTap: () => onOpenRequest(visible[index]),
+                      ),
+                      if (index != visible.length - 1)
+                        const Divider(height: 1, color: AppColors.line),
+                    ],
+                  ],
+                ),
+        );
+      },
+    ),
+  );
+}
+
+class _ProjectRequestTable extends StatelessWidget {
+  const _ProjectRequestTable({
+    required this.items,
+    required this.language,
+    required this.onOpen,
+  });
+
+  final List<YorksV1MaterialRequest> items;
+  final AppLanguage language;
+  final ValueChanged<YorksV1MaterialRequest> onOpen;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      border: Border.all(color: AppColors.line),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        Container(
+          color: AppColors.surfaceContainerLow,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              _ProjectTableHeading(
+                flex: 20,
+                label: YorksV1ProjectStrings.request.active(language),
+              ),
+              _ProjectTableHeading(
+                flex: 22,
+                label: YorksV1ProjectStrings.buildingOrScope.active(language),
+              ),
+              _ProjectTableHeading(
+                flex: 20,
+                label: YorksV1ProjectStrings.status.active(language),
+              ),
+              _ProjectTableHeading(
+                flex: 18,
+                label: YorksV1ProjectStrings.nextOwner.active(language),
+              ),
+              _ProjectTableHeading(
+                flex: 16,
+                label: YorksV1ProjectStrings.updated.active(language),
+              ),
+              const SizedBox(width: 24),
+            ],
+          ),
+        ),
+        for (var index = 0; index < items.length; index++) ...[
+          _ProjectRequestTableRow(
+            request: items[index],
+            language: language,
+            onTap: () => onOpen(items[index]),
+          ),
+          if (index != items.length - 1)
+            const Divider(height: 1, color: AppColors.line),
+        ],
+      ],
+    ),
+  );
+}
+
+class _ProjectTableHeading extends StatelessWidget {
+  const _ProjectTableHeading({required this.flex, required this.label});
+
+  final int flex;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    flex: flex,
+    child: Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTypography.labelSmall.copyWith(
+        color: AppColors.muted,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+class _ProjectRequestTableRow extends StatelessWidget {
+  const _ProjectRequestTableRow({
+    required this.request,
+    required this.language,
+    required this.onTap,
+  });
+
+  final YorksV1MaterialRequest request;
+  final AppLanguage language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 20,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  request.requestNumber ??
+                      YorksV1MaterialRequestStrings.draft.active(language),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelLarge.copyWith(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  '${request.displayItemCount} ${YorksV1ProjectStrings.items.active(language).toLowerCase()}',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 22,
+            child: Text(
+              request.scopeName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 20,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _ProjectRequestStateBadge(
+                state: request.state,
+                language: language,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 18,
+            child: Text(
+              YorksV1ProjectStrings.roleLabel(
+                request.currentActionOwnerRole,
+              ).active(language),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 16,
+            child: Text(
+              _projectOverviewDate(request.updatedAt, language),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+          ),
+          const SizedBox(
+            width: 24,
+            child: Icon(
+              Icons.chevron_right_rounded,
+              size: 19,
+              color: AppColors.muted,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _ProjectCompactRequestRow extends StatelessWidget {
+  const _ProjectCompactRequestRow({
+    required this.request,
+    required this.language,
+    required this.onTap,
+  });
+
+  final YorksV1MaterialRequest request;
+  final AppLanguage language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    onTap: onTap,
+    contentPadding: EdgeInsets.zero,
+    minVerticalPadding: AppSpacing.sm,
+    title: Text(
+      request.requestNumber ??
+          YorksV1MaterialRequestStrings.draft.active(language),
+      style: AppTypography.labelLarge.copyWith(
+        color: AppColors.navy,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    subtitle: Text(
+      '${request.scopeName} · ${YorksV1ProjectStrings.roleLabel(request.currentActionOwnerRole).active(language)}',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
+    trailing: _ProjectRequestStateBadge(
+      state: request.state,
+      language: language,
+    ),
+  );
+}
+
+class _ProjectRequestStateBadge extends StatelessWidget {
+  const _ProjectRequestStateBadge({
+    required this.state,
+    required this.language,
+  });
+
+  final YorksV1MaterialRequestState state;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final (tone, background) = switch (state) {
+      YorksV1MaterialRequestState.awaitingRequestApproval ||
+      YorksV1MaterialRequestState.awaitingApproval => (
+        AppColors.warning,
+        AppColors.warningContainer,
+      ),
+      YorksV1MaterialRequestState.received ||
+      YorksV1MaterialRequestState.closed => (
+        AppColors.success,
+        AppColors.successContainer,
+      ),
+      YorksV1MaterialRequestState.changesRequested ||
+      YorksV1MaterialRequestState.cancelled => (
+        AppColors.error,
+        AppColors.errorContainer,
+      ),
+      YorksV1MaterialRequestState.draft => (
+        AppColors.neutralText,
+        AppColors.neutralContainer,
+      ),
+      _ => (AppColors.blue, AppColors.blueContainer),
+    };
+    return Container(
+      constraints: const BoxConstraints(minHeight: 28),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      ),
+      child: Text(
+        yorksV1MaterialRequestStateCopy(state).active(language),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.labelSmall.copyWith(
+          color: tone,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectActivityEntry {
+  const _ProjectActivityEntry({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.actor,
+    required this.occurredAt,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final String actor;
+  final DateTime occurredAt;
+}
+
+class _ProjectRecentActivityPanel extends StatelessWidget {
+  const _ProjectRecentActivityPanel({
+    required this.requests,
+    required this.groups,
+    required this.documents,
+    required this.language,
+    required this.onViewAll,
+  });
+
+  final AsyncValue<List<YorksV1MaterialRequest>> requests;
+  final AsyncValue<List<YorksV1BoqGroup>> groups;
+  final AsyncValue<YorksV1DocumentWorkspace> documents;
+  final AppLanguage language;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = <_ProjectActivityEntry>[
+      for (final request in requests.valueOrNull ?? const [])
+        _ProjectActivityEntry(
+          icon: Icons.assignment_outlined,
+          title:
+              '${request.requestNumber ?? YorksV1MaterialRequestStrings.draft.active(language)} '
+              '${request.state == YorksV1MaterialRequestState.awaitingRequestApproval ? YorksV1ProjectStrings.requestSubmittedForApproval.active(language) : yorksV1MaterialRequestStateCopy(request.state).active(language)}',
+          detail:
+              '${request.displayItemCount} ${YorksV1ProjectStrings.items.active(language).toLowerCase()} · ${request.scopeName}',
+          actor:
+              _safeVisibleText(request.requesterDisplayName) ??
+              YorksV1ProjectStrings.notProvided.active(language),
+          occurredAt: request.submittedAt ?? request.updatedAt,
+        ),
+      for (final group in groups.valueOrNull ?? const [])
+        _ProjectActivityEntry(
+          icon: Icons.inventory_2_outlined,
+          title: YorksV1ProjectStrings.boqUpdated.active(language),
+          detail:
+              '${group.name} · ${group.rowCount} ${YorksV1ProjectStrings.items.active(language).toLowerCase()}',
+          actor:
+              _safeVisibleText(group.lastEditedBy) ??
+              YorksV1ProjectStrings.notProvided.active(language),
+          occurredAt: group.lastEditedAt ?? group.updatedAt,
+        ),
+      for (final document in documents.valueOrNull?.documents ?? const [])
+        _ProjectActivityEntry(
+          icon: Icons.description_outlined,
+          title: YorksV1ProjectStrings.documentUploaded.active(language),
+          detail: document.currentVersion.fileName,
+          actor: document.currentVersion.uploadedByDisplayName,
+          occurredAt: document.currentVersion.uploadedAt,
+        ),
+    ]..sort((left, right) => right.occurredAt.compareTo(left.occurredAt));
+    final visible = entries.take(4).toList(growable: false);
+    final loading =
+        requests.isLoading || groups.isLoading || documents.isLoading;
+    return _ProjectOverviewPanel(
+      title: YorksV1ProjectStrings.recentActivity.active(language),
+      description: YorksV1ProjectStrings.recentActivityDescription.active(
+        language,
+      ),
+      action: SizedBox(
+        height: AppSpacing.minTapTarget,
+        child: OutlinedButton(
+          onPressed: onViewAll,
+          child: Text(AppStrings.viewAll.active(language)),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      child: loading && visible.isEmpty
+          ? const SizedBox(
+              height: 120,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : visible.isEmpty
+          ? _ProjectOverviewMessage(
+              icon: Icons.history_rounded,
+              message: YorksV1ProjectStrings.noRecentActivity.active(language),
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < visible.length; index++) ...[
+                  _ProjectActivityRow(
+                    entry: visible[index],
+                    language: language,
+                  ),
+                  if (index != visible.length - 1)
+                    const Divider(height: 1, color: AppColors.line),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _ProjectActivityRow extends StatelessWidget {
+  const _ProjectActivityRow({required this.entry, required this.language});
+
+  final _ProjectActivityEntry entry;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+    child: Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.blueContainer,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: Icon(entry.icon, size: 19, color: AppColors.blue),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                entry.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelLarge.copyWith(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                '${entry.detail}\n${entry.actor} · ${_projectOverviewDate(entry.occurredAt, language)}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelSmall.copyWith(
+                  color: AppColors.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProjectOverviewTeamPanel extends ConsumerWidget {
+  const _ProjectOverviewTeamPanel({required this.item, required this.language});
 
   final YorksV1ProjectPortfolioItem item;
+  final AppLanguage language;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -7337,60 +8233,456 @@ class _ProjectTeamCard extends ConsumerWidget {
         ? ref.watch(yorksV1ActiveProjectTeamDirectoryProvider)
         : null;
     final names = {
-      for (final member in directory?.valueOrNull ?? const [])
+      for (final member
+          in directory?.valueOrNull ??
+              const <YorksV1ProjectTeamDirectoryMember>[])
         member.authUserId: member.displayName,
     };
-    String namesFor(YorksV1ProjectMembershipRole projectRole, int fallback) {
-      final selected = item.activeMembers
-          .where((member) => member.projectRole == projectRole)
-          .map(
-            (member) =>
-                names[member.memberAuthUserId] ??
-                YorksV1ProjectStrings.notAssigned.primary,
-          )
-          .toList(growable: false);
-      return selected.isEmpty ? '$fallback' : selected.join(', ');
-    }
-
-    return _ProjectInfoCard(
-      title: YorksV1ProjectStrings.projectTeam.primary,
-      subtitle: YorksV1ProjectStrings.projectTeamDescription.primary,
+    final projectEngineers = item.activeMembers
+        .where(
+          (member) =>
+              member.projectRole ==
+              YorksV1ProjectMembershipRole.projectEngineer,
+        )
+        .toList(growable: false);
+    final siteEngineers = item.activeMembers
+        .where(
+          (member) =>
+              member.projectRole == YorksV1ProjectMembershipRole.siteEngineer,
+        )
+        .toList(growable: false);
+    return _ProjectOverviewPanel(
+      title: YorksV1ProjectStrings.projectTeam.active(language),
       action: canManage
-          ? OutlinedButton.icon(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (_) => _ProjectTeamAssignmentDialog(item: item),
+          ? SizedBox(
+              height: AppSpacing.minTapTarget,
+              child: TextButton.icon(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => _ProjectTeamAssignmentDialog(item: item),
+                ),
+                icon: const Icon(Icons.group_add_outlined, size: 18),
+                label: Text(YorksV1ProjectStrings.manage.active(language)),
               ),
-              icon: const Icon(Icons.groups_outlined),
-              label: Text(YorksV1ProjectStrings.manageTeam.primary),
             )
           : null,
-      children: [
-        _ProjectInfoRow(
-          label: YorksV1ProjectStrings.yorksReference.primary,
-          value: item.project.reference,
-        ),
-        _ProjectInfoRow(
-          label: YorksV1ProjectStrings.projectEngineers.primary,
-          value: namesFor(
-            YorksV1ProjectMembershipRole.projectEngineer,
-            item.activeProjectEngineerCount,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ProjectTeamGroup(
+            label: YorksV1ProjectStrings.projectEngineers.active(language),
+            members: projectEngineers,
+            fallbackCount: item.activeProjectEngineerCount,
+            names: names,
+            language: language,
           ),
-        ),
-        _ProjectInfoRow(
-          label: YorksV1ProjectStrings.siteEngineers.primary,
-          value: namesFor(
-            YorksV1ProjectMembershipRole.siteEngineer,
-            item.activeSiteEngineerCount,
+          const SizedBox(height: AppSpacing.md),
+          _ProjectTeamGroup(
+            label: YorksV1ProjectStrings.siteEngineers.active(language),
+            members: siteEngineers,
+            fallbackCount: item.activeSiteEngineerCount,
+            names: names,
+            language: language,
           ),
-        ),
-        _ProjectInfoRow(
-          label: YorksV1ProjectStrings.procurementOwner.primary,
-          value: YorksV1ProjectStrings.notAssigned.primary,
-        ),
-      ],
+          const Divider(height: AppSpacing.xl, color: AppColors.line),
+          Text(
+            YorksV1ProjectStrings.procurementOwner.active(language),
+            style: AppTypography.labelSmall.copyWith(
+              color: AppColors.navy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 15,
+                backgroundColor: AppColors.warningContainer,
+                foregroundColor: AppColors.warning,
+                child: Text(
+                  'NA',
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  YorksV1ProjectStrings.notAssigned.active(language),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
+
+class _ProjectTeamGroup extends StatelessWidget {
+  const _ProjectTeamGroup({
+    required this.label,
+    required this.members,
+    required this.fallbackCount,
+    required this.names,
+    required this.language,
+  });
+
+  final String label;
+  final List<YorksV1ProjectMember> members;
+  final int fallbackCount;
+  final Map<String, String> names;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: AppTypography.labelSmall.copyWith(
+          color: AppColors.navy,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: AppSpacing.xs),
+      if (members.isEmpty)
+        Text(
+          fallbackCount > 0
+              ? '$fallbackCount'
+              : YorksV1ProjectStrings.notAssigned.active(language),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        )
+      else
+        for (final member in members)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 15,
+                  backgroundColor: AppColors.blueContainer,
+                  foregroundColor: AppColors.blue,
+                  child: Text(
+                    _memberInitials(
+                      _safeTeamMemberName(
+                        member,
+                        names[member.memberAuthUserId],
+                      ),
+                    ),
+                    style: AppTypography.labelSmall.copyWith(
+                      color: AppColors.blue,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    _safeTeamMemberName(member, names[member.memberAuthUserId]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.inkSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    ],
+  );
+}
+
+class _ProjectOverviewScopesPanel extends StatelessWidget {
+  const _ProjectOverviewScopesPanel({
+    required this.scopes,
+    required this.fallbackBuildingCount,
+    required this.language,
+  });
+
+  final AsyncValue<List<YorksV1MaterialRequestScopeOption>> scopes;
+  final int fallbackBuildingCount;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final loaded = scopes.valueOrNull;
+    final count = loaded?.where((scope) => !scope.isCommon).length;
+    return _ProjectOverviewPanel(
+      title: YorksV1ProjectStrings.buildingsAndScope.active(language),
+      action: _ProjectBadge(
+        label:
+            '${count ?? fallbackBuildingCount} ${YorksV1ProjectStrings.buildings.active(language).toLowerCase()}',
+      ),
+      child: scopes.when(
+        loading: () => const SizedBox(
+          height: 78,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (_, _) => Text(
+          YorksV1ProjectStrings.recordsUnavailable.active(language),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return Text(
+              YorksV1ProjectStrings.noBuildingsAdded.active(language),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            );
+          }
+          final ordered = [
+            ...items.where((scope) => !scope.isCommon),
+            ...items.where((scope) => scope.isCommon),
+          ];
+          return Column(
+            children: [
+              for (var index = 0; index < ordered.length; index++) ...[
+                _ProjectScopeRow(scope: ordered[index], language: language),
+                if (index != ordered.length - 1)
+                  const SizedBox(height: AppSpacing.xs),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProjectScopeRow extends StatelessWidget {
+  const _ProjectScopeRow({required this.scope, required this.language});
+
+  final YorksV1MaterialRequestScopeOption scope;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.sm,
+    ),
+    decoration: BoxDecoration(
+      border: Border.all(color: AppColors.line),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          scope.isCommon ? Icons.layers_outlined : Icons.apartment_rounded,
+          size: 21,
+          color: AppColors.blue,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                scope.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.labelLarge.copyWith(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (scope.isCommon)
+                Text(
+                  YorksV1ProjectStrings.sharedScopeForProject.active(language),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (scope.isCommon)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.neutralContainer,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            ),
+            child: Text(
+              YorksV1ProjectStrings.commonBadge.active(language).toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.labelSmall.copyWith(
+                color: AppColors.neutralText,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+class _ProjectOverviewDocumentsPanel extends StatelessWidget {
+  const _ProjectOverviewDocumentsPanel({
+    required this.documents,
+    required this.language,
+    required this.onOpen,
+  });
+
+  final AsyncValue<YorksV1DocumentWorkspace> documents;
+  final AppLanguage language;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) => _ProjectOverviewPanel(
+    title: YorksV1ProjectStrings.documents.active(language),
+    action: SizedBox(
+      height: AppSpacing.minTapTarget,
+      child: TextButton(
+        onPressed: onOpen,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(AppStrings.viewAll.active(language)),
+            const Icon(Icons.chevron_right_rounded, size: 18),
+          ],
+        ),
+      ),
+    ),
+    child: documents.when(
+      loading: () => const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Text(
+        YorksV1ProjectStrings.recordsUnavailable.active(language),
+        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+      ),
+      data: (workspace) {
+        if (workspace.documents.isEmpty) {
+          return Column(
+            children: [
+              const Icon(
+                Icons.description_outlined,
+                size: 36,
+                color: AppColors.muted,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                YorksV1ProjectStrings.noProjectDocumentsYet.active(language),
+                textAlign: TextAlign.center,
+                style: AppTypography.labelLarge.copyWith(
+                  color: AppColors.navy,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                YorksV1ProjectStrings.documentsModuleDescription.active(
+                  language,
+                ),
+                textAlign: TextAlign.center,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: AppSpacing.minTapTarget,
+                child: OutlinedButton.icon(
+                  onPressed: onOpen,
+                  icon: const Icon(Icons.upload_outlined),
+                  label: Text(
+                    YorksV1ProjectStrings.uploadDocument.active(language),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        final recent = [...workspace.documents]
+          ..sort(
+            (left, right) => right.currentVersion.uploadedAt.compareTo(
+              left.currentVersion.uploadedAt,
+            ),
+          );
+        return Column(
+          children: [
+            for (final document in recent.take(3))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                onTap: onOpen,
+                leading: const Icon(
+                  Icons.description_outlined,
+                  color: AppColors.blue,
+                ),
+                title: Text(
+                  document.currentVersion.fileName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelLarge.copyWith(
+                    color: AppColors.navy,
+                  ),
+                ),
+                subtitle: Text(
+                  _projectOverviewDate(
+                    document.currentVersion.uploadedAt,
+                    language,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _ProjectOverviewMessage extends StatelessWidget {
+  const _ProjectOverviewMessage({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 70),
+    alignment: Alignment.center,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: AppColors.muted),
+        const SizedBox(width: AppSpacing.sm),
+        Flexible(
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+String _projectOverviewDate(DateTime value, AppLanguage language) {
+  final local = value.toLocal();
+  final now = DateTime.now();
+  final sameDay =
+      local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day;
+  if (sameDay) {
+    return '${AppStrings.today.active(language)}, ${DateFormat.jm().format(local)}';
+  }
+  return DateFormat('d MMM yyyy').format(local);
 }
 
 class _ProjectTeamAssignmentDialog extends ConsumerStatefulWidget {
@@ -7797,152 +9089,6 @@ bool _looksLikeUuid(String value) => RegExp(
   caseSensitive: false,
 ).hasMatch(value.trim());
 
-class _ProjectBuildingsCard extends StatelessWidget {
-  const _ProjectBuildingsCard({required this.buildings, required this.count});
-
-  final List<YorksV1MaterialRequestScopeOption> buildings;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) => _ProjectInfoCard(
-    title: YorksV1ProjectStrings.buildings.primary,
-    subtitle: YorksV1ProjectStrings.buildingsDescription.primary,
-    badge: '$count ${YorksV1ProjectStrings.buildings.primary.toLowerCase()}',
-    children: [
-      if (buildings.isEmpty)
-        Text(
-          YorksV1ProjectStrings.noBuildingsAdded.primary,
-          style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-        )
-      else
-        for (final building in buildings.take(6))
-          Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.business_outlined, color: AppColors.blue),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    building.name,
-                    style: AppTypography.labelLarge.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (building.deliveryAddress?.isNotEmpty == true)
-                  Text(
-                    'FRP',
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.success,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-    ],
-  );
-}
-
-class _ProjectInfoCard extends StatelessWidget {
-  const _ProjectInfoCard({
-    required this.title,
-    required this.subtitle,
-    required this.children,
-    this.action,
-    this.badge,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<Widget> children;
-  final Widget? action;
-  final String? badge;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLowest,
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      boxShadow: const [
-        BoxShadow(
-          color: AppColors.shadow,
-          blurRadius: 16,
-          offset: Offset(0, 7),
-        ),
-      ],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: AppTypography.titleLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            if (badge case final value?) _ProjectBadge(label: value),
-            if (action case final Widget value) value,
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          subtitle,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ...children,
-      ],
-    ),
-  );
-}
-
-class _ProjectInfoRow extends StatelessWidget {
-  const _ProjectInfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTypography.labelSmall.copyWith(
-            color: AppColors.muted,
-            letterSpacing: .75,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          value,
-          style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
-        ),
-      ],
-    ),
-  );
-}
-
 class _ProjectBadge extends StatelessWidget {
   const _ProjectBadge({required this.label});
 
@@ -7965,358 +9111,6 @@ class _ProjectBadge extends StatelessWidget {
         color: AppColors.blue,
         fontWeight: FontWeight.w800,
       ),
-    ),
-  );
-}
-
-class _ProjectMetric {
-  const _ProjectMetric({
-    required this.label,
-    required this.value,
-    required this.detail,
-  });
-
-  final String label;
-  final String value;
-  final String detail;
-}
-
-class _ProjectMetricGrid extends StatelessWidget {
-  const _ProjectMetricGrid({required this.metrics});
-
-  final List<_ProjectMetric> metrics;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final count = constraints.maxWidth >= 1280
-          ? 5
-          : constraints.maxWidth >= 760
-          ? 3
-          : 1;
-      return GridView.count(
-        crossAxisCount: count,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: AppSpacing.md,
-        crossAxisSpacing: AppSpacing.md,
-        // The compact metrics include a label, value and explanatory line.
-        // Leave enough vertical room for the 360px screen instead of clipping
-        // the explanatory line in a desktop-tuned aspect ratio.
-        childAspectRatio: count == 1 ? 2.9 : 1.7,
-        children: [
-          for (final metric in metrics)
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                border: Border.all(color: AppColors.line),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                boxShadow: const [
-                  BoxShadow(
-                    color: AppColors.shadow,
-                    blurRadius: 16,
-                    offset: Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    metric.label.toUpperCase(),
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.muted,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .95,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    metric.value,
-                    style: AppTypography.headlineMedium.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    metric.detail,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      );
-    },
-  );
-}
-
-class _ProjectR35Guide extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      color: AppColors.blueContainer.withValues(alpha: .48),
-      border: Border.all(color: AppColors.blueContainerStrong),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.checklist_rounded, color: AppColors.blue, size: 25),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                YorksV1ProjectStrings.workspaceGuide.primary,
-                style: AppTypography.labelLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                YorksV1ProjectStrings.workspaceGuideDescription.primary,
-                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ProjectModuleCard extends StatelessWidget {
-  const _ProjectModuleCard({
-    required this.icon,
-    required this.title,
-    required this.badge,
-    required this.description,
-    required this.primaryMetric,
-    required this.primaryValue,
-    required this.secondaryMetric,
-    required this.secondaryValue,
-    required this.onOpen,
-  });
-
-  final IconData icon;
-  final TranslatableString title;
-  final String badge;
-  final String description;
-  final String primaryMetric;
-  final String primaryValue;
-  final String secondaryMetric;
-  final String secondaryValue;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.surfaceContainerLowest,
-    borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-    child: InkWell(
-      onTap: onOpen,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 244),
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.blueContainer,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  ),
-                  child: Icon(icon, color: AppColors.blue),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.blueContainer,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                  ),
-                  child: Text(
-                    badge,
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.blue,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              title.primary,
-              style: AppTypography.titleLarge.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              description,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-            ),
-            // The workspace is vertically scrollable, so the card receives an
-            // unbounded max height. Keep deliberate breathing room rather
-            // than using a flex spacer, which would make web layout fail.
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: _ModuleMetric(
-                    label: primaryMetric,
-                    value: primaryValue,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _ModuleMetric(
-                    label: secondaryMetric,
-                    value: secondaryValue,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _ModuleMetric extends StatelessWidget {
-  const _ModuleMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.sm),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTypography.labelSmall.copyWith(
-            color: AppColors.muted,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          value,
-          style: AppTypography.titleMedium.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _RecentProjectRequests extends StatelessWidget {
-  const _RecentProjectRequests({
-    required this.requests,
-    required this.onOpenRequests,
-  });
-
-  final AsyncValue<List<YorksV1MaterialRequest>> requests;
-  final VoidCallback onOpenRequests;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 138),
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLowest,
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-    ),
-    child: requests.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, _) => Center(
-        child: Text(
-          YorksV1ProjectStrings.requestsUnavailable.primary,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-        ),
-      ),
-      data: (items) {
-        if (items.isEmpty) {
-          return Center(
-            child: Text(
-              YorksV1ProjectStrings.noRecentRequests.primary,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-            ),
-          );
-        }
-        final request = items.first;
-        return InkWell(
-          onTap: onOpenRequests,
-          child: Row(
-            children: [
-              Container(
-                width: AppSpacing.minTapTarget,
-                height: AppSpacing.minTapTarget,
-                decoration: BoxDecoration(
-                  color: AppColors.blueContainer,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                ),
-                child: const Icon(
-                  Icons.assignment_outlined,
-                  color: AppColors.blue,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.requestNumber ??
-                          YorksV1MaterialRequestStrings.draft.primary,
-                      style: AppTypography.labelLarge.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      '${request.scopeName} · ${request.lines.length} ${YorksV1MaterialRequestStrings.items.primary.toLowerCase()}',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-            ],
-          ),
-        );
-      },
     ),
   );
 }

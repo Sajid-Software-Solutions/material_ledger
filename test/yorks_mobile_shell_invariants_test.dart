@@ -129,6 +129,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('project Accounts keeps one focused mobile top bar', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(390, 844));
+
+    await _pumpShell(
+      tester,
+      path: '/yorks/projects/project-1/accounts/overview',
+      child: const Column(
+        children: [
+          YorksMobileAppBar(title: 'Accounts'),
+          Expanded(
+            child: ColoredBox(key: _shellContentKey, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+
+    expect(find.byType(YorksMobileAppBar), findsOneWidget);
+    expect(find.text('Accounts'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('1024px shell keeps the existing desktop sidebar/topbar branch', (
     tester,
   ) async {
@@ -187,12 +210,17 @@ class _LongScrollableContent extends StatelessWidget {
   );
 }
 
-Future<void> _pumpShell(WidgetTester tester, {required Widget child}) async {
+Future<void> _pumpShell(
+  WidgetTester tester, {
+  required Widget child,
+  String path = '/',
+}) async {
   final preferences = await SharedPreferences.getInstance();
   final router = GoRouter(
+    initialLocation: path,
     routes: [
       GoRoute(
-        path: '/',
+        path: path,
         builder: (_, _) => YorksV1WorkspaceShell(child: child),
       ),
     ],

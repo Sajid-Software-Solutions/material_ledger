@@ -1225,6 +1225,24 @@ abstract final class YorksV1MaterialRequestStrings {
     ur: 'انوینٹری کیٹلاگ',
     hi: 'इन्वेंटरी कैटलॉग',
   );
+  static const usedInProject = TranslatableString(
+    en: 'Used in this project',
+    ar: 'استُخدم في هذا المشروع',
+    ur: 'اس پراجیکٹ میں استعمال ہوا',
+    hi: 'इस प्रोजेक्ट में उपयोग हुआ',
+  );
+  static const usedBefore = TranslatableString(
+    en: 'Used before',
+    ar: 'استُخدم سابقًا',
+    ur: 'پہلے استعمال ہوا',
+    hi: 'पहले उपयोग हुआ',
+  );
+  static const materialMemory = TranslatableString(
+    en: 'Material memory',
+    ar: 'ذاكرة المواد',
+    ur: 'مٹیریل میموری',
+    hi: 'मटेरियल मेमोरी',
+  );
   static const keepCustomItem = TranslatableString(
     en: 'Keep as custom item',
     ar: 'الاحتفاظ كعنصر مخصص',
@@ -2869,18 +2887,28 @@ TranslatableString yorksV1MaterialRequestExceptionCopy(
 /// projection. Coordination assignments never participate in this result.
 TranslatableString yorksV1MaterialRequestNextActionCopy(
   YorksV1MaterialRequest value,
-) {
-  if (value.currentActionCode == 'replacement_dispatch_required') {
+) => yorksV1MaterialRequestNextActionCodeCopy(
+  state: value.state,
+  currentActionCode: value.currentActionCode,
+);
+
+/// Localized next-action copy for bounded projections that intentionally do
+/// not hydrate full Material Request details.
+TranslatableString yorksV1MaterialRequestNextActionCodeCopy({
+  required YorksV1MaterialRequestState state,
+  String? currentActionCode,
+}) {
+  if (currentActionCode == 'replacement_dispatch_required') {
     return YorksV1MaterialRequestStrings.replacementDispatchRequired;
   }
-  if (value.currentActionCode == 'receipt_review_required') {
+  if (currentActionCode == 'receipt_review_required') {
     return YorksV1MaterialRequestStrings.awaitingReceipt;
   }
-  if (value.currentActionCode == 'material_request_close_review' ||
-      value.currentActionCode == 'close_request') {
+  if (currentActionCode == 'material_request_close_review' ||
+      currentActionCode == 'close_request') {
     return YorksV1MaterialRequestStrings.closeReviewRequired;
   }
-  return switch (value.state) {
+  return switch (state) {
     YorksV1MaterialRequestState.submitted ||
     YorksV1MaterialRequestState.awaitingRequestApproval =>
       YorksV1MaterialRequestStrings.awaitingRequestApproval,

@@ -794,6 +794,12 @@ abstract final class YorksV1ProjectStrings {
     ur: 'مشترکہ / تمام عمارتیں',
     hi: 'साझा / सभी भवन',
   );
+  static const commonBadge = TranslatableString(
+    en: 'Common',
+    ar: 'مشترك',
+    ur: 'مشترکہ',
+    hi: 'साझा',
+  );
   static const commonScopeDescription = TranslatableString(
     en: 'The Common scope is created by the server and cannot be edited as a building.',
     ar: 'ينشئ الخادم النطاق المشترك ولا يمكن تعديله كمبنى.',
@@ -1139,6 +1145,60 @@ abstract final class YorksV1ProjectStrings {
     ur: 'توجہ درکار ہے',
     hi: 'ध्यान आवश्यक',
   );
+  static const actionRequired = TranslatableString(
+    en: 'Action required',
+    ar: 'إجراء مطلوب',
+    ur: 'کارروائی درکار ہے',
+    hi: 'कार्रवाई आवश्यक',
+  );
+  static const actionRequiredDescription = TranslatableString(
+    en: 'Items that need your attention to keep the project moving.',
+    ar: 'عناصر تحتاج إلى اهتمامك لاستمرار تقدم المشروع.',
+    ur: 'وہ معاملات جن پر پراجیکٹ جاری رکھنے کے لیے آپ کی توجہ درکار ہے۔',
+    hi: 'परियोजना को आगे बढ़ाने के लिए आपके ध्यान की आवश्यकता वाले आइटम।',
+  );
+  static const viewAllActions = TranslatableString(
+    en: 'View all actions',
+    ar: 'عرض كل الإجراءات',
+    ur: 'تمام کارروائیاں دیکھیں',
+    hi: 'सभी कार्रवाइयाँ देखें',
+  );
+  static const requestsAwaitingApproval = TranslatableString(
+    en: 'requests awaiting approval',
+    ar: 'طلبات بانتظار الموافقة',
+    ur: 'درخواستیں منظوری کی منتظر',
+    hi: 'अनुमोदन की प्रतीक्षा में अनुरोध',
+  );
+  static const requestsAwaitingApprovalDescription = TranslatableString(
+    en: 'These requests are pending your review.',
+    ar: 'هذه الطلبات بانتظار مراجعتك.',
+    ur: 'یہ درخواستیں آپ کے جائزے کی منتظر ہیں۔',
+    hi: 'ये अनुरोध आपकी समीक्षा की प्रतीक्षा में हैं।',
+  );
+  static const reviewRequests = TranslatableString(
+    en: 'Review requests',
+    ar: 'مراجعة الطلبات',
+    ur: 'درخواستوں کا جائزہ',
+    hi: 'अनुरोधों की समीक्षा',
+  );
+  static const deliveriesReadyForReceipt = TranslatableString(
+    en: 'deliveries ready for receipt',
+    ar: 'تسليمات جاهزة للاستلام',
+    ur: 'ڈیلیوریز وصولی کے لیے تیار',
+    hi: 'प्राप्ति के लिए तैयार डिलीवरी',
+  );
+  static const deliveriesReadyForReceiptDescription = TranslatableString(
+    en: 'Items have been delivered and await receipt.',
+    ar: 'تم تسليم المواد وهي بانتظار تأكيد الاستلام.',
+    ur: 'میٹیریل پہنچ چکا ہے اور وصولی کا منتظر ہے۔',
+    hi: 'सामग्री पहुँच गई है और प्राप्ति की प्रतीक्षा में है।',
+  );
+  static const reviewDeliveries = TranslatableString(
+    en: 'Review deliveries',
+    ar: 'مراجعة التسليمات',
+    ur: 'ڈیلیوریز کا جائزہ',
+    hi: 'डिलीवरी की समीक्षा',
+  );
   static const projectRecords = TranslatableString(
     en: 'Project records',
     ar: 'سجلات المشروع',
@@ -1390,6 +1450,90 @@ abstract final class YorksV1ProjectStrings {
     ar: 'طلبات المواد الأخيرة',
     ur: 'حالیہ میٹیریل ریکویسٹس',
     hi: 'हालिया सामग्री अनुरोध',
+  );
+  static const recentActivity = TranslatableString(
+    en: 'Recent activity',
+    ar: 'النشاط الأخير',
+    ur: 'حالیہ سرگرمی',
+    hi: 'हाल की गतिविधि',
+  );
+  static const recentActivityDescription = TranslatableString(
+    en: 'Latest updates across material requests, BOQ, documents and project activity.',
+    ar: 'آخر التحديثات في طلبات المواد وجدول الكميات والمستندات ونشاط المشروع.',
+    ur: 'میٹیریل ریکویسٹس، BOQ، دستاویزات اور پراجیکٹ سرگرمی کی تازہ ترین اپ ڈیٹس۔',
+    hi: 'सामग्री अनुरोध, BOQ, दस्तावेज़ और परियोजना गतिविधि के नवीनतम अपडेट।',
+  );
+  static const noRecentActivity = TranslatableString(
+    en: 'No recent project activity yet.',
+    ar: 'لا يوجد نشاط حديث للمشروع بعد.',
+    ur: 'ابھی کوئی حالیہ پراجیکٹ سرگرمی نہیں۔',
+    hi: 'अभी कोई हालिया परियोजना गतिविधि नहीं है।',
+  );
+  static const request = TranslatableString(
+    en: 'Request',
+    ar: 'الطلب',
+    ur: 'درخواست',
+    hi: 'अनुरोध',
+  );
+  static const buildingOrScope = TranslatableString(
+    en: 'Building / Scope',
+    ar: 'المبنى / النطاق',
+    ur: 'عمارت / اسکوپ',
+    hi: 'भवन / दायरा',
+  );
+  static const status = TranslatableString(
+    en: 'Status',
+    ar: 'الحالة',
+    ur: 'اسٹیٹس',
+    hi: 'स्थिति',
+  );
+  static const nextOwner = TranslatableString(
+    en: 'Next owner',
+    ar: 'المسؤول التالي',
+    ur: 'اگلا ذمہ دار',
+    hi: 'अगला स्वामी',
+  );
+  static const requestSubmittedForApproval = TranslatableString(
+    en: 'was submitted for approval',
+    ar: 'تم إرساله للموافقة',
+    ur: 'منظوری کے لیے جمع ہوا',
+    hi: 'अनुमोदन के लिए प्रस्तुत किया गया',
+  );
+  static const boqUpdated = TranslatableString(
+    en: 'BOQ updated',
+    ar: 'تم تحديث جدول الكميات',
+    ur: 'BOQ اپ ڈیٹ ہوا',
+    hi: 'BOQ अपडेट हुआ',
+  );
+  static const documentUploaded = TranslatableString(
+    en: 'Document uploaded',
+    ar: 'تم رفع المستند',
+    ur: 'دستاویز اپ لوڈ ہوئی',
+    hi: 'दस्तावेज़ अपलोड हुआ',
+  );
+  static const buildingsAndScope = TranslatableString(
+    en: 'Buildings & scope',
+    ar: 'المباني والنطاق',
+    ur: 'عمارتیں اور اسکوپ',
+    hi: 'भवन और दायरा',
+  );
+  static const sharedScopeForProject = TranslatableString(
+    en: 'Shared scope for project',
+    ar: 'النطاق المشترك للمشروع',
+    ur: 'پراجیکٹ کا مشترکہ اسکوپ',
+    hi: 'परियोजना का साझा दायरा',
+  );
+  static const noProjectDocumentsYet = TranslatableString(
+    en: 'No project documents yet',
+    ar: 'لا توجد مستندات للمشروع بعد',
+    ur: 'ابھی پراجیکٹ کی کوئی دستاویز نہیں',
+    hi: 'अभी कोई परियोजना दस्तावेज़ नहीं',
+  );
+  static const uploadDocument = TranslatableString(
+    en: 'Upload document',
+    ar: 'رفع مستند',
+    ur: 'دستاویز اپ لوڈ کریں',
+    hi: 'दस्तावेज़ अपलोड करें',
   );
   static const recentRequestsDescription = TranslatableString(
     en: 'The same request number and status are visible to Engineer and Procurement.',

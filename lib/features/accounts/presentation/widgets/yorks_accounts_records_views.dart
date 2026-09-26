@@ -422,11 +422,15 @@ class YorksAccountsReportActions extends ConsumerStatefulWidget {
     required this.kind,
     required this.language,
     this.projectId,
+    this.compact = false,
+    this.overviewToolbar = false,
   });
 
   final YorksAccountsReportKind kind;
   final String? projectId;
   final AppLanguage language;
+  final bool compact;
+  final bool overviewToolbar;
 
   @override
   ConsumerState<YorksAccountsReportActions> createState() =>
@@ -530,43 +534,120 @@ class _YorksAccountsReportActionsState
   }
 
   @override
-  Widget build(BuildContext context) => _RecordPanel(
-    child: Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        Text(
-          _text(widget.language, 'report_actions'),
-          style: AppTypography.titleSmall,
-        ),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _excel,
-          icon: const Icon(Icons.table_view_outlined),
-          label: Text(_text(widget.language, 'export_excel')),
-        ),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : () => _pdf(print: false),
-          icon: const Icon(Icons.picture_as_pdf_outlined),
-          label: Text(_text(widget.language, 'save_pdf')),
-        ),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : () => _pdf(print: true),
-          icon: const Icon(Icons.print_outlined),
-          label: Text(_text(widget.language, 'print')),
-        ),
-        if (_message != null)
-          Text(
-            _message!,
-            style: AppTypography.bodySmall.copyWith(
-              color: _message == _text(widget.language, 'report_failed')
-                  ? AppColors.error
-                  : AppColors.muted,
+  Widget build(BuildContext context) {
+    if (widget.overviewToolbar) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _excel,
+            icon: const Icon(Icons.download_outlined, size: 18),
+            label: Text(_text(widget.language, 'export_excel')),
+          ),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _pdf(print: true),
+            icon: const Icon(Icons.print_outlined, size: 18),
+            label: Text(_text(widget.language, 'print')),
+          ),
+          if (_message != null) Text(_message!, style: AppTypography.bodySmall),
+        ],
+      );
+    }
+    if (widget.compact) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PopupMenuButton<String>(
+            enabled: !_busy,
+            tooltip: _text(widget.language, 'report_actions'),
+            onSelected: (value) {
+              if (value == 'excel') {
+                unawaited(_excel());
+              } else if (value == 'pdf') {
+                unawaited(_pdf(print: false));
+              } else if (value == 'print') {
+                unawaited(_pdf(print: true));
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'excel',
+                child: Text(_text(widget.language, 'export_excel')),
+              ),
+              PopupMenuItem(
+                value: 'pdf',
+                child: Text(_text(widget.language, 'save_pdf')),
+              ),
+              PopupMenuItem(
+                value: 'print',
+                child: Text(_text(widget.language, 'print')),
+              ),
+            ],
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.line),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.download_outlined, size: 18),
+                  const SizedBox(width: 6),
+                  Text(_text(widget.language, 'export_excel')),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                ],
+              ),
             ),
           ),
-      ],
-    ),
-  );
+          if (_message != null) ...[
+            const SizedBox(width: 8),
+            Flexible(child: Text(_message!, style: AppTypography.bodySmall)),
+          ],
+        ],
+      );
+    }
+    return _RecordPanel(
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          Text(
+            _text(widget.language, 'report_actions'),
+            style: AppTypography.titleSmall,
+          ),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _excel,
+            icon: const Icon(Icons.table_view_outlined),
+            label: Text(_text(widget.language, 'export_excel')),
+          ),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _pdf(print: false),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: Text(_text(widget.language, 'save_pdf')),
+          ),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _pdf(print: true),
+            icon: const Icon(Icons.print_outlined),
+            label: Text(_text(widget.language, 'print')),
+          ),
+          if (_message != null)
+            Text(
+              _message!,
+              style: AppTypography.bodySmall.copyWith(
+                color: _message == _text(widget.language, 'report_failed')
+                    ? AppColors.error
+                    : AppColors.muted,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AccountsDocumentUploadDialog extends ConsumerStatefulWidget {

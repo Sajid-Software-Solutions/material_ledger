@@ -50,6 +50,72 @@ abstract final class YorksV1BoqStrings {
     ur: 'BOQ ورک شیٹس',
     hi: 'BOQ वर्कशीट',
   );
+  static const workspaceTitle = TranslatableString(
+    en: 'BOQ',
+    ar: 'جدول الكميات',
+    ur: 'BOQ',
+    hi: 'BOQ',
+  );
+  static const groupsAndWorksheets = TranslatableString(
+    en: 'BOQ groups & worksheets',
+    ar: 'مجموعات وأوراق عمل جدول الكميات',
+    ur: 'BOQ گروپس اور ورک شیٹس',
+    hi: 'BOQ समूह और वर्कशीट',
+  );
+  static const searchGroups = TranslatableString(
+    en: 'Search groups or worksheets…',
+    ar: 'ابحث في المجموعات أو أوراق العمل…',
+    ur: 'گروپس یا ورک شیٹس تلاش کریں…',
+    hi: 'समूह या वर्कशीट खोजें…',
+  );
+  static const notStartedStatus = TranslatableString(
+    en: 'Not started',
+    ar: 'لم يبدأ',
+    ur: 'شروع نہیں ہوا',
+    hi: 'शुरू नहीं हुआ',
+  );
+  static const sortLastEdited = TranslatableString(
+    en: 'Sort by: Last edited',
+    ar: 'الترتيب حسب: آخر تعديل',
+    ur: 'ترتیب: آخری ترمیم',
+    hi: 'क्रम: अंतिम संपादन',
+  );
+  static const buildingsAndScopes = TranslatableString(
+    en: 'Buildings / scopes',
+    ar: 'المباني / النطاقات',
+    ur: 'بلڈنگز / اسکوپس',
+    hi: 'बिल्डिंग / स्कोप',
+  );
+  static const groupsMetric = TranslatableString(
+    en: 'BOQ groups',
+    ar: 'مجموعات جدول الكميات',
+    ur: 'BOQ گروپس',
+    hi: 'BOQ समूह',
+  );
+  static const materialRowsMetric = TranslatableString(
+    en: 'Material rows',
+    ar: 'صفوف المواد',
+    ur: 'میٹریل قطاریں',
+    hi: 'सामग्री पंक्तियाँ',
+  );
+  static const recentGroups = TranslatableString(
+    en: 'Recent BOQ groups',
+    ar: 'مجموعات جدول الكميات الحديثة',
+    ur: 'حالیہ BOQ گروپس',
+    hi: 'हाल के BOQ समूह',
+  );
+  static const groupName = TranslatableString(
+    en: 'Group name',
+    ar: 'اسم المجموعة',
+    ur: 'گروپ کا نام',
+    hi: 'समूह का नाम',
+  );
+  static const editedBy = TranslatableString(
+    en: 'Edited by',
+    ar: 'عدّله',
+    ur: 'ایڈٹ کرنے والا',
+    hi: 'संपादक',
+  );
   static const scope = TranslatableString(
     en: 'BOQ scope',
     ar: 'نطاق جدول الكميات',
@@ -337,6 +403,18 @@ abstract final class YorksV1BoqStrings {
     ar: 'صف فارغ',
     ur: 'خالی قطار',
     hi: 'खाली पंक्ति',
+  );
+  static const addRow = TranslatableString(
+    en: 'Add row',
+    ar: 'إضافة صف',
+    ur: 'قطار شامل کریں',
+    hi: 'पंक्ति जोड़ें',
+  );
+  static const pasteCells = TranslatableString(
+    en: 'Paste cells',
+    ar: 'لصق الخلايا',
+    ur: 'سیلز پیسٹ کریں',
+    hi: 'सेल पेस्ट करें',
   );
   static const addFirstRow = TranslatableString(
     en: 'Add First Row',

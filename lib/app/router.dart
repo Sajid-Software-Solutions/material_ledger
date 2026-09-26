@@ -71,7 +71,9 @@ import '../features/projects/presentation/screens/yorks_v1_projects_screen.dart'
 import '../features/rentals/presentation/screens/rental_unit_detail_screen.dart';
 import '../features/rentals/presentation/screens/rentals_dashboard_screen.dart';
 import '../features/chat/presentation/screens/yorks_v1_team_chat_screen.dart';
-import '../features/company_overview/presentation/company_analytics_screen.dart';
+import '../features/company_overview/presentation/company_analytics_screen.dart'
+    deferred as company_analytics;
+import '../features/company_overview/domain/company_analytics_models.dart';
 import '../features/transactions/presentation/screens/transactions_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_daily_attendance_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_administration_screen.dart';
@@ -83,6 +85,7 @@ import '../shared/models/role_permissions.dart';
 import '../shared/models/user_role.dart';
 import '../shared/models/yorks_v1_permission_management.dart';
 import '../shared/models/yorks_v1_material_request.dart';
+import '../shared/models/yorks_v1_project.dart';
 import '../shared/models/yorks_v1_role.dart';
 import '../shared/providers/yorks_v1_permission_provider.dart';
 import '../shared/screens/about_screen.dart';
@@ -317,12 +320,66 @@ abstract final class RoutePaths {
   ).toString();
 
   static String yorksV1MaterialRequestsPath({String? projectId}) {
+    return yorksV1MaterialRequestsFilteredPath(projectId: projectId);
+  }
+
+  static String yorksV1MaterialRequestsFilteredPath({
+    String? projectId,
+    YorksV1MaterialRequestRegisterView? registerView,
+    Iterable<YorksV1MaterialRequestState> states = const [],
+    String metric = 'all',
+    String? search,
+    bool newestFirst = true,
+  }) {
     final trimmed = projectId?.trim();
-    if (trimmed == null || trimmed.isEmpty) return yorksV1MaterialRequests;
+    final normalizedSearch = search?.trim();
+    final query = <String, String>{
+      if (trimmed != null && trimmed.isNotEmpty) 'project_id': trimmed,
+      if (registerView != null) 'view': registerView.wireValue,
+      if (states.isNotEmpty)
+        'states': states.map((state) => state.wireValue).join(','),
+      if (_allowedMaterialRequestMetrics.contains(metric)) 'metric': metric,
+      if (normalizedSearch != null && normalizedSearch.isNotEmpty)
+        'search': normalizedSearch,
+      if (!newestFirst) 'sort': 'oldest',
+    };
+    if (query.isEmpty) return yorksV1MaterialRequests;
     return Uri(
       path: yorksV1MaterialRequests,
-      queryParameters: {'project_id': trimmed},
+      queryParameters: query,
     ).toString();
+  }
+
+  static String yorksV1ProjectsPath({
+    YorksV1ProjectLifecycle? state,
+    String? search,
+  }) {
+    final normalizedSearch = search?.trim();
+    final query = <String, String>{
+      if (state != null) 'state': state.wireValue,
+      if (normalizedSearch != null && normalizedSearch.isNotEmpty)
+        'search': normalizedSearch,
+    };
+    return query.isEmpty
+        ? yorksV1Projects
+        : Uri(path: yorksV1Projects, queryParameters: query).toString();
+  }
+
+  static String yorksV1AnalyticsPath({
+    String? projectId,
+    int months = 6,
+    String domain = 'company',
+  }) {
+    final normalizedProjectId = _uuidFromRoute(projectId);
+    final query = <String, String>{
+      if (CompanyAnalyticsFilters.supportedMonths.contains(months))
+        'months': '$months',
+      if (_allowedAnalyticsDomains.contains(domain)) 'domain': domain,
+    };
+    if (normalizedProjectId != null) {
+      query['project_id'] = normalizedProjectId;
+    }
+    return Uri(path: yorksV1Analytics, queryParameters: query).toString();
   }
 
   static String yorksV1MaterialRequestArrangementPath(String requestId) =>
@@ -417,6 +474,54 @@ abstract final class RoutePaths {
   static const String yorksV1MobileMore = '/yorks/more';
   static const String privacyPolicy = '/privacy-policy';
   static const String termsOfService = '/terms-of-service';
+}
+
+const _allowedMaterialRequestMetrics = <String>{
+  'all',
+  'open',
+  'in_progress',
+  'dispatched',
+  'received',
+  'closed',
+};
+
+const _allowedAnalyticsDomains = <String>{
+  'company',
+  'accounts',
+  'projects',
+  'materials',
+  'workforce',
+  'rentals',
+};
+
+String? _boundedSearchFromRoute(String? value) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty || normalized.length > 80) {
+    return null;
+  }
+  return normalized;
+}
+
+YorksV1ProjectLifecycle? _projectStateFromRoute(String? value) =>
+    YorksV1ProjectLifecycle.fromWireValue(value);
+
+int _analyticsMonthsFromRoute(String? value) {
+  final parsed = int.tryParse(value ?? '');
+  return CompanyAnalyticsFilters.supportedMonths.contains(parsed) ? parsed! : 6;
+}
+
+String _analyticsDomainFromRoute(String? value) =>
+    _allowedAnalyticsDomains.contains(value) ? value! : 'company';
+
+String? _uuidFromRoute(String? value) {
+  final normalized = value?.trim().toLowerCase();
+  if (normalized == null ||
+      !RegExp(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      ).hasMatch(normalized)) {
+    return null;
+  }
+  return normalized;
 }
 
 // ─── Page transition helpers (keep route definitions terse) ──────────
@@ -1362,14 +1467,35 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1Projects,
-        pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const YorksV1ProjectsScreen()),
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          YorksV1ProjectsScreen(
+            initialState: _projectStateFromRoute(
+              state.uri.queryParameters['state'],
+            ),
+            initialSearch: _boundedSearchFromRoute(
+              state.uri.queryParameters['search'],
+            ),
+          ),
+        ),
       ),
       if (yorksV1AnalyticsEnabled)
         GoRoute(
           path: RoutePaths.yorksV1Analytics,
-          pageBuilder: (context, state) =>
-              _yorksV1Slide(state.pageKey, const CompanyAnalyticsScreen()),
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _DeferredCompanyAnalyticsScreen(
+              initialProjectId: _uuidFromRoute(
+                state.uri.queryParameters['project_id'],
+              ),
+              initialMonths: _analyticsMonthsFromRoute(
+                state.uri.queryParameters['months'],
+              ),
+              initialDomain: _analyticsDomainFromRoute(
+                state.uri.queryParameters['domain'],
+              ),
+            ),
+          ),
         ),
       GoRoute(
         path: RoutePaths.yorksV1Accounts,
@@ -1455,8 +1581,9 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccounts,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
           ),
         ),
       ),
@@ -1464,8 +1591,9 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsOverview,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
           ),
         ),
       ),
@@ -1473,9 +1601,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsBilling,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.billing,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.billing,
           ),
         ),
       ),
@@ -1483,9 +1612,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsInvoices,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.invoices,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.invoices,
           ),
         ),
       ),
@@ -1493,9 +1623,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsReceiptsPdc,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.receiptsPdc,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.receiptsPdc,
           ),
         ),
       ),
@@ -1503,9 +1634,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsSupplierBills,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.supplierBills,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.supplierBills,
           ),
         ),
       ),
@@ -1513,9 +1645,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsDocuments,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.documents,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.documents,
           ),
         ),
       ),
@@ -1523,9 +1656,10 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1ProjectAccountsActivity,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksProjectAccountsScreen(
+          YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
-            initialTab: YorksProjectAccountsTab.activity,
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.activity,
           ),
         ),
       ),
@@ -1554,6 +1688,9 @@ GoRouter createAppRouter({
           state.pageKey,
           YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: state.uri.queryParameters['tab'] == 'material-movement'
+                ? YorksV1ProjectWorkspaceTab.materialMovement
+                : YorksV1ProjectWorkspaceTab.overview,
           ),
         ),
       ),
@@ -2167,6 +2304,72 @@ class _DeferredCompanyMaterialRequestScreenState
           return company_material_request.YorksV1CompanyMaterialRequestScreen(
             draftId: widget.draftId,
           );
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: MaterialLocalizations.of(
+                context,
+              ).refreshIndicatorSemanticLabel,
+              onPressed: _retry,
+            ),
+          );
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+}
+
+/// Keeps the feature-gated Analytics workspace out of the initial web
+/// download. The route and its server authorization remain unchanged; the
+/// reviewed workspace loads only after an authorized user opens Analytics.
+class _DeferredCompanyAnalyticsScreen extends StatefulWidget {
+  _DeferredCompanyAnalyticsScreen({
+    this.initialProjectId,
+    required this.initialMonths,
+    required this.initialDomain,
+  }) : super(
+         key: ValueKey(
+           'company-analytics-route:$initialProjectId:$initialMonths:$initialDomain',
+         ),
+       );
+
+  final String? initialProjectId;
+  final int initialMonths;
+  final String initialDomain;
+
+  @override
+  State<_DeferredCompanyAnalyticsScreen> createState() =>
+      _DeferredCompanyAnalyticsScreenState();
+}
+
+class _DeferredCompanyAnalyticsScreenState
+    extends State<_DeferredCompanyAnalyticsScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= company_analytics.loadLibrary();
+  }
+
+  void _retry() {
+    setState(() {
+      _load = _sharedLoad = company_analytics.loadLibrary();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return company_analytics.CompanyAnalyticsScreen();
         }
         if (snapshot.hasError) {
           return Center(

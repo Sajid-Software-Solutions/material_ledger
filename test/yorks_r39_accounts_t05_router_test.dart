@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
+import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_projects_screen.dart';
 import 'package:material_ledger/shared/models/app_user.dart';
 import 'package:material_ledger/shared/models/user_role.dart';
 import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
@@ -99,6 +100,38 @@ void main() {
       );
     },
   );
+
+  testWidgets('Project Accounts deep links stay in the project workspace', (
+    tester,
+  ) async {
+    final router = _router(
+      userRole: UserRole.admin,
+      exactRole: YorksV1Role.admin,
+      accountsEnabled: true,
+      resolver:
+          (
+            capabilityKey, {
+            required legacyAllowed,
+            requireWrite = false,
+            organizationSummary = false,
+            projectId,
+          }) => capabilityKey == YorksV1CapabilityKeys.viewProjectAccounts,
+    );
+    addTearDown(router.dispose);
+    await _mount(tester, router, YorksV1Role.admin);
+
+    await _go(
+      tester,
+      router,
+      RoutePaths.yorksV1ProjectAccountsOverviewPath('project-1'),
+    );
+
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RoutePaths.yorksV1ProjectAccountsOverviewPath('project-1'),
+    );
+    expect(find.byType(YorksV1ProjectWorkspaceScreen), findsOneWidget);
+  });
 
   testWidgets(
     'Accountant lands in Accounts and cannot enter unrelated V1 flows',

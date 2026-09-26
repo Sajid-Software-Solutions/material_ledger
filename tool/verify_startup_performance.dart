@@ -7,6 +7,9 @@ import 'dart:io';
 // its isolated artifact measured 10,177,884 raw / 2,747,966 gzip bytes. The
 // final 50 kB covers the same candidate with every approved staging rollout
 // enabled; that artifact measured 10,205,890 raw / 2,714,714 gzip bytes.
+// The project and BOQ workspace redesign measured 10,260,313 raw bytes. The
+// project Accounts dashboard refinement measures 10,290,697 raw bytes; allow
+// that scoped increase while keeping the transferred-size ceiling unchanged.
 // The approved MR post-approval editor adds a named-grant dialog and role-safe
 // recovery copy; its staged artifact measured 10,255,834 raw / 2,767,999
 // gzip bytes. Allow 15 kB for that slice and keep the transfer ceiling unchanged.
@@ -21,7 +24,11 @@ import 'dart:io';
 // accepted Analytics rollout measured 10,302,539 raw / 2,778,300 gzip bytes
 // with the repository verifier.
 // Reserve a further 10 kB of raw parse headroom; keep the transfer ceiling.
-const _mainDartJsRawBudget = 10310000;
+// The unified staging candidate adds the protected project Accounts overview,
+// receipts/PDC dashboard and shared in-project host. It measures 10,423,928
+// raw / 2,806,317 gzip bytes. Reserve 16 kB raw headroom while retaining the
+// stricter 2.9 MB transferred-size ceiling and every other startup check.
+const _mainDartJsRawBudget = 10440000;
 const _mainDartJsGzipBudget = 2900000;
 const _indexHtmlRawBudget = 40000;
 

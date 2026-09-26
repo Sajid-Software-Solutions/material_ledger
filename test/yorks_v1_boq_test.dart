@@ -40,6 +40,63 @@ void main() {
     );
 
     test(
+      'pastes multiple cells and appended rows as one undoable edit',
+      () async {
+        final source = _worksheet().copyWith(
+          columns: const [
+            YorksV1BoqColumn(
+              id: _columnId,
+              heading: 'Item Description',
+              displayOrder: 1,
+              canonicalField: YorksV1BoqCanonicalField.description,
+            ),
+            YorksV1BoqColumn(
+              id: 'technical',
+              heading: 'Technical',
+              displayOrder: 2,
+            ),
+          ],
+        );
+        final controller = YorksV1BoqWorksheetController(
+          groupId: _groupId,
+          repository: _FakeBoqRepository(source),
+          uuidFactory: _Ids().next,
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+
+        controller.pasteCells(
+          startRowId: _rowId,
+          columnIds: const [_columnId, 'technical'],
+          values: const [
+            ['Air damper', '500 x 500'],
+            ['Fire damper', '600 x 600'],
+          ],
+        );
+        expect(controller.state.worksheet!.rows, hasLength(2));
+        expect(
+          controller.state.worksheet!.rows.first.valueFor(_columnId),
+          'Air damper',
+        );
+        expect(
+          controller.state.worksheet!.rows.last.valueFor('technical'),
+          '600 x 600',
+        );
+        expect(
+          controller.state.worksheet!.rows.first.canonicalValues['description'],
+          'Air damper',
+        );
+
+        controller.undo();
+        expect(controller.state.worksheet!.rows, hasLength(1));
+        expect(
+          controller.state.worksheet!.rows.single.valueFor(_columnId),
+          'Motorized Smoke Damper',
+        );
+      },
+    );
+
+    test(
       'Similar Row keeps reusable context and clears unique equipment data',
       () async {
         final source = _worksheet().copyWith(
@@ -503,6 +560,16 @@ void main() {
             YorksV1DomainErrorCode.unauthorized,
           ),
         ),
+      );
+      expect(
+        () => controller.pasteCells(
+          startRowId: _rowId,
+          columnIds: const ['unit-cost'],
+          values: const [
+            ['99'],
+          ],
+        ),
+        throwsA(isA<YorksV1DomainException>()),
       );
       expect(
         () => controller.removeColumn('unit-cost'),
@@ -1097,6 +1164,8 @@ void main() {
         find.byKey(const ValueKey('boq-cell-row-499-$_columnId')),
         findsNothing,
       );
+      expect(find.byKey(const ValueKey('boq-add-row-footer')), findsOneWidget);
+      expect(find.byType(PaginatedDataTable), findsNothing);
       await tester.tap(find.byKey(const ValueKey('boq-cell-row-0-$_columnId')));
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
@@ -1112,6 +1181,141 @@ void main() {
         FocusManager.instance.primaryFocus?.debugLabel,
         'row-0:$_columnId',
       );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('boq-cell-row-499-$_columnId')),
+        1000,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('boq-body-list')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+        maxScrolls: 30,
+      );
+      expect(
+        find.byKey(const ValueKey('boq-cell-row-499-$_columnId')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Tab crosses editable columns and rows without paging', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final worksheet = _worksheet().copyWith(
+        columns: const [
+          YorksV1BoqColumn(
+            id: _columnId,
+            heading: 'Item Description',
+            displayOrder: 1,
+            canonicalField: YorksV1BoqCanonicalField.description,
+          ),
+          YorksV1BoqColumn(
+            id: 'quantity',
+            heading: 'Quantity',
+            displayOrder: 2,
+            canonicalField: YorksV1BoqCanonicalField.quantity,
+          ),
+        ],
+        rows: [
+          ..._worksheet().rows,
+          YorksV1BoqRow(
+            id: 'row-2',
+            displayOrder: 2,
+            values: {},
+            canonicalValues: {},
+          ),
+        ],
+      );
+      await tester.pumpWidget(_spreadsheetHarness(worksheet: worksheet));
+      await tester.tap(
+        find.byKey(const ValueKey('boq-cell-$_rowId-$_columnId')),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        '$_rowId:quantity',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'row-2:$_columnId',
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        '$_rowId:quantity',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop clipboard paste starts at the selected cell', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? {'text': 'Dampers\t500 x 500\nValves\t600 x 600'}
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      List<List<String>>? pasted;
+      String? pastedRow;
+      List<String>? pastedColumns;
+      final worksheet = _worksheet().copyWith(
+        columns: const [
+          YorksV1BoqColumn(
+            id: _columnId,
+            heading: 'Item Description',
+            displayOrder: 1,
+            canonicalField: YorksV1BoqCanonicalField.description,
+          ),
+          YorksV1BoqColumn(
+            id: 'technical',
+            heading: 'Technical',
+            displayOrder: 2,
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        _spreadsheetHarness(
+          worksheet: worksheet,
+          onPasteCells:
+              ({required startRowId, required columnIds, required values}) {
+                pastedRow = startRowId;
+                pastedColumns = columnIds;
+                pasted = values;
+              },
+        ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('boq-cell-$_rowId-$_columnId')),
+      );
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(pastedRow, _rowId);
+      expect(pastedColumns, [_columnId, 'technical']);
+      expect(pasted, [
+        ['Dampers', '500 x 500'],
+        ['Valves', '600 x 600'],
+      ]);
       expect(tester.takeException(), isNull);
     });
 
@@ -1431,6 +1635,12 @@ Widget _spreadsheetHarness({
     required String value,
   })?
   onUpdateCell,
+  void Function({
+    required String? startRowId,
+    required List<String> columnIds,
+    required List<List<String>> values,
+  })?
+  onPasteCells,
   Future<List<YorksV1MaterialRequestInventorySuggestion>> Function(
     String query,
     String? excludedRowId,
@@ -1458,6 +1668,7 @@ Widget _spreadsheetHarness({
           onUpdateCell:
               onUpdateCell ??
               ({required rowId, required columnId, required value}) {},
+          onPasteCells: onPasteCells,
           onAddBlankRow: ({afterRowId}) => effective.rows.first,
           onAddSimilarRow: ({required sourceRowId}) => effective.rows.first,
           onRemoveRow: (_) {},

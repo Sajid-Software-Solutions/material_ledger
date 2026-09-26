@@ -8,6 +8,7 @@ import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_accounts_strings.dart';
+import '../../../../shared/models/yorks_v1_project_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../application/accounts_controller.dart';
@@ -31,6 +32,7 @@ import '../widgets/yorks_accounts_receivables_action_sheets.dart';
 import '../widgets/yorks_accounts_records_views.dart';
 import '../widgets/yorks_accounts_supplier_action_sheets.dart';
 import 'yorks_accounts_control_centre_overview.dart';
+import 'yorks_project_accounts_overview.dart';
 
 class YorksAccountsPortfolioScreen extends ConsumerStatefulWidget {
   const YorksAccountsPortfolioScreen({
@@ -321,6 +323,17 @@ class _YorksProjectAccountsScreenState
     final pending = <Future<bool>>[];
     switch (tab) {
       case YorksProjectAccountsTab.overview:
+        // The billing register can hold filtered progress. Refresh the complete
+        // server projection before aggregating the overview by building.
+        pending.add(
+          ref
+              .read(
+                yorksAccountsProjectControllerProvider(
+                  widget.projectId,
+                ).notifier,
+              )
+              .load(),
+        );
         break;
       case YorksProjectAccountsTab.documents:
         final provider = yorksAccountsDocumentsControllerProvider(
@@ -423,15 +436,13 @@ class _YorksProjectAccountsScreenState
     );
     final projection = overviewState.projection;
     if (projection == null) {
-      return Scaffold(
-        backgroundColor: AppColors.surface,
-        body: _AccountsStatePanel(
-          status: overviewState.status,
-          language: language,
-          error: overviewState.error,
-          onRetry: _load,
-        ),
+      final statePanel = _AccountsStatePanel(
+        status: overviewState.status,
+        language: language,
+        error: overviewState.error,
+        onRetry: _load,
       );
+      return Material(color: AppColors.surface, child: statePanel);
     }
     final tabs = <YorksProjectAccountsTab>[
       if (projection.capabilities.viewProjectAccounts) ...[
@@ -449,6 +460,14 @@ class _YorksProjectAccountsScreenState
       if (projection.capabilities.viewProjectAccounts)
         YorksProjectAccountsTab.activity,
     ];
+    if (tabs.isEmpty) {
+      final statePanel = _AccountsStatePanel(
+        status: YorksAccountsViewStatus.forbidden,
+        language: language,
+        onRetry: _load,
+      );
+      return Material(color: AppColors.surface, child: statePanel);
+    }
     final selected = tabs.contains(widget.initialTab)
         ? widget.initialTab
         : tabs.first;
@@ -456,90 +475,143 @@ class _YorksProjectAccountsScreenState
         overviewState.status == YorksAccountsViewStatus.loading ||
         _activeTabLoads > 0 ||
         _tabIsLoading(ref, widget.projectId, selected);
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: Stack(
-        children: [
-          CustomScrollView(
-            key: PageStorageKey(
-              'accounts-project-${widget.projectId}-$selected',
-            ),
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.xxl,
-                  AppSpacing.xxl,
-                  AppSpacing.xxl,
-                  AppSpacing.colossal,
+    final content = Stack(
+      children: [
+        CustomScrollView(
+          key: PageStorageKey('accounts-project-${widget.projectId}-$selected'),
+          slivers: [
+            if (_standaloneAccountsHeaderEnabled)
+              SliverToBoxAdapter(
+                child: _ProjectAccountsHero(
+                  projectId: widget.projectId,
+                  eyebrow: projection.projectReference,
+                  title: projection.projectName,
+                  body: projection.projectSite ?? '',
+                  badge: projection.baseline?['status'] == 'active'
+                      ? _t(language, 'status_active')
+                      : '',
+                  language: language,
+                  showProjectNavigation:
+                      projection.actorExactRole != 'accountant',
+                  showProjectActions: projection.actorExactRole == 'admin',
+                  baselineRevision: int.tryParse(
+                    '${projection.baseline?['revision_number'] ?? ''}',
+                  ),
+                  canPrepareClaim:
+                      projection.capabilities.prepareClaim &&
+                      projection.capabilities.viewValues,
                 ),
-                sliver: SliverList.list(
-                  children: [
-                    _AccountsHero(
-                      eyebrow: _t(language, 'commercial_control'),
-                      title: projection.projectName,
-                      body:
-                          '${projection.projectReference}'
-                          '${projection.clientName == null ? '' : ' · ${projection.clientName}'}',
-                      badge: projection.actorExactRole,
-                      metadata: _projectMetadata(projection),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _ProjectAccountsTabs(
-                      tabs: tabs,
-                      selected: selected,
-                      language: language,
-                      onSelected: _selectTab,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _RoleGuidance(language: language),
-                    const SizedBox(height: AppSpacing.lg),
-                    if (projection.capabilities.canExport &&
-                        _reportKindForTab(selected, projection.capabilities) !=
-                            null) ...[
-                      YorksAccountsReportActions(
-                        kind: _reportKindForTab(
-                          selected,
-                          projection.capabilities,
-                        )!,
-                        projectId: widget.projectId,
+              ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                _standaloneAccountsHeaderEnabled ? 14 : 12,
+                16,
+                48,
+              ),
+              sliver: SliverList.list(
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final navigation = _ProjectAccountsTabs(
+                        tabs: tabs,
+                        selected: selected,
                         language: language,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                    ],
-                    _ProjectTabBody(
+                        onSelected: _selectTab,
+                      );
+                      final tools =
+                          projection.capabilities.canExport &&
+                              selected == YorksProjectAccountsTab.overview
+                          ? YorksAccountsReportActions(
+                              kind: YorksAccountsReportKind.projectSummary,
+                              projectId: widget.projectId,
+                              language: language,
+                              overviewToolbar: true,
+                            )
+                          : null;
+                      if (constraints.maxWidth < 1050 || tools == null) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            navigation,
+                            if (tools != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerEnd,
+                                  child: tools,
+                                ),
+                              ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: navigation),
+                          const SizedBox(width: 10),
+                          tools,
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  if (selected != YorksProjectAccountsTab.overview &&
+                      projection.capabilities.canExport &&
+                      _reportKindForTab(selected, projection.capabilities) !=
+                          null) ...[
+                    YorksAccountsReportActions(
+                      kind: _reportKindForTab(
+                        selected,
+                        projection.capabilities,
+                      )!,
                       projectId: widget.projectId,
-                      tab: selected,
-                      overview: projection,
                       language: language,
-                      onRetry: () => unawaited(_load(force: true)),
                     ),
+                    const SizedBox(height: 14),
                   ],
-                ),
-              ),
-            ],
-          ),
-          if (loading)
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: LinearProgressIndicator(
-                key: ValueKey('accounts-background-loading'),
-                minHeight: 3,
+                  _ProjectTabBody(
+                    projectId: widget.projectId,
+                    tab: selected,
+                    overview: projection,
+                    language: language,
+                    onRetry: () => unawaited(_load(force: true)),
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
+          ],
+        ),
+        if (loading)
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              key: ValueKey('accounts-background-loading'),
+              minHeight: 3,
+            ),
+          ),
+      ],
     );
+    return Material(color: const Color(0xFFF5F9FF), child: content);
   }
 }
+
+// Project Accounts is hosted by the shared project workspace in release
+// builds. This compile-time-only lane preserves isolated diagnostics without
+// shipping a second project header/navigation implementation.
+const _standaloneAccountsHeaderEnabled = bool.fromEnvironment(
+  'YORKS_ACCOUNTS_STANDALONE_HEADER',
+);
 
 bool _tabIsLoading(
   WidgetRef ref,
   String projectId,
   YorksProjectAccountsTab tab,
 ) => switch (tab) {
-  YorksProjectAccountsTab.overview => false,
+  YorksProjectAccountsTab.overview =>
+    ref.watch(yorksAccountsProjectControllerProvider(projectId)).status ==
+        YorksAccountsViewStatus.loading,
   YorksProjectAccountsTab.billing =>
     ref.watch(yorksAccountsProjectControllerProvider(projectId)).status ==
         YorksAccountsViewStatus.loading,
@@ -599,7 +671,11 @@ class _ProjectTabBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => switch (tab) {
     YorksProjectAccountsTab.overview => _ProjectAccountsOverview(
       overview: overview,
+      projectState: ref.watch(
+        yorksAccountsProjectControllerProvider(projectId),
+      ),
       language: language,
+      onRetry: onRetry,
       onOpen: (tab) => context.go(switch (tab) {
         YorksProjectAccountsTab.billing =>
           RoutePaths.yorksV1ProjectAccountsBillingPath(projectId),
@@ -607,6 +683,8 @@ class _ProjectTabBody extends ConsumerWidget {
           RoutePaths.yorksV1ProjectAccountsInvoicesPath(projectId),
         YorksProjectAccountsTab.supplierBills =>
           RoutePaths.yorksV1ProjectAccountsSupplierBillsPath(projectId),
+        YorksProjectAccountsTab.receiptsPdc =>
+          RoutePaths.yorksV1ProjectAccountsReceiptsPdcPath(projectId),
         _ => RoutePaths.yorksV1ProjectAccountsOverviewPath(projectId),
       }),
     ),
@@ -738,14 +816,12 @@ class _AccountsHero extends StatelessWidget {
     required this.title,
     required this.body,
     required this.badge,
-    this.metadata = const [],
   });
 
   final String eyebrow;
   final String title;
   final String body;
   final String badge;
-  final List<String> metadata;
 
   @override
   Widget build(BuildContext context) => _Panel(
@@ -769,14 +845,6 @@ class _AccountsHero extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(body, style: AppTypography.bodyMedium),
-            if (metadata.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [for (final item in metadata) _Badge(item)],
-              ),
-            ],
           ],
         );
         final access = badge.isEmpty
@@ -805,6 +873,294 @@ class _AccountsHero extends StatelessWidget {
       },
     ),
   );
+}
+
+class _ProjectAccountsHero extends StatelessWidget {
+  const _ProjectAccountsHero({
+    required this.projectId,
+    required this.eyebrow,
+    required this.title,
+    required this.body,
+    required this.badge,
+    required this.language,
+    required this.showProjectNavigation,
+    required this.showProjectActions,
+    required this.baselineRevision,
+    required this.canPrepareClaim,
+  });
+
+  final String projectId;
+  final String eyebrow;
+  final String title;
+  final String body;
+  final String badge;
+  final AppLanguage language;
+  final bool showProjectNavigation;
+  final bool showProjectActions;
+  final int? baselineRevision;
+  final bool canPrepareClaim;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      border: Border(bottom: BorderSide(color: AppColors.line)),
+    ),
+    padding: const EdgeInsets.fromLTRB(20, 17, 20, 0),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 760;
+        final heading = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: compact ? 4 : 2,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  (compact
+                          ? AppTypography.titleLarge
+                          : AppTypography.headlineSmall)
+                      .copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF152341),
+                        height: 1.15,
+                      ),
+            ),
+            const SizedBox(height: 7),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
+              children: [
+                if (body.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 17,
+                        color: AppColors.inkSecondary,
+                      ),
+                      const SizedBox(width: 5),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: compact ? 230 : 320,
+                        ),
+                        child: Text(
+                          body,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.inkSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (badge.isNotEmpty)
+                  _Badge(badge, color: AppColors.successContainer),
+                _Badge(
+                  _t(language, 'commercial_control_badge'),
+                  color: const Color(0xFFEDF3FA),
+                ),
+              ],
+            ),
+          ],
+        );
+        final actions = Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (baselineRevision != null)
+              OutlinedButton.icon(
+                onPressed: () => context.go(
+                  RoutePaths.yorksV1ProjectAccountsBillingPath(projectId),
+                ),
+                icon: const Icon(Icons.description_outlined, size: 18),
+                label: Text(
+                  '${_t(language, 'baseline_revision')} $baselineRevision',
+                ),
+              ),
+            if (canPrepareClaim)
+              FilledButton.icon(
+                onPressed: () => context.go(
+                  RoutePaths.yorksV1ProjectAccountsInvoicesPath(projectId),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: Text(_t(language, 'prepare_claim')),
+              ),
+            if (showProjectActions)
+              PopupMenuButton<String>(
+                tooltip: _t(language, 'project_actions'),
+                onSelected: (action) {
+                  if (action == 'open') {
+                    context.go(RoutePaths.yorksV1ProjectPath(projectId));
+                  }
+                  if (action == 'edit') {
+                    context.go(RoutePaths.yorksV1ProjectEditPath(projectId));
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'open',
+                    child: Text(
+                      YorksV1ProjectStrings.openProject.active(language),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text(
+                      YorksV1ProjectStrings.editProject.active(language),
+                    ),
+                  ),
+                ],
+                icon: const Icon(Icons.more_vert_rounded),
+              ),
+          ],
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (compact) ...[
+              heading,
+              if (baselineRevision != null ||
+                  canPrepareClaim ||
+                  showProjectActions) ...[
+                const SizedBox(height: 12),
+                actions,
+              ],
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Align(
+                      alignment: AlignmentDirectional.topEnd,
+                      child: actions,
+                    ),
+                  ),
+                ],
+              ),
+            if (showProjectNavigation) ...[
+              const SizedBox(height: 14),
+              _ProjectAccountsWorkspaceNavigation(
+                projectId: projectId,
+                language: language,
+              ),
+            ] else
+              const SizedBox(height: 14),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _ProjectAccountsWorkspaceNavigation extends StatefulWidget {
+  const _ProjectAccountsWorkspaceNavigation({
+    required this.projectId,
+    required this.language,
+  });
+
+  final String projectId;
+  final AppLanguage language;
+
+  @override
+  State<_ProjectAccountsWorkspaceNavigation> createState() =>
+      _ProjectAccountsWorkspaceNavigationState();
+}
+
+class _ProjectAccountsWorkspaceNavigationState
+    extends State<_ProjectAccountsWorkspaceNavigation> {
+  final _selectedKey = GlobalKey();
+  double? _lastViewportWidth;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final width = MediaQuery.sizeOf(context).width;
+    if (_lastViewportWidth == width) return;
+    _lastViewportWidth = width;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selected = _selectedKey.currentContext;
+      if (selected != null) Scrollable.ensureVisible(selected, alignment: .5);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final links = <(IconData, String, String?)>[
+      (
+        Icons.home_outlined,
+        YorksV1ProjectStrings.overview.active(widget.language),
+        RoutePaths.yorksV1ProjectPath(widget.projectId),
+      ),
+      (
+        Icons.list_alt_outlined,
+        YorksV1ProjectStrings.boq.active(widget.language),
+        RoutePaths.yorksV1BoqGroupsPath(widget.projectId),
+      ),
+      (
+        Icons.description_outlined,
+        YorksV1ProjectStrings.materialRequests.active(widget.language),
+        RoutePaths.yorksV1MaterialRequestsPath(projectId: widget.projectId),
+      ),
+      (
+        Icons.account_balance_wallet_outlined,
+        YorksV1ProjectStrings.accounts.active(widget.language),
+        null,
+      ),
+      (
+        Icons.insert_drive_file_outlined,
+        YorksV1ProjectStrings.documents.active(widget.language),
+        RoutePaths.yorksV1ProjectDocumentsPath(widget.projectId),
+      ),
+      (
+        Icons.apartment_outlined,
+        YorksV1ProjectStrings.materialMovement.active(widget.language),
+        Uri(
+          path: RoutePaths.yorksV1ProjectPath(widget.projectId),
+          queryParameters: const {'tab': 'material-movement'},
+        ).toString(),
+      ),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final link in links)
+            Container(
+              key: link.$3 == null ? _selectedKey : null,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: link.$3 == null
+                        ? AppColors.blue
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: TextButton.icon(
+                onPressed: link.$3 == null ? null : () => context.go(link.$3!),
+                icon: Icon(link.$1, size: 17),
+                label: Text(link.$2),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  foregroundColor: AppColors.inkSecondary,
+                  disabledForegroundColor: AppColors.blue,
+                  shape: const RoundedRectangleBorder(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _PortfolioKpis extends StatelessWidget {
@@ -1462,103 +1818,38 @@ class _ActionQueue extends StatelessWidget {
 class _ProjectAccountsOverview extends StatelessWidget {
   const _ProjectAccountsOverview({
     required this.overview,
+    required this.projectState,
     required this.language,
     required this.onOpen,
+    required this.onRetry,
   });
 
   final YorksAccountsProjectOverviewProjection overview;
+  final YorksAccountsProjectState projectState;
   final AppLanguage language;
   final ValueChanged<YorksProjectAccountsTab> onOpen;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final progress = overview.progress ?? const <String, dynamic>{};
-    final receivables = overview.receivables;
-    final baseline = overview.baseline;
-    final metrics = <(String, YorksAccountsDecimal?, bool)>[
-      (
-        _t(language, 'contract'),
-        _mapDecimal(baseline, 'contract_value'),
-        false,
-      ),
-      (
-        _t(language, 'confirmed'),
-        _mapDecimal(progress, 'confirmed_eligible'),
-        false,
-      ),
-      (_t(language, 'claimed'), _mapDecimal(receivables, 'claimed'), false),
-      (_t(language, 'certified'), _mapDecimal(receivables, 'certified'), false),
-      (
-        _t(language, 'paid'),
-        _mapDecimal(receivables, 'amount_paid_till_date'),
-        false,
-      ),
-      (_t(language, 'still_due'), _mapDecimal(receivables, 'still_due'), true),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final visible = metrics.where((item) => item.$2 != null).toList();
-            final columns = constraints.maxWidth >= 1100
-                ? 3
-                : constraints.maxWidth >= 620
-                ? 2
-                : 1;
-            final width =
-                (constraints.maxWidth - AppSpacing.md * (columns - 1)) /
-                columns;
-            return Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: [
-                for (final item in visible)
-                  SizedBox(
-                    width: width,
-                    child: _KpiCard(
-                      label: item.$1,
-                      value: _money(item.$2!),
-                      danger: item.$3 && !item.$2!.isZero,
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final building = _BuildingPosition(
-              entries: _mapList(progress['building_position']),
-              language: language,
-              onOpen: () => onOpen(YorksProjectAccountsTab.billing),
-            );
-            final next = _NextActionPanel(
-              overview: overview,
-              language: language,
-              onOpen: onOpen,
-            );
-            if (constraints.maxWidth < 900) {
-              return Column(
-                children: [
-                  building,
-                  const SizedBox(height: AppSpacing.lg),
-                  next,
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 2, child: building),
-                const SizedBox(width: AppSpacing.lg),
-                Expanded(child: next),
-              ],
-            );
-          },
-        ),
-      ],
+    final baseline = projectState.baseline;
+    final progress = projectState.progress;
+    if (baseline == null || progress == null) {
+      return _AccountsStatePanel(
+        status: projectState.status,
+        language: language,
+        error: projectState.error,
+        onRetry: onRetry,
+      );
+    }
+    return YorksProjectAccountsOverview(
+      overview: overview,
+      baseline: baseline,
+      progress: progress,
+      language: language,
+      onBilling: () => onOpen(YorksProjectAccountsTab.billing),
+      onClaims: () => onOpen(YorksProjectAccountsTab.invoices),
+      onReceipts: () => onOpen(YorksProjectAccountsTab.receiptsPdc),
     );
   }
 }
@@ -3295,138 +3586,83 @@ class _ProjectAccountsTabs extends StatelessWidget {
   final ValueChanged<YorksProjectAccountsTab> onSelected;
 
   @override
-  Widget build(BuildContext context) => _Panel(
-    padding: const EdgeInsets.all(AppSpacing.xs),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      border: Border(bottom: BorderSide(color: AppColors.line)),
+    ),
     child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
           for (final tab in tabs)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              child: ChoiceChip(
-                selected: tab == selected,
-                showCheckmark: false,
-                avatar: Icon(_tabIcon(tab), size: 18),
-                label: Text(_tabLabel(language, tab)),
-                onSelected: (_) => onSelected(tab),
+            InkWell(
+              onTap: () => onSelected(tab),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                margin: const EdgeInsetsDirectional.only(end: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: tab == selected ? const Color(0xFFEAF3FF) : null,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: tab == selected
+                          ? AppColors.blue
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      switch (tab) {
+                        YorksProjectAccountsTab.overview =>
+                          Icons.dashboard_outlined,
+                        YorksProjectAccountsTab.billing =>
+                          Icons.bar_chart_rounded,
+                        YorksProjectAccountsTab.invoices =>
+                          Icons.receipt_long_outlined,
+                        YorksProjectAccountsTab.receiptsPdc =>
+                          Icons.payments_outlined,
+                        YorksProjectAccountsTab.supplierBills =>
+                          Icons.inventory_2_outlined,
+                        YorksProjectAccountsTab.documents =>
+                          Icons.description_outlined,
+                        YorksProjectAccountsTab.activity =>
+                          Icons.history_rounded,
+                      },
+                      size: 17,
+                      color: tab == selected
+                          ? AppColors.blue
+                          : AppColors.inkSecondary,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      _tabLabel(language, tab),
+                      style: AppTypography.labelMedium.copyWith(
+                        color: tab == selected
+                            ? AppColors.blue
+                            : AppColors.inkSecondary,
+                        fontWeight: tab == selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
       ),
     ),
   );
-}
-
-class _RoleGuidance extends StatelessWidget {
-  const _RoleGuidance({required this.language});
-  final AppLanguage language;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.blueContainer,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      border: Border.all(color: AppColors.blueContainerStrong),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.verified_user_outlined, color: AppColors.blue),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Text(
-            _t(language, 'role_guidance'),
-            style: AppTypography.bodyMedium,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _BuildingPosition extends StatelessWidget {
-  const _BuildingPosition({
-    required this.entries,
-    required this.language,
-    required this.onOpen,
-  });
-  final List<Map<String, dynamic>> entries;
-  final AppLanguage language;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) => _Panel(
-    padding: EdgeInsets.zero,
-    child: Column(
-      children: [
-        _SectionHeader(title: _t(language, 'building_position')),
-        if (entries.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.xxl),
-            child: Text(_t(language, 'no_records')),
-          )
-        else
-          for (final entry in entries.take(8))
-            ListTile(
-              title: Text(
-                '${entry['building_name'] ?? '—'} · ${entry['stage_name'] ?? entry['stage_key']}',
-              ),
-              subtitle: _Progress(
-                value: _percentTextValue(entry['confirmed_percent']),
-                label: _percentLabel(entry['confirmed_percent']),
-              ),
-              trailing: _Badge(_statusLabel('${entry['review_status'] ?? ''}')),
-              onTap: onOpen,
-            ),
-      ],
-    ),
-  );
-}
-
-class _NextActionPanel extends StatelessWidget {
-  const _NextActionPanel({
-    required this.overview,
-    required this.language,
-    required this.onOpen,
-  });
-  final YorksAccountsProjectOverviewProjection overview;
-  final AppLanguage language;
-  final ValueChanged<YorksProjectAccountsTab> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final capability = overview.capabilities;
-    final tab = capability.manageInvoices
-        ? YorksProjectAccountsTab.invoices
-        : capability.prepareClaim
-        ? YorksProjectAccountsTab.invoices
-        : capability.manageSupplierBills
-        ? YorksProjectAccountsTab.supplierBills
-        : YorksProjectAccountsTab.billing;
-    final label = capability.manageInvoices
-        ? _t(language, 'invoices')
-        : capability.prepareClaim
-        ? _t(language, 'claimed')
-        : capability.manageSupplierBills
-        ? _t(language, 'supplier_bills')
-        : _t(language, 'billing');
-    return _Panel(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _SectionHeader(title: _t(language, 'next_action')),
-          ListTile(
-            minTileHeight: 72,
-            leading: const _IconTile(Icons.arrow_forward_rounded),
-            title: Text(label, style: AppTypography.titleSmall),
-            subtitle: Text(_t(language, 'role_guidance')),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => onOpen(tab),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ProgressLedgerCard extends StatelessWidget {
@@ -4098,18 +4334,6 @@ String _money(YorksAccountsDecimal value) {
   return 'AED ${negative ? '-' : ''}$grouped.$fraction';
 }
 
-YorksAccountsDecimal? _mapDecimal(Map<String, dynamic>? map, String key) {
-  final value = map?[key];
-  return value is String ? YorksAccountsDecimal.tryParse(value) : null;
-}
-
-List<Map<String, dynamic>> _mapList(Object? value) => value is List
-    ? value
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-    : const [];
-
 double _percentValue(YorksAccountsDecimal value) =>
     _percentTextValue(value.canonicalText);
 
@@ -4154,24 +4378,3 @@ String _tabLabel(AppLanguage language, YorksProjectAccountsTab tab) =>
       YorksProjectAccountsTab.documents => 'documents',
       YorksProjectAccountsTab.activity => 'activity',
     });
-
-IconData _tabIcon(YorksProjectAccountsTab tab) => switch (tab) {
-  YorksProjectAccountsTab.overview => Icons.home_outlined,
-  YorksProjectAccountsTab.billing => Icons.show_chart_rounded,
-  YorksProjectAccountsTab.invoices => Icons.receipt_long_outlined,
-  YorksProjectAccountsTab.receiptsPdc => Icons.payments_outlined,
-  YorksProjectAccountsTab.supplierBills => Icons.inventory_2_outlined,
-  YorksProjectAccountsTab.documents => Icons.folder_copy_outlined,
-  YorksProjectAccountsTab.activity => Icons.history_rounded,
-};
-
-List<String> _projectMetadata(YorksAccountsProjectOverviewProjection value) {
-  final baseline = value.baseline;
-  return [
-    if (baseline?['currency_code'] is String) '${baseline!['currency_code']}',
-    if (baseline?['payment_terms_days'] is int)
-      '${baseline!['payment_terms_days']} day terms',
-    if (baseline?['revision_number'] is int)
-      'Baseline R${baseline!['revision_number']}',
-  ];
-}

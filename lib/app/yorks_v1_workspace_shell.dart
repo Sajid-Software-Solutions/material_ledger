@@ -385,7 +385,6 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
     }
     if (segments[1] == 'material-requests') return true;
     if (segments[1] != 'projects' || segments.length < 3) return false;
-    if (segments.contains('accounts')) return false;
     return segments.last != 'edit';
   }
 

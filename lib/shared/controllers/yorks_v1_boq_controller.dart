@@ -412,6 +412,70 @@ class YorksV1BoqWorksheetController
     );
   }
 
+  /// Applies a spreadsheet paste as one recoverable local revision. The
+  /// visible column order comes from the UI, but authority is rechecked here.
+  void pasteCells({
+    required String? startRowId,
+    required List<String> columnIds,
+    required List<List<String>> values,
+  }) {
+    final worksheet = _editableWorksheet();
+    if (values.isEmpty || columnIds.isEmpty) return;
+    final columns = {for (final column in worksheet.columns) column.id: column};
+    for (final id in columnIds) {
+      final column = columns[id];
+      if (column == null || (column.isCommercial && !_canManageCommercials)) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized);
+      }
+    }
+    final rows = [...worksheet.rows];
+    final selected = rows.indexWhere((row) => row.id == startRowId);
+    final start = selected < 0 ? rows.length : selected;
+    var changed = false;
+    for (var rowOffset = 0; rowOffset < values.length; rowOffset++) {
+      final cells = values[rowOffset];
+      if (cells.isEmpty) continue;
+      final rowIndex = start + rowOffset;
+      while (rows.length <= rowIndex) {
+        rows.add(
+          YorksV1BoqRow(
+            id: _uuidFactory(),
+            displayOrder: rows.length + 1,
+            values: const {},
+            canonicalValues: const {},
+          ),
+        );
+        changed = true;
+      }
+      final row = rows[rowIndex];
+      final nextValues = <String, Object?>{...row.values};
+      final canonicalValues = <String, Object?>{...row.canonicalValues};
+      for (
+        var columnOffset = 0;
+        columnOffset < cells.length && columnOffset < columnIds.length;
+        columnOffset++
+      ) {
+        final column = columns[columnIds[columnOffset]]!;
+        final value = cells[columnOffset];
+        if (nextValues[column.id] != value) changed = true;
+        nextValues[column.id] = value;
+        final canonical = column.canonicalField;
+        if (canonical != null && !canonical.isCommercial) {
+          if (value.trim().isEmpty) {
+            canonicalValues.remove(canonical.wireValue);
+          } else {
+            canonicalValues[canonical.wireValue] = value.trim();
+          }
+        }
+      }
+      rows[rowIndex] = row.copyWith(
+        values: nextValues,
+        canonicalValues: canonicalValues,
+      );
+    }
+    if (changed) _replace(worksheet.copyWith(rows: rows));
+  }
+
   /// Applies one reviewed material suggestion to the mapped operational
   /// columns in a single local revision. Quantity and commercial fields are
   /// intentionally absent: engineers must still enter and review them.

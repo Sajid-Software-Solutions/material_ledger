@@ -53,11 +53,21 @@ Future<bool> showYorksAccountsClaimActionsSheet(
     ) ??
     false;
 
+enum YorksInvoiceActionIntent {
+  recordPayment,
+  createPdc,
+  transitionPdc,
+  replacePdc,
+}
+
 Future<bool> showYorksAccountsInvoiceActionsSheet(
   BuildContext context, {
   required String projectId,
   required String invoiceId,
   required AppLanguage language,
+  YorksInvoiceActionIntent? initialIntent,
+  String? initialPdcId,
+  YorksAccountsPdcStatus? initialPdcTarget,
 }) async =>
     await showModalBottomSheet<bool>(
       context: context,
@@ -68,6 +78,9 @@ Future<bool> showYorksAccountsInvoiceActionsSheet(
         projectId: projectId,
         invoiceId: invoiceId,
         language: language,
+        initialIntent: initialIntent,
+        initialPdcId: initialPdcId,
+        initialPdcTarget: initialPdcTarget,
       ),
     ) ??
     false;
@@ -687,11 +700,17 @@ class _InvoiceActionsSheet extends ConsumerStatefulWidget {
     required this.projectId,
     required this.invoiceId,
     required this.language,
+    required this.initialIntent,
+    required this.initialPdcId,
+    required this.initialPdcTarget,
   });
 
   final String projectId;
   final String invoiceId;
   final AppLanguage language;
+  final YorksInvoiceActionIntent? initialIntent;
+  final String? initialPdcId;
+  final YorksAccountsPdcStatus? initialPdcTarget;
 
   @override
   ConsumerState<_InvoiceActionsSheet> createState() =>
@@ -716,6 +735,15 @@ class _InvoiceActionsSheetState extends ConsumerState<_InvoiceActionsSheet> {
   @override
   void initState() {
     super.initState();
+    _action = switch (widget.initialIntent) {
+      YorksInvoiceActionIntent.recordPayment => _InvoiceAction.recordPayment,
+      YorksInvoiceActionIntent.createPdc => _InvoiceAction.createPdc,
+      YorksInvoiceActionIntent.transitionPdc => _InvoiceAction.transitionPdc,
+      YorksInvoiceActionIntent.replacePdc => _InvoiceAction.replacePdc,
+      null => null,
+    };
+    _selectedPdcId = widget.initialPdcId;
+    _pdcTarget = widget.initialPdcTarget ?? YorksAccountsPdcStatus.received;
     final now = DateTime.now().toUtc();
     _date.text =
         '${now.year.toString().padLeft(4, '0')}-'

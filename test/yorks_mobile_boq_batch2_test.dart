@@ -234,6 +234,21 @@ void main() {
     });
   }
 
+  testWidgets('mobile BOQ remains usable at 200 percent text scale', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(390, 844));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpWorksheet(tester);
+
+    expect(find.byKey(const ValueKey('yorks-v1-boq-mobile-list')), findsOne);
+    await tester.tap(find.byKey(const ValueKey('mobile-boq-row-row-1')));
+    await tester.pumpAndSettle();
+    expect(find.text(YorksV1BoqStrings.editMaterial.primary), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop BOQ worksheet prioritises the editable grid', (
     tester,
   ) async {
@@ -245,7 +260,7 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('boq-worksheet-context-bar')))
           .height,
-      AppSpacing.massive,
+      60,
     );
     expect(
       tester
@@ -265,6 +280,40 @@ void main() {
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/r35/boq_worksheet_desktop.png'),
     );
+  });
+
+  for (final width in [768.0, 1024.0]) {
+    testWidgets('tablet BOQ worksheet has no overflow at ${width.toInt()}px', (
+      tester,
+    ) async {
+      await _setViewport(tester, Size(width, 900));
+      await _pumpWorksheet(tester);
+
+      expect(
+        find.byKey(const ValueKey('yorks-v1-boq-desktop-grid')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('boq-add-row-footer')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile(
+          'goldens/r35/boq_worksheet_tablet_${width.toInt()}x900.png',
+        ),
+      );
+    });
+  }
+
+  testWidgets('tablet BOQ remains usable at 200 percent text scale', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(768, 900));
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpWorksheet(tester);
+
+    expect(find.byKey(const ValueKey('boq-add-row-footer')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -295,6 +344,45 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('desktop scope browser search filter and view controls work', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(1366, 900));
+    await _pumpGroups(
+      tester,
+      selectedScopeId: _df3wScopeId,
+      embedded: true,
+      desktopEmbeddedHost: true,
+    );
+
+    expect(
+      find.byKey(const ValueKey('boq-desktop-group-browser')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('boq-group-search')),
+      'Cable Tray',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Cable Tray'), findsNWidgets(2));
+    expect(find.text('AC Units'), findsNothing);
+
+    await tester.enterText(find.byKey(const ValueKey('boq-group-search')), '');
+    await tester.tap(find.text(YorksV1MaterialRequestStrings.listView.primary));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('boq-group-list')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('boq-group-status-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(YorksV1BoqStrings.notStartedStatus.primary).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Cable Tray'), findsOneWidget);
+    expect(find.text('AC Units'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final entry in <({Size size, String suffix})>[
     (size: const Size(390, 844), suffix: 'mobile'),
@@ -802,6 +890,7 @@ Future<_BoqHarness> _pumpGroups(
   WidgetTester tester, {
   String? selectedScopeId,
   bool embedded = false,
+  bool desktopEmbeddedHost = false,
   _FixtureBoqRepository? repository,
 }) async {
   final effectiveRepository =
@@ -833,7 +922,16 @@ Future<_BoqHarness> _pumpGroups(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: YorksV1BoqGroupsScreen(projectId: _projectId, embedded: embedded),
+        home: desktopEmbeddedHost
+            ? Scaffold(
+                body: SingleChildScrollView(
+                  child: YorksV1BoqGroupsScreen(
+                    projectId: _projectId,
+                    embedded: embedded,
+                  ),
+                ),
+              )
+            : YorksV1BoqGroupsScreen(projectId: _projectId, embedded: embedded),
       ),
     ),
   );
