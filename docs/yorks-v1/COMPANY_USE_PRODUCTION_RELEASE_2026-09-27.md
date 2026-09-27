@@ -81,7 +81,7 @@ was reconciled to the canonical version only after exact statement MD5 matching.
 
 CI web/APK, final hosted desktop/360px visuals, PostHog ingestion, production
 policy preservation checks and candidate/public artifact hashes are recorded in
-the external signed-evidence package after completion. The CI APK uses the
+the external checksummed evidence package after completion. The CI APK uses the
 separate ephemeral certificate and is not a production Android release.
 
 ## Rollback and preservation
