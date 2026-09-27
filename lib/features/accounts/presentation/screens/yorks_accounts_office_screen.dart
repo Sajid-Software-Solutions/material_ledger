@@ -7,9 +7,11 @@ import 'package:intl/intl.dart';
 
 import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
+import '../../../../shared/models/analytics_event.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_accounts_strings.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/services/analytics_service.dart';
 import '../../application/accounts_controller.dart';
 import '../../application/accounts_office_controller.dart';
 import '../../application/accounts_office_providers.dart';
@@ -33,6 +35,7 @@ class _YorksAccountsOfficeScreenState
   final _searchController = TextEditingController();
   Timer? _searchTimer;
   String? _status;
+  YorksAccountsOfficeSection? _trackedSection;
 
   @override
   void initState() {
@@ -68,6 +71,18 @@ class _YorksAccountsOfficeScreenState
         .filters;
     _searchController.text = stored.search ?? '';
     setState(() => _status = stored.status);
+    if (_trackedSection != widget.section) {
+      _trackedSection = widget.section;
+      ref
+          .read(analyticsServiceProvider)
+          .capture(
+            AnalyticsEvent.accountsWorkspaceViewed,
+            properties: {
+              AnalyticsProperty.source: 'accounts_office',
+              AnalyticsProperty.entryPoint: widget.section.wireValue,
+            },
+          );
+    }
     _load();
   }
 
@@ -77,7 +92,59 @@ class _YorksAccountsOfficeScreenState
 
   void _searchChanged(String _) {
     _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 320), _load);
+    _searchTimer = Timer(const Duration(milliseconds: 320), () {
+      _trackFilters();
+      _load();
+    });
+  }
+
+  void _statusChanged(String? value) {
+    setState(() => _status = value);
+    _trackFilters();
+    _load();
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() => _status = null);
+    _trackFilters();
+    _load();
+  }
+
+  void _trackFilters() {
+    final hasSearch = _searchController.text.trim().isNotEmpty;
+    final hasStatus = _status != null;
+    ref
+        .read(analyticsServiceProvider)
+        .capture(
+          AnalyticsEvent.accountsFilterChanged,
+          properties: {
+            AnalyticsProperty.source: 'accounts_office',
+            AnalyticsProperty.entryPoint: widget.section.wireValue,
+            AnalyticsProperty.listFilter: hasSearch && hasStatus
+                ? 'multiple'
+                : hasSearch
+                ? 'search'
+                : hasStatus
+                ? 'status'
+                : 'none',
+          },
+        );
+  }
+
+  void _openRecord(YorksAccountsOfficeItem item) {
+    ref
+        .read(analyticsServiceProvider)
+        .capture(
+          AnalyticsEvent.accountsRecordOpened,
+          properties: {
+            AnalyticsProperty.source: 'accounts_office',
+            AnalyticsProperty.entryPoint: widget.section.wireValue,
+            AnalyticsProperty.objectType: item.recordKind,
+            AnalyticsProperty.recordState: item.status,
+          },
+        );
+    context.go(yorksAccountsOfficeItemRoute(widget.section, item));
   }
 
   @override
@@ -136,15 +203,8 @@ class _YorksAccountsOfficeScreenState
                     status: _status,
                     statuses: config.statuses,
                     onSearchChanged: _searchChanged,
-                    onStatusChanged: (value) {
-                      setState(() => _status = value);
-                      _load();
-                    },
-                    onClear: () {
-                      _searchController.clear();
-                      setState(() => _status = null);
-                      _load();
-                    },
+                    onStatusChanged: _statusChanged,
+                    onClear: _clearFilters,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   _OfficeRegister(
@@ -152,6 +212,7 @@ class _YorksAccountsOfficeScreenState
                     state: state,
                     language: language,
                     onRetry: _load,
+                    onOpenItem: _openRecord,
                     onLoadMore: () => ref
                         .read(
                           yorksAccountsOfficeControllerProvider(
@@ -773,6 +834,7 @@ class _OfficeRegister extends StatelessWidget {
     required this.state,
     required this.language,
     required this.onRetry,
+    required this.onOpenItem,
     required this.onLoadMore,
   });
 
@@ -780,6 +842,7 @@ class _OfficeRegister extends StatelessWidget {
   final YorksAccountsOfficeState state;
   final AppLanguage language;
   final VoidCallback onRetry;
+  final ValueChanged<YorksAccountsOfficeItem> onOpenItem;
   final Future<bool> Function() onLoadMore;
 
   @override
@@ -864,7 +927,7 @@ class _OfficeRegister extends StatelessWidget {
                         _OfficeRecordCard(
                           item: item,
                           language: language,
-                          onTap: () => _openItem(context, section, item),
+                          onTap: () => onOpenItem(item),
                         ),
                     ],
                   )
@@ -872,6 +935,7 @@ class _OfficeRegister extends StatelessWidget {
                     items: projection.items,
                     language: language,
                     section: section,
+                    onOpenItem: onOpenItem,
                   ),
           ),
           if (projection.hasMore) ...[
@@ -945,11 +1009,13 @@ class _OfficeRecordsTable extends StatelessWidget {
     required this.items,
     required this.language,
     required this.section,
+    required this.onOpenItem,
   });
 
   final List<YorksAccountsOfficeItem> items;
   final AppLanguage language;
   final YorksAccountsOfficeSection section;
+  final ValueChanged<YorksAccountsOfficeItem> onOpenItem;
 
   @override
   Widget build(BuildContext context) {
@@ -982,7 +1048,7 @@ class _OfficeRecordsTable extends StatelessWidget {
           rows: [
             for (final item in items)
               DataRow(
-                onSelectChanged: (_) => _openItem(context, section, item),
+                onSelectChanged: (_) => onOpenItem(item),
                 cells: [
                   for (final column in columns)
                     DataCell(
@@ -994,7 +1060,7 @@ class _OfficeRecordsTable extends StatelessWidget {
                   DataCell(
                     IconButton(
                       tooltip: _t(language, 'office_open_project'),
-                      onPressed: () => _openItem(context, section, item),
+                      onPressed: () => onOpenItem(item),
                       icon: const Icon(Icons.chevron_right_rounded),
                     ),
                   ),
@@ -1679,14 +1745,6 @@ class _OfficeSectionConfig {
           statuses: ['recorded'],
         ),
       };
-}
-
-void _openItem(
-  BuildContext context,
-  YorksAccountsOfficeSection section,
-  YorksAccountsOfficeItem item,
-) {
-  context.go(yorksAccountsOfficeItemRoute(section, item));
 }
 
 @visibleForTesting

@@ -233,6 +233,48 @@ void main() {
       expect(find.text('Supplier Bills'), findsNothing);
     },
   );
+
+  testWidgets(
+    'authorized senior staff can open every organization Accounts screen',
+    (tester) async {
+      for (final role in const [
+        YorksV1Role.admin,
+        YorksV1Role.projectManager,
+        YorksV1Role.seniorMechanicalEngineer,
+      ]) {
+        final router = _router(
+          userRole: role == YorksV1Role.admin
+              ? UserRole.admin
+              : UserRole.engineer,
+          exactRole: role,
+          accountsEnabled: true,
+        );
+        await _mount(tester, router, role);
+
+        for (final officePath in const [
+          RoutePaths.yorksV1Accounts,
+          RoutePaths.yorksV1AccountsProjects,
+          RoutePaths.yorksV1AccountsBillingProgress,
+          RoutePaths.yorksV1AccountsClaims,
+          RoutePaths.yorksV1AccountsClientPayments,
+          RoutePaths.yorksV1AccountsSupplierBills,
+          RoutePaths.yorksV1AccountsDueSchedule,
+          RoutePaths.yorksV1AccountsDocuments,
+          RoutePaths.yorksV1AccountsReports,
+          RoutePaths.yorksV1AccountsActivity,
+        ]) {
+          await _go(tester, router, officePath);
+          expect(
+            router.routeInformationProvider.value.uri.path,
+            officePath,
+            reason: '${role.name}: $officePath',
+          );
+        }
+
+        router.dispose();
+      }
+    },
+  );
 }
 
 GoRouter _router({

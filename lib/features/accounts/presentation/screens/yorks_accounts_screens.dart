@@ -60,6 +60,7 @@ class _YorksAccountsPortfolioScreenState
   String? _commercialState;
   String? _dueState;
   String? _paymentState;
+  bool _workspaceTracked = false;
 
   @override
   void initState() {
@@ -81,13 +82,32 @@ class _YorksAccountsPortfolioScreenState
     paymentState: _paymentState,
   );
 
-  void _load() => ref
-      .read(yorksAccountsPortfolioControllerProvider.notifier)
-      .load(_filters);
+  void _load() {
+    if (!_workspaceTracked) {
+      _workspaceTracked = true;
+      ref
+          .read(analyticsServiceProvider)
+          .capture(
+            AnalyticsEvent.accountsWorkspaceViewed,
+            properties: {
+              AnalyticsProperty.source: 'accounts_office',
+              AnalyticsProperty.entryPoint: widget.controlCentre
+                  ? 'overview'
+                  : widget.billingProgress
+                  ? 'billing_progress'
+                  : 'project_accounts',
+            },
+          );
+    }
+    ref.read(yorksAccountsPortfolioControllerProvider.notifier).load(_filters);
+  }
 
   void _searchChanged(String _) {
     _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 320), _load);
+    _searchTimer = Timer(const Duration(milliseconds: 320), () {
+      _trackFilters();
+      _load();
+    });
   }
 
   void _clearFilters() {
@@ -97,6 +117,7 @@ class _YorksAccountsPortfolioScreenState
       _dueState = null;
       _paymentState = null;
     });
+    _trackFilters();
     _load();
   }
 
@@ -110,7 +131,29 @@ class _YorksAccountsPortfolioScreenState
       _dueState = dueState;
       _paymentState = paymentState;
     });
+    _trackFilters();
     _load();
+  }
+
+  void _trackFilters() {
+    ref
+        .read(analyticsServiceProvider)
+        .capture(
+          AnalyticsEvent.accountsFilterChanged,
+          properties: {
+            AnalyticsProperty.source: 'accounts_portfolio',
+            AnalyticsProperty.entryPoint: widget.controlCentre
+                ? 'overview'
+                : widget.billingProgress
+                ? 'billing_progress'
+                : 'project_accounts',
+            AnalyticsProperty.listFilter: _activeFilterCount == 0
+                ? 'none'
+                : _activeFilterCount == 1
+                ? 'single'
+                : 'multiple',
+          },
+        );
   }
 
   int get _activeFilterCount => [

@@ -567,14 +567,21 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
     bool workforceEnabled = false,
     bool analyticsEnabled = false,
   }) {
-    final accountantOffice = accountsEnabled && role == YorksV1Role.accountant
+    final accountsOfficeEligible =
+        role == YorksV1Role.admin ||
+        role == YorksV1Role.accountant ||
+        role == YorksV1Role.projectManager ||
+        role == YorksV1Role.seniorMechanicalEngineer;
+    final accountsOffice = accountsEnabled && accountsOfficeEligible
         ? <_YorksDestination>[
             _YorksDestination(
               label: YorksV1ShellStrings.accounts,
               icon: Icons.dashboard_outlined,
               selectedIcon: Icons.dashboard_rounded,
               path: RoutePaths.yorksV1Accounts,
-              group: YorksV1ShellStrings.accountantWorkspace,
+              group: role == YorksV1Role.accountant
+                  ? YorksV1ShellStrings.accountantWorkspace
+                  : null,
             ),
             _YorksDestination(
               label: YorksV1ShellStrings.projectAccounts,
@@ -639,20 +646,13 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
           teamChatEnabled: teamChatEnabled,
           chatUnread: chatUnread,
         ),
-      ...accountantOffice,
+      ...accountsOffice,
       if (analyticsEnabled)
         _YorksDestination(
           label: YorksV1ShellStrings.analytics,
           icon: Icons.insights_outlined,
           selectedIcon: Icons.insights_rounded,
           path: RoutePaths.yorksV1Analytics,
-        ),
-      if (accountsEnabled && role != YorksV1Role.accountant)
-        _YorksDestination(
-          label: YorksV1ShellStrings.accounts,
-          icon: Icons.account_balance_wallet_outlined,
-          selectedIcon: Icons.account_balance_wallet_rounded,
-          path: RoutePaths.yorksV1Accounts,
         ),
       if (workforceEnabled)
         _YorksDestination(
@@ -809,18 +809,28 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
       for (final destination in unique.values)
         if (destinationAllowed(destination)) destination,
     ];
-    final accountsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1Accounts,
-    );
+    final accountsDestinations = visible
+        .where(
+          (destination) =>
+              destination.path == RoutePaths.yorksV1Accounts ||
+              (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
+                  false),
+        )
+        .toList(growable: false);
     final requestsIndex = visible.indexWhere(
       (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
     );
-    if (accountsIndex >= 0 && requestsIndex >= 0) {
-      final accounts = visible.removeAt(accountsIndex);
+    if (accountsDestinations.isNotEmpty) {
+      visible.removeWhere(accountsDestinations.contains);
       final updatedRequestsIndex = visible.indexWhere(
         (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
       );
-      visible.insert(updatedRequestsIndex + 1, accounts);
+      final insertionIndex = updatedRequestsIndex >= 0
+          ? updatedRequestsIndex + 1
+          : requestsIndex >= 0
+          ? requestsIndex + 1
+          : 0;
+      visible.insertAll(insertionIndex, accountsDestinations);
     }
     final workforceIndex = visible.indexWhere(
       (destination) => destination.path == RoutePaths.yorksV1Workforce,
