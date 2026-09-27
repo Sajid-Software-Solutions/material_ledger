@@ -837,14 +837,17 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
     );
     if (workforceIndex >= 0) {
       final workforce = visible.removeAt(workforceIndex);
-      final accountsOrRequestsIndex = visible.indexWhere(
-        (destination) => destination.path == RoutePaths.yorksV1Accounts,
+      final accountsEndIndex = visible.lastIndexWhere(
+        (destination) =>
+            destination.path == RoutePaths.yorksV1Accounts ||
+            (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
+                false),
       );
       final updatedRequestsIndex = visible.indexWhere(
         (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
       );
-      final anchor = accountsOrRequestsIndex >= 0
-          ? accountsOrRequestsIndex
+      final anchor = accountsEndIndex >= 0
+          ? accountsEndIndex
           : updatedRequestsIndex;
       visible.insert(anchor >= 0 ? anchor + 1 : visible.length, workforce);
     }

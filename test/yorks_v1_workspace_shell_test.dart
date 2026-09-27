@@ -117,7 +117,7 @@ void main() {
   testWidgets('R35 procurement workspace shell renders desktop navigation', (
     tester,
   ) async {
-    _setViewport(tester, const Size(1366, 768));
+    _setViewport(tester, const Size(1366, 900));
     addTearDown(() => _resetViewport(tester));
 
     final preferences = await SharedPreferences.getInstance();
@@ -217,12 +217,24 @@ void main() {
       authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       client: null,
       repository: _ResolvedPermissionRepository(
-        _permissionSnapshot(usersView: true, accountsView: true),
+        _permissionSnapshot(
+          usersView: true,
+          accountsView: true,
+          workforceView: true,
+        ),
       ),
       revisionSignalSubscription:
           ({required onSignal, required onUnavailable}) async => true,
     );
     await controller.start();
+    expect(
+      controller.state.hybridAllows(
+        YorksV1CapabilityKeys.workforceView,
+        legacyAllowed: false,
+        organizationSummary: true,
+      ),
+      isTrue,
+    );
 
     final router = GoRouter(
       routes: [
@@ -253,6 +265,7 @@ void main() {
               returnsDocuments: true,
               documents: true,
               accounts: true,
+              workforce: true,
             ),
           ),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
@@ -272,6 +285,16 @@ void main() {
     );
     expect(accounts.top, greaterThan(requests.top));
     expect(accounts.top - requests.bottom, lessThanOrEqualTo(24));
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
+    await tester.pumpAndSettle();
+    final accountsAudit = tester.getRect(
+      find.text(YorksV1ShellStrings.accountsAuditTrail.primary),
+    );
+    final workforce = tester.getRect(
+      find.text(YorksV1ShellStrings.workforce.primary),
+    );
+    expect(workforce.top, greaterThan(accountsAudit.top));
+    expect(workforce.top - accountsAudit.bottom, lessThanOrEqualTo(24));
     expect(tester.takeException(), isNull);
   });
 
@@ -1109,6 +1132,7 @@ YorksV1CurrentPermissionSnapshot _permissionSnapshot({
   required bool usersView,
   bool accountsView = false,
   bool supplierCostsView = false,
+  bool workforceView = false,
 }) => YorksV1CurrentPermissionSnapshot.fromRpcJson({
   'schema_version': YorksV1PermissionSchema.current,
   'authorization_mode': 'mixed',
@@ -1215,6 +1239,32 @@ YorksV1CurrentPermissionSnapshot _permissionSnapshot({
         'actor_can_delegate': true,
         'actor_delegable_scope_kinds': ['organization', 'project'],
         'display_order': 4,
+        'authorization_mode': 'enforced',
+        'role_default': true,
+        'organization_summary_visible': true,
+        'authoritative_effective': true,
+        'authoritative_source': 'role_default',
+        'candidate_effective': true,
+        'candidate_source': 'role_default',
+        'parity': true,
+        'project_overrides': <Object?>[],
+      },
+    if (workforceView)
+      {
+        'capability_key': YorksV1CapabilityKeys.workforceView,
+        'module_key': 'workforce',
+        'action_key': 'view',
+        'label': 'View workforce',
+        'description': 'View protected workforce records.',
+        'risk_level': 'high',
+        'allowed_scope_kinds': ['organization'],
+        'requires_project_access': false,
+        'dependencies': <String>[],
+        'runtime_status': 'operational',
+        'is_assignable': true,
+        'actor_can_delegate': true,
+        'actor_delegable_scope_kinds': ['organization'],
+        'display_order': 5,
         'authorization_mode': 'enforced',
         'role_default': true,
         'organization_summary_visible': true,
