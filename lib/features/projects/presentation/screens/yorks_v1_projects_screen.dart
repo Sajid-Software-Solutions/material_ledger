@@ -3654,18 +3654,34 @@ class _YorksV1ProjectWorkspaceScreenState
           projectId: widget.projectId,
         );
     final showAccounts = canReadProjectAccounts || canReadSupplierAccounts;
-    final AsyncValue<List<YorksV1MaterialRequest>> requests = canReadRequests
+    // The project hero and Accounts workspace need only the protected project
+    // context above. Mount these heavier operational projections only for the
+    // Overview that renders them; their dedicated tabs own their own reads.
+    // This prevents an MR realtime signal from doing unrelated work while a
+    // user is reviewing Accounts.
+    final loadOverviewProjections = _tab == YorksV1ProjectWorkspaceTab.overview;
+    final AsyncValue<List<YorksV1MaterialRequest>> requests =
+        loadOverviewProjections && canReadRequests
         ? ref.watch(yorksV1MaterialRequestListProvider(widget.projectId))
         : const AsyncData<List<YorksV1MaterialRequest>>([]);
-    final scopes = ref.watch(
-      yorksV1MaterialRequestScopesProvider(widget.projectId),
-    );
-    final AsyncValue<List<YorksV1BoqGroup>> groups = canReadBoq
+    final AsyncValue<List<YorksV1MaterialRequestScopeOption>> scopes =
+        loadOverviewProjections
+        ? ref.watch(yorksV1MaterialRequestScopesProvider(widget.projectId))
+        : const AsyncData<List<YorksV1MaterialRequestScopeOption>>([]);
+    final AsyncValue<List<YorksV1BoqGroup>> groups =
+        loadOverviewProjections && canReadBoq
         ? ref.watch(yorksV1BoqGroupsProvider(widget.projectId))
         : const AsyncData<List<YorksV1BoqGroup>>([]);
-    final documents = ref.watch(
-      yorksV1DocumentWorkspaceProvider(widget.projectId),
-    );
+    final AsyncValue<YorksV1DocumentWorkspace> documents =
+        loadOverviewProjections
+        ? ref.watch(yorksV1DocumentWorkspaceProvider(widget.projectId))
+        : AsyncData<YorksV1DocumentWorkspace>(
+            YorksV1DocumentWorkspace(
+              projectId: widget.projectId,
+              documents: const [],
+              auditEntries: const [],
+            ),
+          );
     final mobile = YorksMobileUi.isActive(context);
 
     Widget mobileFrame({
