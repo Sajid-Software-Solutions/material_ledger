@@ -108,6 +108,18 @@ final class YorksAccountsProjectController
   final YorksV1CriticalCommandKeyStore _commandKeys;
   Future<YorksAccountsCommandResult?>? _inFlight;
   _PendingAccountsCommand? _pendingCommand;
+  String? _buildingScopeId;
+  String? _stageKey;
+  String? _actionOwner;
+  bool? _hasEvidence;
+
+  /// Refresh the currently visible workbench, including its active filters.
+  Future<bool> refresh() => load(
+    buildingScopeId: _buildingScopeId,
+    stageKey: _stageKey,
+    actionOwner: _actionOwner,
+    hasEvidence: _hasEvidence,
+  );
 
   Future<bool> load({
     String? buildingScopeId,
@@ -115,6 +127,10 @@ final class YorksAccountsProjectController
     String? actionOwner,
     bool? hasEvidence,
   }) async {
+    _buildingScopeId = buildingScopeId;
+    _stageKey = stageKey;
+    _actionOwner = actionOwner;
+    _hasEvidence = hasEvidence;
     state = state.copyWith(
       status: YorksAccountsViewStatus.loading,
       clearError: true,
@@ -134,8 +150,13 @@ final class YorksAccountsProjectController
           YorksV1DomainErrorCode.unexpectedResponse,
         );
       }
-      if (!baseline.capabilities.canViewValues ||
-          !progress.capabilities.canViewValues) {
+      // A non-money engineering persona may legitimately receive both
+      // projections without values and still retain suggest/confirm actions.
+      // Only a mismatched downgrade across the two reads invalidates the
+      // combined command surface; typed decoding already rejects money keys
+      // in either no-value response.
+      if (baseline.capabilities.canViewValues !=
+          progress.capabilities.canViewValues) {
         baseline = baseline.withoutProtectedValues();
         progress = progress.withoutProtectedValues();
       }
@@ -350,7 +371,7 @@ final class YorksAccountsProjectController
         hasPendingCommand: false,
         clearError: true,
       );
-      await load();
+      await refresh();
       return result;
     } on YorksV1DomainException catch (error) {
       if (error.code == YorksV1DomainErrorCode.backendUnavailable ||

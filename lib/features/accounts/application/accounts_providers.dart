@@ -7,6 +7,8 @@ import '../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../shared/services/yorks_v1_critical_command_key_store.dart';
 import '../../../shared/sync/connectivity_service.dart';
 import '../data/accounts_repository.dart';
+import '../data/accounts_evidence_repository.dart';
+import '../../../shared/providers/yorks_v1_documents_repository_provider.dart';
 import 'accounts_controller.dart';
 
 final yorksAccountsRpcClientProvider = Provider<YorksAccountsRpcClient?>((ref) {
@@ -23,6 +25,21 @@ final yorksAccountsRepositoryProvider = Provider<YorksAccountsRepository>((
     rpcClient: ref.watch(yorksAccountsRpcClientProvider),
   );
 });
+
+/// Ephemeral project-scoped evidence access. Never caches document bytes.
+final yorksAccountsEvidenceRepositoryProvider =
+    Provider<YorksAccountsEvidenceRepository>((ref) {
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      final rpc = ref.watch(yorksAccountsRpcClientProvider);
+      if (rpc == null) {
+        throw StateError('Accounts evidence backend unavailable.');
+      }
+      return YorksSupabaseAccountsEvidenceRepository(
+        rpcClient: rpc,
+        documentsRepository: ref.watch(yorksV1DocumentsRepositoryProvider),
+      );
+    });
 
 typedef YorksAccountsPermissionEpoch = ({
   int? revision,

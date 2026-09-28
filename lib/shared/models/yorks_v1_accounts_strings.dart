@@ -1044,6 +1044,150 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'اختیاری موجودہ دستاویز IDs، کوما سے جدا۔',
       'hi': 'वैकल्पिक वर्तमान दस्तावेज़ ID, कॉमा से अलग।',
     },
+    'select_evidence': {
+      'en': 'Select evidence',
+      'ar': 'اختر الدليل',
+      'ur': 'ثبوت منتخب کریں',
+      'hi': 'साक्ष्य चुनें',
+    },
+    'search_project_evidence': {
+      'en': 'Search project documents',
+      'ar': 'ابحث في مستندات المشروع',
+      'ur': 'پراجیکٹ دستاویزات تلاش کریں',
+      'hi': 'परियोजना दस्तावेज़ खोजें',
+    },
+    'current_revision': {
+      'en': 'Current revision',
+      'ar': 'الإصدار الحالي',
+      'ur': 'موجودہ ورژن',
+      'hi': 'वर्तमान संस्करण',
+    },
+    'current_version': {
+      'en': 'Current record version',
+      'ar': 'نسخة السجل الحالية',
+      'ur': 'ریکارڈ کا موجودہ ورژن',
+      'hi': 'वर्तमान रिकॉर्ड संस्करण',
+    },
+    'preview_evidence': {
+      'en': 'Preview evidence',
+      'ar': 'معاينة الدليل',
+      'ur': 'ثبوت کا پیش نظارہ',
+      'hi': 'साक्ष्य पूर्वावलोकन',
+    },
+    'remove_evidence': {
+      'en': 'Remove evidence',
+      'ar': 'إزالة الدليل',
+      'ur': 'ثبوت ہٹائیں',
+      'hi': 'साक्ष्य हटाएं',
+    },
+    'evidence_unavailable': {
+      'en': 'Selected evidence is no longer accessible',
+      'ar': 'لم يعد الدليل المحدد متاحاً',
+      'ur': 'منتخب ثبوت تک اب رسائی نہیں',
+      'hi': 'चुना हुआ साक्ष्य अब उपलब्ध नहीं है',
+    },
+    'no_project_evidence': {
+      'en': 'No eligible project documents found',
+      'ar': 'لم يتم العثور على مستندات مشروع مؤهلة',
+      'ur': 'کوئی اہل پراجیکٹ دستاویز نہیں ملی',
+      'hi': 'कोई पात्र परियोजना दस्तावेज़ नहीं मिला',
+    },
+    'refine_evidence_search': {
+      'en': 'More results available. Refine your search.',
+      'ar': 'توجد نتائج أخرى. حسّن البحث.',
+      'ur': 'مزید نتائج ہیں۔ تلاش محدود کریں۔',
+      'hi': 'और परिणाम हैं। खोज सीमित करें।',
+    },
+    'evidence_current_only': {
+      'en':
+          'The current document revision is checked at save time; progress records link to the document, not a pinned historical revision.',
+      'ar':
+          'يُفحص الإصدار الحالي عند الحفظ؛ يرتبط سجل التقدم بالمستند وليس بإصدار تاريخي مثبت.',
+      'ur':
+          'محفوظ کرتے وقت موجودہ ورژن چیک ہوتا ہے؛ پیشرفت کا ریکارڈ دستاویز سے منسلک ہے، کسی محفوظ تاریخی ورژن سے نہیں۔',
+      'hi':
+          'सेव करते समय वर्तमान संस्करण जाँचा जाता है; प्रगति रिकॉर्ड दस्तावेज़ से जुड़ता है, किसी स्थिर पुराने संस्करण से नहीं।',
+    },
+    'evidence_load_failed': {
+      'en': 'Evidence could not be checked. Retry the search before saving.',
+      'ar': 'تعذر التحقق من الدليل. أعد البحث قبل الحفظ.',
+      'ur': 'ثبوت چیک نہیں ہو سکا۔ محفوظ کرنے سے پہلے دوبارہ تلاش کریں۔',
+      'hi': 'साक्ष्य जाँचा नहीं जा सका। सेव करने से पहले फिर खोजें।',
+    },
+    'evidence_changed': {
+      'en':
+          'Selected evidence changed or is no longer accessible. Review the documents and select again.',
+      'ar': 'تغير الدليل المحدد أو لم يعد متاحاً. راجع المستندات واختر مجدداً.',
+      'ur':
+          'منتخب ثبوت بدل گیا ہے یا دستیاب نہیں۔ دستاویزات دیکھ کر دوبارہ منتخب کریں۔',
+      'hi':
+          'चुना हुआ साक्ष्य बदल गया है या उपलब्ध नहीं है। दस्तावेज़ जाँचकर फिर चुनें।',
+    },
+    'evidence_preview_unavailable': {
+      'en': 'Preview is available for PDF and image evidence only.',
+      'ar': 'المعاينة متاحة فقط لملفات PDF والصور.',
+      'ur': 'پیش نظارہ صرف PDF اور تصویری ثبوت کے لیے ہے۔',
+      'hi': 'पूर्वावलोकन केवल PDF और चित्र साक्ष्य के लिए उपलब्ध है।',
+    },
+    'confirmation_needs_document': {
+      'en':
+          'Increasing confirmed progress requires a current supporting document.',
+      'ar': 'تتطلب زيادة التقدم المؤكد مستنداً داعماً حالياً.',
+      'ur': 'تصدیق شدہ پیشرفت بڑھانے کے لیے موجودہ معاون دستاویز درکار ہے۔',
+      'hi': 'पुष्ट प्रगति बढ़ाने के लिए वर्तमान सहायक दस्तावेज़ चाहिए।',
+    },
+    'evidence_summary_or_document_required': {
+      'en': 'Add a site evidence summary or select a current project document.',
+      'ar': 'أضف ملخصاً لدليل الموقع أو اختر مستند مشروع حالي.',
+      'ur': 'سائٹ ثبوت کا خلاصہ لکھیں یا موجودہ پراجیکٹ دستاویز منتخب کریں۔',
+      'hi': 'साइट साक्ष्य का सार लिखें या वर्तमान परियोजना दस्तावेज़ चुनें।',
+    },
+    'review_before_submit': {
+      'en': 'Review before saving',
+      'ar': 'راجع قبل الحفظ',
+      'ur': 'محفوظ کرنے سے پہلے دیکھیں',
+      'hi': 'सेव करने से पहले जाँचें',
+    },
+    'suggestion_saved': {
+      'en':
+          'Suggestion saved. Confirmed progress and claimable value are unchanged.',
+      'ar': 'حُفظ الاقتراح. لم يتغير التقدم المؤكد أو القيمة القابلة للمطالبة.',
+      'ur': 'تجویز محفوظ ہو گئی۔ تصدیق شدہ پیشرفت اور قابل کلیم رقم نہیں بدلی۔',
+      'hi': 'सुझाव सेव हुआ। पुष्ट प्रगति और दावा योग्य मूल्य नहीं बदला।',
+    },
+    'progress_action_saved': {
+      'en': 'Progress action saved. The latest status has been refreshed.',
+      'ar': 'حُفظ إجراء التقدم وتم تحديث الحالة الأخيرة.',
+      'ur': 'پیشرفت کا عمل محفوظ ہوا۔ تازہ حالت لوڈ ہو گئی۔',
+      'hi': 'प्रगति कार्रवाई सेव हुई। नवीनतम स्थिति अपडेट हुई।',
+    },
+    'saved_refresh_failed': {
+      'en':
+          'The action saved, but the current record could not be refreshed. Refresh here; do not submit again.',
+      'ar': 'حُفظ الإجراء ولكن تعذر تحديث السجل. حدّث هنا؛ لا ترسل مرة أخرى.',
+      'ur':
+          'عمل محفوظ ہو گیا لیکن ریکارڈ تازہ نہیں ہوا۔ یہاں تازہ کریں؛ دوبارہ جمع نہ کریں۔',
+      'hi':
+          'कार्रवाई सेव हुई, लेकिन रिकॉर्ड रीफ़्रेश नहीं हुआ। यहाँ रीफ़्रेश करें; फिर जमा न करें।',
+    },
+    'retry_refresh': {
+      'en': 'Refresh saved record',
+      'ar': 'تحديث السجل المحفوظ',
+      'ur': 'محفوظ ریکارڈ تازہ کریں',
+      'hi': 'सेव रिकॉर्ड रीफ़्रेश करें',
+    },
+    'proposed_progress': {
+      'en': 'Proposed progress',
+      'ar': 'التقدم المقترح',
+      'ur': 'تجویز کردہ پیشرفت',
+      'hi': 'प्रस्तावित प्रगति',
+    },
+    'selected_evidence_count': {
+      'en': 'Selected documents',
+      'ar': 'المستندات المحددة',
+      'ur': 'منتخب دستاویزات',
+      'hi': 'चुने दस्तावेज़',
+    },
     'reason': {'en': 'Reason', 'ar': 'السبب', 'ur': 'وجہ', 'hi': 'कारण'},
     'reason_required': {
       'en': 'A reason is required.',
