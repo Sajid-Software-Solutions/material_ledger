@@ -293,14 +293,15 @@ class _NotificationDismissible extends ConsumerWidget {
 }
 
 // ─── Notification card ───────────────────────────────────────────
-class _NotificationCard extends StatelessWidget {
+class _NotificationCard extends ConsumerWidget {
   const _NotificationCard({required this.notification, required this.onTap});
 
   final AppNotification notification;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(languageProvider);
     final (icon, color) = _style(notification.type);
     final unread = !notification.isRead;
     return LedgerCard(
@@ -378,6 +379,25 @@ class _NotificationCard extends StatelessWidget {
                     style: AppTypography.bodySmall.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
+                  ),
+                ],
+                if (notification.route.isNotEmpty) ...[
+                  const Gap(AppSpacing.sm),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 16,
+                        color: AppColors.blue,
+                      ),
+                      const Gap(AppSpacing.xs),
+                      Text(
+                        AppStrings.viewDetails.active(language),
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.blue,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],

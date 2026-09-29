@@ -32,8 +32,12 @@ create table if not exists public.v1_push_transport_control (
   unclaimed_window_started_at timestamptz not null default clock_timestamp(),
   last_success_at timestamptz,
   last_worker_at timestamptz,
+  allowed_web_origins text[] not null default array['https://yorks-r35.vercel.app'],
   updated_at timestamptz not null default clock_timestamp()
 );
+alter table public.v1_push_transport_control
+  add column if not exists allowed_web_origins text[] not null
+  default array['https://yorks-r35.vercel.app'];
 insert into public.v1_push_transport_control(id) values (true)
 on conflict (id) do nothing;
 alter table public.v1_push_transport_control enable row level security;
@@ -376,6 +380,16 @@ create index if not exists v1_push_device_fingerprint_idx
   on public.v1_push_device_tokens
   ((encode(extensions.digest(token,'sha256'),'hex')),auth_user_id);
 
+-- Legacy tokens remain preserved but web delivery requires explicit enrollment.
+alter table public.v1_push_device_tokens
+  add column if not exists web_origin text,
+  add column if not exists installation_id uuid,
+  add column if not exists retired_at timestamptz,
+  add column if not exists enrolled_at timestamptz;
+create unique index if not exists v1_push_active_installation_idx
+  on public.v1_push_device_tokens(auth_user_id,web_origin,installation_id)
+  where retired_at is null and installation_id is not null;
+
 create or replace function public.v1_begin_push_device(
   p_notification_id uuid,p_claim_id uuid,p_token_hash text
 ) returns text language plpgsql security definer set search_path = '' as $$
@@ -398,7 +412,10 @@ begin
   if v_status in ('sent','sending','dead_letter') then return v_status; end if;
   if not exists(select 1 from public.v1_push_device_tokens t
     join public.v1_notifications n on n.recipient_auth_user_id=t.auth_user_id
-    where n.id=p_notification_id
+    where n.id=p_notification_id and t.retired_at is null
+      and (t.platform<>'web' or (t.installation_id is not null and n.created_at>=t.enrolled_at
+        and t.web_origin=any((select allowed_web_origins
+          from public.v1_push_transport_control where id)::text[])))
       and encode(extensions.digest(t.token,'sha256'),'hex')=p_token_hash) then
     return 'not_owned';
   end if;
@@ -575,7 +592,7 @@ revoke all on function public.v1_finish_notification_push(
 grant execute on function public.v1_finish_notification_push(
   uuid,uuid,text,integer,text,integer) to service_role;
 
--- A registration can revive a no-device job only while it remains relevant.
+-- Legacy registration remains compatible but never revives historical jobs.
 create or replace function public.v1_register_push_device(
   p_token text,p_platform text
 ) returns boolean language plpgsql security definer set search_path = '' as $$
@@ -600,19 +617,53 @@ begin
     on conflict(token) do update set
       auth_user_id=excluded.auth_user_id,
       platform=excluded.platform,last_seen_at=clock_timestamp();
-  update public.v1_notification_push_outbox o set
-    status='pending',next_attempt_at=clock_timestamp(),
-    dispatch_lease_until=null,last_error_code=null,
-    completed_at=null,updated_at=clock_timestamp()
-    from public.v1_notifications n
-    where o.notification_id=n.id
-      and n.recipient_auth_user_id=v_actor and n.seen_at is null
-      and n.created_at >= clock_timestamp()-interval '24 hours'
-      and o.status='no_devices' and o.attempt_count < 6
-      and public.v1_notification_push_allowed(v_actor,n.event_code);
+  -- Enrollment never replays notification history. New events enqueue normally.
   return true;
 end;
 $$;
+
+-- Origin metadata scopes routing; it is not an authorization claim. Actor
+-- ownership still comes from Supabase Auth. Retire only the same installation.
+create or replace function public.v1_register_push_installation(
+  p_token text,p_platform text,p_web_origin text,p_installation_id uuid
+) returns boolean language plpgsql security definer set search_path='' as $$
+declare v_actor uuid:=auth.uid(); v_token text:=btrim(coalesce(p_token,''));
+begin
+  if v_actor is null or not public.v1_current_actor_is_active() then
+    raise exception 'V1_PUSH_DEVICE_REGISTER_DENIED' using errcode='42501';
+  end if;
+  -- Serializes rotation against other registrations and the send gate.
+  perform 1 from public.v1_push_transport_control where id for update;
+  if p_platform<>'web' or p_installation_id is null or not exists(
+    select 1 from public.v1_push_transport_control where id
+      and p_web_origin=any(allowed_web_origins)) then
+    raise exception 'V1_PUSH_ORIGIN_NOT_ALLOWED' using errcode='22023';
+  end if;
+  if length(v_token) not between 20 and 4096 then
+    raise exception 'V1_PUSH_DEVICE_TOKEN_INVALID' using errcode='22023';
+  end if;
+  update public.v1_push_device_tokens set retired_at=clock_timestamp()
+    where auth_user_id=v_actor and web_origin=p_web_origin
+      and installation_id=p_installation_id and token<>v_token
+      and retired_at is null;
+  insert into public.v1_push_device_tokens
+    (token,auth_user_id,platform,web_origin,installation_id,retired_at,enrolled_at)
+    values(v_token,v_actor,'web',p_web_origin,p_installation_id,null,clock_timestamp())
+    on conflict(token) do update set auth_user_id=excluded.auth_user_id,
+      platform='web',web_origin=excluded.web_origin,
+      enrolled_at=case when public.v1_push_device_tokens.auth_user_id=v_actor
+        and public.v1_push_device_tokens.web_origin=p_web_origin
+        and public.v1_push_device_tokens.installation_id=p_installation_id
+        then public.v1_push_device_tokens.enrolled_at else clock_timestamp() end,
+      installation_id=excluded.installation_id,retired_at=null,
+      last_seen_at=clock_timestamp();
+  return true;
+end;
+$$;
+revoke all on function public.v1_register_push_installation(text,text,text,uuid)
+  from public,anon;
+grant execute on function public.v1_register_push_installation(text,text,text,uuid)
+  to authenticated;
 
 -- A new notification is durable even when push is paused. The cron owns
 -- delivery, avoiding an immediate external request inside workflow commits.

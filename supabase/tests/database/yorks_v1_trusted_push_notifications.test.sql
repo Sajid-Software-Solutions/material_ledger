@@ -327,25 +327,28 @@ select lives_ok(
   $$select public.v1_register_push_device(
     'test-fcm-token-procurement-00000000000000000002', 'android'
   )$$,
-  'A later device registration safely requeues recent unseen alerts'
+  'A later device registration succeeds without replaying history'
 );
 
 set local role postgres;
 select is(
   (select status from public.v1_notification_push_outbox
    where notification_id = '91000000-0000-4000-8000-000000000001'),
-  'pending',
-  'No-device delivery becomes pending after recipient registers a device'
+  'no_devices',
+  'Enrollment does not replay historical no-device notifications'
 );
 
+insert into public.v1_notifications(id,recipient_auth_user_id,event_code,entity_type,entity_id)
+values('91000000-0000-4000-8000-000000000009','10000000-0000-4000-8000-000000000003',
+'material_request_submitted','material_request','92000000-0000-4000-8000-000000000009');
 update public.v1_push_transport_control set operator_paused = false where id;
 update public.v1_notification_push_outbox
 set dispatch_lease_until = clock_timestamp() + interval '2 minutes'
-where notification_id = '91000000-0000-4000-8000-000000000001';
+where notification_id = '91000000-0000-4000-8000-000000000009';
 
 select is(
   (public.v1_claim_notification_push(
-    '91000000-0000-4000-8000-000000000001'
+    '91000000-0000-4000-8000-000000000009'
   ) ->> 'recipientAuthUserId'),
   '10000000-0000-4000-8000-000000000003',
   'Service claim derives recipient identity from the notification row'
@@ -353,9 +356,9 @@ select is(
 
 select lives_ok(
   $$select public.v1_finish_notification_push(
-    '91000000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000009',
     (select claim_id from public.v1_notification_push_outbox
-     where notification_id = '91000000-0000-4000-8000-000000000001'),
+     where notification_id = '91000000-0000-4000-8000-000000000009'),
     'sent', 2, null, null
   )$$,
   'Service records the transport result'
@@ -365,13 +368,13 @@ select ok(
   (select status = 'sent' and sent_device_count = 2
      and completed_at is not null and lease_until is null
    from public.v1_notification_push_outbox
-   where notification_id = '91000000-0000-4000-8000-000000000001'),
+   where notification_id = '91000000-0000-4000-8000-000000000009'),
   'Completed delivery is terminal and retains its device count'
 );
 
 select is(
   public.v1_claim_notification_push(
-    '91000000-0000-4000-8000-000000000001'
+    '91000000-0000-4000-8000-000000000009'
   ),
   null::jsonb,
   'A sent outbox command cannot be claimed twice'

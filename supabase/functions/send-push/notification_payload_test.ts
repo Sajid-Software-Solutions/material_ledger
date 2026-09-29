@@ -184,3 +184,41 @@ Deno.test("web link is absolute HTTPS and rejects unsafe configuration", () => {
   assertEquals(webLinkFor("/notifications", "http://localhost:8080"), null);
   assertEquals(webLinkFor("/notifications", "not-an-origin"), null);
 });
+
+Deno.test("Company Request alerts have meaningful copy and exact protected routes", () => {
+  const fixture = {
+    ...claim(),
+    entityType: "company_material_request",
+    eventCode: "company_material_request_approval_requested",
+  };
+  assertEquals(
+    safePushCopy(fixture.eventCode).title,
+    "Company request approval required",
+  );
+  assertEquals(
+    routeFor(fixture),
+    `/yorks/material-requests/company/${fixture.entityId}`,
+  );
+  for (
+    const code of [
+      "approved",
+      "returned",
+      "rejected",
+      "supply_planned",
+      "dispatched",
+      "received",
+      "handed_over",
+      "return_confirmed",
+      "return_submitted",
+      "return_rejected",
+      "remainder_withdrawn",
+      "cancelled",
+      "closed",
+    ]
+  ) {
+    assertEquals(
+      safePushCopy(`company_material_request_${code}`).type,
+      "request",
+    );
+  }
+});

@@ -33,6 +33,91 @@ export function normalizedUnreadCount(value: unknown): number {
 
 export function safePushCopy(eventCode: string): PushCopy {
   switch (eventCode) {
+    case "company_material_request_approval_requested":
+      return {
+        title: "Company request approval required",
+        body: "A company material request is waiting for your decision.",
+        type: "request",
+      };
+    case "company_material_request_approved":
+      return {
+        title: "Company request approved",
+        body: "Your company material request was approved.",
+        type: "request",
+      };
+    case "company_material_request_returned":
+      return {
+        title: "Company request changes required",
+        body: "Your company material request was returned with a reason.",
+        type: "request",
+      };
+    case "company_material_request_rejected":
+      return {
+        title: "Company request rejected",
+        body: "Your company material request was rejected with a reason.",
+        type: "request",
+      };
+    case "company_material_request_supply_planned":
+      return {
+        title: "Company request supply planned",
+        body: "Procurement updated the supply plan for your company request.",
+        type: "request",
+      };
+    case "company_material_request_dispatched":
+      return {
+        title: "Company materials dispatched",
+        body: "Company materials are waiting for your receipt review.",
+        type: "request",
+      };
+    case "company_material_request_received":
+      return {
+        title: "Company materials received",
+        body: "Good received quantities are ready for beneficiary handover.",
+        type: "request",
+      };
+    case "company_material_request_handed_over":
+      return {
+        title: "Beneficiary handover confirmed",
+        body: "The company material beneficiary handover was recorded.",
+        type: "request",
+      };
+    case "company_material_request_return_confirmed":
+      return {
+        title: "Company material return confirmed",
+        body:
+          "Procurement confirmed physical receipt of the returned material.",
+        type: "request",
+      };
+    case "company_material_request_return_submitted":
+      return {
+        title: "Company material return awaiting confirmation",
+        body: "Review the returned items and confirm physical receipt.",
+        type: "request",
+      };
+    case "company_material_request_return_rejected":
+      return {
+        title: "Company material return rejected",
+        body: "Open the request to review the reason.",
+        type: "request",
+      };
+    case "company_material_request_remainder_withdrawn":
+      return {
+        title: "Company remaining need withdrawn",
+        body: "Open the request to review the remaining quantities.",
+        type: "request",
+      };
+    case "company_material_request_cancelled":
+      return {
+        title: "Company request cancelled",
+        body: "Open the request to review the cancellation reason.",
+        type: "request",
+      };
+    case "company_material_request_closed":
+      return {
+        title: "Company request closed",
+        body: "The completed company material request was closed.",
+        type: "request",
+      };
     case "material_request_approval_required":
     case "material_request_updated_for_approval":
       return {
@@ -227,6 +312,12 @@ export function routeFor(claim: PushClaim): string {
     /^[0-9a-f-]{36}$/i.test(claim.entityId)
   ) {
     return `/yorks/returns/${claim.entityId}`;
+  }
+  if (
+    claim.entityType === "company_material_request" &&
+    /^[0-9a-f-]{36}$/i.test(claim.entityId)
+  ) {
+    return `/yorks/material-requests/company/${claim.entityId}`;
   }
   const id = requestId;
   if (typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)) {

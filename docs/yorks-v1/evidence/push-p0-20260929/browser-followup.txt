@@ -1,0 +1,104 @@
+Reported staging main.dart.js SHA256: 4676c896fcbf646cc7e1335a30a8e57087f09f972d292fa553079c0263d3e82e
+
+Contains dedicated staging ref: true; production ref: false.
+
+Company approval event code and English label absent in reported bundle.
+
+Read-only staging aggregate: 69 Company Request notifications, 69 existing targets.
+
+origin-db-final
+# T13 local wall times ms: overview=7254.41, roster=898.73, queue=2520.13
+ok
+All tests successful.
+Files=115, Tests=3303, 119 wallclock secs ( 0.53 usr  0.18 sys +  0.62 cusr  0.47 csys =  1.80 CPU)
+Result: PASS
+
+installation-final
+psql:/Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/supabase/tests/database/yorks_push_p0_installations.test.sql:2: NOTICE:  extension "pgtap" already exists, skipping
+/Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/supabase/tests/database/yorks_push_p0_installations.test.sql .. ok
+All tests successful.
+Files=1, Tests=11,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: PASS
+
+ui-tests
+00:00 +20: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/notification_bell_test.dart: desktop bell opens the recent notification panel
+00:00 +21: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/notification_bell_test.dart: desktop bell opens the recent notification panel
+00:00 +22: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/yorks_notification_preferences_test.dart: screen separates permanent history from optional delivery controls
+00:00 +23: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/yorks_notification_preferences_test.dart: selected language localizes the controls and direction
+00:00 +24: All tests passed!
+
+p0-visual
+00:00 +0: (setUpAll)
+00:00 +0: authoritative notification centre — Size(1366.0, 768.0)
+00:00 +1: authoritative notification centre — Size(360.0, 800.0)
+00:00 +2: (tearDownAll)
+00:00 +2: All tests passed!
+
+origin-deno-final
+web link is absolute HTTPS and rejects unsafe configuration ... ok (4ms)
+Company Request alerts have meaningful copy and exact protected routes ... ok (274µs)
+
+ok | 19 passed | 0 failed (106ms)
+
+
+origin-race
+PASS: two independent sessions produced one claim; replacement succeeded; stale finish rejected.
+
+origin-migration
+NOTICE:  column "installation_id" of relation "v1_push_device_tokens" already exists, skipping
+NOTICE:  column "retired_at" of relation "v1_push_device_tokens" already exists, skipping
+NOTICE:  column "enrolled_at" of relation "v1_push_device_tokens" already exists, skipping
+NOTICE:  relation "v1_push_active_installation_idx" already exists, skipping
+PASS: repeated migration retains notification, terminalizes poison job, preserves 605 attempts/error, and exposes health.
+
+origin-web
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472 bytes (99.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 74820 bytes (95.5% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib/main.dart for the Web...                             46.3s
+✓ Built build/web
+Running build hooks...Running build hooks...Startup budget passed: main.dart.js=10429497 bytes (gzip=2806789), index.html=11024 bytes.
+
+origin-apk
+
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 848 bytes (99.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 70132 bytes (95.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Running Gradle task 'assembleRelease'...                           55.2s
+✓ Built build/app/outputs/flutter-apk/app-release.apk (108.0MB)
+
+Local advisors: 14 pre-existing performance warnings; 0 errors. No new push object findings.
+
+feed-final
+00:00 +4: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/notification_alert_host_test.dart: foreground alert detail action marks read and navigates
+00:00 +5: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/notification_alert_host_test.dart: the open exact Team Chat thread suppresses duplicate alerts
+00:00 +6: /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/notification_alert_host_test.dart: authoritative Team Chat transport produces a chat alert without entering the workflow centre
+00:01 +7: All tests passed!
+
+web-final2
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 74820 bytes (95.5% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib/main.dart for the Web...                             39.4s
+✓ Built build/web
+Running build hooks...Running build hooks...Startup budget passed: main.dart.js=10429522 bytes (gzip=2806800), index.html=11024 bytes.
+
+apk-final2
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 848 bytes (99.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 70132 bytes (95.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Running Gradle task 'assembleRelease'...                           47.1s
+✓ Built build/app/outputs/flutter-apk/app-release.apk (108.0MB)
+
+js-final
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 257.544333
+
+existing-goldens
+00:00 +0: loading /Users/eapple/.codex/worktrees/push-delivery-p0/material_ledger/test/yorks_v1_notification_golden_test.dart
+00:00 +0: authoritative notification centre — Size(1366.0, 768.0)
+00:00 +1: authoritative notification centre — Size(360.0, 800.0)
+00:00 +2: All tests passed!
+
+analyze-final2
+77 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing material_ledger...
+No issues found! (ran in 4.6s)

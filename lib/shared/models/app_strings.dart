@@ -2000,17 +2000,23 @@ abstract final class AppStrings {
     ur: 'اطلاعات کی کارکردگی',
     hi: 'अधिसूचना स्वास्थ्य',
   );
+  static const notificationDetailsUnavailable = TranslatableString(
+    en: 'This notification has no available detail link. Its history is preserved.',
+    ar: 'لا يتوفر رابط تفاصيل لهذا الإشعار. تم الاحتفاظ بسجله.',
+    ur: 'اس اطلاع کی تفصیل کا لنک دستیاب نہیں۔ اس کی تاریخ محفوظ ہے۔',
+    hi: 'इस सूचना का विवरण लिंक उपलब्ध नहीं है। इसका इतिहास सुरक्षित है।',
+  );
   static const alertsOn = TranslatableString(
-    en: 'Device alerts are on',
-    ar: 'تنبيهات الجهاز مفعلة',
-    ur: 'ڈیوائس الرٹس آن ہیں',
-    hi: 'डिवाइस अलर्ट चालू हैं',
+    en: 'Device registered for alerts',
+    ar: 'الجهاز مسجل للتنبيهات',
+    ur: 'ڈیوائس الرٹس کے لیے رجسٹرڈ ہے',
+    hi: 'डिवाइस अलर्ट के लिए पंजीकृत है',
   );
   static const alertsOnBody = TranslatableString(
-    en: 'Pop-ups are enabled. Sound follows this device and browser settings.',
-    ar: 'تم تفعيل النوافذ المنبثقة. يتبع الصوت إعدادات الجهاز والمتصفح.',
-    ur: 'پاپ اپ فعال ہیں۔ آواز ڈیوائس اور براؤزر کی ترتیبات کے مطابق ہے۔',
-    hi: 'पॉप-अप चालू हैं। ध्वनि डिवाइस और ब्राउज़र सेटिंग के अनुसार होगी।',
+    en: 'Permission is granted. Pop-ups and sound also depend on your browser and system settings.',
+    ar: 'تم منح الإذن. يعتمد ظهور التنبيهات والصوت أيضاً على إعدادات المتصفح والنظام.',
+    ur: 'اجازت مل گئی ہے۔ پاپ اپ اور آواز براؤزر اور سسٹم کی ترتیبات پر بھی منحصر ہیں۔',
+    hi: 'अनुमति मिल गई है। पॉप-अप और ध्वनि ब्राउज़र और सिस्टम सेटिंग पर भी निर्भर हैं।',
   );
   static const enableAlerts = TranslatableString(
     en: 'Enable device alerts',

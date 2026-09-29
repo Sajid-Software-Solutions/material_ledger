@@ -8,6 +8,7 @@ values('9a000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000
 'material_request_submitted','material_request','9a000000-0000-4000-8000-000000000002');
 insert into public.v1_push_device_tokens(token,auth_user_id,platform)
 values('p0-fake-token-for-testing-only','10000000-0000-4000-8000-000000000003','web');
+update public.v1_push_device_tokens set web_origin='https://yorks-r35.vercel.app',installation_id=gen_random_uuid(),enrolled_at=clock_timestamp()-interval '1 minute' where token like 'p0-%';
 update public.v1_notification_push_outbox set dispatch_lease_until=clock_timestamp()+interval '2 minutes'
 where notification_id='9a000000-0000-4000-8000-000000000001';
 create temporary table device_fixture as select
@@ -28,6 +29,7 @@ select ok(not has_table_privilege('service_role','public.v1_push_device_deliveri
 -- Exercise token pruning with a second current device outcome.
 insert into public.v1_push_device_tokens(token,auth_user_id,platform)
 values('p0-stale-token-for-testing-only','10000000-0000-4000-8000-000000000003','web');
+update public.v1_push_device_tokens set web_origin='https://yorks-r35.vercel.app',installation_id=gen_random_uuid(),enrolled_at=clock_timestamp()-interval '1 minute' where token='p0-stale-token-for-testing-only';
 update device_fixture set hash=encode(extensions.digest('p0-stale-token-for-testing-only','sha256'),'hex');
 select is(public.v1_begin_push_device(id,claim,hash),'ready','Second device independently claims') from device_fixture;
 select is(public.v1_finish_push_device(id,claim,hash,'TOKEN_UNREGISTERED'),true,'Definitive revocation recorded') from device_fixture;

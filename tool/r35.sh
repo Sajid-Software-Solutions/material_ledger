@@ -213,6 +213,7 @@ r35_defines=(
   "--dart-define=SUPABASE_URL=${supabase_url}"
   "--dart-define=SUPABASE_ANON_KEY=${supabase_key}"
   "--dart-define=R35_ENVIRONMENT=${r35_environment}"
+  "--dart-define=YORKS_WEB_PUSH_ORIGIN=${YORKS_WEB_PUSH_ORIGIN:-https://yorks-r35.vercel.app}"
   '--dart-define=YORKS_V1_FOUNDATION=true'
   '--dart-define=YORKS_V1_PROJECTS=true'
   '--dart-define=YORKS_V1_BOQ=true'

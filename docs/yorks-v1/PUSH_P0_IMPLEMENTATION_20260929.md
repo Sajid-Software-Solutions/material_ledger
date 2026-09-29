@@ -99,13 +99,15 @@ logged by the new classifier.
 
 The production token inventory had 64 web tokens for 11 users, only five
 registered/seen within 24 hours. `last_seen_at` means registration recency;
-it does not prove live browser use. The client registers a refreshed token but
-has no durable installation identifier for replacing its previous token.
-This candidate does not delete tokens by age or by count per user. A separate
-owner-bound installation migration is needed before automated rotation
-cleanup. Existing FCM-proven stale-token deletion remains. No-device requeue
-is narrowed from seven days to 24 hours and still requires unread/authorized
-notification state and remaining retry budget.
+it does not prove live browser use. The follow-up now persists one installation UUID per browser origin and stores
+its approved web origin, enrollment time and retirement state on the token.
+Rotation retires only the same owner's previous token for that installation;
+no historical token is deleted by age or count. Legacy unclassified web tokens
+remain stored but are ineligible for external delivery until explicitly
+re-enrolled from the approved site. Registration never requeues old no-device
+jobs. A newly enrolled browser is also excluded from still-pending events
+created before its enrollment time. In-app notification history is unchanged.
+
 
 ## Circuit and health
 
@@ -238,3 +240,62 @@ and dispatch-exception circuit change; the final focused suite and repeated
 migration test cover the final SQL. The original checkout remains untouched.
 Compact output is in [local validation evidence](evidence/push-p0-20260929/local-validation.txt).
 No remote migration, Edge deployment, containment or credential write occurred.
+
+
+## Browser flood and staging notification follow-up
+
+The user's exact staging deployment was inspected read-only:
+`https://yorks-r35-4s7k6maqd-sajid-alis-projects-0ec775a2.vercel.app/`.
+Its compiled bundle references dedicated staging, but has neither
+`company_material_request_approval_requested` nor its English label.
+The current Flutter source contains both the specific labels and Company
+Request detail routing. Staging has 69 Company Request notification rows and
+69 existing target records. This confirms an older deployed presentation;
+it does not authorize changing that immutable deployment or production.
+
+The candidate additionally implements:
+
+- A visible View details cue and tested Company Request navigation at desktop
+  and 360px. Unknown targets explain the unavailable link instead of opening
+  the notification list again. No commercial details are added to alerts.
+- Fourteen Company Request event descriptions and Company detail deep links
+  in the Edge payload, matching the current in-app descriptions.
+- Foreground FCM as an authorized refresh signal only. Console/test payload
+  text cannot produce an orphan toast; initial feed hydration does not replay
+  old entries after login/reload.
+- Permission copy that reports registration without claiming the OS will show
+  alerts. macOS may independently block Chrome notifications.
+- Approved-origin web enrollment and server send eligibility. Production
+  defaults to `https://yorks-r35.vercel.app`. Dedicated staging must configure
+  **one approved stable staging origin** consistently in the Flutter build
+  (`YORKS_WEB_PUSH_ORIGIN`), Edge (`YORKS_WEB_ORIGIN`), and database
+  (`v1_push_transport_control.allowed_web_origins`, operator-only).
+  Do not add every Vercel preview origin. The shared Firebase project alone
+  must not imply that every preview receives production pushes.
+
+Apply the candidate migration before deploying the matching client/Edge code,
+with transport paused throughout. Legacy web tokens are preserved but skipped;
+users re-enroll from the canonical origin and receive new events only. These
+changes are in the existing unpublished P0 migration, not an already-applied
+remote migration. An environment that already applied an earlier candidate
+must use a reviewed delta rather than editing its migration history.
+
+Old preview permissions and OS notification-centre entries are browser-owned.
+A page on the canonical origin cannot revoke other origins' subscriptions.
+The operator/user should remove notification permission for obsolete preview
+URLs in Chrome site settings, preserving the canonical site's permission.
+Chrome-generated background notices and external test messages are not Yorks
+workflow history; do not fabricate in-app rows to mirror them. Firebase console
+messages bypass this app's sender and cannot be prevented by its retry policy.
+
+Local evidence: all 3,303 database assertions passed, followed by 11 expanded
+installation assertions. 24 focused Flutter tests and desktop/mobile navigation
+checks passed. Edge type checking, 19 payload/handler tests, concurrency and
+migration replay passed. Analyzer, CI web and ephemeral-signed APK builds
+passed. The previously observed unrelated full-suite golden failures remain
+an overall release limitation. Real browser/FCM delivery remains pending.
+
+Visual evidence: [desktop](../../test/goldens/push_p0/notification_center_desktop.png)
+and [360px mobile](../../test/goldens/push_p0/notification_center_mobile.png).
+The UI tests verify that clicking the Company approval notification opens the
+exact Company request route. No staging or production deployment was performed.

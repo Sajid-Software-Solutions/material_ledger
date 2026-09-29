@@ -2,7 +2,11 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { defaultDependencies, handlePush } from "./handler.ts";
 
 const id = "11000000-0000-4000-8000-000000000001";
-function harness(tokens = ["device-a", "device-b"]) {
+function harness(
+  tokens = ["device-a", "device-b"],
+  origin = "test",
+  retiredAt: string | null = null,
+) {
   const ledger = new Map<string, string>();
   const finishes: Record<string, unknown>[] = [];
   const sends: string[] = [];
@@ -14,7 +18,13 @@ function harness(tokens = ["device-a", "device-b"]) {
       select: () => ({
         eq: () =>
           Promise.resolve({
-            data: tokens.map((token) => ({ token, platform: "web" })),
+            data: tokens.map((token) => ({
+              token,
+              platform: "web",
+              web_origin: origin,
+              installation_id: id,
+              retired_at: retiredAt,
+            })),
             error: null,
           }),
       }),
@@ -135,4 +145,17 @@ Deno.test("handler no devices completes without Firebase credentials", async () 
   h.unconfigure();
   assertEquals((await h.run()).status, 200);
   assertEquals(h.finishes[0].p_status, "no_devices");
+});
+
+Deno.test("handler skips preview and retired tokens without sending", async () => {
+  for (
+    const h of [
+      harness(["device-a"], "https://old-preview.invalid"),
+      harness(["device-a"], "test", "2026-09-29"),
+    ]
+  ) {
+    assertEquals((await h.run()).status, 200);
+    assertEquals(h.sends, []);
+    assertEquals(h.finishes[0].p_status, "no_devices");
+  }
 });

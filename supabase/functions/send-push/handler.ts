@@ -181,15 +181,22 @@ export async function handlePush(
     return json({ error: "invalid claim" }, 500);
   }
 
-  const { data: tokenRows, error: tokenError } = await admin
+  const { data: registeredRows, error: tokenError } = await admin
     .from("v1_push_device_tokens")
-    .select("token, platform")
+    .select("token, platform, web_origin, installation_id, retired_at")
     .eq("auth_user_id", claim.recipientAuthUserId);
   if (tokenError) {
     await finish("retryable", 0, "TOKEN_LOOKUP_FAILED");
     return json({ error: "token lookup failed" }, 503, { "Retry-After": "30" });
   }
-  if (!tokenRows || tokenRows.length === 0) {
+  const webOrigin = dependencies.env("YORKS_WEB_ORIGIN") ||
+    "https://yorks-r35.vercel.app";
+  const tokenRows = (registeredRows ?? []).filter((row) =>
+    !row.retired_at &&
+    (row.platform !== "web" ||
+      (row.installation_id && row.web_origin === webOrigin))
+  );
+  if (tokenRows.length === 0) {
     if (!await finish("no_devices")) {
       return json({ error: "finish failed" }, 503);
     }
@@ -232,7 +239,7 @@ export async function handlePush(
     const unreadCount = normalizedUnreadCount(claim.unreadCount);
     const webLink = webLinkFor(
       route,
-      dependencies.env("YORKS_WEB_ORIGIN") ?? "",
+      webOrigin,
       claim.notificationId,
     );
     let retryableFailure: {

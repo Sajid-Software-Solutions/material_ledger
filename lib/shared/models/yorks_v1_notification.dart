@@ -1,6 +1,7 @@
 import '../../app/router.dart' show RoutePaths;
 import 'app_language.dart';
 import 'app_notification.dart';
+import 'app_strings.dart';
 
 const yorksV1ChatTransportEventCodes = <String>{
   'team_chat_message',
@@ -85,12 +86,31 @@ class YorksV1NotificationRecord {
         eventCode == 'material_request_mentioned' &&
         entityType == 'chat_message' &&
         resolvedRequestId.isNotEmpty;
+    final resolvedRoute = isMaterialRequestCommentMention
+        ? RoutePaths.yorksV1MaterialRequestPath(
+            resolvedRequestId,
+            commentId: entityId,
+          )
+        : resolvedChatConversationId.isNotEmpty
+        ? RoutePaths.yorksV1TeamChatPath(resolvedChatConversationId)
+        : isMaterialReturn
+        ? RoutePaths.yorksV1MaterialReturnPath(entityId)
+        : isCompanyMaterialRequest
+        ? RoutePaths.yorksV1CompanyMaterialRequestPath(entityId)
+        : resolvedRequestId.isNotEmpty
+        ? RoutePaths.yorksV1MaterialRequestPath(resolvedRequestId)
+        : resolvedProjectId.isNotEmpty &&
+              (entityType == 'project' || entityType == 'project_member')
+        ? RoutePaths.yorksV1ProjectPath(resolvedProjectId)
+        : '';
     return AppNotification(
       id: id,
       type: copy.type,
       title: copy.title(language),
       titleSecondary: '',
-      body: copy.body(language),
+      body: resolvedRoute.isEmpty
+          ? AppStrings.notificationDetailsUnavailable.active(language)
+          : copy.body(language),
       timestamp: createdAt,
       isRead: seenAt != null,
       refId: isMaterialReturn
@@ -98,23 +118,7 @@ class YorksV1NotificationRecord {
           : resolvedRequestId.isNotEmpty
           ? resolvedRequestId
           : entityId,
-      route: isMaterialRequestCommentMention
-          ? RoutePaths.yorksV1MaterialRequestPath(
-              resolvedRequestId,
-              commentId: entityId,
-            )
-          : resolvedChatConversationId.isNotEmpty
-          ? RoutePaths.yorksV1TeamChatPath(resolvedChatConversationId)
-          : isMaterialReturn
-          ? RoutePaths.yorksV1MaterialReturnPath(entityId)
-          : isCompanyMaterialRequest
-          ? RoutePaths.yorksV1CompanyMaterialRequestPath(entityId)
-          : resolvedRequestId.isNotEmpty
-          ? RoutePaths.yorksV1MaterialRequestPath(resolvedRequestId)
-          : resolvedProjectId.isNotEmpty &&
-                (entityType == 'project' || entityType == 'project_member')
-          ? RoutePaths.yorksV1ProjectPath(resolvedProjectId)
-          : RoutePaths.notifications,
+      route: resolvedRoute,
       origin: NotificationOrigin.yorksV1,
     );
   }

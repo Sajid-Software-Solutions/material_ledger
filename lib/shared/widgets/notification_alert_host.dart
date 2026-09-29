@@ -23,8 +23,8 @@ import '../services/push_service.dart';
 ///
 /// Realtime remains only a refresh signal: this host alerts from the protected
 /// notification projection, never from an untrusted client-side workflow
-/// mutation. FCM is also observed to reduce latency, with notification IDs
-/// de-duplicating the later authoritative refresh.
+/// mutation. FCM only requests an authorized refresh; its text never becomes
+/// a standalone notification outside that feed.
 class NotificationAlertHost extends ConsumerStatefulWidget {
   const NotificationAlertHost({super.key, required this.child});
 
@@ -58,7 +58,10 @@ class _NotificationAlertHostState extends ConsumerState<NotificationAlertHost>
       next,
     ) {
       final records = next.valueOrNull;
-      if (records == null) return;
+      if (records == null) {
+        if (next.isLoading) _serverPrimed = false;
+        return;
+      }
       if (!_serverPrimed) {
         _serverPrimed = true;
         _knownServerIds.addAll(records.map((record) => record.id));
@@ -105,32 +108,10 @@ class _NotificationAlertHostState extends ConsumerState<NotificationAlertHost>
       }
     }, fireImmediately: true);
     _pushSubscription = ref.read(pushServiceProvider).onMessage.listen((push) {
-      if (push.notificationId.isNotEmpty) {
-        if (_alertedIds.contains(push.notificationId)) return;
-      }
-      _show(
-        AppNotification(
-          id: push.notificationId.isEmpty
-              ? 'foreground-${DateTime.now().microsecondsSinceEpoch}'
-              : push.notificationId,
-          type: push.type,
-          title: push.title,
-          titleSecondary: push.titleSecondary,
-          body: push.body,
-          timestamp: DateTime.now(),
-          refId: push.refId,
-          route: push.route,
-          origin: NotificationOrigin.yorksV1,
-        ),
-        icon: push.isTeamChat
-            ? Icons.chat_bubble_rounded
-            : Icons.notifications_active_rounded,
-      );
-      if (push.isTeamChat) {
-        _refreshChat();
-      } else {
-        unawaited(ref.read(yorksV1NotificationsProvider.notifier).refresh());
-      }
+      // Push is only a refresh signal. Test/console messages and stale payloads
+      // cannot create an alert absent from the recipient's authorized feed.
+      unawaited(ref.read(yorksV1NotificationsProvider.notifier).refresh());
+      if (push.isTeamChat) _refreshChat();
     });
   }
 

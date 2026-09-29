@@ -5,18 +5,24 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../app/app.dart' show appRouterProvider;
 import '../../firebase_options.dart';
 import '../models/app_notification.dart';
 import '../models/yorks_v1_notification.dart';
-import '../providers/language_provider.dart' show supabaseClientProvider;
+import '../providers/language_provider.dart'
+    show supabaseClientProvider, sharedPreferencesProvider;
 import '../providers/yorks_v1_notification_provider.dart';
 import 'observability_service.dart';
 
-/// Project-specific public Web Push key. Production builds enforce that this
-/// is present; local and CI builds may omit it when they do not exercise the
-/// browser Push API.
+/// Enroll only the explicitly configured site, never arbitrary preview URLs.
+const _webPushOrigin = String.fromEnvironment(
+  'YORKS_WEB_PUSH_ORIGIN',
+  defaultValue: 'https://yorks-r35.vercel.app',
+);
+
+/// Project-specific public Web Push key, required by production builds.
 const _webPushVapidKey = String.fromEnvironment('FIREBASE_WEB_VAPID_KEY');
 
 const _androidChannel = AndroidNotificationChannel(
@@ -277,6 +283,11 @@ class FcmPushService implements PushService {
   }
 
   Future<void> _initialize() async {
+    // Preview origins must never silently enroll against the production backend.
+    if (kIsWeb && Uri.base.origin != _webPushOrigin) {
+      _setStatus(const PushDeliveryStatus.unsupported());
+      return;
+    }
     try {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
@@ -506,11 +517,19 @@ class FcmPushService implements PushService {
     try {
       final token = currentToken ?? await _getToken();
       if (token == null) return false;
+      final prefs = _ref.read(sharedPreferencesProvider);
+      var installationId = prefs.getString('yorks_push_installation_id');
+      if (kIsWeb && installationId == null) {
+        installationId = const Uuid().v4();
+        await prefs.setString('yorks_push_installation_id', installationId);
+      }
       await client.rpc(
-        'v1_register_push_device',
+        kIsWeb ? 'v1_register_push_installation' : 'v1_register_push_device',
         params: {
           'p_token': token,
           'p_platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+          if (kIsWeb) 'p_web_origin': Uri.base.origin,
+          if (kIsWeb) 'p_installation_id': installationId,
         },
       );
       return true;
