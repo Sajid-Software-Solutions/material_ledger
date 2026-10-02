@@ -48,7 +48,7 @@ closure or real-device delivery.
 | Whitespace check | Passed |
 | CI web / APK builds | Final CI web passed: 9,638,669 raw / 2,777,365 gzip bytes; APK passed (108.3 MB), CI-only ephemeral signing. This is not a production store signing artifact. |
 | Staging | Forward migration deployed; pause, all 251 notification/outbox rows and 12 token rows retained. Matching final Edge and preview verified; protected context migration deployed; desktop/360px reference search and exact destination checks passed |
-| Owner live FCM receipt and tap | First check read before dispatch; read-state guard rejected it with zero FCM attempts. Replacement background check authorized by the user continuation; not yet sent. |
+| Owner live FCM receipt and tap | First check protected against read-before-dispatch; replacement failed once on missing FCM IAM permission and stayed terminal. After the user granted the exact sending role, provider validation returned HTTP 200 and a new single-device background check was accepted on attempt one. The user confirmed macOS Notification Center receipt and exact-target click; the protected request was independently observed in the installed PWA, and the server recorded the read acknowledgement. General transport resumed after guarded backlog suppression. |
 
 An isolated checkout of unchanged production source `b86ff43` reproduced 271
 failures. Regeneration on that unchanged source exposed two non-visual contract
@@ -77,7 +77,7 @@ The original audit and 74-state matrix remain at
 ## Authorized follow-up and remaining work
 
 The user explicitly authorized repairing the baseline failures after the earlier
-stop report. The full suite is now green. Production deployment completed under the user authorization. The designated probe was created, then read before push dispatch. The user continuation authorizes one replacement background check to the designated Owner/Chrome installation; no read-state or duplicate-delivery safeguard will be bypassed.
+stop report. The full suite is now green. Production deployment and guarded transport resumption completed under the user authorization. The original probe read before dispatch and the later permission-failed probe remain preserved. The final fresh Owner/Chrome check passed provider, user-confirmed OS receipt/click, protected PWA rendering and server read acknowledgement without bypassing read-state or duplicate-delivery safeguards.
 
 Completed follow-up: Chat burst destinations; separate bell/history filters;
 loaded-history retention; stale-query fencing; onboarding/maintenance intent;
@@ -87,9 +87,9 @@ exact Accounts/Workforce target parameters using existing protected loaders.
 
 Audit disposition for the current web/PWA scope:
 
-| Audit | Candidate behavior / acceptance boundary |
+| Audit | Released behavior / acceptance boundary |
 |---|---|
-| N01 | Production web/DB/Edge rollout completed. Transport remains paused until a fresh unread background browser probe succeeds. |
+| N01 | Production web/DB/Edge rollout completed. Fresh Owner Chrome-on-Mac delivery passed provider acceptance, user-confirmed OS receipt/click and independently verified installed-PWA target/read. General delivery resumed with old transport backlog suppressed and durable history retained. |
 | N02 | Protected attention projection includes real Chat records without mixing Chat into the workflow inbox. |
 | N03 | Initial browser location is captured before the startup app renders; auth, password, maintenance and account transitions retain only validated internal intent. Successful protected destination loading and a rendered frame precede acknowledgement for both OS/external taps and bell, inbox and foreground-popup actions. Imperative pushes use the top GoRouter page and retain Back history. |
 | N04 | 58 active SQL producer event codes are covered by generated catalogues, safe copy and destination validation. Exact Accounts and Workforce targets use protected loaders. |
@@ -115,9 +115,7 @@ compression is applied, preserving deferred library contracts and licenses.
 Producer inventory, device language and broad current-entity tests are complete.
 Exact attendance routes and lifecycle race fixes pass their final checks. The browser worker handles visible-unfocused delivery and protects unsaved tabs for both normal FCM and fallback taps; 26 worker cases pass.
 
-Local full checks/builds, forward staging migrations, matching Edge/preview, cold/desktop/360px browser acceptance and the compatible production database/Edge/web rollout are complete. The remaining gate is one fresh unread Owner Chrome-on-Mac background probe. Record durable history, provider acceptance, OS display,
-exact target opening and read/badge convergence separately. Review queue age
-before restart; retain dead letters terminal and do not replay historical jobs.
+Local full checks/builds, forward staging migrations, matching Edge/preview, cold/desktop/360px browser acceptance and the compatible production database/Edge/web rollout are complete. The designated fresh Owner Chrome-on-Mac background probe subsequently passed, with provider acceptance, user-confirmed OS display/click, independently observed exact installed-PWA target and server read acknowledgement recorded separately. The guarded restart preserved history and terminalized old transport work without replay. Broader physical-device/state certification remains outside this single-device acceptance.
 
 Native store packaging, native installation identity and APNs readiness remain
 later work per the user's web/PWA priority. No all-OS sign-off is implied.
@@ -149,7 +147,7 @@ No unrelated ledger entries were repaired or overwritten. Only
 20260929150000 and 20260930140403 were applied atomically with their ledger
 entries. The sender was deployed to project iqltcyimlqtcwyzlemwx.
 
-## Production artifact and live release boundary — 2 October 2026
+## Initial production artifact and live release boundary — 2 October 2026
 
 - App/worker source: `1de7e63c18806fc7a6811ebabd70c114f1b81537`. Protected reference SQL/tests: `dec6613`. Source remains local at the user's request; no release push or GitHub authorization expansion was performed.
 - Verified deployment: `dpl_3sz9uGDFBnbuYRo89Dng5mRVPbLT`, `https://yorks-r35-nv5nomdom-sajid-alis-projects-0ec775a2.vercel.app`, promoted to `https://yorks-r35.vercel.app`.
@@ -158,11 +156,27 @@ entries. The sender was deployed to project iqltcyimlqtcwyzlemwx.
 - Production received only the three reviewed notification migrations and their exact ledger bodies. No generic database push, unrelated migration repair or business workflow mutation occurred.
 - Existing Owner Chrome session re-enrolled: exactly one eligible canonical web installation, five retained ineligible legacy token records, no non-web Owner token.
 - The first explicit `notification_delivery_check` remained authoritative history and was read before dispatch. The server correctly refused a push for a read notification; attempts, dispatches and device-delivery rows remain zero. This is read-state protection evidence, not FCM/OS delivery acceptance.
-- On successful replacement acceptance, the committed pre-resume transport cohort will be terminalized with truthful age/relevance/cutover reasons, while all inbox history, attempts and prior terminal outcomes remain. Only new post-resume events may enqueue prospective delivery.
+- The initial rollout kept transport paused for fresh live acceptance. The final permission repair and guarded cutover, recorded below, retained all history and prior terminal outcomes and enabled only prospective fresh delivery.
 - Browser evidence: `staging-inbox-desktop-final.jpg`, `staging-inbox-mobile-final.jpg`, `staging-reference-search-mobile-final.jpg`, `staging-destination-final.jpg`, `staging-destination-mobile-final.jpg` in the local evidence folder. These are live staging browser checks, not physical iOS/Android acceptance.
 
 ## In-app acknowledgement follow-up
 
 The bell, full inbox and foreground popup now use one shared open action. Authoritative rows carry their validated notification ID to the protected destination. A loading, denied, failed, unsupported or abandoned destination stays unread. The bridge follows the actual top GoRouter page for imperative pushes rather than the retained address-bar URI; a successful load must render before acknowledgement. Existing in-app Back history is preserved. Invalid IDs cannot propagate stale acknowledgement metadata. Accounts and Workforce keep their existing exact-record protected loaders; Chat keeps its protected read cursor.
 
-Final focused suite: 157 passed, including 48 acknowledgement cases across the three actions, pending/denied/success, logout/account/Back races and unsafe targets. Full Flutter gate after source freeze: 2,107 passed, four existing skips. Analysis and six-file formatting passed. CI web: 9,639,393 raw / 2,777,846 gzip bytes. The production web follow-up artifact and live delivery acceptance are pending; transport remains paused.
+Final focused suite: 157 passed, including 48 acknowledgement cases across the three actions, pending/denied/success, logout/account/Back races and unsafe targets. Full Flutter gate after source freeze: 2,107 passed, four existing skips. Analysis and six-file formatting passed. CI web: 9,639,393 raw / 2,777,846 gzip bytes. The production web follow-up artifact was verified and promoted; the designated Mac background receipt/click/read gate subsequently passed, and general delivery resumed after the guarded cutover.
+
+## Verified acknowledgement release and FCM permission repair — 2 October 2026
+
+- App source: `b42108d6df4645db117f19bb8bea677129528dab`. Deployment `dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy`, `https://yorks-r35-5ih3bpqik-sajid-alis-projects-0ec775a2.vercel.app`, was verified before promotion to `https://yorks-r35.vercel.app`. Main bundle SHA-256: `739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f`; worker SHA-256 remains `1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7`. Canonical routes and all release assets matched the isolated artifact.
+- Final production build: 9,678,001 raw / 2,789,393 gzip bytes. CI APK: 108.4 MB, ephemeral CI signing only. Latest staging preview `https://yorks-r35-fdpgkd5kf-sajid-alis-projects-0ec775a2.vercel.app` passed desktop and 360px inbox/reference/destination checks.
+- The replacement probe `940bd35b-4d35-443d-b8f0-eed27693a7c9` failed on attempt/dispatch one with `AUTH_CONFIGURATION`, zero accepted devices. A protected validation-only request established Google HTTP 403 / `IAM_PERMISSION_DENIED` for `cloudmessaging.messages.create` on the deployed `yorks-fcm-sender@yorks-48c40.iam.gserviceaccount.com`. The credential project was correctly `yorks-48c40`; the API was not disabled. This probe remains terminal and was not requeued.
+- The user granted Firebase Cloud Messaging API Admin to that exact sender. Live IAM shows the binding. The same protected validation-only request then returned Google HTTP 200 with no error, proving the deployed credential can send. The temporary diagnostic endpoint was removed after each validation; no credentials were emitted or rotated.
+- Fresh probe `7b07d702-df45-49e2-bf3b-afb24d7ee2f9` was created at 16:31:46.189427 UTC while transport was isolated and cron off. It targets the designated Owner's one eligible canonical Chrome installation and material request `YRA326-MR011`. Provider acceptance completed at 16:31:47.755328 UTC, attempt one, dispatch one, exactly one accepted device, no error. Inbox `seen_at` remained null at the initial outcome check.
+- General delivery was repaused after the isolated outcome. The user then confirmed macOS Notification Center receipt and an OS click opening `YRA326-MR011`. The installed PWA independently showed the exact protected request URI with this notification ID and the loaded request; server `seen_at` became `2026-10-02T16:32:53.02108Z`. The remaining badge of one matches the older unread failed check; the successful check is read. This acceptance covers the designated Mac Chrome/installed-PWA path, not every OS or state.
+- At `2026-10-02T16:35:04.813405Z`, the guarded cutover resumed transport (`operator_paused=false`, no probe/circuit) and the single canonical every-minute scheduler. It retained all 4,603 notification and outbox rows and all device-delivery rows. The committed active transport cohort was closed without replay: 249 `BUDGET_OR_AGE_EXHAUSTED`, 34 `NOTIFICATION_NO_LONGER_RELEVANT`, and 16 `RELEASE_BACKLOG_SUPPRESSED`. Attempt/dispatch counters, sent-device counts and send-start timestamps were preserved. Earlier terminal outcomes, including the failed permission probe, were untouched. New post-cutover events can deliver prospectively.
+
+Sanitized post-grant validation, isolated dispatch, outcome and repause logs are in the local evidence folder. Source remains local under the user's instruction.
+
+Live acceptance evidence: `production-os-click-destination.png`, post-grant click outcome, guarded resume SQL/result and post-resume health/scheduler checks. OS receipt was confirmed by the user; the agent independently verified the installed-PWA destination and backend acknowledgement. No all-device or all-state certification is implied.
+
+Post-resume verification at 16:36:15 UTC: canonical cron ran successfully at 16:36:00, operator pause was false, circuit and last global error were null, and pending/retry counts were zero. The successful probe remained sent/read with one attempt and one device; the earlier permission failure remained terminal with one attempt. The Owner workflow unread count of one matched both the browser and installed-PWA badge. Historical maximum attempt count 607 was preserved; active maximum was zero. All 65 token records remained; four web installations currently meet the new enrollment/session eligibility gate.
