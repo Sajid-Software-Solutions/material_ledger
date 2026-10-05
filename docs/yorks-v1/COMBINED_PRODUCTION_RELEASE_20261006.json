@@ -1,0 +1,205 @@
+{
+  "application_source": "bb4432558ea6bdef0da958d6af4d50dd761d3d0e",
+  "tested_candidate": "1ad40d3d951329a3e5b2e611530b7c113bc5374c",
+  "tree": "4f0411311a16282ec8cfba7ce95fde5abe7403a2",
+  "date": "2026-10-06",
+  "production": {
+    "url": "https://yorks-r35.vercel.app",
+    "deployment_id": "dpl_GKcFd2A49YWDNHCiyL8Eh5Hnkqf3",
+    "immutable_url": "https://yorks-r35-gu8hyjnul-sajid-alis-projects-0ec775a2.vercel.app",
+    "target": "production",
+    "ready_state": "READY",
+    "artifact": {
+      "entrypoint": "lib/main.dart",
+      "files": 60,
+      "bytes": 54183998,
+      "main": {
+        "path": "main.dart.js",
+        "bytes": 9770261,
+        "sha256": "a6a376d1ea0e86539ee2f5e458d171deb82f279f8e6532841a53f99cf487d345"
+      },
+      "gzip_bytes": 2815590,
+      "markers": {
+        "production": 2,
+        "staging": 0,
+        "ci_url": 0,
+        "ci_key": 0,
+        "fixture": 0,
+        "release": 1,
+        "dirty_release": 0
+      }
+    }
+  },
+  "previous_production": {
+    "deployment_id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "url": "https://yorks-r35-5ih3bpqik-sajid-alis-projects-0ec775a2.vercel.app",
+    "main": {
+      "bytes": 9678001,
+      "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    }
+  },
+  "ci_web": {
+    "source": "1ad40d3d951329a3e5b2e611530b7c113bc5374c",
+    "bytes": 9729558,
+    "gzip": 2802926,
+    "sha256": "910c43c241569f691e81ef53b80e95fd743dc428ede29b5f39ead876a30ca4db"
+  },
+  "ci_android": {
+    "source": "1ad40d3d951329a3e5b2e611530b7c113bc5374c",
+    "bytes": 111057968,
+    "sha256": "4eadede057f0ac886d29a4110e1b61ea8e03be31dbda9324c56b3fc0788a0b88",
+    "signature": "Android v2 Yorks CI Ephemeral",
+    "publishable": false
+  },
+  "gates": {
+    "flutter_analyze": "No issues",
+    "flutter_test_passed": 2448,
+    "retained_skips": 4,
+    "database_files": 122,
+    "database_assertions": 3546,
+    "recovery_assertions": 13,
+    "edit_archive_assertions": 16,
+    "format_changes": 0,
+    "candidate_routes_assets": 24,
+    "production_routes_assets": 24,
+    "setup_deep_routes_each": 2,
+    "project_settings_unchanged": true,
+    "candidate_routes_assets_total": 26,
+    "production_routes_assets_total": 26
+  },
+  "migration": {
+    "canonical_source_version": "20261003160930",
+    "source_sha256": "a8894a6c8ffcb91cbc8a3cfd53d5f62640dcbaf97861980c5884f92cf7c3296e",
+    "before": {
+      "definition_md5": "877bce13b0f98339f4fcc516590de4a3",
+      "definition_length": 10362,
+      "guard_present": false,
+      "anchor_present": true,
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proacl": "{postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}"
+    },
+    "after": {
+      "definition_md5": "3db69005873353968c3eda754ef1de13",
+      "guard_present": true,
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proacl": "{postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres}"
+    },
+    "remote_ledger": [
+      {
+        "version": "20261005230010",
+        "name": "project_setup_preserve_building_dependencies"
+      }
+    ],
+    "body_matches_reviewed_staging": true,
+    "grants_unchanged": true,
+    "ledger_mapping": "Deliberate MCP mapping; remote ledger version differs from canonical source version.",
+    "ledger_versions_aligned": false,
+    "business_table_dml": false,
+    "generic_db_push_safe": false
+  },
+  "finalizer": {
+    "production_version": 2,
+    "source_sha256": "fdb6b54c68a8a70b40c68e34ba7c49926da75d2a2d59147395b7c10569f15ce2",
+    "matches_tracked": true,
+    "receipt_fields": [
+      "document_id",
+      "document_version_id",
+      "revision_number"
+    ],
+    "redeployed": false
+  },
+  "included_commits": [
+    "74720c32a71de7eb832f9b32f89c5efa52884831",
+    "fb95b7e100795ec52e145b7ed81c20d95c57190f",
+    "1e3d0ac08c00a3f5dbd41dba52dd2cce3f3097ae",
+    "48c61643fa4627c999eaea81d9877a17995c5517"
+  ],
+  "merged_prs": [
+    44,
+    45
+  ],
+  "browser": {
+    "authenticated_role": "Admin",
+    "viewport": {
+      "width": 1280,
+      "height": 720,
+      "dpr": 2
+    },
+    "overview_confirmed": true,
+    "fresh_setup_fields": 8,
+    "all_fields_empty": true,
+    "universal_shell_preserved": true,
+    "no_take_over_action": true,
+    "empty_setup_return_without_dialog": true,
+    "remote_project_commands_issued": 0,
+    "physical_android_network_acceptance": false,
+    "operational_day_observation": false,
+    "production_existing_user_draft_resume_claimed": false,
+    "project_register_loaded": true,
+    "existing_project_view_loaded": true,
+    "project_view_sections": [
+      "Overview",
+      "BOQ",
+      "Material Requests",
+      "Accounts",
+      "Documents",
+      "Material Movement"
+    ],
+    "console_errors_observed": 0
+  },
+  "analytics": {
+    "release_id": "bb4432558ea6bdef0da958d6af4d50dd761d3d0e",
+    "environment": "production",
+    "schema_version": 2,
+    "build_mode": "release",
+    "enabled": true,
+    "debug": false,
+    "native_android_store_release": false,
+    "platform": "web"
+  },
+  "excluded_unfinished_prs": [
+    40
+  ],
+  "source_bridge": {
+    "candidate_and_main_tree_identical": true,
+    "earlier_project_view_source": "92169b6b20a8612bfd90692f5340446058e38c87",
+    "retained_production_snapshot": "af7c1b9ad5ec5760cff8bdd492d3101e5145481a",
+    "earlier_project_view_tree": "12958706aebcdbe03d4fe41cb494503e45bc84d3",
+    "completed_named_chat_main_ancestors": [
+      "af7c1b9",
+      "1433917",
+      "fc108f1",
+      "b70ddd1",
+      "5068d2e",
+      "087d2c7",
+      "047b37b",
+      "5a87dbf"
+    ],
+    "unfinished_pr_40_included": false
+  },
+  "rollback": {
+    "artifact": "previous_production",
+    "retain_building_retirement_guard": true
+  },
+  "follow_up": {
+    "date": "2026-10-07",
+    "physical_android_acceptance_performed": false,
+    "operational_day_observation_performed": false
+  },
+  "visual_evidence": [
+    {
+      "path": "evidence/combined-production-20261006/production-fresh-setup.png",
+      "sha256": "02843a909ecb6987ff8c723cc967c098e476491e8d9a35c95ebf44b53c0723eb"
+    },
+    {
+      "path": "evidence/combined-production-20261006/production-fresh-setup.ax.txt",
+      "sha256": "e561b5a22f25ef7e4ec17e08c4cf4664daca13639a937b7184fb511eeff636e6"
+    }
+  ]
+}
