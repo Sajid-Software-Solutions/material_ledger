@@ -223,7 +223,8 @@ class YorksV1ProtectedReadCoordinator<T> {
       );
       return value;
     } catch (error) {
-      if (slot.hasCachedValue && _canReuseCachedValue(error)) {
+      final canReuseCachedValue = _canReuseCachedValue(error);
+      if (slot.hasCachedValue && canReuseCachedValue) {
         _observe(
           outcome: YorksV1ProtectedReadOutcome.staleFallback,
           trigger: trigger,
@@ -231,6 +232,14 @@ class YorksV1ProtectedReadCoordinator<T> {
           visibilityState: visibilityState,
         );
         return slot.cachedValue as T;
+      }
+      if (!canReuseCachedValue) {
+        // A confirmed denial or invalid response ends this record's prior
+        // authorization evidence. Later navigation or transport failures must
+        // not restore the projection that preceded this failure.
+        slot.cachedValue = null;
+        slot.hasCachedValue = false;
+        slot.cachedAt = null;
       }
       _observe(
         outcome: YorksV1ProtectedReadOutcome.failed,

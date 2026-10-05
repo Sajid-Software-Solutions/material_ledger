@@ -111,26 +111,101 @@ void main() {
       expect(result, 'authorized-state');
     });
 
-    test('authorization failures never reuse a cached projection', () async {
-      final coordinator = YorksV1ProtectedReadCoordinator<String>();
-      await coordinator.load(key: 'request-a', read: () async => 'allowed');
-      coordinator.markStale('request-a');
+    for (final failure in YorksV1DomainErrorCode.values.where(
+      (code) =>
+          code != YorksV1DomainErrorCode.offline &&
+          code != YorksV1DomainErrorCode.backendUnavailable,
+    )) {
+      test('${failure.name} purges earlier authorization evidence', () async {
+        final coordinator = YorksV1ProtectedReadCoordinator<String>(
+          // Keep every read inside the fresh-navigation window so the test
+          // cannot pass merely because the preceding projection expired.
+          now: () => DateTime.utc(2026, 10, 6),
+        );
+        var reads = 0;
+        await coordinator.load(
+          key: 'request-a',
+          read: () async {
+            reads++;
+            return 'allowed';
+          },
+        );
+        coordinator.markStale('request-a');
 
-      expect(
-        () => coordinator.load(
+        Future<String> deniedRead() async {
+          reads++;
+          throw YorksV1DomainException(failure);
+        }
+
+        final denied = throwsA(
+          isA<YorksV1DomainException>().having(
+            (error) => error.code,
+            'code',
+            failure,
+          ),
+        );
+        await expectLater(
+          coordinator.load(key: 'request-a', read: deniedRead),
+          denied,
+        );
+        await expectLater(
+          coordinator.load(key: 'request-a', read: deniedRead),
+          denied,
+        );
+        expect(reads, 3, reason: 'Rapid navigation must recheck the server');
+
+        await expectLater(
+          coordinator.load(
+            key: 'request-a',
+            read: () async {
+              reads++;
+              throw YorksV1DomainException(
+                YorksV1DomainErrorCode.backendUnavailable,
+                cause: TimeoutException('read timed out after denial'),
+              );
+            },
+          ),
+          throwsA(
+            isA<YorksV1DomainException>().having(
+              (error) => error.code,
+              'code',
+              YorksV1DomainErrorCode.backendUnavailable,
+            ),
+          ),
+        );
+        expect(reads, 4, reason: 'A timeout cannot restore pre-denial data');
+      });
+    }
+
+    test('denial purges only the affected record', () async {
+      final coordinator = YorksV1ProtectedReadCoordinator<String>(
+        now: () => DateTime.utc(2026, 10, 6),
+      );
+      await coordinator.load(key: 'request-a', read: () async => 'a');
+      await coordinator.load(key: 'request-b', read: () async => 'b');
+      coordinator.markStale('request-a');
+      await expectLater(
+        coordinator.load(
           key: 'request-a',
           read: () async => throw const YorksV1DomainException(
             YorksV1DomainErrorCode.unauthorized,
           ),
         ),
-        throwsA(
-          isA<YorksV1DomainException>().having(
-            (error) => error.code,
-            'code',
-            YorksV1DomainErrorCode.unauthorized,
-          ),
-        ),
+        throwsA(isA<YorksV1DomainException>()),
       );
+
+      var requestBReads = 0;
+      expect(
+        await coordinator.load(
+          key: 'request-b',
+          read: () async {
+            requestBReads++;
+            return 'unexpected refetch';
+          },
+        ),
+        'b',
+      );
+      expect(requestBReads, 0);
     });
 
     test('a new authority scope cannot reuse the old cache', () async {

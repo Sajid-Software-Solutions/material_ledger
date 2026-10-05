@@ -92,6 +92,8 @@ pretending a dispatched HTTP request was cancelled.
 - last-authorized-result preservation only for offline/backend-unavailable
   failures; and
 - no cache reuse for authentication, authorization or other domain failures.
+  Such a failure purges that record's prior projection before surfacing the
+  error, so a rapid return or later timeout cannot restore pre-denial data.
 
 The coordinator is recreated when the authenticated user, exact role,
 activation state, permission revision, or repository changes. Cached data can
