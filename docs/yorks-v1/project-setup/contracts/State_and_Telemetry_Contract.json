@@ -1,0 +1,129 @@
+{
+  "kind": "proposed implementation contract, not a deployed API",
+  "version": "1.0",
+  "local_draft_states": [
+    "empty",
+    "dirty",
+    "persisting",
+    "persisted_local",
+    "storage_failed",
+    "readonly_other_writer",
+    "restore_blocked",
+    "retired"
+  ],
+  "server_command_states": [
+    "not_sent",
+    "validating",
+    "submitting",
+    "confirmed_success",
+    "confirmed_rejected",
+    "outcome_uncertain",
+    "reconciling"
+  ],
+  "operation_phases": [
+    "prepare_intent",
+    "create_or_update",
+    "activate_if_permitted",
+    "upload_and_finalize",
+    "open_and_retire"
+  ],
+  "rules": [
+    "local persist does not mutate a business record",
+    "saved requires acknowledged revision >= displayed saved revision",
+    "older acknowledged revision does not mark newer input saved",
+    "same unresolved intent retains key and exact reviewed payload",
+    "confirmed core result survives later phase failure",
+    "phase progress cannot be reset by back navigation or a different tab",
+    "an unfinalized attachment is not Ready",
+    "scope IDs remain present in persisted edit proposals",
+    "a retired draft cannot be resurrected by a stale writer",
+    "actual server lifecycle stays draft/active/on_hold/completed/archived; these UI states are separate"
+  ],
+  "logical_transition_examples": [
+    {
+      "from": "dirty",
+      "on": "storage_ack_current_revision",
+      "to": "persisted_local"
+    },
+    {
+      "from": "persisting",
+      "on": "storage_failure",
+      "to": "storage_failed",
+      "retain": "dirty proposal and last acknowledged revision"
+    },
+    {
+      "from": "submitting",
+      "on": "transport_lost_after_dispatch",
+      "to": "outcome_uncertain",
+      "retain": "original key, payload, hash, expected version"
+    },
+    {
+      "from": "outcome_uncertain",
+      "on": "replay_or_status_verifies_commit",
+      "to": "confirmed_success",
+      "effect": "store existing result; do not recreate"
+    },
+    {
+      "from": "confirmed_success",
+      "on": "later_upload_failed",
+      "to": "confirmed_success",
+      "user_outcome": "saved_files_pending"
+    }
+  ],
+  "telemetry_forbidden": [
+    "project_id",
+    "draft_id",
+    "reference",
+    "idempotency_key",
+    "payload_hash",
+    "name",
+    "email",
+    "phone",
+    "notes",
+    "file_name",
+    "file_content",
+    "query_text",
+    "amount",
+    "url",
+    "raw_exception",
+    "token"
+  ],
+  "privacy_identity_exception": "Existing verified Auth UUID and exact role at the identity seam only; not arbitrary event record identifiers.",
+  "proposed_categorical_context": {
+    "mode": [
+      "create",
+      "edit"
+    ],
+    "step": [
+      "project_details",
+      "parties_and_access",
+      "buildings",
+      "attachments",
+      "review"
+    ],
+    "storage_scope": [
+      "device"
+    ],
+    "phase": [
+      "create",
+      "update",
+      "activation",
+      "upload",
+      "finalize",
+      "cleanup"
+    ],
+    "layout_class": [
+      "phone",
+      "tablet",
+      "desktop"
+    ],
+    "input_mode": [
+      "keyboard",
+      "pointer",
+      "touch",
+      "mixed",
+      "unknown"
+    ]
+  },
+  "proposed_context_note": "New properties need registry/allowlist/privacy approval. No exact workflow-run key or fingerprinting."
+}

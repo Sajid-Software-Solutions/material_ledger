@@ -1,0 +1,16 @@
+﻿input,context,behavior
+Tab / Shift+Tab,All forms,Move in visible reading order. Label/help text does not add needless stops; no trap in a panel.
+Enter,Ordinary text field,Do not submit/create the project. Accept an explicit active suggestion or activate a focused button only.
+Enter / Space,Focused step/tab/button,Activate that control. Manual tabs do not activate on mere focus.
+Space,Checkbox / FRP toggle,Toggle once; status and accessible value update together.
+Arrow keys,Open listbox or tablist,Navigate choices without moving the whole form or editing another field. Closed text input retains caret navigation.
+Home / End,Focused tablist,Focus first/last section; activation remains explicit. In text input retain ordinary text behavior.
+Escape,Popup / local sub-editor,Close topmost noncommitting popup and return focus. Discard a dirty editor only after confirmation; never reverse a server command.
+Ctrl+S / Cmd+S,"Focused setup route, where intercept is supported","Flush local draft/proposal only and announce location. Never create, activate or apply live edits. Outside this task preserve browser/system behavior."
+Ctrl+Z / Cmd+Z,Editable text / explicit local list operation,"Undo local text or supported draft operation. Do not silently reverse committed membership, project or audit facts."
+Ctrl+C / X / V / A,Text selection,Standard selection/clipboard. Do not capture paste globally or transform reference text into numbers.
+Excel/TSV paste,Explicit building paste/import surface only,Show mapping and validation preview. Applying creates draft rows with stable temporary IDs; no implicit live import.
+Ctrl+Tab / Ctrl+Shift+Tab,Browser tabs,Never override to switch setup steps. Returning triggers non-destructive reconciliation.
+Ctrl+L / T / W / R / F; Alt+Tab,Browser / OS,"Preserve native navigation, refresh, find and app switching. Do not promise async save completes on forced tab close."
+Tab + Enter,Calendar control,"Reach and open calendar without mouse; arrow navigation, month/year selection and Escape work; selected date returns to source field."
+IME / dictation / mobile Next,Text fields,"Preserve composition, caret and selection across rebuild/save; Next moves to the logical next input, Done does not commit the project."

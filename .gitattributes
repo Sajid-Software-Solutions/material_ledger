@@ -1,0 +1,2 @@
+# Retain supplied register bytes so SOURCE_HASHES verifies in every checkout.
+docs/yorks-v1/project-setup/registers/*.csv -text whitespace=cr-at-eol

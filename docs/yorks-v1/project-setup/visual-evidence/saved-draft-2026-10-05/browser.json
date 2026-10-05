@@ -1,0 +1,25 @@
+{
+  "desktop": {
+    "width": 1456,
+    "height": 787,
+    "dpr": 1,
+    "warnings": [],
+    "errors": [],
+    "draftReference": "YRA-322",
+    "draftName": "test",
+    "stage": "Review & create",
+    "savedTimeBeforeAndAfter": "2026-10-04 23:03"
+  },
+  "mobile": {
+    "width": 360,
+    "height": 900,
+    "dpr": 1,
+    "warnings": [],
+    "errors": [],
+    "resumeWidth": 300,
+    "resumeHeight": 48,
+    "draftReference": "YRA-322",
+    "stage": "Review & create"
+  },
+  "actions": "Projects -> Resume setup -> Projects; observed other-tab ownership guard; no takeover, input edit or final command/upload invoked."
+}

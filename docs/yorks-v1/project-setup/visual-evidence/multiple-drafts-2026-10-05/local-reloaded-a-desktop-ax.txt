@@ -1,0 +1,67 @@
+Browser tab: 34, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43972/?session=multiple-drafts-desktop#/projects/new?draft=5c7cc858-26d7-4856-ba7b-6262ee50862b".
+1 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43972/?session=multiple-drafts-desktop#/projects/new?draft=5c7cc858-26d7-4856-ba7b-6262ee50862b
+	2 container flt-semantic-node-3
+		3 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected
+		4 button Collapse panel, ID: flt-semantic-node-22
+		5 button Back, ID: flt-semantic-node-23
+		6 button (disabled) Next, ID: flt-semantic-node-24
+		7 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-25
+		8 button Enter full screen, ID: flt-semantic-node-26
+		9 button Description: Notifications, ID: flt-semantic-node-27
+			10 button Notifications, ID: flt-semantic-node-28
+		11 container flt-semantic-node-19
+			12 text ENGINEER WORKSPACE
+			13 button Overview Overview Overview, ID: flt-semantic-node-6
+			14 button Projects Projects Projects, ID: flt-semantic-node-8
+			15 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-10
+			16 button Material Returns Material Returns Material Returns, ID: flt-semantic-node-12
+			17 text ENGINEERING TOOLS
+			18 button Duct Sizer Duct Sizer Duct Sizer, ID: flt-semantic-node-15
+			19 button ESP Calculator ESP Calculator ESP Calculator, ID: flt-semantic-node-17
+		20 button (collapsed) My Yorks SA Sarah Ahmed Project Engineer, ID: flt-semantic-node-20, Secondary Actions: Expand
+		21 container ID: flt-semantic-node-29, Description: PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device
+			22 button Project details 1 Project details, ID: flt-semantic-node-30
+			23 button Save draft, ID: flt-semantic-node-35
+			24 button (disabled) Parties & access 2 Parties & access, ID: flt-semantic-node-31
+			25 button (disabled) Buildings 3 Buildings, ID: flt-semantic-node-32
+			26 button (disabled) Attachments 4 Attachments Optional, ID: flt-semantic-node-33
+			27 button (disabled) Review & create 5 Review & create, ID: flt-semantic-node-34
+			28 container flt-semantic-node-36
+				29 container flt-semantic-node-37
+					30 text Project details
+					31 text Step 1 of 5
+					32 text Enter the key details for this project. You can add more information later.
+					33 text York Reference / Ref. No. *
+					34 text Project Name *
+					35 text field (settable) York Reference / Ref. No.
+					36 text field (settable) Project Name
+					37 text Reference will be checked when saving.
+					38 text Client (optional)
+					39 text Contract / Job No. (optional)
+					40 text field (settable) Client
+					41 text field (settable) Contract / Job No.
+					42 button Client contact details, ID: flt-semantic-node-50
+					43 text Site Location (optional)
+					44 text field (settable) Site Location
+					45 text Enter the main site location or address.
+					46 text Start Date (optional)
+					47 text Expected End Date (optional)
+					48 container flt-semantic-node-55
+						49 text field (settable) Start Date
+						50 button Select date, ID: flt-semantic-node-56
+						51 button Clear date, ID: flt-semantic-node-57
+					52 container flt-semantic-node-61
+						53 text field (settable) Expected End Date (optional)
+						54 button Select date, ID: flt-semantic-node-62
+						55 button Clear date, ID: flt-semantic-node-63
+					56 text DD/MM/YYYY · type a date or use the calendar.
+					57 button Today, ID: flt-semantic-node-59
+					58 text DD/MM/YYYY · type a date or use the calendar.
+					59 button Today, ID: flt-semantic-node-65
+					60 text Project Notes (optional)
+					61 text entry area (settable) Project Notes
+					62 text Add any additional information about the project.
+			63 button Back to projects, ID: flt-semantic-node-69
+			64 button Continue to Parties & access, ID: flt-semantic-node-70
+
+The focused UI element is 21 container ID: flt-semantic-node-29, Description: PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device

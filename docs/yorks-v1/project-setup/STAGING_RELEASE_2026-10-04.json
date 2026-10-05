@@ -1,0 +1,243 @@
+{
+  "date": "2026-10-04",
+  "authorization": "Owner requested staging update only; production later.",
+  "source_commit": "9dc91b87a59178a7e8be438904388ac61b8b86ec",
+  "staging_url": "https://yorks-r35-dqvwmxbrf-sajid-alis-projects-0ec775a2.vercel.app",
+  "deployment_id": "dpl_AdFuaVR3FVUQEgTCPuPY2e8Sad3X",
+  "target": null,
+  "ready_state": "READY",
+  "aliases": [],
+  "backend_project": "iqltcyimlqtcwyzlemwx",
+  "project_setup_enabled": true,
+  "artifact": {
+    "file_count": 59,
+    "bytes": 54036331,
+    "main_bytes": 10034560,
+    "main_sha256": "82428f1ddfccd5165c8b9f666c848353da0264a3ad8e4dfc9faf766a4d571cd4",
+    "main_gzip_verifier_bytes": 2888952,
+    "file_sha256": {
+      "index.html": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "main.dart.js": "82428f1ddfccd5165c8b9f666c848353da0264a3ad8e4dfc9faf766a4d571cd4",
+      "flutter_bootstrap.js": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+      "flutter_service_worker.js": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+      "firebase-messaging-sw.js": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+      "manifest.json": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+      "vercel.json": "d7d7ce67199b1879e242597721407f356258bd413505dbf9eda0744637ea2817"
+    }
+  },
+  "backend": {
+    "migration_version": "20261003160930",
+    "migration_name": "project_setup_preserve_building_dependencies",
+    "migration_source_sha256": "a8894a6c8ffcb91cbc8a3cfd53d5f62640dcbaf97861980c5884f92cf7c3296e",
+    "migration_source_md5": "ac8dde2c14ee6dee25f57a9c3cf251a8",
+    "update_before_md5": "877bce13b0f98339f4fcc516590de4a3",
+    "update_after_md5": "3db69005873353968c3eda754ef1de13",
+    "guard_marker_count": 1,
+    "grants_unchanged": true,
+    "ledger_before": 182,
+    "ledger_after": 183,
+    "business_counts_before": {
+      "projects": 2,
+      "scopes": 5,
+      "members": 4,
+      "parties": 0,
+      "boq_rows": 50,
+      "material_requests": 19,
+      "documents": 2,
+      "audit": 813
+    },
+    "business_counts_after": {
+      "audit": 813,
+      "scopes": 5,
+      "members": 4,
+      "parties": 0,
+      "boq_rows": 50,
+      "projects": 2,
+      "documents": 2,
+      "material_requests": 19
+    },
+    "finalizer_source_sha256": "fdb6b54c68a8a70b40c68e34ba7c49926da75d2a2d59147395b7c10569f15ce2"
+  },
+  "routes": [
+    {
+      "route": "/about",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/profile",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/notification-preferences",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/notifications",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/analytics",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/workforce",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/rentals",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/material-requests/company/new",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/material-requests",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/team-chat",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/yorks/returns",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true
+    },
+    {
+      "route": "/flutter_bootstrap.js",
+      "bytes": 14186,
+      "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js",
+      "bytes": 10034560,
+      "sha256": "82428f1ddfccd5165c8b9f666c848353da0264a3ad8e4dfc9faf766a4d571cd4",
+      "verified": true
+    },
+    {
+      "route": "/flutter_service_worker.js",
+      "bytes": 784,
+      "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+      "verified": true
+    },
+    {
+      "route": "/firebase-messaging-sw.js",
+      "bytes": 7729,
+      "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_1.part.js",
+      "bytes": 966,
+      "sha256": "dc0085a59ba2a8270eb4cd54154bdc4ec5ebc7c72d6609a872d96bccfd2a71f5",
+      "verified": true
+    },
+    {
+      "route": "/manifest.json",
+      "bytes": 1007,
+      "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_4.part.js",
+      "bytes": 26916,
+      "sha256": "aa736615c2c6c3be80cbf7f217980744be7d17aa2b3010b21eb37ed6995f0af5",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_2.part.js",
+      "bytes": 1173,
+      "sha256": "c1dd1baf36f5ef917e7d1b80dcb28637d2d604d7e0301257aaa2213bcb367e2d",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_5.part.js",
+      "bytes": 42838,
+      "sha256": "5c7e0abd5c5b7316d1a172c8f93442e1c7c6c7161247c4ad6d8e95c5da06ac80",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_6.part.js",
+      "bytes": 199110,
+      "sha256": "fbbc3f757b8d23c0f2d20bee3670c11b38d72fa10a00db5e65cab7b3b5d7f8bc",
+      "verified": true
+    },
+    {
+      "route": "/main.dart.js_7.part.js",
+      "bytes": 114584,
+      "sha256": "1e3035ee0de0ba848d1471ad405581cf65e8c31c63ebdafbed1114eaf333057e",
+      "verified": true
+    },
+    {
+      "route": "/projects/new",
+      "status": 200,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true,
+      "scope": "SPA shell only; unauthorized session must sign in"
+    },
+    {
+      "route": "/yorks/projects/00000000-0000-4000-8000-000000000000/edit",
+      "status": 200,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+      "verified": true,
+      "scope": "SPA shell only; unauthorized session must sign in"
+    }
+  ],
+  "production": {
+    "deployment_before": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "deployment_after": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "main_before": {
+      "url": "https://yorks-r35.vercel.app/main.dart.js",
+      "status": 200,
+      "bytes": 9678001,
+      "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    },
+    "main_after": {
+      "url": "https://yorks-r35.vercel.app/main.dart.js",
+      "status": 200,
+      "bytes": 9678001,
+      "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    }
+  },
+  "browser": {
+    "create_url": "https://yorks-r35-dqvwmxbrf-sajid-alis-projects-0ec775a2.vercel.app/projects/new",
+    "observed": "Sign In with returnTo=/projects/new",
+    "warn_error_logs": [],
+    "screenshot_sha256": "313b759c71f76feb3520f9a05f9e2b9dc26ebaa0a5deb315955932d7fbd41797",
+    "authenticated_workflow_performed": false
+  },
+  "limitations": [
+    "No real staging persona creation, activation, upload, conflict or dropped-response UAT was performed.",
+    "Native project setup remains the legacy experience; Android artifact is CI ephemeral signed only.",
+    "Production promotion and production backend changes remain unauthorized."
+  ]
+}

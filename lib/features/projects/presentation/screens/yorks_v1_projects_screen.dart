@@ -41,6 +41,7 @@ import '../../../../shared/providers/yorks_v1_documents_provider.dart';
 import '../../../../shared/providers/yorks_v1_logistics_provider.dart';
 import '../../../../shared/providers/yorks_v1_project_controller_provider.dart';
 import '../../../../shared/providers/yorks_v1_project_portfolio_provider.dart';
+import '../../../../shared/providers/yorks_v1_project_local_creation_draft_provider.dart';
 import '../../../../shared/providers/yorks_v1_project_team_directory_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/providers/yorks_v1_rental_provider.dart';
@@ -53,6 +54,8 @@ import '../../../company_overview/domain/company_analytics_models.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
 import '../../../materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../../../accounts/presentation/screens/yorks_accounts_screens.dart';
+import '../widgets/yorks_v1_project_local_draft_section.dart';
+import '../../../../shared/providers/yorks_v1_project_creation_draft_provider.dart';
 
 /// The normalized, R35-aligned project portfolio.
 ///
@@ -3469,15 +3472,83 @@ class _YorksV1ProjectsScreenState extends ConsumerState<YorksV1ProjectsScreen> {
     final onCreate = createAccess.canWrite
         ? () => context.push(RoutePaths.engineerCreateProject)
         : null;
+    Widget? savedDraft;
+    // Discovery is an acknowledged, read-only storage projection. Do not read
+    // private setup records for denied actors or instantiate a draft controller
+    // merely because the server Projects portfolio is visible.
+    if (ref.watch(yorksV1FeatureFlagsProvider).projectSetup &&
+        role?.canCreateProject == true &&
+        createAccess.canWrite) {
+      final owner = ref.watch(yorksV1AuthUserIdProvider);
+      if (owner != null && owner.trim().isNotEmpty) {
+        final draftState = ref.watch(yorksV1ProjectLocalCreationDraftProvider);
+        if (draftState.status != YorksV1ProjectLocalCreationDraftStatus.empty ||
+            draftState.summaries.isNotEmpty ||
+            draftState.recoveryDraftIds.isNotEmpty ||
+            draftState.hasLegacyRecovery) {
+          final backend = ref.watch(yorksV1ProjectDraftBackendIdentityProvider);
+          bool canOpenSavedSetup() {
+            if (ref.read(yorksV1AuthUserIdProvider) != owner ||
+                ref.read(yorksV1ProjectDraftBackendIdentityProvider) !=
+                    backend ||
+                !ref.read(yorksV1FeatureFlagsProvider).projectSetup) {
+              return false;
+            }
+            final currentRole = ref.read(yorksV1CurrentRoleProvider);
+            final access = yorksV1FeatureActionAccess(
+              ref.read(yorksV1CurrentPermissionSnapshotProvider),
+              YorksV1CapabilityKeys.projectsCreate,
+              legacyAllowed: currentRole?.canCreateProject == true,
+            );
+            return currentRole?.canCreateProject == true && access.canWrite;
+          }
+
+          savedDraft = YorksV1ProjectLocalDraftSection(
+            draftState: draftState,
+            language: language,
+            scopeIdentity: '$owner|$backend',
+            onResume: (draftId) {
+              if (canOpenSavedSetup()) {
+                context.push(RoutePaths.yorksV1ProjectSetupDraftPath(draftId));
+              }
+            },
+            onLegacyRecovery: () {
+              if (canOpenSavedSetup()) {
+                context.push(RoutePaths.yorksV1ProjectSetupLegacyRecovery);
+              }
+            },
+            onRetry: () {
+              if (canOpenSavedSetup()) {
+                ref.invalidate(yorksV1ProjectLocalCreationDraftProvider);
+              }
+            },
+          );
+        }
+      }
+    }
+
+    Widget mobileStatus(Widget status) => savedDraft == null
+        ? status
+        : ListView(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+            children: [
+              savedDraft,
+              const SizedBox(height: AppSpacing.lg),
+              status,
+            ],
+          );
 
     if (YorksMobileUi.isActive(context)) {
       return Scaffold(
         backgroundColor: AppColors.mobileSurface,
         body: portfolio.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => _PortfolioError(
-            language: language,
-            onRetry: () => ref.invalidate(yorksV1ProjectPortfolioProvider),
+          loading: () =>
+              mobileStatus(const Center(child: CircularProgressIndicator())),
+          error: (_, _) => mobileStatus(
+            _PortfolioError(
+              language: language,
+              onRetry: () => ref.invalidate(yorksV1ProjectPortfolioProvider),
+            ),
           ),
           data: (items) => _YorksMobileProjectsPage(
             items: items,
@@ -3489,6 +3560,7 @@ class _YorksV1ProjectsScreenState extends ConsumerState<YorksV1ProjectsScreen> {
             onSearchChanged: (value) => setState(() => _search = value),
             onStateChanged: (value) => setState(() => _stateFilter = value),
             onCreate: onCreate,
+            savedDraft: savedDraft,
           ),
         ),
       );
@@ -3515,31 +3587,42 @@ class _YorksV1ProjectsScreenState extends ConsumerState<YorksV1ProjectsScreen> {
                 ),
               ),
           ],
-          child: portfolio.when(
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(AppSpacing.huge),
-                child: CircularProgressIndicator(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (savedDraft != null) ...[
+                savedDraft,
+                const SizedBox(height: AppSpacing.lg),
+              ],
+              portfolio.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpacing.huge),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (_, _) => _PortfolioError(
+                  language: language,
+                  onRetry: () =>
+                      ref.invalidate(yorksV1ProjectPortfolioProvider),
+                ),
+                data: (items) {
+                  final visible = _filter(items);
+                  return _PortfolioBody(
+                    items: items,
+                    visible: visible,
+                    language: language,
+                    stateFilter: _stateFilter,
+                    search: _search,
+                    canCreate: canCreate,
+                    onSearchChanged: (value) => setState(() => _search = value),
+                    onStateChanged: (value) =>
+                        setState(() => _stateFilter = value),
+                    onCreate: onCreate,
+                  );
+                },
               ),
-            ),
-            error: (_, _) => _PortfolioError(
-              language: language,
-              onRetry: () => ref.invalidate(yorksV1ProjectPortfolioProvider),
-            ),
-            data: (items) {
-              final visible = _filter(items);
-              return _PortfolioBody(
-                items: items,
-                visible: visible,
-                language: language,
-                stateFilter: _stateFilter,
-                search: _search,
-                canCreate: canCreate,
-                onSearchChanged: (value) => setState(() => _search = value),
-                onStateChanged: (value) => setState(() => _stateFilter = value),
-                onCreate: onCreate,
-              );
-            },
+            ],
           ),
         ),
       ),
@@ -4097,6 +4180,7 @@ class _YorksMobileProjectsPage extends StatelessWidget {
     required this.onSearchChanged,
     required this.onStateChanged,
     required this.onCreate,
+    this.savedDraft,
   });
 
   final List<YorksV1ProjectPortfolioItem> items;
@@ -4108,6 +4192,7 @@ class _YorksMobileProjectsPage extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<YorksV1ProjectLifecycle?> onStateChanged;
   final VoidCallback? onCreate;
+  final Widget? savedDraft;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
@@ -4158,6 +4243,7 @@ class _YorksMobileProjectsPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
+        if (savedDraft != null) ...[savedDraft!, const SizedBox(height: 14)],
         TextFormField(
           initialValue: search,
           onChanged: onSearchChanged,

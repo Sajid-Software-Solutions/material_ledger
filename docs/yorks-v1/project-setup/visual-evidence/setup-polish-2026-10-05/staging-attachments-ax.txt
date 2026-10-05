@@ -1,0 +1,4 @@
+Browser tab: 33, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 70
+The focused UI element is 32 container Description: Back Skip for now Continue, ID: flt-semantic-node-116

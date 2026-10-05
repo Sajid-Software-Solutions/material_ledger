@@ -1,0 +1,67 @@
+Browser tab: 39, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43974/?session=resume-final&stage=0#/projects/new?draft=56629682-9983-4683-bb3c-d11440602360".
+1 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43974/?session=resume-final&stage=0#/projects/new?draft=56629682-9983-4683-bb3c-d11440602360
+	2 container Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected Collapse panel Back Next Quick navigation Search or jump to… ⌘K Enter full screen Notifications My Yorks SA Sarah Ahmed Project Engineer PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device
+		3 container flt-semantic-node-3
+			4 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected
+			5 button Collapse panel, ID: flt-semantic-node-22
+			6 button Back, ID: flt-semantic-node-23
+			7 button (disabled) Next, ID: flt-semantic-node-24
+			8 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-25
+			9 button Enter full screen, ID: flt-semantic-node-26
+			10 button Description: Notifications, ID: flt-semantic-node-27
+				11 button Notifications, ID: flt-semantic-node-28
+			12 container flt-semantic-node-19
+				13 text ENGINEER WORKSPACE
+				14 button Overview Overview Overview, ID: flt-semantic-node-6
+				15 button Projects Projects Projects, ID: flt-semantic-node-8
+				16 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-10
+				17 button Material Returns Material Returns Material Returns, ID: flt-semantic-node-12
+				18 text ENGINEERING TOOLS
+				19 button Duct Sizer Duct Sizer Duct Sizer, ID: flt-semantic-node-15
+				20 button ESP Calculator ESP Calculator ESP Calculator, ID: flt-semantic-node-17
+			21 button (collapsed) My Yorks SA Sarah Ahmed Project Engineer, ID: flt-semantic-node-20, Secondary Actions: Expand
+			22 container ID: flt-semantic-node-29, Description: PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device
+				23 button Project details 1 Project details, ID: flt-semantic-node-30
+				24 button Save draft, ID: flt-semantic-node-35
+				25 button (disabled) Parties & access 2 Parties & access, ID: flt-semantic-node-31
+				60 button (disabled) Buildings 3 Buildings, ID: flt-semantic-node-32
+				61 button (disabled) Attachments 4 Attachments Optional, ID: flt-semantic-node-33
+				62 button (disabled) Review & create 5 Review & create, ID: flt-semantic-node-34
+				66 container flt-semantic-node-37
+					67 text Project details
+					68 text Step 1 of 5
+					69 text Enter the key details for this project. You can add more information later.
+					70 text York Reference / Ref. No. *
+					71 text Project Name *
+					72 text field (settable) York Reference / Ref. No.
+					73 text field (settable) Description: Project Name, Value: NEXUS — Resume verified
+					74 text Reference will be checked when saving.
+					75 text Client (optional)
+					76 text Contract / Job No. (optional)
+					77 text field (settable) Client
+					78 text field (settable) Contract / Job No.
+					79 button Client contact details, ID: flt-semantic-node-50
+					80 text Site Location (optional)
+					81 text field (settable) Site Location
+					82 text Enter the main site location or address.
+					83 text Start Date (optional)
+					84 text Expected End Date (optional)
+					85 container flt-semantic-node-55
+						86 text field (settable) Start Date
+						87 button Select date, ID: flt-semantic-node-56
+						88 button Clear date, ID: flt-semantic-node-57
+					89 container flt-semantic-node-61
+						90 text field (settable) Expected End Date (optional)
+						91 button Select date, ID: flt-semantic-node-62
+						92 button Clear date, ID: flt-semantic-node-63
+					93 text DD/MM/YYYY · type a date or use the calendar.
+					94 button Today, ID: flt-semantic-node-59
+					95 text DD/MM/YYYY · type a date or use the calendar.
+					96 button Today, ID: flt-semantic-node-65
+					97 text Project Notes (optional)
+					98 text entry area (settable) Project Notes
+					99 text Add any additional information about the project.
+				64 button Back to projects, ID: flt-semantic-node-69
+				65 button Continue to Parties & access, ID: flt-semantic-node-70
+
+The focused UI element is 2 container Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected Collapse panel Back Next Quick navigation Search or jump to… ⌘K Enter full screen Notifications My Yorks SA Sarah Ahmed Project Engineer PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device

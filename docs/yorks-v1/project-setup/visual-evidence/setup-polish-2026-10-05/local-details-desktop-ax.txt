@@ -1,0 +1,4 @@
+Browser tab: 29, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43971/?stage=0&session=polish-desktop#/projects/new".
+The following is a diff from the previous accessibility tree with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 65
+The focused UI element is 21 container ID: flt-semantic-node-29, Description: PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device

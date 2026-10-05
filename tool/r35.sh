@@ -35,6 +35,7 @@ operator_supabase_url="${SUPABASE_URL:-}"
 operator_supabase_key="${SUPABASE_ANON_KEY:-}"
 operator_r35_environment="${R35_ENVIRONMENT:-}"
 operator_firebase_web_vapid_key="${FIREBASE_WEB_VAPID_KEY:-}"
+operator_project_setup_flag="${YORKS_V1_PROJECT_SETUP:-}"
 operator_accounts_flag="${YORKS_V1_ACCOUNTS:-}"
 operator_company_material_requests_flag="${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-}"
 operator_workforce_flag="${YORKS_V1_WORKFORCE:-}"
@@ -61,6 +62,7 @@ supabase_url="${operator_supabase_url:-${SUPABASE_URL:-}}"
 supabase_key="${operator_supabase_key:-${SUPABASE_ANON_KEY:-}}"
 r35_environment="${operator_r35_environment:-${R35_ENVIRONMENT:-}}"
 firebase_web_vapid_key="${operator_firebase_web_vapid_key:-${FIREBASE_WEB_VAPID_KEY:-}}"
+project_setup_flag="${operator_project_setup_flag:-${YORKS_V1_PROJECT_SETUP:-false}}"
 accounts_flag="${operator_accounts_flag:-${YORKS_V1_ACCOUNTS:-false}}"
 company_material_requests_flag="${operator_company_material_requests_flag:-${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-false}}"
 workforce_flag="${operator_workforce_flag:-${YORKS_V1_WORKFORCE:-false}}"
@@ -76,6 +78,9 @@ posthog_test_user_hashes=""
 # A developer's ignored production file must not silently enable Accounts in a
 # CI build. An explicit process-level value still wins for a deliberate CI
 # rollout rehearsal.
+if [[ "$r35_environment" == "ci" && -z "$operator_project_setup_flag" ]]; then
+  project_setup_flag=false
+fi
 if [[ "$r35_environment" == "ci" && -z "$operator_accounts_flag" ]]; then
   accounts_flag=false
 fi
@@ -111,6 +116,14 @@ if [[ -z "$supabase_url" || -z "$supabase_key" ]]; then
   echo "tool/r35.env.example or set SUPABASE_URL and SUPABASE_ANON_KEY." >&2
   exit 64
 fi
+case "$project_setup_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_PROJECT_SETUP must be true or false." >&2
+    exit 64
+    ;;
+esac
+
 case "$accounts_flag" in
   true|false) ;;
   *)
@@ -241,6 +254,7 @@ r35_defines=(
   '--dart-define=YORKS_V1_LOGISTICS=true'
   '--dart-define=YORKS_V1_RETURNS_DOCUMENTS=true'
   '--dart-define=YORKS_V1_DOCUMENTS=true'
+  "--dart-define=YORKS_V1_PROJECT_SETUP=${project_setup_flag}"
   "--dart-define=YORKS_V1_ACCOUNTS=${accounts_flag}"
   "--dart-define=YORKS_V1_COMPANY_MATERIAL_REQUESTS=${company_material_requests_flag}"
   "--dart-define=YORKS_V1_WORKFORCE=${workforce_flag}"

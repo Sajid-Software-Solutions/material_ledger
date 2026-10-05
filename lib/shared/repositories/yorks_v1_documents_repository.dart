@@ -284,13 +284,18 @@ class YorksV1SupabaseDocumentsRepository
       AnalyticsProperty.fileSizeBucket: _fileSizeBucket(input.bytes.length),
       AnalyticsProperty.attachmentCount: 1,
     };
-    _analytics.capture(
-      AnalyticsEvent.documentUploadAttempted,
-      properties: properties,
+    _uploadAnalyticsSafely(
+      () => _analytics.capture(
+        AnalyticsEvent.documentUploadAttempted,
+        properties: properties,
+      ),
     );
-    final operation = _analytics.beginOperation(
-      'document_upload',
-      properties: properties,
+    AnalyticsOperation? operation;
+    _uploadAnalyticsSafely(
+      () => operation = _analytics.beginOperation(
+        'document_upload',
+        properties: properties,
+      ),
     );
     try {
       final result = await _uploadAuthorized(
@@ -300,22 +305,35 @@ class YorksV1SupabaseDocumentsRepository
         includeSupplierMetadata: includeSupplierMetadata,
         includeAccountsMetadata: includeAccountsMetadata,
       );
-      operation.complete();
-      _analytics.capture(
-        AnalyticsEvent.documentUploadSucceeded,
-        properties: properties,
+      _uploadAnalyticsSafely(() => operation?.complete());
+      _uploadAnalyticsSafely(
+        () => _analytics.capture(
+          AnalyticsEvent.documentUploadSucceeded,
+          properties: properties,
+        ),
       );
       return result;
     } catch (error) {
-      operation.fail(error);
-      _analytics.capture(
-        AnalyticsEvent.documentUploadFailed,
-        properties: {
-          ...properties,
-          AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
-        },
+      _uploadAnalyticsSafely(() => operation?.fail(error));
+      _uploadAnalyticsSafely(
+        () => _analytics.capture(
+          AnalyticsEvent.documentUploadFailed,
+          properties: {
+            ...properties,
+            AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
+          },
+        ),
       );
       rethrow;
+    }
+  }
+
+  static void _uploadAnalyticsSafely(void Function() emit) {
+    try {
+      emit();
+    } catch (_) {
+      // Instrumentation cannot block an authorized file attempt, erase a
+      // finalized success, or replace the original business failure.
     }
   }
 
@@ -350,6 +368,16 @@ class YorksV1SupabaseDocumentsRepository
         },
       ),
     );
+    if ((intent.finalizedDocumentId == null) !=
+        (intent.finalizedVersionId == null)) {
+      _unexpected();
+    }
+    final replacementDocumentId = _nullableTrimmed(input.documentId);
+    if (intent.finalizedDocumentId != null &&
+        replacementDocumentId != null &&
+        intent.finalizedDocumentId != replacementDocumentId) {
+      _unexpected();
+    }
     if (intent.finalizedDocumentId == null) {
       try {
         await storage.upload(
@@ -369,7 +397,21 @@ class YorksV1SupabaseDocumentsRepository
         );
       }
       try {
-        await finalizer.finalize(intent.id);
+        final response = await finalizer.finalize(intent.id);
+        // HTTP success alone is not proof of document finalization. Require
+        // the protected RPC's exact identity/revision projection before the
+        // coordinator may label this immutable file intent Ready.
+        if (response is! Map ||
+            response['document_id'] is! String ||
+            (response['document_id'] as String).trim().isEmpty ||
+            response['document_version_id'] is! String ||
+            (response['document_version_id'] as String).trim().isEmpty ||
+            response['revision_number'] is! int ||
+            response['revision_number'] != intent.plannedRevisionNumber ||
+            (replacementDocumentId != null &&
+                response['document_id'] != replacementDocumentId)) {
+          _unexpected();
+        }
       } on FunctionException catch (error) {
         throw YorksV1DomainException(
           error.status == 401 || error.status == 403
@@ -377,6 +419,8 @@ class YorksV1SupabaseDocumentsRepository
               : YorksV1DomainErrorCode.conflict,
           cause: error,
         );
+      } on YorksV1DomainException {
+        rethrow;
       } catch (error) {
         throw YorksV1DomainException(
           YorksV1DomainErrorCode.backendUnavailable,

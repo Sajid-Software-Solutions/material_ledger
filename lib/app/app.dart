@@ -29,6 +29,7 @@ import '../shared/providers/yorks_v1_logistics_provider.dart';
 import '../shared/providers/yorks_v1_material_request_provider.dart';
 import '../shared/providers/yorks_v1_permission_provider.dart';
 import '../shared/providers/yorks_v1_project_portfolio_provider.dart';
+import '../shared/providers/yorks_v1_project_setup_navigation_provider.dart';
 import '../shared/services/app_config_service.dart';
 import '../shared/services/analytics_route_mapper.dart';
 import '../shared/services/analytics_service.dart';
@@ -201,6 +202,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     user: user,
     gate: gate,
     yorksV1ProjectsEnabled: yorksV1ProjectsEnabled,
+    yorksV1ProjectSetupEnabled:
+        ref.watch(yorksV1FeatureFlagsProvider).projectSetup && kIsWeb,
+    onLeaveYorksProjectSetup: () =>
+        ref.read(yorksV1ProjectSetupNavigationGuardProvider).canLeave(),
+    onSelectYorksProjectSetup: (draftId, legacyRecovery) => ref
+        .read(yorksV1ProjectSetupNavigationGuardProvider)
+        .canSelectCreation(draftId, legacyRecovery: legacyRecovery),
     yorksV1BoqEnabled: yorksV1BoqEnabled,
     yorksV1RequestsEnabled: yorksV1RequestsEnabled,
     yorksV1ArrangementEnabled: yorksV1ArrangementEnabled,

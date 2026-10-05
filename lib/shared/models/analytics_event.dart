@@ -19,6 +19,14 @@ enum AnalyticsEvent {
   projectCreationAttempted('project creation attempted'),
   projectCreated('project created'),
   projectCreationFailed('project creation failed'),
+  projectSetupStepViewed('project setup step viewed'),
+  projectDraftSaved('project draft saved'),
+  projectDraftRestored('project draft restored'),
+  projectDraftSaveFailed('project draft save failed'),
+  projectSetupConflictDetected('project setup conflict detected'),
+  projectCommandOutcomeUncertain('project command outcome uncertain'),
+  projectCommandReconciled('project command reconciled'),
+  projectSetupCompleted('project setup completed'),
   projectOpened('project opened'),
   projectAccessChanged('project access changed'),
   projectUpdated('project updated'),
@@ -146,6 +154,12 @@ enum AnalyticsProperty {
   listFilter,
   recordState,
   receiptOutcome,
+  mode,
+  step,
+  storageScope,
+  saveTrigger,
+  conflictType,
+  phase,
   feedbackExpectedMs,
   loadTrigger,
   coalesced,
@@ -259,3 +273,134 @@ String _snakeCase(String value) => value
       (match) => '${match.group(1)}_${match.group(2)}',
     )
     .toLowerCase();
+
+/// Project setup telemetry uses a finite catalogue; identifiers and arbitrary
+/// categorical strings must not become draft or command correlation keys.
+AnalyticsProperties projectSetupAnalyticsProperties(
+  AnalyticsEvent event,
+  AnalyticsProperties properties,
+) {
+  final allowed = switch (event) {
+    AnalyticsEvent.projectSetupStepViewed => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.step,
+      AnalyticsProperty.entryPoint,
+    },
+    AnalyticsEvent.projectDraftSaved => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.storageScope,
+      AnalyticsProperty.saveTrigger,
+    },
+    AnalyticsEvent.projectDraftRestored => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.step,
+      AnalyticsProperty.source,
+    },
+    AnalyticsEvent.projectDraftSaveFailed => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.errorCategory,
+    },
+    AnalyticsEvent.projectSetupConflictDetected => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.conflictType,
+    },
+    AnalyticsEvent.projectCommandOutcomeUncertain => {
+      AnalyticsProperty.operation,
+      AnalyticsProperty.phase,
+      AnalyticsProperty.errorCategory,
+    },
+    AnalyticsEvent.projectCommandReconciled => {
+      AnalyticsProperty.operation,
+      AnalyticsProperty.outcome,
+      AnalyticsProperty.phase,
+    },
+    AnalyticsEvent.projectSetupCompleted => {
+      AnalyticsProperty.mode,
+      AnalyticsProperty.outcome,
+    },
+    _ => null,
+  };
+  if (allowed == null) return properties;
+  const categories = <AnalyticsProperty, Set<String>>{
+    AnalyticsProperty.mode: {'create', 'edit'},
+    AnalyticsProperty.step: {
+      'project_details',
+      'parties_and_access',
+      'buildings',
+      'attachments',
+      'review',
+    },
+    AnalyticsProperty.storageScope: {'device'},
+    AnalyticsProperty.saveTrigger: {
+      'manual',
+      'checkpoint',
+      'navigation',
+      'background',
+    },
+    AnalyticsProperty.conflictType: {
+      'local_owner',
+      'server_version',
+      'stale_prerequisite',
+    },
+    AnalyticsProperty.phase: {
+      'create',
+      'update',
+      'activation',
+      'upload',
+      'finalize',
+      'cleanup',
+    },
+    AnalyticsProperty.outcome: {
+      'active',
+      'draft_pending_activation',
+      'saved_files_pending',
+      'updated',
+      'confirmed',
+      'not_saved',
+      'denied',
+      'conflict',
+    },
+    AnalyticsProperty.operation: {
+      'project_create',
+      'project_update',
+      'project_activation',
+      'project_upload',
+      'project_finalize',
+      'project_cleanup',
+    },
+    AnalyticsProperty.entryPoint: {
+      'navigation',
+      'projects',
+      'review',
+      'resume',
+      'direct',
+    },
+    AnalyticsProperty.source: {'device', 'local_recovery'},
+    AnalyticsProperty.errorCategory: {
+      'offline',
+      'network',
+      'backend_unavailable',
+      'unauthorized',
+      'conflict',
+      'validation',
+      'unexpected_response',
+      'unknown',
+      'storage',
+      'timeout',
+      'permission_denied',
+      'authentication',
+      'database',
+      'feature_disabled',
+    },
+  };
+  return {
+    for (final entry in properties.entries)
+      if (allowed.contains(entry.key) &&
+          categories[entry.key]!.contains(
+            entry.value is Enum
+                ? analyticsWireName(entry.value as Enum)
+                : entry.value,
+          ))
+        entry.key: entry.value,
+  };
+}

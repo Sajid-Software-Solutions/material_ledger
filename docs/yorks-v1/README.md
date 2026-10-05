@@ -114,6 +114,10 @@ explicit V7-to-V1 conflict resolution.
 | [`R35_STAGING_DEPLOYMENT.md`](R35_STAGING_DEPLOYMENT.md) | Dedicated staging deployment and controlled-document witness |
 | [`RELEASE_NOTES_DRAFT.md`](RELEASE_NOTES_DRAFT.md) | Release content and conditions for the staging sign-off |
 
+## Project setup redesign
+
+The product owner authorized the reviewed creation/editing core on 3 October 2026. See [project-setup/README.md](project-setup/README.md) for the retained package, default-off rollout and candidate evidence. Deferred imports/cloud drafts and existing security/Accounts boundaries remain in force.
+
 ## Product north star
 
 - Calm before clever.

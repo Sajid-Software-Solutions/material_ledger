@@ -7,6 +7,18 @@ import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider
 
 void main() {
   group('Yorks V1 feature flags', () {
+    test('project setup requires projects and stays off by default', () {
+      expect(const YorksV1FeatureFlags.fromEnvironment().projectSetup, false);
+      expect(const YorksV1FeatureFlags(projectSetup: true).projectSetup, false);
+      expect(
+        const YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          projectSetup: true,
+        ).projectSetup,
+        true,
+      );
+    });
     test('all features default off', () {
       const flags = YorksV1FeatureFlags();
 
@@ -244,26 +256,29 @@ void main() {
       expect(complete.inventorySuppliers, true);
     });
 
-    test('Company Material Requests default off and require the request chain', () {
-      const withoutRequests = YorksV1FeatureFlags(
-        foundation: true,
-        projects: true,
-        boq: true,
-        excel: true,
-        companyMaterialRequests: true,
-      );
-      const enabled = YorksV1FeatureFlags(
-        foundation: true,
-        projects: true,
-        boq: true,
-        excel: true,
-        requests: true,
-        companyMaterialRequests: true,
-      );
+    test(
+      'Company Material Requests default off and require the request chain',
+      () {
+        const withoutRequests = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          companyMaterialRequests: true,
+        );
+        const enabled = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          companyMaterialRequests: true,
+        );
 
-      expect(withoutRequests.companyMaterialRequests, false);
-      expect(enabled.companyMaterialRequests, true);
-    });
+        expect(withoutRequests.companyMaterialRequests, false);
+        expect(enabled.companyMaterialRequests, true);
+      },
+    );
 
     test('production defaults enable the complete Yorks chain', () {
       final container = ProviderContainer(

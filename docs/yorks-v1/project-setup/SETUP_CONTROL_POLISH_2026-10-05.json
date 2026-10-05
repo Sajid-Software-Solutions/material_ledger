@@ -1,0 +1,144 @@
+{
+  "date": "2026-10-05",
+  "source_commit": "96329a0c92b93e3e662c1c46720072e059921dd2",
+  "deployment": {
+    "deployment_id": "dpl_8ZUjQirCCg8EDBrNA9X1fZzjrrXW",
+    "preview_url": "https://yorks-r35-iijoaabzn-sajid-alis-projects-0ec775a2.vercel.app",
+    "ready_state": "READY",
+    "target": null
+  },
+  "stable_url": "https://yorks-r35-staging.vercel.app",
+  "artifact": {
+    "files": 59,
+    "bytes": 54056855,
+    "markers": {
+      "staging": 2,
+      "production": 0,
+      "ci_url": 0,
+      "ci_key": 0,
+      "fixture": 0
+    },
+    "main": {
+      "path": "main.dart.js",
+      "bytes": 10054968,
+      "sha256": "6586f786d6a849c57e4461197fdc021a485f1e8d8238455e03b353a14b275218"
+    },
+    "index": {
+      "path": "index.html",
+      "bytes": 11024,
+      "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985"
+    }
+  },
+  "staging_main_gzip_bytes": 2895008,
+  "ci_web": {
+    "bytes": 10028618,
+    "gzip_bytes": 2887523,
+    "sha256": "36aab6bf814ff7191614f34f7611d802b177abff70e8d4b6aa12200c1053cc6c",
+    "gzip_measurement": "Dart startup verifier"
+  },
+  "validation": {
+    "flutter_pub_get": "passed; lockfile unchanged",
+    "dart_format": "13 files, zero changes",
+    "flutter_analyze": "no issues",
+    "flutter_test_passed": 2383,
+    "retained_skips": 4,
+    "focused_passed": 161,
+    "footer_snapshots_normal_passed": 2,
+    "goldens_changed": [
+      "test/goldens/mobile_batch1/project_create_attachments_390.png",
+      "test/goldens/mobile_batch1/project_create_projectDetails_390.png",
+      "test/goldens/project_setup_desktop/attachments_1536x1024.png",
+      "test/goldens/project_setup_desktop/buildings_1536x1024.png",
+      "test/goldens/project_setup_desktop/projectDetails_1536x1024.png",
+      "test/goldens/project_setup_desktop/reviewAndCreate_1536x1024.png",
+      "test/goldens/project_setup_mobile/attachments_431x863.png",
+      "test/goldens/project_setup_mobile/attachments_bottom_431x863.png",
+      "test/goldens/project_setup_mobile/buildings_431x863.png",
+      "test/goldens/project_setup_mobile/buildings_bottom_431x863.png",
+      "test/goldens/project_setup_mobile/projectDetails_431x863.png",
+      "test/goldens/project_setup_mobile/projectDetails_bottom_431x863.png",
+      "test/goldens/project_setup_mobile/reviewAndCreate_bottom_431x863.png",
+      "test/goldens/r35/project_create_details_arabic_360_200pct.png"
+    ],
+    "ci_android": "passed; v2 CI ephemeral signature; not publishable",
+    "preview_route_asset_checks": 23,
+    "preview_extra_setup_routes": 2,
+    "stable_route_asset_checks": 23,
+    "stable_extra_setup_routes": 2,
+    "git_diff_check": "passed"
+  },
+  "production": {
+    "deployment_id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "bytes": 9678001,
+    "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f",
+    "byte_identical": true
+  },
+  "project_settings_unchanged": {
+    "id": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+    "name": "yorks-r35",
+    "framework": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "installCommand": null,
+    "commandForIgnoringBuildStep": "exit 0",
+    "ssoProtection": null,
+    "passwordProtection": null,
+    "trustedIps": null
+  },
+  "browser_evidence": {
+    "local_desktop_native": {
+      "css_width": 1438,
+      "css_height": 809,
+      "dpr": 1.7799999713897705,
+      "preview_image": "public assets/logo.png selected locally; no upload",
+      "visible_toolbar_and_close": true
+    },
+    "local_details_emulated": {
+      "desktop_css_width": 1636,
+      "desktop_css_height": 884,
+      "mobile_css_width": 359,
+      "mobile_css_height": 900,
+      "dpr": 0.8899999856948853
+    },
+    "staging_native": {
+      "css_width": 1280,
+      "css_height": 720,
+      "dpr": 2,
+      "owner_draft": "YRA-322 / test",
+      "stage": "Attachments",
+      "file_category": "General",
+      "file_state": "Reselect file",
+      "ownership": "another tab; no takeover or edits"
+    },
+    "files": [
+      "local-details-desktop.jpg",
+      "local-details-desktop-ax.txt",
+      "local-buildings-desktop.jpg",
+      "local-buildings-desktop-ax.txt",
+      "local-details-mobile.jpg",
+      "local-attachments-desktop-native.jpg",
+      "local-attachments-desktop-native-ax.txt",
+      "local-image-preview-desktop-native.jpg",
+      "local-image-preview-desktop-native-ax.txt",
+      "staging-attachments.jpg",
+      "staging-attachments-ax.txt"
+    ]
+  },
+  "boundary": {
+    "category": "optional local organization metadata; not security classification or RPC category",
+    "backend_changes": false,
+    "production_deploy": false,
+    "live_project_mutations": false,
+    "local_fixture": "no remote backend configured",
+    "known_browser_limitations": [
+      "automation DOM scrolling can move Flutter hidden overflow ancestor; native pointer/wheel preview verified with scrollTop zero",
+      "local debug bootstrap removeChild warning after hot restart; not a preview error",
+      "fixed 360px and Arabic 200 percent widget/golden evidence accompanies measured 359px emulated browser capture"
+    ]
+  },
+  "rollback": {
+    "staging_deployment_id": "dpl_GFVECJdEtqmhV2jHnXMgHxCQt9Da",
+    "url": "https://yorks-r35-nmhujwm0r-sajid-alis-projects-0ec775a2.vercel.app",
+    "backend_rollback_needed": false
+  }
+}

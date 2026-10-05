@@ -1,0 +1,62 @@
+Browser tab: 26, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects".
+1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects
+	2 container flt-semantic-node-3
+		3 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects Connected Connected
+		4 button Collapse panel, ID: flt-semantic-node-43
+		5 button (disabled) Back, ID: flt-semantic-node-44
+		6 button (disabled) Next, ID: flt-semantic-node-45
+		7 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-46
+		8 button Enter full screen, ID: flt-semantic-node-47
+		9 button Team Chat, ID: flt-semantic-node-48
+		10 button Description: Notifications, ID: flt-semantic-node-49
+			11 button Notifications, ID: flt-semantic-node-50
+		12 container flt-semantic-node-40
+			13 text MANAGEMENT WORKSPACE
+			14 button Overview Overview Overview, ID: flt-semantic-node-6
+			15 button Analytics Analytics Analytics, ID: flt-semantic-node-8
+			16 button Projects Projects Projects, ID: flt-semantic-node-10
+			17 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-12
+			18 button Accounts Accounts Accounts, ID: flt-semantic-node-14
+			19 button Project Accounts Project Accounts Project Accounts, ID: flt-semantic-node-16
+			20 button Billing Progress Billing Progress Billing Progress, ID: flt-semantic-node-18
+			21 button Claims & Invoices Claims & Invoices Claims & Invoices, ID: flt-semantic-node-20
+			22 button Receipts & PDC Receipts & PDC Receipts & PDC, ID: flt-semantic-node-22
+			23 button Supplier Bills Supplier Bills Supplier Bills, ID: flt-semantic-node-24
+			24 button Due Schedule Due Schedule Due Schedule, ID: flt-semantic-node-26
+			25 button Documents Documents Documents, ID: flt-semantic-node-28
+			26 button Reports Reports Reports, ID: flt-semantic-node-30
+			27 button Audit Trail Audit Trail Audit Trail, ID: flt-semantic-node-32
+			28 button Workforce Workforce Workforce, ID: flt-semantic-node-34
+			29 text COLLABORATION
+			30 button Team Chat Team Chat Team Chat, ID: flt-semantic-node-37
+			31 button Browse / Inventory Browse / Inventory Browse / Inventory, ID: flt-semantic-node-39
+		32 button (collapsed) My Yorks LA Local Admin Admin, ID: flt-semantic-node-41, Secondary Actions: Expand
+		33 container flt-semantic-node-52
+			34 text PROJECTS
+			35 text Projects
+			36 button Create Project, ID: flt-semantic-node-56
+			37 text Authorized project context, current owner and connected work.
+			38 text Saved project setup
+			39 text Saved on this device
+			40 text YRA-322
+			41 text test
+			42 text Current step: Review & create
+			43 button Resume setup, ID: flt-semantic-node-65
+			44 text Last saved:
+			45 text 2026-10-04 23:03
+			46 text Continue the setup saved on this device.
+			47 text field (settable) Search projects
+			48 button (collapsed) All states All states, ID: flt-semantic-node-67, Secondary Actions: Expand
+			49 text Projects
+			50 text State
+			51 text Site
+			52 text Active team
+			53 text Updated
+			54 button ID: flt-semantic-node-73, Description: Open project DEMO-YRA-RETAIL STAGING DEMO - Marina Retail Fit-out Active Active Marina, Abu Dhabi 2 Active team · 1 Buildings Sep 1, 2026
+				55 button Open project, ID: flt-semantic-node-74
+			56 button ID: flt-semantic-node-75, Description: Open project DEMO-YRA-TOWER STAGING DEMO - Al Raha Tower HVAC Retrofit Active Active Al Raha, Abu Dhabi 2 Active team · 2 Buildings Sep 1, 2026
+				57 button Open project, ID: flt-semantic-node-76
+			58 button Description: Open project YRA-123 testtest test Active Active test 2 Active team · 3 Buildings Oct 4, 2026, ID: flt-semantic-node-77
+				59 button Open project, ID: flt-semantic-node-78
+
+The focused UI element is 1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects

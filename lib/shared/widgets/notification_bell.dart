@@ -17,7 +17,11 @@ import 'notification_delivery_card.dart';
 /// Universal notification entry point. Phones open the full-screen center;
 /// tablet and desktop show a compact recent-alert panel first.
 class NotificationBell extends ConsumerWidget {
-  const NotificationBell({super.key});
+  const NotificationBell({super.key, this.foregroundColor});
+
+  /// Feature chrome may supply its contrast color without changing delivery,
+  /// unread state or the shared notification centre.
+  final Color? foregroundColor;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +38,9 @@ class NotificationBell extends ConsumerWidget {
             ),
             onPressed: () => _open(context),
             icon: const Icon(Icons.notifications_outlined),
-            style: IconButton.styleFrom(foregroundColor: AppColors.primary),
+            style: IconButton.styleFrom(
+              foregroundColor: foregroundColor ?? AppColors.primary,
+            ),
           ),
           if (unread > 0)
             Positioned(

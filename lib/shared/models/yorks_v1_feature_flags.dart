@@ -11,6 +11,7 @@ class YorksV1FeatureFlags {
   const YorksV1FeatureFlags({
     bool foundation = false,
     bool projects = false,
+    bool projectSetup = false,
     bool boq = false,
     bool excel = false,
     bool requests = false,
@@ -27,6 +28,7 @@ class YorksV1FeatureFlags {
     bool companyMaterialRequests = false,
   }) : _foundation = foundation,
        _projects = projects,
+       _projectSetup = projectSetup,
        _boq = boq,
        _excel = excel,
        _requests = requests,
@@ -50,6 +52,10 @@ class YorksV1FeatureFlags {
       _projects = const bool.fromEnvironment(
         'YORKS_V1_PROJECTS',
         defaultValue: true,
+      ),
+      _projectSetup = const bool.fromEnvironment(
+        'YORKS_V1_PROJECT_SETUP',
+        defaultValue: false,
       ),
       _boq = const bool.fromEnvironment('YORKS_V1_BOQ', defaultValue: true),
       _excel = const bool.fromEnvironment('YORKS_V1_EXCEL', defaultValue: true),
@@ -104,6 +110,7 @@ class YorksV1FeatureFlags {
 
   final bool _foundation;
   final bool _projects;
+  final bool _projectSetup;
   final bool _boq;
   final bool _excel;
   final bool _requests;
@@ -121,6 +128,10 @@ class YorksV1FeatureFlags {
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
+
+  /// The project setup redesign stays off until recovery and UI acceptance.
+  bool get projectSetup => projects && _projectSetup;
+
   bool get boq => projects && _boq;
   bool get excel => boq && _excel;
   bool get requests => excel && _requests;

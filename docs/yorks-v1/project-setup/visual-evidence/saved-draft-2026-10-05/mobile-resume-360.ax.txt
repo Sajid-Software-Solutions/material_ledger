@@ -1,0 +1,81 @@
+Browser tab: 27, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects".
+1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects
+	2 container Description: Create Project This will save the project and open its workspace., ID: flt-semantic-node-31
+		3 button Back, ID: flt-semantic-node-32
+		4 container flt-semantic-node-33
+			5 button Projects, ID: flt-semantic-node-34
+			6 text Review & create
+			7 button (disabled) Save draft, ID: flt-semantic-node-36
+			8 text This draft is being edited in another tab.
+			9 text YRA-322 · test
+			10 button Take over draft, ID: flt-semantic-node-107
+			11 container flt-semantic-node-39
+				12 button Description: Project details, ID: flt-semantic-node-40
+					13 button Project details, ID: flt-semantic-node-41
+				14 button Description: Parties & access, ID: flt-semantic-node-42
+					15 button Parties & access, ID: flt-semantic-node-43
+				16 button Description: Buildings, ID: flt-semantic-node-44
+					17 button Buildings, ID: flt-semantic-node-45
+				18 button Description: Attachments, ID: flt-semantic-node-46
+					19 button 4 Attachments, ID: flt-semantic-node-47
+				20 button Description: Review & create, ID: flt-semantic-node-48
+					21 button 5 Review & create, ID: flt-semantic-node-49
+			22 text Complete the required fields before continuing.
+			23 text Material lines are not required during project creation. You can add them after the project has been created.
+			24 text Project details
+			25 button Edit project details, ID: flt-semantic-node-53
+			26 text York Reference / Ref. No.
+			27 text YRA-322
+			28 text Project Name
+			29 text test
+			30 text Contract / Job No.
+			31 text test
+			32 text Site Location
+			33 text test
+			34 text Start Date
+			35 text 04/10/2026
+			36 text Expected End Date (optional)
+			37 text 31/10/2026
+			38 text Project Notes
+			39 text test
+			40 text Parties & access
+			41 button Edit parties and access, ID: flt-semantic-node-69
+			42 text Client
+			43 text test
+			44 text Main contractor
+			45 text test
+			46 text Consultant
+			47 text test
+			48 text Subcontractors
+			49 text test
+			50 text Other contractors
+			51 text test
+			52 text Project team
+			79 text Local Project Engineer · Project Engineer Local Site Engineer · Site Engineer
+			54 text Buildings
+			55 button Edit buildings, ID: flt-semantic-node-83
+			56 text test
+			57 text FRP: Yes
+			58 text test
+			59 text test
+			60 text testtest
+			61 text FRP: Yes
+			62 text TEST-2
+			63 text test
+			64 text Attachments
+			65 button Edit attachments, ID: flt-semantic-node-93
+			66 text MyTimesheet.xlsx
+			67 text XLSX · 11.1 KB
+			68 text Reselect file
+			69 text Requires review
+			70 text Complete the required fields before continuing.
+			71 text Review your information below, then create the project to continue.
+			72 text Project details
+			73 text Parties & access
+			74 text Buildings
+			75 text Attachments
+			76 text The project can become Active after the server confirms its Project Engineer and activation.
+		77 button (disabled) Create Project, ID: flt-semantic-node-105
+		78 button Back, ID: flt-semantic-node-106
+
+The focused UI element is 2 container Description: Create Project This will save the project and open its workspace., ID: flt-semantic-node-31

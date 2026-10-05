@@ -11,6 +11,7 @@ class LedgerTextField extends StatelessWidget {
     super.key,
     this.controller,
     this.label,
+    this.semanticsLabel,
     this.urduHint,
     this.hintText,
     this.helperText,
@@ -31,6 +32,10 @@ class LedgerTextField extends StatelessWidget {
 
   final TextEditingController? controller;
   final String? label;
+
+  /// Accessible input name when the visible label is rendered outside it.
+  /// Opt-in to preserve the semantics of existing callers.
+  final String? semanticsLabel;
   final String? urduHint;
   final String? hintText;
   final String? helperText;
@@ -70,37 +75,39 @@ class LedgerTextField extends StatelessWidget {
         ],
         SizedBox(
           height: maxLines == 1 ? controlHeight : 88,
-          child: TextFormField(
-            controller: controller,
-            focusNode: focusNode,
-            keyboardType: keyboardType,
-            obscureText: obscureText,
-            maxLines: obscureText ? 1 : null,
-            expands: !obscureText,
-            textAlignVertical: maxLines == 1
-                ? TextAlignVertical.center
-                : TextAlignVertical.top,
-            onChanged: onChanged,
-            onFieldSubmitted: onSubmitted,
-            validator: validator,
-            enabled: enabled,
-            autofocus: autofocus,
-            readOnly: readOnly,
-            onTap: onTap,
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.ink,
-              fontSize: 11.5,
-              height: 1.35,
-            ),
-            decoration: InputDecoration(
-              hintText: urduHint ?? hintText,
-              hintTextDirection: urduHint != null ? TextDirection.rtl : null,
-              prefixIcon: prefixIcon,
-              suffixIcon: suffixIcon,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: compact ? 11 : 8,
+          child: _withInputSemantics(
+            TextFormField(
+              controller: controller,
+              focusNode: focusNode,
+              keyboardType: keyboardType,
+              obscureText: obscureText,
+              maxLines: obscureText ? 1 : null,
+              expands: !obscureText,
+              textAlignVertical: maxLines == 1
+                  ? TextAlignVertical.center
+                  : TextAlignVertical.top,
+              onChanged: onChanged,
+              onFieldSubmitted: onSubmitted,
+              validator: validator,
+              enabled: enabled,
+              autofocus: autofocus,
+              readOnly: readOnly,
+              onTap: onTap,
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.ink,
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+              decoration: InputDecoration(
+                hintText: urduHint ?? hintText,
+                hintTextDirection: urduHint != null ? TextDirection.rtl : null,
+                prefixIcon: prefixIcon,
+                suffixIcon: suffixIcon,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: compact ? 11 : 8,
+                ),
               ),
             ),
           ),
@@ -119,4 +126,8 @@ class LedgerTextField extends StatelessWidget {
       ],
     );
   }
+
+  Widget _withInputSemantics(Widget input) => semanticsLabel == null
+      ? input
+      : Semantics(label: semanticsLabel, child: input);
 }

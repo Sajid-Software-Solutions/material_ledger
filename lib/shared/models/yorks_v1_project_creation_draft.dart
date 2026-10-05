@@ -1,5 +1,17 @@
 import 'yorks_v1_project.dart';
 
+enum YorksV1ProjectDraftMode { create, edit }
+
+enum YorksV1ProjectDraftStorageState {
+  initializing,
+  dirty,
+  saving,
+  saved,
+  failed,
+  ownedElsewhere,
+  recoveryRequired,
+}
+
 /// The exact, recoverable R35 creation sequence. These are workflow positions,
 /// not localized labels; presentation owns localized stage copy.
 enum YorksV1ProjectCreationStage {
@@ -60,11 +72,30 @@ class YorksV1ProjectCreationDraft {
     this.initialMembers = const [],
     this.buildings = const [],
     this.attachments = const [],
+    this.schemaVersion = currentSchemaVersion,
+    this.backendIdentity = 'local',
+    this.mode = YorksV1ProjectDraftMode.create,
+    this.projectId,
+    this.baseVersion,
+    this.baseSnapshot = const {},
+    this.draftId = '',
+    this.revision = 0,
+    this.acknowledgedRevision = 0,
+    this.writerEpoch = 0,
+    this.rawEditorState = const {},
+    this.visitedStages = const {YorksV1ProjectCreationStage.projectDetails},
+    this.retainedFields = const {},
+    this.storageState = YorksV1ProjectDraftStorageState.dirty,
   });
+
+  static const currentSchemaVersion = 2;
 
   factory YorksV1ProjectCreationDraft.empty({
     required String ownerAuthUserId,
     required String creationIdempotencyKey,
+    String backendIdentity = 'local',
+    YorksV1ProjectDraftMode mode = YorksV1ProjectDraftMode.create,
+    String? projectId,
   }) {
     return YorksV1ProjectCreationDraft(
       ownerAuthUserId: ownerAuthUserId,
@@ -72,6 +103,10 @@ class YorksV1ProjectCreationDraft {
       creationIdempotencyKey: creationIdempotencyKey,
       reference: '',
       name: '',
+      backendIdentity: backendIdentity,
+      mode: mode,
+      projectId: projectId,
+      draftId: creationIdempotencyKey,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
@@ -103,6 +138,30 @@ class YorksV1ProjectCreationDraft {
   final List<YorksV1ProjectAttachmentInput> attachments;
   final DateTime updatedAt;
 
+  final int schemaVersion;
+  final String backendIdentity;
+  final YorksV1ProjectDraftMode mode;
+  final String? projectId;
+  final int? baseVersion;
+  final Map<String, dynamic> baseSnapshot;
+  final String draftId;
+  final int revision;
+  final int acknowledgedRevision;
+  final int writerEpoch;
+  final Map<String, dynamic> rawEditorState;
+  final Set<YorksV1ProjectCreationStage> visitedStages;
+  final Map<String, dynamic> retainedFields;
+
+  /// Device acknowledgment is runtime state; decoding never invents a save ack.
+  final YorksV1ProjectDraftStorageState storageState;
+
+  bool get isAcknowledged =>
+      storageState == YorksV1ProjectDraftStorageState.saved &&
+      acknowledgedRevision == revision;
+  bool get isReadOnly =>
+      storageState == YorksV1ProjectDraftStorageState.ownedElsewhere ||
+      storageState == YorksV1ProjectDraftStorageState.recoveryRequired;
+
   bool get hasRecoverableContent {
     return reference.trim().isNotEmpty ||
         name.trim().isNotEmpty ||
@@ -119,7 +178,10 @@ class YorksV1ProjectCreationDraft {
         parties.isNotEmpty ||
         initialMembers.isNotEmpty ||
         buildings.isNotEmpty ||
-        attachments.isNotEmpty;
+        attachments.isNotEmpty ||
+        rawEditorState.values.any(
+          (value) => value != null && value != '' && value != false,
+        );
   }
 
   YorksV1ProjectCreationInput toCreationInput() {
@@ -164,6 +226,19 @@ class YorksV1ProjectCreationDraft {
     List<YorksV1ProjectBuildingInput>? buildings,
     List<YorksV1ProjectAttachmentInput>? attachments,
     DateTime? updatedAt,
+    String? backendIdentity,
+    YorksV1ProjectDraftMode? mode,
+    Object? projectId = _keep,
+    Object? baseVersion = _keep,
+    Map<String, dynamic>? baseSnapshot,
+    String? draftId,
+    int? revision,
+    int? acknowledgedRevision,
+    int? writerEpoch,
+    Map<String, dynamic>? rawEditorState,
+    Set<YorksV1ProjectCreationStage>? visitedStages,
+    Map<String, dynamic>? retainedFields,
+    YorksV1ProjectDraftStorageState? storageState,
   }) {
     return YorksV1ProjectCreationDraft(
       ownerAuthUserId: ownerAuthUserId,
@@ -203,10 +278,41 @@ class YorksV1ProjectCreationDraft {
       buildings: List.unmodifiable(buildings ?? this.buildings),
       attachments: List.unmodifiable(attachments ?? this.attachments),
       updatedAt: updatedAt ?? this.updatedAt,
+      schemaVersion: currentSchemaVersion,
+      backendIdentity: backendIdentity ?? this.backendIdentity,
+      mode: mode ?? this.mode,
+      projectId: identical(projectId, _keep)
+          ? this.projectId
+          : projectId as String?,
+      baseVersion: identical(baseVersion, _keep)
+          ? this.baseVersion
+          : baseVersion as int?,
+      baseSnapshot: _freezeJsonMap(baseSnapshot ?? this.baseSnapshot),
+      draftId: draftId ?? this.draftId,
+      revision: revision ?? this.revision,
+      acknowledgedRevision: acknowledgedRevision ?? this.acknowledgedRevision,
+      writerEpoch: writerEpoch ?? this.writerEpoch,
+      rawEditorState: _freezeJsonMap(rawEditorState ?? this.rawEditorState),
+      visitedStages: Set.unmodifiable(visitedStages ?? this.visitedStages),
+      retainedFields: _freezeJsonMap(retainedFields ?? this.retainedFields),
+      storageState: storageState ?? this.storageState,
     );
   }
 
   Map<String, dynamic> toJson() => {
+    ...retainedFields,
+    'schemaVersion': schemaVersion,
+    'backendIdentity': backendIdentity,
+    'mode': mode.name,
+    'projectId': projectId,
+    'baseVersion': baseVersion,
+    'baseSnapshot': baseSnapshot,
+    'draftId': draftId,
+    'revision': revision,
+    'acknowledgedRevision': acknowledgedRevision,
+    'writerEpoch': writerEpoch,
+    'rawEditorState': rawEditorState,
+    'visitedStages': [for (final stage in visitedStages) stage.index],
     'ownerAuthUserId': ownerAuthUserId,
     'currentStage': currentStage.index,
     'creationIdempotencyKey': creationIdempotencyKey,
@@ -236,24 +342,59 @@ class YorksV1ProjectCreationDraft {
   };
 
   factory YorksV1ProjectCreationDraft.fromJson(Map<String, dynamic> json) {
+    final version = json['schemaVersion'] ?? 1;
+    if (version is! int || version < 1 || version > currentSchemaVersion) {
+      throw const FormatException('Unsupported project draft schema');
+    }
+    final modeText = json['mode'] ?? 'create';
+    final mode = switch (modeText) {
+      'create' => YorksV1ProjectDraftMode.create,
+      'edit' => YorksV1ProjectDraftMode.edit,
+      _ => throw const FormatException('Unsupported project draft mode'),
+    };
+    final stageIndex = json['currentStage'] ?? 0;
+    if (stageIndex is! int || stageIndex < 0 || stageIndex > 4) {
+      throw const FormatException('Unsupported project draft stage');
+    }
+    final key = json['creationIdempotencyKey'] as String? ?? '';
     return YorksV1ProjectCreationDraft(
       ownerAuthUserId: json['ownerAuthUserId'] as String? ?? '',
+      schemaVersion: version,
+      backendIdentity:
+          json['backendIdentity'] as String? ?? 'legacy-unverified',
+      mode: mode,
+      projectId: json['projectId'] as String?,
+      baseVersion: json['baseVersion'] as int?,
+      baseSnapshot: _jsonMap(json['baseSnapshot']),
+      draftId: json['draftId'] as String? ?? key,
+      revision: json['revision'] as int? ?? 0,
+      acknowledgedRevision: json['acknowledgedRevision'] as int? ?? 0,
+      writerEpoch: json['writerEpoch'] as int? ?? 0,
+      rawEditorState: _jsonMap(json['rawEditorState']),
+      visitedStages: {
+        YorksV1ProjectCreationStage.fromIndex(stageIndex),
+        for (final value in json['visitedStages'] as List? ?? const [])
+          if (value is int && value >= 0 && value <= 4)
+            YorksV1ProjectCreationStage.values[value],
+      },
+      retainedFields: {
+        for (final entry in json.entries)
+          if (!_knownKeys.contains(entry.key)) entry.key: entry.value,
+      },
       currentStage: YorksV1ProjectCreationStage.fromIndex(json['currentStage']),
-      creationIdempotencyKey: json['creationIdempotencyKey'] as String? ?? '',
+      creationIdempotencyKey: key,
       reference: json['reference'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      clientName: _trimToNull(json['clientName'] as String?),
-      jobOrContractReference: _trimToNull(
-        json['jobOrContractReference'] as String?,
-      ),
-      siteLocation: _trimToNull(json['siteLocation'] as String?),
-      clientContactName: _trimToNull(json['clientContactName'] as String?),
-      clientContactPhone: _trimToNull(json['clientContactPhone'] as String?),
-      clientContactEmail: _trimToNull(json['clientContactEmail'] as String?),
-      clientAddress: _trimToNull(json['clientAddress'] as String?),
+      clientName: json['clientName'] as String?,
+      jobOrContractReference: json['jobOrContractReference'] as String?,
+      siteLocation: json['siteLocation'] as String?,
+      clientContactName: json['clientContactName'] as String?,
+      clientContactPhone: json['clientContactPhone'] as String?,
+      clientContactEmail: json['clientContactEmail'] as String?,
+      clientAddress: json['clientAddress'] as String?,
       startDate: _calendarDate(json['startDate']),
       endDate: _calendarDate(json['endDate']),
-      notes: _trimToNull(json['notes'] as String?),
+      notes: json['notes'] as String?,
       parties: _maps(
         json['parties'],
       ).map(YorksV1ProjectPartyInput.fromDraftJson).toList(growable: false),
@@ -289,13 +430,17 @@ DateTime? _timestamp(Object? value) {
 DateTime? _calendarDate(Object? value) {
   if (value is! String || value.trim().isEmpty) return null;
   final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(value.trim());
-  if (match == null) return null;
+  if (match == null) throw const FormatException('Invalid stored project date');
   final year = int.tryParse(match.group(1)!);
   final month = int.tryParse(match.group(2)!);
   final day = int.tryParse(match.group(3)!);
-  if (year == null || month == null || day == null) return null;
+  if (year == null || month == null || day == null) {
+    throw const FormatException('Invalid stored project date');
+  }
   final date = DateTime(year, month, day);
-  if (date.year != year || date.month != month || date.day != day) return null;
+  if (date.year != year || date.month != month || date.day != day) {
+    throw const FormatException('Invalid stored project date');
+  }
   return date;
 }
 
@@ -306,10 +451,67 @@ String? _calendarDateText(DateTime? value) {
   return '${value.year}-$month-$day';
 }
 
+Map<String, dynamic> _jsonMap(Object? raw) {
+  if (raw == null) return const {};
+  if (raw is! Map) throw const FormatException('Invalid project draft object');
+  return _freezeJsonMap(Map<String, dynamic>.from(raw));
+}
+
 List<Map<String, dynamic>> _maps(Object? raw) {
-  if (raw is! List) return const [];
+  if (raw == null) return const [];
+  if (raw is! List) throw const FormatException('Invalid project draft list');
   return [
     for (final value in raw)
-      if (value is Map) Map<String, dynamic>.from(value),
+      if (value is Map)
+        Map<String, dynamic>.from(value)
+      else
+        throw const FormatException('Invalid project draft row'),
   ];
 }
+
+Map<String, dynamic> _freezeJsonMap(Map<String, dynamic> value) =>
+    Map.unmodifiable({
+      for (final entry in value.entries)
+        entry.key: _freezeJsonValue(entry.value),
+    });
+
+Object? _freezeJsonValue(Object? value) => switch (value) {
+  Map value => _freezeJsonMap(Map<String, dynamic>.from(value)),
+  List value => List.unmodifiable(value.map(_freezeJsonValue)),
+  _ => value,
+};
+
+const _knownKeys = {
+  'schemaVersion',
+  'backendIdentity',
+  'mode',
+  'projectId',
+  'baseVersion',
+  'baseSnapshot',
+  'draftId',
+  'revision',
+  'acknowledgedRevision',
+  'writerEpoch',
+  'rawEditorState',
+  'visitedStages',
+  'ownerAuthUserId',
+  'currentStage',
+  'creationIdempotencyKey',
+  'reference',
+  'name',
+  'clientName',
+  'jobOrContractReference',
+  'siteLocation',
+  'clientContactName',
+  'clientContactPhone',
+  'clientContactEmail',
+  'clientAddress',
+  'startDate',
+  'endDate',
+  'notes',
+  'parties',
+  'initialMembers',
+  'buildings',
+  'attachments',
+  'updatedAt',
+};

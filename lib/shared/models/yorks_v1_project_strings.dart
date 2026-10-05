@@ -8,6 +8,584 @@ import 'yorks_v1_project.dart';
 /// resolve their visible copy through this catalogue so the effective R35 UI
 /// never turns repository errors or prototype text into user-facing strings.
 abstract final class YorksV1ProjectStrings {
+  static const notSavedYet = TranslatableString(
+    en: "Not saved yet",
+    ar: "لم يتم الحفظ بعد",
+    ur: "ابھی محفوظ نہیں ہوا",
+    hi: "अभी सहेजा नहीं गया",
+  );
+  static const savingLocalDraft = TranslatableString(
+    en: "Saving draft on this device…",
+    ar: "جارٍ حفظ المسودة على هذا الجهاز…",
+    ur: "اس ڈیوائس پر ڈرافٹ محفوظ ہو رہا ہے…",
+    hi: "इस डिवाइस पर ड्राफ़्ट सहेजा जा रहा है…",
+  );
+  static const localSaveFailed = TranslatableString(
+    en: "Draft cannot be saved on this device. Keep this page open.",
+    ar: "تعذر حفظ المسودة على هذا الجهاز. أبقِ هذه الصفحة مفتوحة.",
+    ur: "اس ڈیوائس پر ڈرافٹ محفوظ نہیں ہو سکتا۔ یہ صفحہ کھلا رکھیں۔",
+    hi: "इस डिवाइस पर ड्राफ़्ट सहेजा नहीं जा सकता। यह पृष्ठ खुला रखें।",
+  );
+  static const editSavedLocally = TranslatableString(
+    en: "Changes saved on this device. Not applied to the project.",
+    ar: "تم حفظ التغييرات على هذا الجهاز. لم تُطبّق على المشروع.",
+    ur: "تبدیلیاں اس ڈیوائس پر محفوظ ہیں۔ پراجیکٹ پر لاگو نہیں ہوئیں۔",
+    hi: "परिवर्तन इस डिवाइस पर सहेजे गए हैं। प्रोजेक्ट पर लागू नहीं हुए हैं।",
+  );
+  static const changedDuringLocalSave = TranslatableString(
+    en: 'Draft saved on this device. You changed the input while saving; review it and save again before leaving.',
+    ar: 'تم حفظ المسودة على هذا الجهاز. غيّرت البيانات أثناء الحفظ؛ راجعها واحفظها مرة أخرى قبل المغادرة.',
+    ur: 'ڈرافٹ اس ڈیوائس پر محفوظ ہو گیا۔ محفوظ ہوتے وقت اندراج تبدیل ہوا؛ چھوڑنے سے پہلے جائزہ لیں اور دوبارہ محفوظ کریں۔',
+    hi: 'ड्राफ़्ट इस डिवाइस पर सहेजा गया। सहेजते समय आपने जानकारी बदली; जाने से पहले उसकी समीक्षा करके फिर सहेजें।',
+  );
+  static const draftOwnedElsewhere = TranslatableString(
+    en: "This draft is being edited in another tab.",
+    ar: "يتم تحرير هذه المسودة في علامة تبويب أخرى.",
+    ur: "یہ ڈرافٹ دوسرے ٹیب میں تبدیل ہو رہا ہے۔",
+    hi: "यह ड्राफ़्ट दूसरे टैब में संपादित हो रहा है।",
+  );
+  static const draftResumedElsewhere = TranslatableString(
+    en: 'This draft was resumed elsewhere. Return to Projects and resume it to continue.',
+    ar: 'تم استئناف هذه المسودة في مكان آخر. ارجع إلى المشاريع واستأنفها للمتابعة.',
+    ur: 'یہ ڈرافٹ کسی اور جگہ دوبارہ کھولا گیا ہے۔ جاری رکھنے کے لیے پروجیکٹس میں واپس جائیں اور اسے دوبارہ کھولیں۔',
+    hi: 'यह ड्राफ़्ट दूसरी जगह फिर से खोला गया है। जारी रखने के लिए प्रोजेक्ट्स पर लौटें और इसे फिर से खोलें।',
+  );
+  static const takeOverDraft = TranslatableString(
+    en: "Take over draft",
+    ar: "متابعة تحرير المسودة هنا",
+    ur: "ڈرافٹ یہاں کھولیں",
+    hi: "ड्राफ़्ट यहाँ संपादित करें",
+  );
+  static const dateInputHint = TranslatableString(
+    en: "DD/MM/YYYY",
+    ar: "DD/MM/YYYY",
+    ur: "DD/MM/YYYY",
+    hi: "DD/MM/YYYY",
+  );
+  static const today = TranslatableString(
+    en: "Today",
+    ar: "اليوم",
+    ur: "آج",
+    hi: "आज",
+  );
+  static const invalidTypedDate = TranslatableString(
+    en: "Enter a valid date as DD/MM/YYYY, or leave it blank.",
+    ar: "أدخل تاريخاً صحيحاً بصيغة DD/MM/YYYY، أو اتركه فارغاً.",
+    ur: "درست تاریخ DD/MM/YYYY لکھیں یا خالی چھوڑیں۔",
+    hi: "DD/MM/YYYY में सही तारीख लिखें या खाली छोड़ें।",
+  );
+  static const searchTeam = TranslatableString(
+    en: "Search authorized project team",
+    ar: "ابحث في فريق المشروع المصرح له",
+    ur: "مجاز پراجیکٹ ٹیم تلاش کریں",
+    hi: "अधिकृत प्रोजेक्ट टीम खोजें",
+  );
+  static const selectedTeam = TranslatableString(
+    en: "Selected project team",
+    ar: "فريق المشروع المحدد",
+    ur: "منتخب پراجیکٹ ٹیم",
+    hi: "चुनी गई प्रोजेक्ट टीम",
+  );
+  static const noTeamSearchResults = TranslatableString(
+    en: "No matching authorized people",
+    ar: "لا يوجد أشخاص مصرح لهم مطابقون",
+    ur: "کوئی مماثل مجاز فرد نہیں",
+    hi: "कोई मेल खाने वाला अधिकृत व्यक्ति नहीं",
+  );
+  static const partiesAreMetadata = TranslatableString(
+    en: "Party names are project information. They do not invite people or grant access.",
+    ar: "أسماء الأطراف معلومات للمشروع. لا ترسل دعوات ولا تمنح وصولاً.",
+    ur: "فریقوں کے نام پراجیکٹ کی معلومات ہیں۔ ان سے دعوت یا رسائی نہیں ملتی۔",
+    hi: "पक्षों के नाम प्रोजेक्ट की जानकारी हैं। वे निमंत्रण या पहुँच नहीं देते।",
+  );
+  static const manageAccess = TranslatableString(
+    en: "Manage access",
+    ar: "إدارة الوصول",
+    ur: "رسائی کا انتظام",
+    hi: "पहुँच प्रबंधित करें",
+  );
+  static const accessAppliedSeparately = TranslatableString(
+    en: "Access changes apply separately from Save project.",
+    ar: "تُطبّق تغييرات الوصول بشكل مستقل عن حفظ المشروع.",
+    ur: "رسائی کی تبدیلیاں پراجیکٹ محفوظ کرنے سے الگ لاگو ہوتی ہیں۔",
+    hi: "पहुँच के परिवर्तन प्रोजेक्ट सहेजने से अलग लागू होते हैं।",
+  );
+  static const addedBuildings = TranslatableString(
+    en: "Added buildings",
+    ar: "المباني المضافة",
+    ur: "شامل عمارتیں",
+    hi: "जोड़े गए भवन",
+  );
+  static const addAnotherLikeThis = TranslatableString(
+    en: "Add another like this",
+    ar: "إضافة مبنى مماثل",
+    ur: "اسی طرح کی دوسری عمارت",
+    hi: "ऐसा एक और भवन जोड़ें",
+  );
+  static const undoRemoveBuilding = TranslatableString(
+    en: "Undo remove",
+    ar: "التراجع عن الإزالة",
+    ur: "حذف واپس لیں",
+    hi: "हटाना पूर्ववत करें",
+  );
+  static const frpYes = TranslatableString(
+    en: "FRP room: Yes",
+    ar: "غرفة FRP: نعم",
+    ur: "FRP کمرہ: ہاں",
+    hi: "FRP कक्ष: हाँ",
+  );
+  static const frpNo = TranslatableString(
+    en: "FRP room: No",
+    ar: "غرفة FRP: لا",
+    ur: "FRP کمرہ: نہیں",
+    hi: "FRP कक्ष: नहीं",
+  );
+  static const expectedActiveProject = TranslatableString(
+    en: "The project can become Active after the server confirms its Project Engineer and activation.",
+    ar: "يمكن أن يصبح المشروع نشطاً بعد تأكيد الخادم لمهندس المشروع والتفعيل.",
+    ur: "سرور کی پراجیکٹ انجینئر اور فعالیت کی تصدیق کے بعد پراجیکٹ فعال ہو سکتا ہے۔",
+    hi: "सर्वर के प्रोजेक्ट इंजीनियर और सक्रियण की पुष्टि के बाद प्रोजेक्ट सक्रिय हो सकता है।",
+  );
+  static const expectedDraftProject = TranslatableString(
+    en: "The project will be created as Draft. A Project Engineer is required before activation.",
+    ar: "سيُنشأ المشروع كمسودة. يلزم مهندس مشروع قبل التفعيل.",
+    ur: "پراجیکٹ ڈرافٹ کے طور پر بنے گا۔ فعالیت سے پہلے پراجیکٹ انجینئر درکار ہے۔",
+    hi: "प्रोजेक्ट ड्राफ़्ट के रूप में बनेगा। सक्रिय करने से पहले प्रोजेक्ट इंजीनियर आवश्यक है।",
+  );
+  static const reviewChanges = TranslatableString(
+    en: "Review changes",
+    ar: "مراجعة التغييرات",
+    ur: "تبدیلیوں کا جائزہ",
+    hi: "परिवर्तनों की समीक्षा",
+  );
+  static const saveChanges = TranslatableString(
+    en: "Save changes",
+    ar: "حفظ التغييرات",
+    ur: "تبدیلیاں محفوظ کریں",
+    hi: "परिवर्तन सहेजें",
+  );
+  static const beforeChange = TranslatableString(
+    en: "Before",
+    ar: "قبل",
+    ur: "پہلے",
+    hi: "पहले",
+  );
+  static const afterChange = TranslatableString(
+    en: "After",
+    ar: "بعد",
+    ur: "بعد",
+    hi: "बाद",
+  );
+  static const noProjectChanges = TranslatableString(
+    en: "No project detail changes",
+    ar: "لا توجد تغييرات في تفاصيل المشروع",
+    ur: "پراجیکٹ کی تفصیل میں کوئی تبدیلی نہیں",
+    hi: "प्रोजेक्ट विवरण में कोई परिवर्तन नहीं",
+  );
+  static const proposalConflict = TranslatableString(
+    en: "This project changed while you were editing. Your proposed changes are preserved.",
+    ar: "تغير المشروع أثناء التحرير. تم الاحتفاظ بتغييراتك المقترحة.",
+    ur: "آپ کی ترمیم کے دوران پراجیکٹ بدل گیا۔ آپ کی مجوزہ تبدیلیاں محفوظ ہیں۔",
+    hi: "संपादन के दौरान प्रोजेक्ट बदल गया। आपके प्रस्तावित परिवर्तन सुरक्षित हैं।",
+  );
+  static const reloadLatestProject = TranslatableString(
+    en: "Review latest project",
+    ar: "مراجعة أحدث نسخة للمشروع",
+    ur: "تازہ پراجیکٹ کا جائزہ",
+    hi: "नवीनतम प्रोजेक्ट की समीक्षा",
+  );
+  static const filesSelected = TranslatableString(
+    en: "Selected on this device",
+    ar: "محدد على هذا الجهاز",
+    ur: "اس ڈیوائس پر منتخب",
+    hi: "इस डिवाइस पर चयनित",
+  );
+  static const filesNeedReselection = TranslatableString(
+    en: "Reselect files to recover their contents",
+    ar: "أعد تحديد الملفات لاستعادة محتوياتها",
+    ur: "فائلوں کا مواد بحال کرنے کے لیے دوبارہ منتخب کریں",
+    hi: "फ़ाइलों की सामग्री पुनः प्राप्त करने के लिए फिर से चुनें",
+  );
+  static const permittedDetailsHelp = TranslatableString(
+    en: "You can update permitted project details later.",
+    ar: "يمكنك تحديث تفاصيل المشروع المسموح بها لاحقاً.",
+    ur: "آپ بعد میں پراجیکٹ کی مجاز تفصیل بدل سکتے ہیں۔",
+    hi: "आप बाद में अनुमत प्रोजेक्ट विवरण बदल सकते हैं।",
+  );
+  static const levelsLabelsHint = TranslatableString(
+    en: "B1, Ground, L1, Roof",
+    ar: "B1، أرضي، L1، سطح",
+    ur: "B1، گراؤنڈ، L1، چھت",
+    hi: "B1, भूतल, L1, छत",
+  );
+  static const commonScopeHelp = TranslatableString(
+    en: "Common is a separate project scope created automatically. All / Overview is a read-only summary.",
+    ar: "النطاق المشترك نطاق مستقل يُنشأ تلقائياً. الكل / نظرة عامة ملخص للقراءة فقط.",
+    ur: "مشترکہ ایک الگ پراجیکٹ دائرہ ہے جو خود بنتا ہے۔ تمام / مجموعی جائزہ صرف پڑھنے کا خلاصہ ہے۔",
+    hi: "साझा स्वतः बनाया गया अलग प्रोजेक्ट दायरा है। सभी / अवलोकन केवल पढ़ने का सारांश है।",
+  );
+  static const existingBuildingRetirementBlocked = TranslatableString(
+    en: "Existing buildings cannot be removed here while their project history is preserved.",
+    ar: "لا يمكن إزالة المباني القائمة هنا حفاظاً على سجل المشروع.",
+    ur: "پراجیکٹ کی تاریخ محفوظ رکھنے کے لیے موجودہ عمارتیں یہاں حذف نہیں ہو سکتیں۔",
+    hi: "प्रोजेक्ट का इतिहास सुरक्षित रखने के लिए मौजूदा भवन यहाँ हटाए नहीं जा सकते।",
+  );
+  static const optionalContacts = TranslatableString(
+    en: "Client contact details",
+    ar: "تفاصيل اتصال العميل",
+    ur: "کلائنٹ کی رابطہ تفصیل",
+    hi: "ग्राहक के संपर्क विवरण",
+  );
+  static const contactName = TranslatableString(
+    en: "Contact name",
+    ar: "اسم جهة الاتصال",
+    ur: "رابطہ نام",
+    hi: "संपर्क का नाम",
+  );
+  static const contactPhone = TranslatableString(
+    en: "Contact phone",
+    ar: "هاتف جهة الاتصال",
+    ur: "رابطہ فون",
+    hi: "संपर्क फ़ोन",
+  );
+  static const contactEmail = TranslatableString(
+    en: "Contact email",
+    ar: "البريد الإلكتروني لجهة الاتصال",
+    ur: "رابطہ ای میل",
+    hi: "संपर्क ईमेल",
+  );
+  static const contactAddress = TranslatableString(
+    en: "Contact address",
+    ar: "عنوان جهة الاتصال",
+    ur: "رابطہ پتہ",
+    hi: "संपर्क का पता",
+  );
+  static const unappliedInput = TranslatableString(
+    en: "Apply or clear the unfinished building or contractor before saving the project.",
+    ar: "أضف أو امسح بيانات المبنى أو المقاول غير المكتملة قبل حفظ المشروع.",
+    ur: "پراجیکٹ محفوظ کرنے سے پہلے نامکمل عمارت یا ٹھیکیدار کو شامل یا صاف کریں۔",
+    hi: "प्रोजेक्ट सहेजने से पहले अधूरे भवन या ठेकेदार को जोड़ें या साफ़ करें।",
+  );
+  static const currentProject = TranslatableString(
+    en: "Current project",
+    ar: "المشروع الحالي",
+    ur: "موجودہ پراجیکٹ",
+    hi: "वर्तमान प्रोजेक्ट",
+  );
+  static const proposalChange = TranslatableString(
+    en: "Your proposal",
+    ar: "تغييراتك المقترحة",
+    ur: "آپ کی تجویز",
+    hi: "आपका प्रस्ताव",
+  );
+  static const conflictReviewHelp = TranslatableString(
+    en: "Compare the original, current and proposed values. Your proposal remains saved on this device.",
+    ar: "قارن القيم الأصلية والحالية والمقترحة. تبقى تغييراتك محفوظة على هذا الجهاز.",
+    ur: "اصل، موجودہ اور مجوزہ اقدار کا موازنہ کریں۔ آپ کی تجویز اس ڈیوائس پر محفوظ رہے گی۔",
+    hi: "मूल, वर्तमान और प्रस्तावित मानों की तुलना करें। आपका प्रस्ताव इस डिवाइस पर सुरक्षित रहेगा।",
+  );
+  static const draftNeedsRecovery = TranslatableString(
+    en: "A previous draft needs review before it can be restored for this backend.",
+    ar: "تحتاج مسودة سابقة إلى المراجعة قبل استعادتها لهذا الخادم.",
+    ur: "پرانا ڈرافٹ اس بیک اینڈ پر بحال کرنے سے پہلے جائزہ چاہتا ہے۔",
+    hi: "पुराने ड्राफ़्ट को इस बैकएंड पर बहाल करने से पहले समीक्षा आवश्यक है।",
+  );
+  static const reviewRecoveredDraft = TranslatableString(
+    en: "Review recovered draft",
+    ar: "مراجعة المسودة المستعادة",
+    ur: "بحال ڈرافٹ کا جائزہ",
+    hi: "पुनर्प्राप्त ड्राफ़्ट की समीक्षा",
+  );
+  static const restoreForThisBackend = TranslatableString(
+    en: "Restore for this backend",
+    ar: "الاستعادة لهذا الخادم",
+    ur: "اس بیک اینڈ کے لیے بحال کریں",
+    hi: "इस बैकएंड के लिए बहाल करें",
+  );
+  static const localRecoveryUnavailable = TranslatableString(
+    en: "This recovery record cannot be decoded safely. It has been preserved.",
+    ar: "تعذر قراءة سجل الاستعادة بأمان. تم الاحتفاظ به.",
+    ur: "بحالی کا یہ ریکارڈ محفوظ طور پر پڑھا نہیں جا سکتا۔ اسے محفوظ رکھا گیا ہے۔",
+    hi: "यह पुनर्प्राप्ति रिकॉर्ड सुरक्षित रूप से पढ़ा नहीं जा सकता। इसे सुरक्षित रखा गया है।",
+  );
+  static const commandOutcomeUncertain = TranslatableString(
+    en: "We are checking whether your project was saved. Retry checks the same submission.",
+    ar: "نتحقق مما إذا تم حفظ المشروع. تعيد المحاولة فحص الطلب نفسه.",
+    ur: "ہم چیک کر رہے ہیں کہ پراجیکٹ محفوظ ہوا یا نہیں۔ دوبارہ کوشش اسی درخواست کو چیک کرتی ہے۔",
+    hi: "हम जाँच रहे हैं कि प्रोजेक्ट सहेजा गया या नहीं। पुनः प्रयास उसी अनुरोध की जाँच करता है।",
+  );
+  static const projectSavedFilesPending = TranslatableString(
+    en: "Project saved; some files need attention.",
+    ar: "تم حفظ المشروع؛ تحتاج بعض الملفات إلى المتابعة.",
+    ur: "پراجیکٹ محفوظ ہے؛ کچھ فائلوں پر توجہ درکار ہے۔",
+    hi: "प्रोजेक्ट सहेजा गया; कुछ फ़ाइलों पर ध्यान देना आवश्यक है।",
+  );
+  static const projectCreatedDraft = TranslatableString(
+    en: "Project created as Draft; activation needs attention.",
+    ar: "تم إنشاء المشروع كمسودة؛ يحتاج التفعيل إلى المتابعة.",
+    ur: "پراجیکٹ ڈرافٹ کے طور پر بنا؛ فعالیت پر توجہ درکار ہے۔",
+    hi: "प्रोजेक्ट ड्राफ़्ट के रूप में बना; सक्रियण पर ध्यान देना आवश्यक है।",
+  );
+  static const journalUnavailable = TranslatableString(
+    en: "This submission cannot be saved safely on this device. Keep the page open.",
+    ar: "تعذر حفظ هذا الطلب بأمان على هذا الجهاز. أبقِ الصفحة مفتوحة.",
+    ur: "یہ درخواست اس ڈیوائس پر محفوظ طور پر محفوظ نہیں ہو سکتی۔ صفحہ کھلا رکھیں۔",
+    hi: "यह अनुरोध इस डिवाइस पर सुरक्षित रूप से सहेजा नहीं जा सकता। पृष्ठ खुला रखें।",
+  );
+  static const originalSubmissionPending = TranslatableString(
+    en: "Review the previous submission outcome before saving changed input.",
+    ar: "راجع نتيجة الطلب السابق قبل حفظ البيانات المعدلة.",
+    ur: "تبدیل شدہ اندراج محفوظ کرنے سے پہلے پچھلی درخواست کا نتیجہ دیکھیں۔",
+    hi: "बदले हुए इनपुट को सहेजने से पहले पिछले अनुरोध का परिणाम देखें।",
+  );
+  static const fileContentMismatch = TranslatableString(
+    en: "Select the original file with matching content to retry this upload.",
+    ar: "حدد الملف الأصلي بمحتوى مطابق لإعادة محاولة الرفع.",
+    ur: "اپ لوڈ دوبارہ کرنے کے لیے مماثل مواد والی اصل فائل منتخب کریں۔",
+    hi: "यह अपलोड फिर से करने के लिए समान सामग्री वाली मूल फ़ाइल चुनें।",
+  );
+  static const commandRetryLimit = TranslatableString(
+    en: "The submission is still unresolved. Keep this recovery record and contact support.",
+    ar: "لم تُحسم نتيجة الطلب بعد. احتفظ بسجل الاستعادة وتواصل مع الدعم.",
+    ur: "درخواست کا نتیجہ اب بھی غیر واضح ہے۔ بحالی ریکارڈ رکھیں اور مدد سے رابطہ کریں۔",
+    hi: "अनुरोध का परिणाम अभी स्पष्ट नहीं है। यह पुनर्प्राप्ति रिकॉर्ड रखें और सहायता से संपर्क करें।",
+  );
+  static const projectSavedHousekeeping = TranslatableString(
+    en: "Project saved; opening or local cleanup needs attention.",
+    ar: "تم حفظ المشروع؛ يحتاج فتحه أو التنظيف المحلي إلى المتابعة.",
+    ur: "پراجیکٹ محفوظ ہے؛ کھولنے یا مقامی صفائی پر توجہ درکار ہے۔",
+    hi: "प्रोजेक्ट सहेजा गया; खोलने या स्थानीय सफ़ाई पर ध्यान देना आवश्यक है।",
+  );
+  static const applyReviewedChoices = TranslatableString(
+    en: "Use selected values",
+    ar: "استخدام القيم المحددة",
+    ur: "منتخب اقدار استعمال کریں",
+    hi: "चुने गए मान उपयोग करें",
+  );
+  static const originalProject = TranslatableString(
+    en: "Original project",
+    ar: "المشروع الأصلي",
+    ur: "اصل پراجیکٹ",
+    hi: "मूल प्रोजेक्ट",
+  );
+  static const typedDateFormatHelp = TranslatableString(
+    en: "DD/MM/YYYY · type a date or use the calendar.",
+    ar: "DD/MM/YYYY · اكتب التاريخ أو استخدم التقويم.",
+    ur: "DD/MM/YYYY · تاریخ لکھیں یا کیلنڈر استعمال کریں۔",
+    hi: "DD/MM/YYYY · तारीख लिखें या कैलेंडर उपयोग करें।",
+  );
+  static const operationalDocument = TranslatableString(
+    en: "Operational project document",
+    ar: "مستند تشغيلي للمشروع",
+    ur: "پراجیکٹ کی عملی دستاویز",
+    hi: "प्रोजेक्ट का परिचालन दस्तावेज़",
+  );
+  static const operationalFilesOnly = TranslatableString(
+    en: "Add operational project documents here. Add commercial or restricted files through the authorized Documents area.",
+    ar: "أضف المستندات التشغيلية هنا. أضف الملفات التجارية أو المقيدة عبر منطقة المستندات المصرح بها.",
+    ur: "یہاں عملی پراجیکٹ دستاویزات شامل کریں۔ تجارتی یا محدود فائلیں مجاز دستاویزات کے حصے میں شامل کریں۔",
+    hi: "यहाँ परिचालन प्रोजेक्ट दस्तावेज़ जोड़ें। वाणिज्यिक या प्रतिबंधित फ़ाइलें अधिकृत दस्तावेज़ क्षेत्र में जोड़ें।",
+  );
+  static const confirmOperationalFiles = TranslatableString(
+    en: "I confirm these are operational project documents",
+    ar: "أؤكد أن هذه مستندات تشغيلية للمشروع",
+    ur: "میں تصدیق کرتا ہوں یہ عملی پراجیکٹ دستاویزات ہیں",
+    hi: "मैं पुष्टि करता हूँ कि ये परिचालन प्रोजेक्ट दस्तावेज़ हैं",
+  );
+  static const fileSelected = TranslatableString(
+    en: "Selected",
+    ar: "محدد",
+    ur: "منتخب",
+    hi: "चयनित",
+  );
+  static const fileUploading = TranslatableString(
+    en: "Uploading",
+    ar: "جارٍ الرفع",
+    ur: "اپ لوڈ ہو رہا ہے",
+    hi: "अपलोड हो रहा है",
+  );
+  static const fileReady = TranslatableString(
+    en: "Ready",
+    ar: "جاهز",
+    ur: "تیار",
+    hi: "तैयार",
+  );
+  static const fileFailed = TranslatableString(
+    en: "Needs attention",
+    ar: "يحتاج إلى المتابعة",
+    ur: "توجہ درکار ہے",
+    hi: "ध्यान देना आवश्यक है",
+  );
+  static const fileChecking = TranslatableString(
+    en: "Checking upload",
+    ar: "جارٍ التحقق من الرفع",
+    ur: "اپ لوڈ چیک ہو رہا ہے",
+    hi: "अपलोड की जाँच हो रही है",
+  );
+  static const fileReselect = TranslatableString(
+    en: "Reselect file",
+    ar: "إعادة تحديد الملف",
+    ur: "فائل دوبارہ منتخب کریں",
+    hi: "फ़ाइल फिर से चुनें",
+  );
+  static const openSavedProject = TranslatableString(
+    en: "Open saved project",
+    ar: "فتح المشروع المحفوظ",
+    ur: "محفوظ پراجیکٹ کھولیں",
+    hi: "सहेजा गया प्रोजेक्ट खोलें",
+  );
+  static const retryFile = TranslatableString(
+    en: "Retry file",
+    ar: "إعادة محاولة الملف",
+    ur: "فائل دوبارہ آزمائیں",
+    hi: "फ़ाइल फिर से प्रयास करें",
+  );
+  static const reviewAttachmentClassification = TranslatableString(
+    en: 'Review each file’s classification before saving the project.',
+    ar: 'راجع تصنيف كل ملف قبل حفظ المشروع.',
+    ur: 'پراجیکٹ محفوظ کرنے سے پہلے ہر فائل کی درجہ بندی دیکھیں۔',
+    hi: 'प्रोजेक्ट सहेजने से पहले हर फ़ाइल का वर्गीकरण देखें।',
+  );
+  static const checkSavedStatus = TranslatableString(
+    en: "Check saved status",
+    ar: "التحقق من حالة الحفظ",
+    ur: "محفوظ حالت چیک کریں",
+    hi: "सहेजने की स्थिति जाँचें",
+  );
+  static const continueFileRecovery = TranslatableString(
+    en: "Continue with files",
+    ar: "متابعة الملفات",
+    ur: "فائلوں کے ساتھ جاری رکھیں",
+    hi: "फ़ाइलों के साथ जारी रखें",
+  );
+  static const scopeRetirementRequiresReconciliation =
+      existingBuildingRetirementBlocked;
+  static const fileRemoved = TranslatableString(
+    en: 'Removed from pending files',
+    ar: 'تمت الإزالة من الملفات المعلقة',
+    ur: 'زیر التوا فائلوں سے ہٹا دیا گیا',
+    hi: 'लंबित फ़ाइलों से हटाया गया',
+  );
+  static const removePendingFile = TranslatableString(
+    en: 'Remove from pending files',
+    ar: 'إزالة من الملفات المعلقة',
+    ur: 'زیر التوا فائلوں سے ہٹائیں',
+    hi: 'लंबित फ़ाइलों से हटाएँ',
+  );
+  static const undoPartyRemoval = TranslatableString(
+    en: 'Undo party removal',
+    ar: 'التراجع عن إزالة الجهة',
+    ur: 'فریق ہٹانا واپس کریں',
+    hi: 'पक्ष हटाना पूर्ववत करें',
+  );
+  static const moveBuildingUp = TranslatableString(
+    en: 'Move building up',
+    ar: 'نقل المبنى لأعلى',
+    ur: 'عمارت اوپر منتقل کریں',
+    hi: 'भवन ऊपर ले जाएँ',
+  );
+  static const moveBuildingDown = TranslatableString(
+    en: 'Move building down',
+    ar: 'نقل المبنى لأسفل',
+    ur: 'عمارت نیچے منتقل کریں',
+    hi: 'भवन नीचे ले जाएँ',
+  );
+  static const undoBuildingChange = TranslatableString(
+    en: 'Undo building change',
+    ar: 'التراجع عن تغيير المبنى',
+    ur: 'عمارت کی تبدیلی واپس کریں',
+    hi: 'भवन में बदलाव पूर्ववत करें',
+  );
+  static const referenceChecking = TranslatableString(
+    en: 'Checking your accessible projects…',
+    ar: 'جارٍ التحقق من المشاريع المتاحة لك…',
+    ur: 'آپ کے قابل رسائی پراجیکٹس چیک ہو رہے ہیں…',
+    hi: 'आपकी पहुँच वाले प्रोजेक्ट जाँचे जा रहे हैं…',
+  );
+  static const referenceVisibleDuplicate = TranslatableString(
+    en: 'This reference is already used in an accessible project.',
+    ar: 'هذا المرجع مستخدم بالفعل في مشروع متاح لك.',
+    ur: 'یہ حوالہ ایک قابل رسائی پراجیکٹ میں پہلے سے استعمال ہو رہا ہے۔',
+    hi: 'यह संदर्भ आपकी पहुँच वाले प्रोजेक्ट में पहले से उपयोग हो रहा है।',
+  );
+  static const referenceNoVisibleMatch = TranslatableString(
+    en: 'No match in your accessible projects. Checked again when saving.',
+    ar: 'لا يوجد تطابق في المشاريع المتاحة لك. يُعاد التحقق عند الحفظ.',
+    ur: 'قابل رسائی پراجیکٹس میں مماثلت نہیں۔ محفوظ کرتے وقت دوبارہ چیک ہوگا۔',
+    hi: 'आपकी पहुँच वाले प्रोजेक्ट में कोई मिलान नहीं। सहेजते समय फिर जाँचा जाएगा।',
+  );
+  static const referenceCheckUnavailable = TranslatableString(
+    en: 'Reference will be checked when saving.',
+    ar: 'سيتم التحقق من المرجع عند الحفظ.',
+    ur: 'محفوظ کرتے وقت حوالہ چیک ہوگا۔',
+    hi: 'सहेजते समय संदर्भ जाँचा जाएगा।',
+  );
+  static const leaveSetupTitle = TranslatableString(
+    en: 'Leave project setup?',
+    ar: 'مغادرة إعداد المشروع؟',
+    ur: 'پراجیکٹ سیٹ اپ چھوڑیں؟',
+    hi: 'प्रोजेक्ट सेटअप छोड़ें?',
+  );
+  static const leaveSavedDraftHelp = TranslatableString(
+    en: 'Your unpublished input is saved on this device. You can return to it here.',
+    ar: 'تم حفظ البيانات غير المنشورة على هذا الجهاز. يمكنك العودة إليها هنا.',
+    ur: 'آپ کا غیر شائع شدہ اندراج اس ڈیوائس پر محفوظ ہے۔ آپ یہاں واپس آ سکتے ہیں۔',
+    hi: 'आपकी अप्रकाशित जानकारी इस डिवाइस पर सहेजी गई है। आप यहाँ लौट सकते हैं।',
+  );
+  static const keepWorking = TranslatableString(
+    en: 'Keep working',
+    ar: 'متابعة العمل',
+    ur: 'کام جاری رکھیں',
+    hi: 'काम जारी रखें',
+  );
+  static const supportReference = TranslatableString(
+    en: 'Device recovery reference',
+    ar: 'مرجع استعادة الجهاز',
+    ur: 'ڈیوائس بازیابی حوالہ',
+    hi: 'डिवाइस पुनर्प्राप्ति संदर्भ',
+  );
+  static const automaticCreatorMembership = TranslatableString(
+    en: 'Your project role is added automatically',
+    ar: 'يُضاف دورك في المشروع تلقائيًا',
+    ur: 'آپ کا پراجیکٹ کردار خودکار طور پر شامل ہوتا ہے',
+    hi: 'आपकी प्रोजेक्ट भूमिका स्वतः जोड़ी जाती है',
+  );
+  static const editProjectDetails = TranslatableString(
+    en: 'Edit project details',
+    ar: 'تعديل تفاصيل المشروع',
+    ur: 'پراجیکٹ تفصیلات میں ترمیم کریں',
+    hi: 'प्रोजेक्ट विवरण बदलें',
+  );
+  static const editPartiesAccess = TranslatableString(
+    en: 'Edit parties and access',
+    ar: 'تعديل الجهات والوصول',
+    ur: 'فریقوں اور رسائی میں ترمیم کریں',
+    hi: 'पक्ष और पहुँच बदलें',
+  );
+  static const editBuildings = TranslatableString(
+    en: 'Edit buildings',
+    ar: 'تعديل المباني',
+    ur: 'عمارتوں میں ترمیم کریں',
+    hi: 'भवन बदलें',
+  );
+  static const editAttachments = TranslatableString(
+    en: 'Edit attachments',
+    ar: 'تعديل المرفقات',
+    ur: 'منسلکات میں ترمیم کریں',
+    hi: 'संलग्नक बदलें',
+  );
+  static const copySupportReference = TranslatableString(
+    en: 'Copy recovery reference',
+    ar: 'نسخ مرجع الاستعادة',
+    ur: 'بازیابی حوالہ کاپی کریں',
+    hi: 'पुनर्प्राप्ति संदर्भ कॉपी करें',
+  );
+  static const leaveWithSavedDraft = TranslatableString(
+    en: 'Leave with locally saved draft',
+    ar: 'المغادرة مع مسودة محفوظة محليًا',
+    ur: 'مقامی محفوظ مسودے کے ساتھ چھوڑیں',
+    hi: 'स्थानीय सहेजे गए ड्राफ़्ट के साथ छोड़ें',
+  );
   static const accounts = TranslatableString(
     en: 'Accounts',
     ar: 'الحسابات',

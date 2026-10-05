@@ -1,0 +1,3 @@
+Browser tab: 30, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43971/?stage=3&session=polish-native-desktop#/projects/new".
+There has been no change in the accessibility tree.
+The focused UI element is 75 button Preview, ID: flt-semantic-node-89

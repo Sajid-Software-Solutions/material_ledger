@@ -72,6 +72,12 @@ select lives_ok(
           'floors_levels', jsonb_build_array('GF'),
           'flags', jsonb_build_object('has_frp_room', true),
           'delivery_address', 'Tower A loading bay'
+        ),
+        jsonb_build_object(
+          'id', (select id from public.v1_project_scopes
+            where project_id = (select id from public.v1_projects where project_ref = 'EDIT-001')
+              and scope_code = 'tower_b'),
+          'code', 'tower_b', 'name', 'Tower B'
         )
       )
     ),
@@ -101,10 +107,10 @@ select is(
 );
 
 select ok(
-  not (select is_active from public.v1_project_scopes
+  (select is_active from public.v1_project_scopes
     where project_id = (select id from public.v1_projects where project_ref = 'EDIT-001A')
       and scope_code = 'tower_b'),
-  'An omitted building is safely retired instead of deleted'
+  'An unchanged physical building retains its active identity'
 );
 
 set local role postgres;

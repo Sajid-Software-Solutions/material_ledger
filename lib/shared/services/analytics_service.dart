@@ -277,7 +277,9 @@ class GuardedAnalyticsService implements AnalyticsService {
     AnalyticsProperties properties = const {},
   }) {
     if (!enabled) return;
-    final safe = _properties(properties);
+    final safe = _properties(
+      projectSetupAnalyticsProperties(event, properties),
+    );
     _submit(() => _sink.capture(eventName: event.wireName, properties: safe));
     if (event == AnalyticsEvent.formValidationFailed) {
       _recordValidationFailure(properties);

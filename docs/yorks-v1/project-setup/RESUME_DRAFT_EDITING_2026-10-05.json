@@ -1,0 +1,93 @@
+{
+  "application_source": "c7605713945c7cf575822363a427527d0ec60bf8",
+  "verified_date": "2026-10-06",
+  "staging": {
+    "url": "https://yorks-r35-staging.vercel.app",
+    "deployment_id": "dpl_6TnKtqpocMPNjh4KvUB9oxrrFXuG",
+    "preview_url": "https://yorks-r35-11nytgxp6-sajid-alis-projects-0ec775a2.vercel.app",
+    "target": "preview",
+    "ready_state": "READY",
+    "main": {
+      "path": "main.dart.js",
+      "bytes": 9748464,
+      "sha256": "e86f0846d250e4a494932b0d4e6ce97ea3571aded7046fab1653a5c84023e12a"
+    },
+    "gzip_bytes": 2807976,
+    "files": 60,
+    "bytes": 54162200,
+    "markers": {
+      "staging": 2,
+      "production": 0,
+      "ci_url": 0,
+      "ci_key": 0,
+      "fixture": 0
+    }
+  },
+  "ci_web": {
+    "bytes": 9722136,
+    "gzip": 2800142,
+    "sha256": "110b257c098139ea67bae798aa63841e5bb6e184aa8a0dc7499e48060fe99cb0"
+  },
+  "ci_android": {
+    "bytes": 110910512,
+    "sha256": "0849146bd79f35f2fcdf6708ab4be2b36359eecefed24ae1053c7718e5d9630e",
+    "signature": "Android v2 Yorks CI Ephemeral",
+    "publishable": false
+  },
+  "verification": {
+    "full_flutter_passed": 2423,
+    "retained_skips": 4,
+    "focused_setup_passed": 168,
+    "chrome_storage_passed": 7,
+    "analyzer": "No issues",
+    "format_changes": 0,
+    "goldens_changed": false,
+    "route_checks": {
+      "preview": {
+        "routes_assets": 24,
+        "setup_deep_routes": 2
+      },
+      "stable": {
+        "routes_assets": 24,
+        "setup_deep_routes": 2
+      }
+    }
+  },
+  "production": {
+    "deployment_id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "bytes": 9678001,
+    "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f",
+    "byte_identical": true
+  },
+  "project_settings_unchanged": true,
+  "backend_changes": false,
+  "browser": {
+    "synthetic_final_source": true,
+    "desktop_css": {
+      "width": 1726,
+      "height": 1150,
+      "dpr": 0.8899999856948853
+    },
+    "compact_css": {
+      "width": 359,
+      "height": 899,
+      "dpr": 0.8899999856948853
+    },
+    "desktop_and_compact_direct_resume": true,
+    "typing_and_save_verified": true,
+    "save_return_without_dialog": true,
+    "take_over_action_present": false,
+    "fixture_reload_persistence_claimed": false,
+    "staging_viewport": {
+      "width": 1280,
+      "height": 720,
+      "dpr": 2
+    },
+    "staging_fresh_setup_inside_universal_shell": true,
+    "staging_saved_local_cards_observed": 0,
+    "staging_return_to_projects_without_dialog": true,
+    "original_tab_reloaded": false,
+    "remote_project_commands_issued": 0,
+    "physical_device_uat_claimed": false
+  }
+}

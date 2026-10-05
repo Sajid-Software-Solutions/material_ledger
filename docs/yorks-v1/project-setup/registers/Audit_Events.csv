@@ -1,0 +1,9 @@
+﻿event,status,trigger,evidence
+project_created,Existing event family; confirm exact current name,Core create transaction,"Project identity, scopes and initial membership/default-folder result; trusted actor/role/time; intent key."
+project_updated,Verified base event name,Successful versioned update,"Before/after setup snapshots, affected scope IDs, base/result version and changed field categories."
+project state transition,Reuse existing event registry,Activation or permitted lifecycle change,"Prior/new lifecycle, prerequisite decision, actor, reason where required and phase intent."
+project membership assigned/revoked,Reuse existing protected command events,Actual membership commit,"Affected Auth identity, exact/project role, effective period, acting authority and reason; preserve history."
+document finalized / linked / superseded,Reuse document audit registry,Document service commit,"Project/entity link, classification, immutable version/hash, action and actor. Never only file-selection intent."
+project import applied,Target event; map approved registry name,Approved import commit,"Source content hash, mapping version, affected records, source row references, exclusions and importing actor."
+import validation/rejection,Target operational/security evidence,Rejected preview/apply with no mutation,"Outcome, counts and safe reason; distinguish from a successful business audit event."
+local draft checkpoint,Not a live project business event,Local adapter acknowledgement,Private recovery revision/time only; do not flood project audit on every keystroke.

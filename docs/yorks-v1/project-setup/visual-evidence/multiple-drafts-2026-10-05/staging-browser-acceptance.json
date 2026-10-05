@@ -1,0 +1,18 @@
+{
+  "viewport": {
+    "width": 1280,
+    "height": 720,
+    "dpr": 2
+  },
+  "freshCreatesChecked": 2,
+  "distinctDraftIds": true,
+  "fieldsPerProposal": 8,
+  "allFieldsEmpty": true,
+  "returnToProjectsConfirmed": true,
+  "emptyDraftCardsAdded": 0,
+  "liveSavedDraftCardsObserved": 0,
+  "originalTabReloaded": false,
+  "savedDraftTakeovers": 0,
+  "consoleErrorsObserved": 0,
+  "projectCommandsIssued": 0
+}

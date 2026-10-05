@@ -1,0 +1,11 @@
+﻿decision,owner,question,safe_default
+D01,Product / security,"Local draft retention, shared-device clearing and export/recovery policy",Retain current user-isolated local behavior; no automatic purge or new plaintext draft export. Resolve before advertising retention guarantees.
+D02,Product / engineering,Party-master search and permitted disambiguators,Use existing plain party input/directory projections; no new master/account creation or extra personal disclosure.
+D03,Product / security,"Cloud drafts, collaboration and multiple active drafts",Deferred. No claim of cross-device recovery; no workflow-run identity added to analytics.
+D04,Product / data owner,General project Excel import and building paste format,General import deferred. Add dedicated local paste preview only after mapping/limit approval; no auto-apply.
+D05,Engineering / Accounts,Retiring a scope with operational/commercial dependencies,Block unsupported unsafe retirement; preserve existing IDs and Accounts history; define explicit migration/reconciliation before allowing it.
+D06,Technical / QA,Storage adapter capable of atomic writer fencing and recovery journal,Release blocker for promised multi-tab persistence safety. Broadcast-only protection is not sufficient.
+D07,Product / UX,Optional Start date Today helper versus visible new-draft default,Core preserves optionality and offers explicit Today; never reset restored/edit dates. Any automatic default must be visibly reviewable and newly approved.
+D08,Release / UX,"Performance envelope, supported native platforms and user-trial targets",Use Section 17 as proposed acceptance baseline; report environment limits. No unmeasured uptime/recovery promise.
+D09,Privacy / analytics,New event/property enums and exact run-level correlation,Extend central allowed categorical properties; keep replay off and identifiers out. Exact cross-attempt tracking needs separate approval.
+D10,Product / engineering,Exceptions to baseline field lengths/date/code format,"Use actual current schema/configuration; inventory all limits before release, with no truncation or destructive normalization."

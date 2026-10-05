@@ -1,0 +1,113 @@
+Browser tab: 26, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects".
+1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects
+	2 container flt-semantic-node-80
+		3 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected
+		4 button Collapse panel, ID: flt-semantic-node-120
+		5 button Back, ID: flt-semantic-node-121
+		6 button (disabled) Next, ID: flt-semantic-node-122
+		7 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-123
+		8 button Enter full screen, ID: flt-semantic-node-124
+		9 button Team Chat, ID: flt-semantic-node-125
+		10 button Description: Notifications, ID: flt-semantic-node-126
+			11 button Notifications, ID: flt-semantic-node-127
+		12 container flt-semantic-node-117
+			13 text MANAGEMENT WORKSPACE
+			14 button Overview Overview Overview, ID: flt-semantic-node-83
+			15 button Analytics Analytics Analytics, ID: flt-semantic-node-85
+			16 button Projects Projects Projects, ID: flt-semantic-node-87
+			17 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-89
+			18 button Accounts Accounts Accounts, ID: flt-semantic-node-91
+			19 button Project Accounts Project Accounts Project Accounts, ID: flt-semantic-node-93
+			20 button Billing Progress Billing Progress Billing Progress, ID: flt-semantic-node-95
+			21 button Claims & Invoices Claims & Invoices Claims & Invoices, ID: flt-semantic-node-97
+			22 button Receipts & PDC Receipts & PDC Receipts & PDC, ID: flt-semantic-node-99
+			23 button Supplier Bills Supplier Bills Supplier Bills, ID: flt-semantic-node-101
+			24 button Due Schedule Due Schedule Due Schedule, ID: flt-semantic-node-103
+			25 button Documents Documents Documents, ID: flt-semantic-node-105
+			26 button Reports Reports Reports, ID: flt-semantic-node-107
+			27 button Audit Trail Audit Trail Audit Trail, ID: flt-semantic-node-109
+			28 button Workforce Workforce Workforce, ID: flt-semantic-node-111
+			29 text COLLABORATION
+			30 button Team Chat Team Chat Team Chat, ID: flt-semantic-node-114
+			31 button Browse / Inventory Browse / Inventory Browse / Inventory, ID: flt-semantic-node-116
+		32 button (collapsed) My Yorks LA Local Admin Admin, ID: flt-semantic-node-118, Secondary Actions: Expand
+		33 container ID: flt-semantic-node-128, Description: PROJECT SETUP Projects / Create project Review & create YRA-322 · test This draft is being edited in another tab. This will save the project and open its workspace.
+			34 button Project details, Complete Project details, ID: flt-semantic-node-129
+			35 button Take over draft, ID: flt-semantic-node-205
+			36 button (disabled) Save draft, ID: flt-semantic-node-134
+			37 button Parties & access, Complete Parties & access, ID: flt-semantic-node-130
+			38 button Buildings, Complete Buildings, ID: flt-semantic-node-131
+			39 button Attachments Attachments Optional, ID: flt-semantic-node-132
+			40 button Review & create Review & create, ID: flt-semantic-node-133
+			41 container flt-semantic-node-135
+				42 text Complete the required fields before continuing.
+				43 text Material lines are not required during project creation. The project opens with BOQ, Material Requests and Documents ready to use.
+				44 text Complete the required fields before continuing.
+				45 text Project details
+				46 text York Reference / Ref. No.
+				47 text YRA-322
+				48 button Edit project details, ID: flt-semantic-node-139
+				49 text Review your information below, then create the project to continue.
+				50 text Project Name
+				51 text Contract / Job No.
+				52 text Site Location
+				53 text test
+				54 text test
+				55 text test
+				56 text Complete
+				57 text Project details
+				58 text Project dates
+				59 text Project Notes
+				60 text Start Date: 04/10/2026 · Expected End Date (optional): 31/10/2026
+				61 text test
+				62 text Parties & access
+				111 text Complete
+				64 text Parties & access
+				65 text Client
+				66 text test
+				67 text Main contractor
+				68 text test
+				69 button Edit parties and access, ID: flt-semantic-node-153
+				70 text Buildings
+				71 text Complete
+				72 text Consultant
+				73 text Subcontractors
+				74 text Other contractors
+				75 text test
+				76 text test
+				77 text test
+				78 text Attachments
+				79 text Complete the required fields before continuing.
+				80 text Project team
+				112 text Project Engineers: Local Project Engineer · Site Engineers: Local Site Engineer
+				82 text Buildings
+				83 button Edit buildings, ID: flt-semantic-node-167
+				84 text The project can become Active after the server confirms its Project Engineer and activation.
+				85 text Code
+				86 text Building name
+				87 text Levels
+				88 text FRP
+				89 text test
+				90 text test
+				91 text test
+				92 text Yes
+				93 text TEST-2
+				94 text testtest
+				95 text test
+				96 text Yes
+				97 text Attachments
+				98 button Edit attachments, ID: flt-semantic-node-181
+				99 text Name
+				100 text Type
+				101 text Size
+				102 text Category
+				103 text Status
+				104 text MyTimesheet.xlsx
+				105 text XLSX
+				106 text 11.1 KB
+				107 text Requires review
+				108 text Reselect file
+			109 button Back, ID: flt-semantic-node-203
+			110 button (disabled) Create Project, ID: flt-semantic-node-204
+
+The focused UI element is 33 container ID: flt-semantic-node-128, Description: PROJECT SETUP Projects / Create project Review & create YRA-322 · test This draft is being edited in another tab. This will save the project and open its workspace.

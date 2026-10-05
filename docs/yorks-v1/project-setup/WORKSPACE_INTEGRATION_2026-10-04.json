@@ -1,0 +1,552 @@
+{
+  "status": "deployed_and_verified_staging_only",
+  "source_commit": "d218cf57a2e899ebfd8b36dd012d468dd8817f30",
+  "entrypoint": "lib/main.dart",
+  "feature_flag": {
+    "YORKS_V1_PROJECT_SETUP": true,
+    "tracked_default": false,
+    "platform": "browser_only"
+  },
+  "backend": {
+    "project_ref": "iqltcyimlqtcwyzlemwx",
+    "schema_changed_for_integration": false
+  },
+  "staging_alias": {
+    "name": "yorks-r35-staging.vercel.app",
+    "before_deployment": "dpl_FxKmjTWKHzdo34uNXjDe9E4WHbNZ",
+    "before_source": "449a0e01f98d74caa5ee0bdcdc9aa38c80993b68",
+    "before_artifact": {
+      "url": "https://yorks-r35-staging.vercel.app/main.dart.js",
+      "status": 200,
+      "bytes": 10423896,
+      "sha256": "a535f2c106fb5018221cf9e593a6974d860b3cf96fe4320f608f285606452e44",
+      "staging_ref_count": 1,
+      "production_ref_count": 0
+    },
+    "after_deployment": "dpl_6RaX6nWDp1cnXPbV2hh1xVet6ovq",
+    "assignment_verified": true
+  },
+  "production": {
+    "alias": "yorks-r35.vercel.app",
+    "before_deployment": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "before_artifact": {
+      "url": "https://yorks-r35.vercel.app/main.dart.js",
+      "status": 200,
+      "bytes": 9678001,
+      "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    },
+    "after_deployment": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "after_artifact": {
+      "url": "https://yorks-r35.vercel.app/main.dart.js",
+      "status": 200,
+      "bytes": 9678001,
+      "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    },
+    "unchanged": true
+  },
+  "validation": {
+    "focused_integration": {
+      "tests": 8,
+      "result": "passed_in_final_full_suite"
+    },
+    "final_full_test": {
+      "passed": 2272,
+      "retained_skips": 4,
+      "result": "passed",
+      "log": "/tmp/yorks-setup-integration-full-tests-final.log"
+    },
+    "analysis": {
+      "result": "no_issues",
+      "log": "/tmp/yorks-setup-integration-analyze-final.log"
+    },
+    "ci_web": {
+      "result": "passed",
+      "main_bytes": 10007045,
+      "startup_gzip_bytes": 2880695,
+      "sha256": "38b2a4265847217294dbc25c671507d219721d066983888f021dbc2ac87c1c8b",
+      "entrypoint": "lib/main.dart"
+    },
+    "ci_apk": {
+      "result": "passed_certificate_verified",
+      "bytes": 110533660,
+      "sha256": "db31b9b94ac0c7df4279fea16a18629fa7f18dd161333b9c810f8532f2ce0f8b",
+      "signing": "CI Ephemeral; not production artifact",
+      "certificate_dn": "CN=Yorks CI Ephemeral, OU=CI Only, O=Yorks, C=AE",
+      "certificate_sha256": "5e9d6cbc6ccdb5ab32cbef949b0055ee25b89b5f5c742f47f7c1c66740eda936",
+      "signature_scheme_v2": true
+    },
+    "staging_web": {
+      "result": "passed",
+      "entrypoint": "lib/main.dart",
+      "main_bytes": 10033379,
+      "startup_gzip_bytes": 2888505,
+      "sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c"
+    },
+    "remote_ci": "not_claimed",
+    "local_database": "unchanged SQL; prior release gates retained",
+    "format": "passed; seven Dart files unchanged",
+    "pub_get": "passed; lock unchanged",
+    "diff_check": "passed"
+  },
+  "browser": {
+    "context": "synthetic local fixture; no remote commands",
+    "desktop_css": [
+      1438,
+      809
+    ],
+    "desktop_raster": [
+      1438,
+      809
+    ],
+    "phone_css": [
+      359,
+      800
+    ],
+    "phone_raster": [
+      403,
+      899
+    ],
+    "phone_scroll_width": 359,
+    "final_fresh_console_warnings": 0,
+    "final_fresh_console_errors": 0,
+    "debug_resize_semantics_error": "observed across breakpoint after enabling semantics; no fresh-start reproduction",
+    "authenticated_staging_uat": "Engineering/Admin creation navigation and business commands not run",
+    "authenticated_staging": "Existing Procurement session: real Projects read-only portfolio, no Create action, zero startup console warnings/errors",
+    "resident_main_artifact": {
+      "url": "https://yorks-r35-staging.vercel.app/main.dart.js",
+      "bytes": 10033379,
+      "sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c"
+    },
+    "resident_main_matches_deployed_bundle": true
+  },
+  "visual_artifacts": [
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/desktop-navigation.jpg",
+      "bytes": 76478,
+      "sha256": "229402f120ccb4a7a106e6ef4e935dd66a08c839b44db14de4677752a60cf867"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/desktop-search.jpg",
+      "bytes": 65036,
+      "sha256": "d2237fa011ad71087688c5fdd9300ae84a80d460d0da2dbe6cf1555ddc40505b"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/desktop-setup.jpg",
+      "bytes": 95789,
+      "sha256": "58bc92ee3a82d6049bfb2ce4e81b7e23511457618224db7d07690d1f920cb950"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/mobile-navigation.jpg",
+      "bytes": 23105,
+      "sha256": "305029d83446fff18b17dba2f8c3d0bdb84e6c5947db24bad6df8135c0da0a84"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/mobile-search.jpg",
+      "bytes": 26579,
+      "sha256": "cd24463de63145edcbe42d6a3c57ffd71e53c59a2840a8c1a20c8b44138ea5b7"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/mobile-setup.jpg",
+      "bytes": 34871,
+      "sha256": "532fbefa6909b47502b40bdd855ff340259c0e8369bd74ff686c6d57ca311b01"
+    },
+    {
+      "path": "visual-evidence/workspace-integration-2026-10-04/staging-projects-procurement.jpg",
+      "bytes": 58578,
+      "sha256": "39583a74779f334a1105b211a7b36d135cfe036b503f75241d45fe0535119c07"
+    }
+  ],
+  "deployment": {
+    "id": "dpl_6RaX6nWDp1cnXPbV2hh1xVet6ovq",
+    "url": "yorks-r35-qf5rat3sj-sajid-alis-projects-0ec775a2.vercel.app",
+    "readyState": "READY",
+    "target": null,
+    "meta": {
+      "yorksSourceCommit": "d218cf57a2e899ebfd8b36dd012d468dd8817f30",
+      "yorksBackend": "staging",
+      "yorksProjectSetup": "true",
+      "actor": "codex"
+    },
+    "explicit_target": "preview",
+    "dry_archive": {
+      "framework": {
+        "name": "Other",
+        "slug": null
+      },
+      "basePath": "/private/tmp/yorks-project-setup-integration-staging-d218cf57a2e8",
+      "fileCount": 1,
+      "totalSize": 19764949,
+      "ignoredCount": 1,
+      "ignored": [
+        ".vercel"
+      ],
+      "directories": [
+        {
+          "path": ".vercel",
+          "fileCount": 1,
+          "size": 19764949
+        }
+      ],
+      "largestFiles": [
+        {
+          "path": ".vercel/source.tgz.part1",
+          "size": 19764949,
+          "mode": 438,
+          "sha": "bf64e130ec7c93d7ac410f0c406d40dad22b1ef1"
+        }
+      ],
+      "files": [
+        {
+          "path": ".vercel/source.tgz.part1",
+          "size": 19764949,
+          "mode": 438,
+          "sha": "bf64e130ec7c93d7ac410f0c406d40dad22b1ef1"
+        }
+      ]
+    },
+    "preview_route_assets": [
+      {
+        "route": "/about",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/profile",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notification-preferences",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notifications",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/analytics",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/rentals",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/workforce",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests/company/new",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/returns",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/team-chat",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/flutter_bootstrap.js",
+        "bytes": 14186,
+        "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js",
+        "bytes": 10033379,
+        "sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c",
+        "verified": true
+      },
+      {
+        "route": "/flutter_service_worker.js",
+        "bytes": 784,
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+        "verified": true
+      },
+      {
+        "route": "/firebase-messaging-sw.js",
+        "bytes": 7729,
+        "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_1.part.js",
+        "bytes": 966,
+        "sha256": "7c402e1902b4339d8f7a61d5c17c9682b325710a4292a08ef9e163f1c0911b09",
+        "verified": true
+      },
+      {
+        "route": "/manifest.json",
+        "bytes": 1007,
+        "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_2.part.js",
+        "bytes": 1173,
+        "sha256": "adbe17b7a9903baf322fce43fe5151774693373fa239ee30ca372670917a87d7",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_4.part.js",
+        "bytes": 26916,
+        "sha256": "ee9e0c26113d912cc6b8b3d82b6b27f59e65d5331aef8c51ce6da07ec893b952",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_5.part.js",
+        "bytes": 42838,
+        "sha256": "db5e9f09ffb56bccbb589b5220b5ca24a85832025aef69f72b01696c891b5124",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_6.part.js",
+        "bytes": 199109,
+        "sha256": "9e0c16b1c724c0c923ac793991352f00ce6a92df3a7fe0c48c71b932042c0746",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_7.part.js",
+        "bytes": 114584,
+        "sha256": "dd5bbc45c1ccbb10728b71d16e7a493732b831d4ccc13977bff68e16d9ccb606",
+        "verified": true
+      }
+    ],
+    "staging_alias_route_assets": [
+      {
+        "route": "/about",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/profile",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notification-preferences",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notifications",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/analytics",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/workforce",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/rentals",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests/company/new",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/team-chat",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/returns",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/flutter_bootstrap.js",
+        "bytes": 14186,
+        "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js",
+        "bytes": 10033379,
+        "sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c",
+        "verified": true
+      },
+      {
+        "route": "/flutter_service_worker.js",
+        "bytes": 784,
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+        "verified": true
+      },
+      {
+        "route": "/firebase-messaging-sw.js",
+        "bytes": 7729,
+        "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+        "verified": true
+      },
+      {
+        "route": "/manifest.json",
+        "bytes": 1007,
+        "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_1.part.js",
+        "bytes": 966,
+        "sha256": "7c402e1902b4339d8f7a61d5c17c9682b325710a4292a08ef9e163f1c0911b09",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_2.part.js",
+        "bytes": 1173,
+        "sha256": "adbe17b7a9903baf322fce43fe5151774693373fa239ee30ca372670917a87d7",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_4.part.js",
+        "bytes": 26916,
+        "sha256": "ee9e0c26113d912cc6b8b3d82b6b27f59e65d5331aef8c51ce6da07ec893b952",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_5.part.js",
+        "bytes": 42838,
+        "sha256": "db5e9f09ffb56bccbb589b5220b5ca24a85832025aef69f72b01696c891b5124",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_6.part.js",
+        "bytes": 199109,
+        "sha256": "9e0c16b1c724c0c923ac793991352f00ce6a92df3a7fe0c48c71b932042c0746",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_7.part.js",
+        "bytes": 114584,
+        "sha256": "dd5bbc45c1ccbb10728b71d16e7a493732b831d4ccc13977bff68e16d9ccb606",
+        "verified": true
+      }
+    ],
+    "preview_affected_routes": [
+      {
+        "route": "/projects/new",
+        "status": 200,
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true,
+        "scope": "SPA delivery only; no authenticated record access"
+      },
+      {
+        "route": "/yorks/projects/00000000-0000-4000-8000-000000000000/edit",
+        "status": 200,
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true,
+        "scope": "SPA delivery only; no authenticated record access"
+      }
+    ],
+    "staging_alias_affected_routes": [
+      {
+        "route": "/projects/new",
+        "status": 200,
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true,
+        "scope": "SPA delivery only; no authenticated record access"
+      },
+      {
+        "route": "/yorks/projects/00000000-0000-4000-8000-000000000000/edit",
+        "status": 200,
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true,
+        "scope": "SPA delivery only; no authenticated record access"
+      }
+    ]
+  },
+  "limitations": [
+    "Authenticated Engineering/Admin staging create/edit/upload UAT not run; live Procurement read-only Projects verified",
+    "CI Ephemeral APK is not a production signing artifact",
+    "General browser resize and screen-reader acceptance remains open"
+  ],
+  "artifact": {
+    "source_commit": "d218cf57a2e899ebfd8b36dd012d468dd8817f30",
+    "clean_build": true,
+    "directory": "/tmp/yorks-project-setup-integration-staging-d218cf57a2e8",
+    "entrypoint": "lib/main.dart",
+    "static_files": 59,
+    "static_bytes": 54035149,
+    "main_bytes": 10033379,
+    "main_sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c",
+    "startup_gzip_bytes": 2888505,
+    "staging_ref_count": 2,
+    "production_ref_count": 0,
+    "ci_and_fixture_markers": false,
+    "service_credentials_found": false,
+    "deferred_modules": [
+      "main.dart.js_1.part.js",
+      "main.dart.js_2.part.js",
+      "main.dart.js_4.part.js",
+      "main.dart.js_5.part.js",
+      "main.dart.js_6.part.js",
+      "main.dart.js_7.part.js"
+    ]
+  }
+}

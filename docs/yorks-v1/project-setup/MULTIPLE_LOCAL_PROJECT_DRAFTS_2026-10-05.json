@@ -1,0 +1,74 @@
+{
+  "application_source": "5c9fa63be89b5448a768b3aac1ae3bd4f5db8b82",
+  "functional_source": "0ce421a88bc63a39441e06f433ae9557976dd466",
+  "staging": {
+    "url": "https://yorks-r35-staging.vercel.app",
+    "deployment_id": "dpl_96XXECXaD8CQqv7TzFvUdUs1Df4d",
+    "preview_url": "https://yorks-r35-5pf4pvzsf-sajid-alis-projects-0ec775a2.vercel.app",
+    "target": "preview",
+    "ready_state": "READY",
+    "main": {
+      "path": "main.dart.js",
+      "bytes": 9747998,
+      "sha256": "65b6e30f60989c64196e2cb9cd89014ed8919f281a995380f2689953a1224628"
+    },
+    "gzip_bytes": 2808129,
+    "files": 60,
+    "bytes": 54153286,
+    "markers": {
+      "staging": 2,
+      "production": 0,
+      "ci_url": 0,
+      "ci_key": 0,
+      "fixture": 0
+    }
+  },
+  "ci_web": {
+    "bytes": 9721662,
+    "gzip": 2799982,
+    "sha256": "a25fa3190dcb7bd725114c148206ee48d6617eae069461f75f04d9a9f9e1b9b0"
+  },
+  "ci_android": {
+    "bytes": 110861360,
+    "sha256": "543cfbc68a2b65e9ebdfef83ba4f7c50053e935affbcd05a9ea2639e7c9dc010",
+    "signature": "Android v2 Yorks CI Ephemeral",
+    "publishable": false
+  },
+  "verification": {
+    "full_flutter_passed": 2410,
+    "retained_skips": 4,
+    "workspace_passed": 48,
+    "earlier_focused_regressions_passed": 233,
+    "chrome_storage_passed": 7,
+    "analyzer": "No issues",
+    "goldens_changed": false,
+    "preview_route_assets": 24,
+    "stable_route_assets": 24,
+    "extra_setup_routes": 2
+  },
+  "production": {
+    "deployment_id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+    "bytes": 9678001,
+    "sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f",
+    "byte_identical": true
+  },
+  "project_settings_unchanged": true,
+  "browser": {
+    "viewport": {
+      "width": 1280,
+      "height": 720,
+      "dpr": 2
+    },
+    "freshCreatesChecked": 2,
+    "distinctDraftIds": true,
+    "fieldsPerProposal": 8,
+    "allFieldsEmpty": true,
+    "returnToProjectsConfirmed": true,
+    "emptyDraftCardsAdded": 0,
+    "liveSavedDraftCardsObserved": 0,
+    "originalTabReloaded": false,
+    "savedDraftTakeovers": 0,
+    "consoleErrorsObserved": 0,
+    "projectCommandsIssued": 0
+  }
+}

@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
 import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
-import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_project_create_flow_screen.dart';
+import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_project_legacy_flow_screen.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_projects_screen.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_documents_screen.dart';
 import 'package:material_ledger/features/materials/presentation/screens/yorks_v1_material_request_screens.dart';
@@ -507,7 +507,7 @@ Future<void> _pumpCreationShell(
       GoRoute(
         path: RoutePaths.engineerCreateProject,
         builder: (_, _) => YorksV1WorkspaceShell(
-          child: YorksV1ProjectCreateFlowScreen(
+          child: YorksV1LegacyProjectCreateFlowScreen(
             onProjectCreated: onProjectCreated,
           ),
         ),

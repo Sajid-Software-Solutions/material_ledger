@@ -1,0 +1,74 @@
+{
+  "fixture_kind": "synthetic serialization acceptance examples; not production seed data",
+  "cases": [
+    {
+      "name": "FRP true to false",
+      "base": {
+        "sourceScopeId": "00000000-0000-4000-8000-000000000101",
+        "code": "B-001",
+        "name": "Example building",
+        "floorsOrLevels": [
+          "B1",
+          "Ground",
+          "Roof"
+        ],
+        "flags": {
+          "has_frp_room": true,
+          "retained_flag": "example"
+        }
+      },
+      "user_change": {
+        "hasFrpRoom": false
+      },
+      "expected": {
+        "same_source_scope_id": true,
+        "server_flags_has_frp_room": false,
+        "retained_flag": "example",
+        "same_floor_labels": true
+      }
+    },
+    {
+      "name": "Optional values",
+      "local_input": {
+        "reference": "EXAMPLE-0001",
+        "name": "Example project",
+        "startDate": null,
+        "endDate": null,
+        "clientName": null,
+        "building": {
+          "code": "",
+          "name": "Example building",
+          "floorsOrLevels": [],
+          "deliveryAddress": null,
+          "hasFrpRoom": false
+        }
+      },
+      "expected": "Valid minimum typed setup, subject to actual server access/activation prerequisites; no invented code/date/client before server response."
+    },
+    {
+      "name": "Unfinished building",
+      "local_input": {
+        "unfinished_editor": {
+          "local_row_id": "synthetic-local-1",
+          "name_text": "Example",
+          "code_text": "B-",
+          "floors_text": "B1, G,",
+          "has_frp_room": true
+        },
+        "added_buildings": []
+      },
+      "expected": "Restore exact unfinished editor; no row counted as added; final commit blocked until a named physical row is applied."
+    },
+    {
+      "name": "Uncertain create",
+      "journal": {
+        "phase": "create",
+        "dispatch_state": "outcome_uncertain",
+        "key": "synthetic-intent-key",
+        "payload_hash": "synthetic-sha-not-a-real-command",
+        "result_project_id": null
+      },
+      "expected": "Preserve original payload/key; query/replay supported authority. Never assume failure or reissue as a new project."
+    }
+  ]
+}

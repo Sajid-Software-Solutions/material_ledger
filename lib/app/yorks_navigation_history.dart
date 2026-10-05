@@ -70,6 +70,23 @@ class YorksNavigationHistoryNotifier
     );
   }
 
+  /// Anchoring a mounted fresh setup is the same place. Replace only the
+  /// expected current entry so Back never reopens an unselected fresh URL.
+  void replaceCurrent(String expectedLocation, String replacement) {
+    if (state.cursor < 0 ||
+        state.entries[state.cursor] != _normalize(expectedLocation)) {
+      return;
+    }
+    final normalized = _normalize(replacement);
+    if (normalized.isEmpty || normalized == state.entries[state.cursor]) return;
+    final entries = [...state.entries];
+    entries[state.cursor] = normalized;
+    state = YorksNavigationHistory(
+      List.unmodifiable(entries),
+      cursor: state.cursor,
+    );
+  }
+
   String? takePrevious(String currentLocation) {
     final normalized = _normalize(currentLocation);
     if (state.cursor < 0) return null;

@@ -1,0 +1,17 @@
+﻿category,user_copy,preservation,recovery
+validation,Review highlighted fields,Keep all input; focus the first invalid field; provide links to others.,Correct input; do not retry unchanged.
+duplicate_reference,This project reference is already in use,Preserve proposed reference; reveal other record only when authorized.,Choose another reference or open permitted existing record.
+invalid_building_code,"Use letters, numbers, hyphens or underscores",Identify the row and configured limit; no silent rename.,Correct or leave blank for supported server generation.
+directory_unavailable,Team list could not be loaded,"Keep selected IDs and show unverified availability, not zero members.",Retry lookup; server rechecks at commit.
+activation_prerequisite,Project created as draft; a Project Engineer is needed,Show known project reference and lifecycle.,"Assign through permitted workflow, then activate."
+local_storage_failed,Draft cannot be saved on this device,Retain in-memory input; show last acknowledged revision.,Retry storage; keep page open; do not claim cloud backup.
+offline_before_send,You are offline; the project has not been submitted,Local draft remains private; no server request dispatched.,Reconnect and explicitly submit after review.
+command_outcome_uncertain,We are checking whether your changes were saved,A request was dispatched; do not assert failure or permit changed replay.,Check/replay original intent; escalate safely if unresolved.
+version_conflict,This project changed while you were editing,Keep proposal and show latest authorized version.,Review differences; then submit a new validated intent.
+permission_denied,You no longer have permission for this action,Stop writes and clear unauthorized data; no raw SQL/identity leakage.,Request access or return to authorized workspace.
+session_expired,Sign in again to continue,"Keep only policy-permitted recovery, fenced to original owner.","Reauthenticate, reauthorize, reconcile pending command first."
+backend_unavailable,The service is unavailable,Differentiate known no-send from possibly committed write.,Bounded read/reconciliation retry; keep input.
+project_saved_files_pending,Project saved; some files need attention,Show committed project and failed/pending file count.,Open project; retry/reselect only those files.
+dependency_blocked,This building is linked to active work,Show permitted dependency categories without leaking commercial values.,Resolve through existing owner/workflow; do not delete.
+cleanup_failed_after_success,Project saved; local cleanup needs attention,Keep confirmed result and mark original draft retired.,Retry cleanup; never create a duplicate.
+import_rejected,Import has not been applied,Show source rows/fields and whether preview or commit failed.,Correct mapping/data; preserve raw provenance.

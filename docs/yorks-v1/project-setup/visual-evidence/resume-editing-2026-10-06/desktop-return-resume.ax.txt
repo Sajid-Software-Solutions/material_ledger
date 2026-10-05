@@ -1,0 +1,66 @@
+Browser tab: 39, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43974/?session=resume-final&stage=0#/projects/new?draft=56629682-9983-4683-bb3c-d11440602360".
+1 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43974/?session=resume-final&stage=0#/projects/new?draft=56629682-9983-4683-bb3c-d11440602360
+	2 container flt-semantic-node-115
+		3 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected
+		4 button Collapse panel, ID: flt-semantic-node-134
+		5 button Back, ID: flt-semantic-node-135
+		6 button (disabled) Next, ID: flt-semantic-node-136
+		7 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-137
+		8 button Enter full screen, ID: flt-semantic-node-138
+		9 button Description: Notifications, ID: flt-semantic-node-139
+			10 button Notifications, ID: flt-semantic-node-140
+		11 container flt-semantic-node-131
+			12 text ENGINEER WORKSPACE
+			13 button Overview Overview Overview, ID: flt-semantic-node-118
+			14 button Projects Projects Projects, ID: flt-semantic-node-120
+			15 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-122
+			16 button Material Returns Material Returns Material Returns, ID: flt-semantic-node-124
+			17 text ENGINEERING TOOLS
+			18 button Duct Sizer Duct Sizer Duct Sizer, ID: flt-semantic-node-127
+			19 button ESP Calculator ESP Calculator ESP Calculator, ID: flt-semantic-node-129
+		20 button (collapsed) My Yorks SA Sarah Ahmed Project Engineer, ID: flt-semantic-node-132, Secondary Actions: Expand
+		21 container ID: flt-semantic-node-141, Description: PROJECT SETUP Projects / Create project Create project Set up the project workspace before BOQ and requests begin. Saved on this device
+			22 button Project details 1 Project details, ID: flt-semantic-node-145
+			23 button Save draft, ID: flt-semantic-node-150
+			24 button (disabled) Parties & access 2 Parties & access, ID: flt-semantic-node-146
+			25 button (disabled) Buildings 3 Buildings, ID: flt-semantic-node-147
+			26 button (disabled) Attachments 4 Attachments Optional, ID: flt-semantic-node-148
+			27 button (disabled) Review & create 5 Review & create, ID: flt-semantic-node-149
+			28 container flt-semantic-node-152
+				29 text Project details
+				30 text Step 1 of 5
+				31 text Enter the key details for this project. You can add more information later.
+				32 text York Reference / Ref. No. *
+				33 text Project Name *
+				34 text field (settable) York Reference / Ref. No.
+				35 text field (settable) Description: Project Name, Value: NEXUS — Resume verified
+				64 text Reference will be checked when saving.
+				37 text Client (optional)
+				38 text Contract / Job No. (optional)
+				39 text field (settable) Client
+				40 text field (settable) Contract / Job No.
+				41 button Client contact details, ID: flt-semantic-node-165
+				42 text Site Location (optional)
+				43 text field (settable) Site Location
+				44 text Enter the main site location or address.
+				45 text Start Date (optional)
+				46 text Expected End Date (optional)
+				47 container flt-semantic-node-170
+					48 text field (settable) Start Date
+					49 button Select date, ID: flt-semantic-node-171
+					50 button Clear date, ID: flt-semantic-node-172
+				51 container flt-semantic-node-176
+					52 text field (settable) Expected End Date (optional)
+					53 button Select date, ID: flt-semantic-node-177
+					54 button Clear date, ID: flt-semantic-node-178
+				55 text DD/MM/YYYY · type a date or use the calendar.
+				56 button Today, ID: flt-semantic-node-174
+				57 text DD/MM/YYYY · type a date or use the calendar.
+				58 button Today, ID: flt-semantic-node-180
+				59 text Project Notes (optional)
+				60 text entry area (settable) Project Notes
+				61 text Add any additional information about the project.
+			62 button Back to projects, ID: flt-semantic-node-184
+			63 button Continue to Parties & access, ID: flt-semantic-node-185
+
+The focused UI element is 35 text field (settable) Description: Project Name, Value: NEXUS — Resume verified

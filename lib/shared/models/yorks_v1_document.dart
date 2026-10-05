@@ -445,18 +445,55 @@ class YorksV1DocumentUploadIntent {
   final String? finalizedDocumentId;
   final String? finalizedVersionId;
 
-  factory YorksV1DocumentUploadIntent.fromRpcJson(Map<String, dynamic> json) =>
-      YorksV1DocumentUploadIntent(
-        id: _requiredString(json, 'upload_intent_id'),
-        bucketId: _requiredString(json, 'bucket_id'),
-        objectPath: _requiredString(json, 'object_path'),
-        mimeType: _requiredString(json, 'mime_type'),
-        byteSize: _positiveInt(json['byte_size']),
-        expiresAt: _requiredDate(json, 'expires_at'),
-        plannedRevisionNumber: _positiveInt(json['planned_revision_number']),
-        finalizedDocumentId: _nullableString(json['finalized_document_id']),
-        finalizedVersionId: _nullableString(json['finalized_version_id']),
-      );
+  factory YorksV1DocumentUploadIntent.fromRpcJson(Map<String, dynamic> json) {
+    final plannedRevision = _positiveInt(json['planned_revision_number']);
+    final finalizedDocumentId = json['finalized_document_id'] == null
+        ? null
+        : _requiredString(json, 'finalized_document_id');
+    final finalizedVersionId = json['finalized_version_id'] == null
+        ? null
+        : _requiredString(json, 'finalized_version_id');
+    if ((finalizedDocumentId == null) != (finalizedVersionId == null)) {
+      _unexpected();
+    }
+
+    String? retainedDocumentId;
+    String? retainedVersionId;
+    if ([
+      'document_id',
+      'document_version_id',
+      'revision_number',
+    ].any(json.containsKey)) {
+      // The service-only finalizer appends this exact receipt to the original
+      // prepare response. Recognize it before attempting another immutable
+      // Storage insert, which is no longer permitted after finalization.
+      retainedDocumentId = _requiredString(json, 'document_id');
+      retainedVersionId = _requiredString(json, 'document_version_id');
+      final revision = json['revision_number'];
+      if (json['planned_revision_number'] is! int ||
+          revision is! int ||
+          revision != plannedRevision) {
+        _unexpected();
+      }
+      if (finalizedDocumentId != null &&
+          (finalizedDocumentId != retainedDocumentId ||
+              finalizedVersionId != retainedVersionId)) {
+        _unexpected();
+      }
+    }
+
+    return YorksV1DocumentUploadIntent(
+      id: _requiredString(json, 'upload_intent_id'),
+      bucketId: _requiredString(json, 'bucket_id'),
+      objectPath: _requiredString(json, 'object_path'),
+      mimeType: _requiredString(json, 'mime_type'),
+      byteSize: _positiveInt(json['byte_size']),
+      expiresAt: _requiredDate(json, 'expires_at'),
+      plannedRevisionNumber: plannedRevision,
+      finalizedDocumentId: retainedDocumentId ?? finalizedDocumentId,
+      finalizedVersionId: retainedVersionId ?? finalizedVersionId,
+    );
+  }
 }
 
 class YorksV1DocumentUploadInput {

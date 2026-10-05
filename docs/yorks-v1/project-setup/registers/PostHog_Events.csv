@@ -1,0 +1,28 @@
+﻿event,status,trigger,properties,privacy_and_semantics
+project creation started,Existing,Route entry,entry_point,Route mapper; deduplicate rerenders.
+project creation attempted,Existing,Valid intent reaches repository,"building_count, attachment_count","No project name, reference or idempotency key."
+project created,Existing,Confirmed create RPC result,"building_count, attachment_count",Not a proxy for activated or all-files-ready.
+project creation failed,Existing,Known create failure,error_category,Do not classify unknown outcome as definitive failed commit.
+project updated,Existing,Confirmed update RPC result,common context,One success emission owner.
+project update failed,Existing,Known validation/RPC failure,error_category,Unknown outcome separately measured.
+project access changed,Existing,Protected membership result,"action_type, success",No target user or project ID in event properties.
+attachment upload started,Existing family,Respective upload/finalize outcome,"object_type, type/size buckets; safe durations",Names/content excluded; success after finalization.
+attachment uploaded,Existing family,Respective upload/finalize outcome,"object_type, type/size buckets; safe durations",Names/content excluded; success after finalization.
+attachment upload failed,Existing family,Respective upload/finalize outcome,"object_type, type/size buckets; safe durations",Names/content excluded; success after finalization.
+form validation failed,Existing,Meaningful reviewed validation boundary,"form_type, validation_reason, result_count",Categories only; never typed values.
+operation completed,Existing family,Timed operation outcome,"operation, duration, success, error_category",Transport failure and commit uncertainty stay distinguishable.
+reliability error occurred,Existing family,Timed operation outcome,"operation, duration, success, error_category",Transport failure and commit uncertainty stay distinguishable.
+project setup step viewed,Proposed,User selects actual setup section,"mode, step, entry_point",Not every build; step enum has five allowed values.
+project draft saved,Proposed,Acknowledged local revision,"mode, storage_scope, save_trigger",Coalesce/sample routine checkpoints; no draft ID or timestamp fingerprint.
+project draft restored,Proposed,Successful owner-scoped restore,"mode, step, source",Do not claim cross-device unless approved.
+project draft save failed,Proposed,Local persistence error,"mode, error_category",No serialized draft or file path.
+project setup conflict detected,Proposed,Ownership or server-version conflict shown,"mode, conflict_type","Enums: local_owner, server_version, stale_prerequisite."
+project command outcome uncertain,Proposed,Post-send result cannot be established,"operation, phase, error_category",No command ID; not a confirmed business failure.
+project command reconciled,Proposed,Original intent’s authoritative outcome known,"operation, outcome, phase",Enums and elapsed bucket; deduplicated result.
+project setup completed,Proposed,Coordinator reaches a known user-facing outcome,"mode, outcome","Outcomes active, draft_pending_activation, saved_files_pending, updated."
+project import previewed,"Proposed, feature gated",Approved preview or authoritative import outcome,"source_type, row_count, error_category","No source hash, filename, cell content or record IDs."
+project import applied,"Proposed, feature gated",Approved preview or authoritative import outcome,"source_type, row_count, error_category","No source hash, filename, cell content or record IDs."
+project import failed,"Proposed, feature gated",Approved preview or authoritative import outcome,"source_type, row_count, error_category","No source hash, filename, cell content or record IDs."
+repeated action detected,Existing family,Existing validated friction detector rules,"Allowed counts, categories, loading state",No per-keystroke tracking; do not revive retired search-struggle detector.
+validation loop detected,Existing family,Existing validated friction detector rules,"Allowed counts, categories, loading state",No per-keystroke tracking; do not revive retired search-struggle detector.
+action produced no feedback,Existing family,Existing validated friction detector rules,"Allowed counts, categories, loading state",No per-keystroke tracking; do not revive retired search-struggle detector.

@@ -1,0 +1,26 @@
+Browser tab: 27, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects".
+1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects
+	2 container Description: Projects, ID: flt-semantic-node-3
+		3 button Open navigation menu, ID: flt-semantic-node-4
+		4 container flt-semantic-node-5
+			5 container flt-semantic-node-24
+				6 container Description: Projects Authorized project context, current owner and connected work., ID: flt-semantic-node-7
+					7 button flt-semantic-node-8
+				8 container ID: flt-semantic-node-10, Description: Saved project setup Saved on this device YRA-322 test Current step: Review & create Last saved: 2026-10-04 23:03 Continue the setup saved on this device.
+					9 button Resume setup, ID: flt-semantic-node-11
+				10 text field (settable) Search projects
+				11 container flt-semantic-node-15
+					12 button All states, ID: flt-semantic-node-16
+					13 button Active, ID: flt-semantic-node-17
+					14 button Completed, ID: flt-semantic-node-18
+				15 container flt-semantic-node-20
+					16 button ID: flt-semantic-node-21, DEMO-YRA-RETAIL STAGING DEMO - Marina Retail Fit-out Active Active Site: Marina, Abu Dhabi 2 Active team 1 Buildings Sep 1, 2026
+					17 button ID: flt-semantic-node-22, DEMO-YRA-TOWER STAGING DEMO - Al Raha Tower HVAC Retrofit Active Active Site: Al Raha, Abu Dhabi 2 Active team 2 Buildings Sep 1, 2026
+					18 button YRA-123 testtest test Active Active Site: test Client: test 2 Active team 3 Buildings Oct 4, 2026, ID: flt-semantic-node-23
+		19 button Home Home, ID: flt-semantic-node-25
+		20 button Projects Projects, ID: flt-semantic-node-26
+		21 button Team Chat Team Chat, ID: flt-semantic-node-27
+		22 button Material Requests Requests, ID: flt-semantic-node-28
+		23 button More More, ID: flt-semantic-node-29
+
+The focused UI element is 4 container flt-semantic-node-5

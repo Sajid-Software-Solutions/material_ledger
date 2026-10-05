@@ -1,0 +1,57 @@
+Browser tab: 39, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43974/?session=resume-mobile-final&stage=0#/projects/new?draft=5bbb8016-cf87-4d08-b082-3750e08436d4".
+1 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43974/?session=resume-mobile-final&stage=0#/projects/new?draft=5bbb8016-cf87-4d08-b082-3750e08436d4
+	2 container Description: Create Project, ID: flt-semantic-node-78
+		3 button Back, ID: flt-semantic-node-79
+		4 container flt-semantic-node-80
+			5 button Projects, ID: flt-semantic-node-81
+			6 text Create project
+			7 button Save draft, ID: flt-semantic-node-83
+			8 text Saved on this device
+			9 container flt-semantic-node-85
+				10 button Description: Project details, ID: flt-semantic-node-86
+					11 button 1 Project details, ID: flt-semantic-node-87
+				12 button (disabled) Description: Parties & access, ID: flt-semantic-node-88
+					13 button (disabled) 2 Parties & access, ID: flt-semantic-node-89
+				14 button (disabled) Description: Buildings, ID: flt-semantic-node-90
+					15 button (disabled) 3 Buildings, ID: flt-semantic-node-91
+				16 button (disabled) Description: Attachments, ID: flt-semantic-node-92
+					17 button (disabled) 4 Attachments, ID: flt-semantic-node-93
+				18 button (disabled) Description: Review & create, ID: flt-semantic-node-94
+					19 button (disabled) 5 Review & create, ID: flt-semantic-node-95
+			20 container flt-semantic-node-96
+				21 text Project details
+				22 text Enter the key details for this project. You can add more information later.
+				23 text York Reference / Ref. No. *
+				24 text field (settable) York Reference / Ref. No.
+				55 text Reference will be checked when saving.
+				26 text Project Name *
+				27 text field (settable) Description: Project Name, Value: NEXUS — Mobile resume verified
+				28 text Client (optional)
+				29 text field (settable) Client
+				30 text Contract / Job No. (optional)
+				31 text field (settable) Contract / Job No.
+				32 button Client contact details, ID: flt-semantic-node-108
+				33 text Site Location (optional)
+				34 text field (settable) Site Location
+				35 text Enter the main site location or address.
+				36 text Start Date (optional)
+				37 container flt-semantic-node-113
+					38 text field (settable) Start Date
+					39 button Select date, ID: flt-semantic-node-114
+					40 button Clear date, ID: flt-semantic-node-115
+				41 text DD/MM/YYYY · type a date or use the calendar.
+				42 button Today, ID: flt-semantic-node-117
+				43 text Expected End Date (optional)
+				44 container flt-semantic-node-119
+					45 text field (settable) Expected End Date (optional)
+					46 button Select date, ID: flt-semantic-node-120
+					47 button Clear date, ID: flt-semantic-node-121
+				48 text DD/MM/YYYY · type a date or use the calendar.
+				49 button Today, ID: flt-semantic-node-123
+				50 text Project Notes (optional)
+				51 text entry area (settable) Project Notes
+				52 text Add any additional information about the project.
+		53 button Continue to Parties & access, ID: flt-semantic-node-127
+		54 button Back to projects, ID: flt-semantic-node-128
+
+The focused UI element is 27 text field (settable) Description: Project Name, Value: NEXUS — Mobile resume verified

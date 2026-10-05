@@ -1,0 +1,86 @@
+Browser tab: 37, Title: "yorks-r35-staging.vercel.app/yorks/projects#/yorks/projects", URL: "https://yorks-r35-staging.vercel.app/yorks/projects#/projects/new?draft=42ef0b4e-bc8b-49c8-81f4-87abe78dc4d1".
+1 AXWebArea Yorks AC. & Ref., URL: yorks-r35-staging.vercel.app/yorks/projects#/projects/new?draft=42ef0b4e-bc8b-49c8-81f4-87abe78dc4d1
+	2 container flt-semantic-node-62
+		3 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects / Create Project Connected Connected
+		4 button Collapse panel, ID: flt-semantic-node-101
+		5 button Back, ID: flt-semantic-node-102
+		28 button (disabled) Next, ID: flt-semantic-node-103
+		6 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-104
+		7 button Enter full screen, ID: flt-semantic-node-105
+		8 button Team Chat, ID: flt-semantic-node-106
+		9 button Description: Notifications, ID: flt-semantic-node-107
+			29 button Notifications, ID: flt-semantic-node-108
+		10 container flt-semantic-node-98
+			30 text MANAGEMENT WORKSPACE
+			11 button Overview Overview Overview, ID: flt-semantic-node-66
+			12 button Analytics Analytics Analytics, ID: flt-semantic-node-68
+			13 button Projects Projects Projects, ID: flt-semantic-node-70
+			14 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-72
+			15 button Accounts Accounts Accounts, ID: flt-semantic-node-74
+			16 button Project Accounts Project Accounts Project Accounts, ID: flt-semantic-node-76
+			17 button Billing Progress Billing Progress Billing Progress, ID: flt-semantic-node-78
+			18 button Claims & Invoices Claims & Invoices Claims & Invoices, ID: flt-semantic-node-80
+			19 button Receipts & PDC Receipts & PDC Receipts & PDC, ID: flt-semantic-node-82
+			20 button Supplier Bills Supplier Bills Supplier Bills, ID: flt-semantic-node-84
+			21 button Due Schedule Due Schedule Due Schedule, ID: flt-semantic-node-86
+			22 button Documents Documents Documents, ID: flt-semantic-node-88
+			23 button Reports Reports Reports, ID: flt-semantic-node-90
+			24 button Audit Trail Audit Trail Audit Trail, ID: flt-semantic-node-92
+			25 button Workforce Workforce Workforce, ID: flt-semantic-node-94
+			31 text COLLABORATION
+			26 button Team Chat Team Chat Team Chat, ID: flt-semantic-node-97
+		27 button (collapsed) My Yorks LA Local Admin Admin, ID: flt-semantic-node-99, Secondary Actions: Expand
+		32 container Description: Back to projects Continue to Parties & access, ID: flt-semantic-node-109
+			33 container flt-semantic-node-110
+				34 button Projects, ID: flt-semantic-node-111
+				35 text Create project
+				36 button Save draft, ID: flt-semantic-node-113
+				37 text Not saved yet
+				38 container flt-semantic-node-115
+					39 button Description: Project details, ID: flt-semantic-node-116
+						40 button 1 Project details, ID: flt-semantic-node-117
+					41 button (disabled) Description: Parties & access, ID: flt-semantic-node-118
+						42 button (disabled) 2 Parties & access, ID: flt-semantic-node-119
+					43 button (disabled) Description: Buildings, ID: flt-semantic-node-120
+						44 button (disabled) 3 Buildings, ID: flt-semantic-node-121
+					45 button (disabled) Description: Attachments, ID: flt-semantic-node-122
+						46 button (disabled) 4 Attachments, ID: flt-semantic-node-123
+					47 button (disabled) Description: Review & create, ID: flt-semantic-node-124
+						48 button (disabled) 5 Review & create, ID: flt-semantic-node-125
+				49 container flt-semantic-node-126
+					50 text Project details
+					51 text Enter the key details for this project. You can add more information later.
+					52 text York Reference / Ref. No. *
+					53 text field (settable) York Reference / Ref. No. YRA-
+					54 text Used on the project, Material Requests and related documents.
+					55 text Project Name *
+					56 text field (settable) Project Name Enter project name
+					57 text Client (optional)
+					58 text Contract / Job No. (optional)
+					59 text field (settable) Client Enter client or end user
+					60 text field (settable) Contract / Job No. Enter contract or job number
+					61 button Client contact details, ID: flt-semantic-node-138
+					62 text Site Location (optional)
+					63 text field (settable) Site Location Area, city and site description
+					64 text Enter the main site location or address.
+					65 text Start Date (optional)
+					66 text Expected End Date (optional)
+					67 container flt-semantic-node-143
+						68 text field (settable) Start Date DD/MM/YYYY
+						69 button Select date, ID: flt-semantic-node-144
+						70 button Clear date, ID: flt-semantic-node-145
+					71 container flt-semantic-node-149
+						72 text field (settable) Expected End Date (optional) DD/MM/YYYY
+						73 button Select date, ID: flt-semantic-node-150
+						74 button Clear date, ID: flt-semantic-node-151
+					75 text DD/MM/YYYY · type a date or use the calendar.
+					76 button Today, ID: flt-semantic-node-147
+					77 text DD/MM/YYYY · type a date or use the calendar.
+					78 button Today, ID: flt-semantic-node-153
+					79 text Project Notes (optional)
+					80 text entry area (settable) Project Notes Access, coordination or operational notes
+					81 text Add any additional information about the project.
+			82 button Back to projects, ID: flt-semantic-node-157
+			83 button Continue to Parties & access, ID: flt-semantic-node-158
+
+The focused UI element is 32 container Description: Back to projects Continue to Parties & access, ID: flt-semantic-node-109

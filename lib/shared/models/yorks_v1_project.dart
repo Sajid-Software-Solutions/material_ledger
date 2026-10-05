@@ -1,5 +1,8 @@
 import 'yorks_v1_domain_error.dart';
+import 'yorks_v1_project_attachment_category.dart';
 import 'yorks_v1_role.dart';
+
+export 'yorks_v1_project_attachment_category.dart';
 
 /// The only Yorks V1 project lifecycle. This intentionally coexists with the
 /// legacy [ProjectState] and [ProjectLifecycleStatus] types until their screens
@@ -430,6 +433,7 @@ class YorksV1ProjectPartyInput {
     this.contactPhone,
     this.contactEmail,
     this.address,
+    this.retainedFields = const {},
   });
 
   final YorksV1ProjectPartyKind kind;
@@ -438,6 +442,9 @@ class YorksV1ProjectPartyInput {
   final String? contactPhone;
   final String? contactEmail;
   final String? address;
+
+  /// Unknown local metadata is retained for recovery, never promoted to an RPC.
+  final Map<String, dynamic> retainedFields;
 
   Map<String, dynamic> toPartyRpcJson() => {
     'name': name.trim(),
@@ -448,26 +455,55 @@ class YorksV1ProjectPartyInput {
   };
 
   Map<String, dynamic> toDraftJson() => {
+    ...retainedFields,
     'kind': kind.wireValue,
-    ...toPartyRpcJson(),
+    'name': name,
+    'contact_name': contactName,
+    'contact_phone': contactPhone,
+    'contact_email': contactEmail,
+    'address': address,
   };
 
   factory YorksV1ProjectPartyInput.fromDraftJson(Map<String, dynamic> json) {
-    final kind = YorksV1ProjectPartyKind.values.firstWhere(
-      (candidate) => candidate.wireValue == json['kind'],
-      orElse: () => YorksV1ProjectPartyKind.otherContractor,
-    );
+    final kind = YorksV1ProjectPartyKind.fromWireValue(json['kind']);
+    if (kind == null) {
+      // A future/legacy party is quarantined by the draft adapter, not guessed.
+      throw const FormatException('Unsupported project party kind');
+    }
     return YorksV1ProjectPartyInput(
       kind: kind,
       name: json['name'] as String? ?? '',
-      contactName: _nullableString(json['contact_name'] ?? json['contactName']),
-      contactPhone: _nullableString(
-        json['contact_phone'] ?? json['contactPhone'],
-      ),
-      contactEmail: _nullableString(
-        json['contact_email'] ?? json['contactEmail'],
-      ),
-      address: _nullableString(json['address']),
+      contactName:
+          (json.containsKey('contact_name')
+                  ? json['contact_name']
+                  : json['contactName'])
+              as String?,
+      contactPhone:
+          (json.containsKey('contact_phone')
+                  ? json['contact_phone']
+                  : json['contactPhone'])
+              as String?,
+      contactEmail:
+          (json.containsKey('contact_email')
+                  ? json['contact_email']
+                  : json['contactEmail'])
+              as String?,
+      address: json['address'] as String?,
+      retainedFields: {
+        for (final entry in json.entries)
+          if (!const {
+            'kind',
+            'name',
+            'contact_name',
+            'contactName',
+            'contact_phone',
+            'contactPhone',
+            'contact_email',
+            'contactEmail',
+            'address',
+          }.contains(entry.key))
+            entry.key: entry.value,
+      },
     );
   }
 }
@@ -481,6 +517,8 @@ class YorksV1ProjectBuildingInput {
     this.floorsOrLevels = const [],
     this.hasFrpRoom = false,
     this.flags = const {},
+    this.localRowId,
+    this.retainedFields = const {},
   });
 
   final String code;
@@ -493,6 +531,27 @@ class YorksV1ProjectBuildingInput {
   final List<String> floorsOrLevels;
   final bool hasFrpRoom;
   final Map<String, dynamic> flags;
+  final String? localRowId;
+  final Map<String, dynamic> retainedFields;
+
+  YorksV1ProjectBuildingInput copyWith({
+    String? code,
+    String? name,
+    String? deliveryAddress,
+    List<String>? floorsOrLevels,
+    bool? hasFrpRoom,
+    String? localRowId,
+  }) => YorksV1ProjectBuildingInput(
+    sourceScopeId: sourceScopeId,
+    code: code ?? this.code,
+    name: name ?? this.name,
+    deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+    floorsOrLevels: floorsOrLevels ?? this.floorsOrLevels,
+    hasFrpRoom: hasFrpRoom ?? this.hasFrpRoom,
+    flags: flags,
+    localRowId: localRowId ?? this.localRowId,
+    retainedFields: retainedFields,
+  );
 
   String get normalizedCode => code.trim().toUpperCase();
 
@@ -505,7 +564,7 @@ class YorksV1ProjectBuildingInput {
       for (final floor in floorsOrLevels)
         if (floor.trim().isNotEmpty) floor.trim(),
     ],
-    'flags': {...flags, if (hasFrpRoom) 'has_frp_room': true},
+    'flags': {...flags, 'has_frp_room': hasFrpRoom},
     'delivery_address': _trimToNull(deliveryAddress),
   };
 
@@ -514,22 +573,58 @@ class YorksV1ProjectBuildingInput {
     ...toRpcJson(),
   };
 
-  Map<String, dynamic> toDraftJson() => toRpcJson();
+  Map<String, dynamic> toDraftJson() => {
+    ...retainedFields,
+    if (sourceScopeId != null) 'sourceScopeId': sourceScopeId,
+    'localRowId': localRowId,
+    'code': code,
+    'name': name,
+    'floors_levels': floorsOrLevels,
+    'flags': {...flags, 'has_frp_room': hasFrpRoom},
+    'delivery_address': deliveryAddress,
+  };
 
   factory YorksV1ProjectBuildingInput.fromDraftJson(Map<String, dynamic> json) {
+    if (json['flags'] != null && json['flags'] is! Map) {
+      throw const FormatException('Invalid building flags');
+    }
+    final floors = json['floors_levels'] ?? json['floorsOrLevels'];
+    if (floors != null &&
+        (floors is! List || floors.any((value) => value is! String))) {
+      throw const FormatException('Invalid building floor labels');
+    }
     return YorksV1ProjectBuildingInput(
       sourceScopeId: _nullableString(json['id'] ?? json['sourceScopeId']),
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      deliveryAddress: _nullableString(
-        json['delivery_address'] ?? json['deliveryAddress'],
-      ),
-      floorsOrLevels: _strings(json['floors_levels'] ?? json['floorsOrLevels']),
+      deliveryAddress:
+          (json['delivery_address'] ?? json['deliveryAddress']) as String?,
+      floorsOrLevels: floors == null ? const [] : List<String>.from(floors),
       hasFrpRoom: _bool(
-        _map(json['flags'])['has_frp_room'] ?? json['hasFrpRoom'],
+        json.containsKey('hasFrpRoom')
+            ? json['hasFrpRoom']
+            : _map(json['flags'])['has_frp_room'],
         defaultValue: false,
       ),
       flags: _map(json['flags']),
+      localRowId: json['localRowId'] as String?,
+      retainedFields: {
+        for (final entry in json.entries)
+          if (!const {
+            'id',
+            'sourceScopeId',
+            'localRowId',
+            'code',
+            'name',
+            'delivery_address',
+            'deliveryAddress',
+            'floors_levels',
+            'floorsOrLevels',
+            'hasFrpRoom',
+            'flags',
+          }.contains(entry.key))
+            entry.key: entry.value,
+      },
     );
   }
 }
@@ -544,11 +639,43 @@ class YorksV1ProjectAttachmentInput {
     required this.fileName,
     this.mimeType,
     this.sizeBytes,
+    this.localId,
+    this.contentHash,
+    this.categoryKey,
+    this.retainedFields = const {},
   });
 
   final String fileName;
   final String? mimeType;
   final int? sizeBytes;
+  final String? localId;
+  final String? contentHash;
+  // Keep absence and unknown values for exact historical local round-trips.
+  // This metadata never enters the reviewed server creation/upload payload.
+  final String? categoryKey;
+  final Map<String, dynamic> retainedFields;
+
+  YorksV1ProjectAttachmentCategory? get category =>
+      YorksV1ProjectAttachmentCategory.fromWireValue(effectiveCategoryKey);
+  String get effectiveCategoryKey =>
+      categoryKey ?? YorksV1ProjectAttachmentCategory.general.wireValue;
+
+  YorksV1ProjectAttachmentInput copyWith({
+    String? fileName,
+    String? mimeType,
+    int? sizeBytes,
+    String? localId,
+    String? contentHash,
+    String? categoryKey,
+  }) => YorksV1ProjectAttachmentInput(
+    fileName: fileName ?? this.fileName,
+    mimeType: mimeType ?? this.mimeType,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    localId: localId ?? this.localId,
+    contentHash: contentHash ?? this.contentHash,
+    categoryKey: categoryKey ?? this.categoryKey,
+    retainedFields: retainedFields,
+  );
 
   Map<String, dynamic> toRpcJson() => {
     'file_name': fileName.trim(),
@@ -556,7 +683,13 @@ class YorksV1ProjectAttachmentInput {
     'size_bytes': sizeBytes,
   };
 
-  Map<String, dynamic> toDraftJson() => toRpcJson();
+  Map<String, dynamic> toDraftJson() => {
+    ...retainedFields,
+    ...toRpcJson(),
+    'local_id': localId,
+    'content_hash': contentHash,
+    if (categoryKey != null) 'category': categoryKey,
+  };
 
   factory YorksV1ProjectAttachmentInput.fromDraftJson(
     Map<String, dynamic> json,
@@ -566,6 +699,24 @@ class YorksV1ProjectAttachmentInput {
           json['file_name'] as String? ?? json['fileName'] as String? ?? '',
       mimeType: _nullableString(json['mime_type'] ?? json['mimeType']),
       sizeBytes: ((json['size_bytes'] ?? json['sizeBytes']) as num?)?.toInt(),
+      localId: json['local_id'] as String?,
+      contentHash: json['content_hash'] as String?,
+      categoryKey: json['category'] as String?,
+      retainedFields: Map.unmodifiable({
+        for (final entry in json.entries)
+          if (!const {
+            'file_name',
+            'fileName',
+            'mime_type',
+            'mimeType',
+            'size_bytes',
+            'sizeBytes',
+            'local_id',
+            'content_hash',
+            'category',
+          }.contains(entry.key))
+            entry.key: entry.value,
+      }),
     );
   }
 }

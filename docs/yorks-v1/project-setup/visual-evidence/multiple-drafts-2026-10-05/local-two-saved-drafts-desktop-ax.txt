@@ -1,0 +1,47 @@
+Browser tab: 34, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43972/?session=multiple-drafts-desktop#/yorks/projects".
+0 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43972/?session=multiple-drafts-desktop#/yorks/projects
+	1 container flt-semantic-node-306
+		2 image Yorks AC. & Ref. Yorks Air Conditioning & Refrigeration LLC-SPC Connected Connected Procurement Control & Inventory Yorks AC. & Ref. / Projects Connected Connected
+		3 button Collapse panel, ID: flt-semantic-node-325
+		4 button Back, ID: flt-semantic-node-326
+		5 button (disabled) Next, ID: flt-semantic-node-327
+		6 button Quick navigation Search or jump to… ⌘K, ID: flt-semantic-node-328
+		7 button Enter full screen, ID: flt-semantic-node-329
+		8 button Description: Notifications, ID: flt-semantic-node-330
+			9 button Notifications, ID: flt-semantic-node-331
+		10 container flt-semantic-node-322
+			11 text ENGINEER WORKSPACE
+			12 button Overview Overview Overview, ID: flt-semantic-node-309
+			13 button Projects Projects Projects, ID: flt-semantic-node-311
+			14 button Material Requests Material Requests Material Requests, ID: flt-semantic-node-313
+			15 button Material Returns Material Returns Material Returns, ID: flt-semantic-node-315
+			16 text ENGINEERING TOOLS
+			17 button Duct Sizer Duct Sizer Duct Sizer, ID: flt-semantic-node-318
+			18 button ESP Calculator ESP Calculator ESP Calculator, ID: flt-semantic-node-320
+		19 button (collapsed) My Yorks SA Sarah Ahmed Project Engineer, ID: flt-semantic-node-323, Secondary Actions: Expand
+		20 container flt-semantic-node-332
+			21 container flt-semantic-node-333
+				22 text Local synthetic project setup fixture
+				23 button Create Project, ID: flt-semantic-node-335
+				24 text Saved drafts on this device
+				25 text Create Project starts a new setup. Resume opens the draft you choose.
+				26 text Saved project setup
+				27 text Saved on this device
+				28 text YRA-DRAFT-B
+				29 text Independent draft B
+				30 text Current step: Project details
+				31 button Resume setup, ID: flt-semantic-node-346
+				32 text Last saved:
+				33 text 2026-10-05 20:47
+				34 text Continue the setup saved on this device.
+				35 text Saved project setup
+				36 text Saved on this device
+				37 text YRA-322
+				38 text NEXUS — Four substations
+				39 text Current step: Project details
+				40 button Resume setup, ID: flt-semantic-node-355
+				41 text Last saved:
+				42 text 2026-10-05 20:40
+				43 text Continue the setup saved on this device.
+
+The focused UI element is 20 container flt-semantic-node-332

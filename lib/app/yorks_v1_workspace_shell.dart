@@ -45,13 +45,44 @@ final yorksV1SidebarExpandedProvider = yorksV1WorkspaceSidebarExpandedProvider;
 /// This widget is intentionally presentation-only. It does not widen routes,
 /// client permissions or server data; individual feature screens continue to
 /// request their own safe projections and call their existing controllers.
-class YorksV1WorkspaceShell extends ConsumerWidget {
-  const YorksV1WorkspaceShell({super.key, required this.child});
+class YorksV1WorkspaceShell extends ConsumerStatefulWidget {
+  const YorksV1WorkspaceShell({
+    super.key,
+    required this.child,
+    this.featureOwnsBackNavigation = false,
+  });
 
   final Widget child;
 
+  /// A focused draft editor supplies its own system Back decision. This never
+  /// changes the universal workspace header, sidebar, permissions or history.
+  final bool featureOwnsBackNavigation;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<YorksV1WorkspaceShell> createState() =>
+      _YorksV1WorkspaceShellState();
+}
+
+class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
+  // Desktop, compact and fullscreen chrome place the same route content under
+  // different parents. Keep its viewport and editor state alive when those
+  // parents change, including transient browser screenshot dimensions.
+  final _contentViewportKey = GlobalKey(
+    debugLabel: 'yorks-workspace-route-content',
+  );
+
+  bool get featureOwnsBackNavigation => widget.featureOwnsBackNavigation;
+
+  Widget _contentViewport(AppLanguage language, String location) =>
+      YorksWorkspaceZoomViewport(
+        key: _contentViewportKey,
+        routeKey: location,
+        language: language,
+        child: widget.child,
+      );
+
+  @override
+  Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
     final role = ref.watch(yorksV1CurrentRoleProvider);
     final user = ref.watch(currentUserProvider);
@@ -123,7 +154,9 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
         ? ref.watch(yorksV1SidebarExpandedProvider)
         : true;
     final breadcrumbs = _breadcrumbsFor(location, current);
-    final focusedMobileRoute = location == RoutePaths.engineerCreateProject;
+    final focusedMobileRoute =
+        location == RoutePaths.engineerCreateProject ||
+        featureOwnsBackNavigation;
     final featureOwnsMobileTopBar = _featureOwnsMobileTopBar(location);
 
     void openSearch() {
@@ -176,9 +209,16 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
         // Root destinations in StatefulShellRoute have no Navigator page to pop.
         // Intercept system/gesture Back there and consume the shared workspace
         // history. Native nested routes keep their normal pop semantics.
-        canPop: canPopNatively || !canUseWorkspaceHistory,
+        // Focused setup already owns a draft-aware PopScope and GoRouter exit
+        // guard. Do not issue another Back while that guard is deciding.
+        canPop:
+            featureOwnsBackNavigation ||
+            canPopNatively ||
+            !canUseWorkspaceHistory,
         onPopInvokedWithResult: (didPop, _) {
-          if (didPop || !canUseWorkspaceHistory) return;
+          if (featureOwnsBackNavigation || didPop || !canUseWorkspaceHistory) {
+            return;
+          }
           yorksNavigateBack(
             context,
             ref,
@@ -202,6 +242,10 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
             drawer: desktop
                 ? null
                 : Drawer(
+                    key: const ValueKey('yorks-workspace-navigation-drawer'),
+                    semanticLabel: YorksV1ShellStrings.quickNavigation.active(
+                      language,
+                    ),
                     width: 246,
                     shape: const RoundedRectangleBorder(),
                     child: _YorksDesktopSidebar(
@@ -213,8 +257,15 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
                       expanded: true,
                     ),
                   ),
-            body: Builder(
-              builder: (scaffoldContext) {
+            body: LayoutBuilder(
+              builder: (scaffoldContext, constraints) {
+                // Browser capture/navigation can briefly report a 1×1 view.
+                // Suppress only chrome that cannot fit, keeping the same keyed
+                // content mounted so pending input and save decisions survive.
+                if (constraints.maxWidth < AppSpacing.minTapTarget ||
+                    constraints.maxHeight < AppSpacing.minTapTarget * 2) {
+                  return _contentViewport(language, location);
+                }
                 if (!desktop) {
                   final unread = ref.watch(unreadNotificationCountProvider);
                   return ColoredBox(
@@ -244,13 +295,7 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
                               fallback: navigationFallback,
                             ),
                           ),
-                        Expanded(
-                          child: YorksWorkspaceZoomViewport(
-                            routeKey: location,
-                            language: language,
-                            child: child,
-                          ),
-                        ),
+                        Expanded(child: _contentViewport(language, location)),
                         if (!focusedMobileRoute)
                           _YorksMobileNavigation(
                             destinations: _mobileDestinationsFor(
@@ -275,11 +320,7 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
                   return Stack(
                     children: [
                       Positioned.fill(
-                        child: YorksWorkspaceZoomViewport(
-                          routeKey: location,
-                          language: language,
-                          child: child,
-                        ),
+                        child: _contentViewport(language, location),
                       ),
                       SafeArea(
                         child: Align(
@@ -359,13 +400,7 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
                               currentLocation,
                             ),
                           ),
-                          Expanded(
-                            child: YorksWorkspaceZoomViewport(
-                              routeKey: location,
-                              language: language,
-                              child: child,
-                            ),
-                          ),
+                          Expanded(child: _contentViewport(language, location)),
                         ],
                       ),
                     ),
@@ -416,622 +451,6 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
       return RoutePaths.yorksV1ProjectPath(segments[2]);
     }
     return currentDestinationPath ?? RoutePaths.engineerHome;
-  }
-
-  List<_YorksDestination> _mobileDestinationsFor(
-    YorksV1Role? role, {
-    required bool nativeMobile,
-    bool teamChatEnabled = true,
-    int chatUnread = 0,
-    YorksV1CurrentPermissionSnapshotState? permissionState,
-    bool companyRequestsEnabled = false,
-    bool accountsEnabled = false,
-    bool workforceEnabled = false,
-    bool analyticsEnabled = false,
-  }) {
-    final all = _destinationsFor(
-      role,
-      teamChatEnabled: teamChatEnabled,
-      chatUnread: chatUnread,
-      permissionState: permissionState,
-      companyRequestsEnabled: companyRequestsEnabled,
-      accountsEnabled: accountsEnabled,
-      workforceEnabled: workforceEnabled,
-      analyticsEnabled: analyticsEnabled,
-    );
-    _YorksDestination? path(String route) {
-      for (final destination in all) {
-        if (destination.path == route) return destination;
-      }
-      return null;
-    }
-
-    final home = path(RoutePaths.engineerHome);
-    if (role == YorksV1Role.accountant) {
-      final accounts = path(RoutePaths.yorksV1Accounts);
-      final projects = path(RoutePaths.yorksV1AccountsProjects);
-      final claims = path(RoutePaths.yorksV1AccountsClaims);
-      final requests = path(RoutePaths.yorksV1MaterialRequests);
-      final payments = path(RoutePaths.yorksV1AccountsClientPayments);
-      final more = _YorksDestination(
-        label: AppStrings.more,
-        icon: nativeMobile ? Icons.menu_rounded : Icons.grid_view_outlined,
-        selectedIcon: nativeMobile
-            ? Icons.menu_rounded
-            : Icons.grid_view_rounded,
-        path: RoutePaths.yorksV1MobileMore,
-      );
-      return [
-        ?accounts,
-        ?projects,
-        if (companyRequestsEnabled) ?requests else ?claims,
-        ?payments,
-        more,
-      ];
-    }
-    final requiredHome = home!;
-    if (!nativeMobile) {
-      final more = _YorksDestination(
-        label: AppStrings.more,
-        icon: Icons.grid_view_outlined,
-        selectedIcon: Icons.grid_view_rounded,
-        path: RoutePaths.yorksV1MobileMore,
-      );
-      final preferred = role == YorksV1Role.procurement
-          ? <_YorksDestination?>[
-              requiredHome,
-              path(RoutePaths.yorksV1MaterialRequests),
-              path(RoutePaths.yorksV1Inventory),
-              teamChatEnabled
-                  ? path(RoutePaths.yorksV1TeamChat)
-                  : path(RoutePaths.yorksV1Dispatches),
-            ]
-          : <_YorksDestination?>[
-              requiredHome,
-              path(RoutePaths.yorksV1Projects),
-              if (teamChatEnabled) path(RoutePaths.yorksV1TeamChat),
-              path(RoutePaths.yorksV1MaterialRequests),
-            ];
-      return [...preferred.whereType<_YorksDestination>(), more];
-    }
-    _YorksDestination mobilePath(
-      _YorksDestination source,
-      IconData icon,
-      IconData selectedIcon, {
-      TranslatableString? mobileLabel,
-    }) {
-      return _YorksDestination(
-        label: mobileLabel ?? source.label,
-        compactLabel: mobileLabel ?? source.compactLabel,
-        icon: icon,
-        selectedIcon: selectedIcon,
-        path: source.path,
-      );
-    }
-
-    final mobileHome = mobilePath(
-      requiredHome,
-      Icons.home_outlined,
-      Icons.home_rounded,
-      mobileLabel: AppStrings.home,
-    );
-    final projectSource = path(RoutePaths.yorksV1Projects);
-    final projects = projectSource == null
-        ? null
-        : mobilePath(
-            projectSource,
-            Icons.folder_outlined,
-            Icons.folder_rounded,
-          );
-    final requestSource = path(RoutePaths.yorksV1MaterialRequests);
-    final requests = requestSource == null
-        ? null
-        : mobilePath(
-            requestSource,
-            Icons.receipt_long_outlined,
-            Icons.receipt_long_rounded,
-          );
-    final chatSource = path(RoutePaths.yorksV1TeamChat);
-    final chat = teamChatEnabled && chatSource != null
-        ? mobilePath(
-            chatSource,
-            Icons.chat_bubble_outline_rounded,
-            Icons.chat_bubble_rounded,
-          )
-        : null;
-    final more = _YorksDestination(
-      label: AppStrings.more,
-      icon: Icons.menu_rounded,
-      selectedIcon: Icons.menu_rounded,
-      path: RoutePaths.yorksV1MobileMore,
-    );
-    if (role == YorksV1Role.procurement) {
-      return [
-        mobileHome,
-        ?requests,
-        ?path(RoutePaths.yorksV1Inventory),
-        ?(chat ?? path(RoutePaths.yorksV1Dispatches)),
-        more,
-      ];
-    }
-    return [mobileHome, ?projects, ?chat, ?requests, more];
-  }
-
-  List<_YorksDestination> _destinationsFor(
-    YorksV1Role? role, {
-    bool teamChatEnabled = true,
-    int chatUnread = 0,
-    YorksV1CurrentPermissionSnapshotState? permissionState,
-    bool companyRequestsEnabled = false,
-    bool accountsEnabled = false,
-    bool workforceEnabled = false,
-    bool analyticsEnabled = false,
-  }) {
-    final accountsOfficeEligible =
-        role == YorksV1Role.admin ||
-        role == YorksV1Role.accountant ||
-        role == YorksV1Role.projectManager ||
-        role == YorksV1Role.seniorMechanicalEngineer;
-    final accountsOffice = accountsEnabled && accountsOfficeEligible
-        ? <_YorksDestination>[
-            _YorksDestination(
-              label: YorksV1ShellStrings.accounts,
-              icon: Icons.dashboard_outlined,
-              selectedIcon: Icons.dashboard_rounded,
-              path: RoutePaths.yorksV1Accounts,
-              group: role == YorksV1Role.accountant
-                  ? YorksV1ShellStrings.accountantWorkspace
-                  : null,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.projectAccounts,
-              icon: Icons.folder_outlined,
-              selectedIcon: Icons.folder_rounded,
-              path: RoutePaths.yorksV1AccountsProjects,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.billingProgress,
-              icon: Icons.stacked_bar_chart_outlined,
-              selectedIcon: Icons.stacked_bar_chart_rounded,
-              path: RoutePaths.yorksV1AccountsBillingProgress,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.accountsClaims,
-              icon: Icons.request_page_outlined,
-              selectedIcon: Icons.request_page_rounded,
-              path: RoutePaths.yorksV1AccountsClaims,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.receiptsPdc,
-              icon: Icons.account_balance_wallet_outlined,
-              selectedIcon: Icons.account_balance_wallet_rounded,
-              path: RoutePaths.yorksV1AccountsClientPayments,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.supplierBills,
-              icon: Icons.receipt_long_outlined,
-              selectedIcon: Icons.receipt_long_rounded,
-              path: RoutePaths.yorksV1AccountsSupplierBills,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.dueSchedule,
-              icon: Icons.calendar_month_outlined,
-              selectedIcon: Icons.calendar_month_rounded,
-              path: RoutePaths.yorksV1AccountsDueSchedule,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.accountsDocuments,
-              icon: Icons.folder_copy_outlined,
-              selectedIcon: Icons.folder_copy_rounded,
-              path: RoutePaths.yorksV1AccountsDocuments,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.accountsReports,
-              icon: Icons.analytics_outlined,
-              selectedIcon: Icons.analytics_rounded,
-              path: RoutePaths.yorksV1AccountsReports,
-            ),
-            _YorksDestination(
-              label: YorksV1ShellStrings.accountsAuditTrail,
-              icon: Icons.policy_outlined,
-              selectedIcon: Icons.policy_rounded,
-              path: RoutePaths.yorksV1AccountsActivity,
-            ),
-          ]
-        : const <_YorksDestination>[];
-    final candidates = <_YorksDestination>[
-      if (!(accountsEnabled && role == YorksV1Role.accountant))
-        ..._legacyDestinationsFor(
-          role,
-          teamChatEnabled: teamChatEnabled,
-          chatUnread: chatUnread,
-        ),
-      ...accountsOffice,
-      if (analyticsEnabled)
-        _YorksDestination(
-          label: YorksV1ShellStrings.analytics,
-          icon: Icons.insights_outlined,
-          selectedIcon: Icons.insights_rounded,
-          path: RoutePaths.yorksV1Analytics,
-        ),
-      if (workforceEnabled)
-        _YorksDestination(
-          label: YorksV1ShellStrings.workforce,
-          icon: Icons.groups_2_outlined,
-          selectedIcon: Icons.groups_2_rounded,
-          path: RoutePaths.yorksV1Workforce,
-        ),
-      if (workforceEnabled)
-        _YorksDestination(
-          label: YorksV1ShellStrings.workforceAdministration,
-          icon: Icons.badge_outlined,
-          selectedIcon: Icons.badge_rounded,
-          path: RoutePaths.yorksV1WorkforceAdministration,
-          group: YorksV1ShellStrings.administration,
-        ),
-      ..._legacyDestinationsFor(
-        YorksV1Role.admin,
-        teamChatEnabled: teamChatEnabled,
-        chatUnread: chatUnread,
-      ),
-      ..._legacyDestinationsFor(
-        YorksV1Role.procurement,
-        teamChatEnabled: teamChatEnabled,
-        chatUnread: chatUnread,
-      ),
-      ..._legacyDestinationsFor(
-        YorksV1Role.seniorMechanicalEngineer,
-        teamChatEnabled: teamChatEnabled,
-        chatUnread: chatUnread,
-      ),
-    ];
-    final unique = <String, _YorksDestination>{};
-    for (final destination in candidates) {
-      final path = destination.path;
-      if (path != null) unique.putIfAbsent(path, () => destination);
-    }
-
-    bool allows(String capabilityKey, bool legacyAllowed) {
-      return permissionState?.hybridAllows(
-            capabilityKey,
-            legacyAllowed: legacyAllowed,
-            organizationSummary: true,
-          ) ??
-          legacyAllowed;
-    }
-
-    bool destinationAllowed(_YorksDestination destination) {
-      final path = destination.path;
-      if (path == RoutePaths.engineerHome) return true;
-      if (role == YorksV1Role.accountant &&
-          !(companyRequestsEnabled &&
-              path == RoutePaths.yorksV1MaterialRequests) &&
-          path != RoutePaths.yorksV1Accounts &&
-          path != RoutePaths.yorksV1Workforce &&
-          (path == null ||
-              !path.startsWith('${RoutePaths.yorksV1Accounts}/'))) {
-        return false;
-      }
-      if (path == RoutePaths.yorksV1Accounts ||
-          (path?.startsWith('${RoutePaths.yorksV1Accounts}/') ?? false)) {
-        final structurallyEligible =
-            role == YorksV1Role.admin ||
-            role == YorksV1Role.accountant ||
-            role == YorksV1Role.projectManager ||
-            role == YorksV1Role.seniorMechanicalEngineer;
-        final canViewAccounts = allows(
-          YorksV1CapabilityKeys.viewProjectAccounts,
-          false,
-        );
-        final canViewDestination =
-            path != RoutePaths.yorksV1AccountsSupplierBills ||
-            allows(YorksV1CapabilityKeys.viewSupplierCosts, false);
-        return accountsEnabled &&
-            structurallyEligible &&
-            canViewAccounts &&
-            canViewDestination;
-      }
-      if (path == RoutePaths.yorksV1Workforce) {
-        return workforceEnabled &&
-            allows(YorksV1CapabilityKeys.workforceView, false);
-      }
-      if (path == RoutePaths.yorksV1WorkforceAdministration) {
-        return workforceEnabled &&
-            allows(YorksV1CapabilityKeys.workforceView, false) &&
-            (allows(YorksV1CapabilityKeys.workforceWorkersManage, false) ||
-                allows(YorksV1CapabilityKeys.workforceTeamsManage, false) ||
-                allows(
-                  YorksV1CapabilityKeys.workforceConfigurationManage,
-                  false,
-                ));
-      }
-      if (path == RoutePaths.yorksV1Analytics) {
-        return analyticsEnabled &&
-            allows(YorksV1CapabilityKeys.analyticsView, false);
-      }
-      if (path == RoutePaths.yorksV1Projects) {
-        return allows(YorksV1CapabilityKeys.projectsView, role != null);
-      }
-      if (path == RoutePaths.yorksV1MaterialRequests) {
-        return (companyRequestsEnabled && role != null) ||
-            allows(YorksV1CapabilityKeys.materialRequestsView, role != null);
-      }
-      if (path == RoutePaths.yorksV1TeamChat) {
-        return allows(YorksV1CapabilityKeys.chatView, role != null);
-      }
-      if (path == RoutePaths.yorksV1Inventory) {
-        return allows(
-          YorksV1CapabilityKeys.inventoryView,
-          role?.canBrowseInventory ?? false,
-        );
-      }
-      if (path == RoutePaths.yorksV1Returns) {
-        return allows(YorksV1CapabilityKeys.returnsView, role != null);
-      }
-      if (path == RoutePaths.yorksV1Dispatches) {
-        return allows(
-          YorksV1CapabilityKeys.dispatchView,
-          role == YorksV1Role.procurement || role == YorksV1Role.admin,
-        );
-      }
-      if (path == RoutePaths.yorksV1Configuration) {
-        return allows(
-          YorksV1CapabilityKeys.configurationView,
-          role == YorksV1Role.admin,
-        );
-      }
-      if (path == RoutePaths.rentals) {
-        return allows(
-          YorksV1CapabilityKeys.rentalsView,
-          role == YorksV1Role.admin,
-        );
-      }
-      if (path == RoutePaths.users) {
-        return allows(
-          YorksV1CapabilityKeys.usersView,
-          role?.canConfigureUsers ?? false,
-        );
-      }
-      if (path == RoutePaths.activityLog) {
-        return allows(
-          YorksV1CapabilityKeys.auditView,
-          role == YorksV1Role.admin,
-        );
-      }
-      if (path == RoutePaths.yorksV1DuctSizer ||
-          path == RoutePaths.yorksV1EspCalculator) {
-        return role?.isEngineering ?? false;
-      }
-      return false;
-    }
-
-    final visible = <_YorksDestination>[
-      for (final destination in unique.values)
-        if (destinationAllowed(destination)) destination,
-    ];
-    final accountsDestinations = visible
-        .where(
-          (destination) =>
-              destination.path == RoutePaths.yorksV1Accounts ||
-              (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-                  false),
-        )
-        .toList(growable: false);
-    final requestsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-    );
-    if (accountsDestinations.isNotEmpty) {
-      visible.removeWhere(accountsDestinations.contains);
-      final updatedRequestsIndex = visible.indexWhere(
-        (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-      );
-      final insertionIndex = updatedRequestsIndex >= 0
-          ? updatedRequestsIndex + 1
-          : requestsIndex >= 0
-          ? requestsIndex + 1
-          : 0;
-      visible.insertAll(insertionIndex, accountsDestinations);
-    }
-    final workforceIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1Workforce,
-    );
-    if (workforceIndex >= 0) {
-      final workforce = visible.removeAt(workforceIndex);
-      final accountsEndIndex = visible.lastIndexWhere(
-        (destination) =>
-            destination.path == RoutePaths.yorksV1Accounts ||
-            (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-                false),
-      );
-      final updatedRequestsIndex = visible.indexWhere(
-        (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-      );
-      final anchor = accountsEndIndex >= 0
-          ? accountsEndIndex
-          : updatedRequestsIndex;
-      visible.insert(anchor >= 0 ? anchor + 1 : visible.length, workforce);
-    }
-    final analyticsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1Analytics,
-    );
-    if (analyticsIndex >= 0) {
-      final analytics = visible.removeAt(analyticsIndex);
-      final overviewIndex = visible.indexWhere(
-        (destination) => destination.path == RoutePaths.engineerHome,
-      );
-      visible.insert(overviewIndex >= 0 ? overviewIndex + 1 : 0, analytics);
-    }
-    return visible;
-  }
-
-  List<_YorksDestination> _legacyDestinationsFor(
-    YorksV1Role? role, {
-    bool teamChatEnabled = true,
-    int chatUnread = 0,
-  }) {
-    final workspace = _workspaceCopy(role);
-    final shared = <_YorksDestination>[
-      _YorksDestination(
-        label: YorksV1ShellStrings.overview,
-        icon: Icons.dashboard_outlined,
-        selectedIcon: Icons.dashboard_rounded,
-        path: RoutePaths.engineerHome,
-        group: workspace,
-      ),
-      _YorksDestination(
-        label: YorksV1ShellStrings.projects,
-        icon: Icons.account_tree_outlined,
-        selectedIcon: Icons.account_tree_rounded,
-        path: RoutePaths.yorksV1Projects,
-      ),
-      _YorksDestination(
-        label: YorksV1ShellStrings.materialRequests,
-        compactLabel: YorksV1ShellStrings.requestsCompact,
-        icon: Icons.assignment_outlined,
-        selectedIcon: Icons.assignment_rounded,
-        path: RoutePaths.yorksV1MaterialRequests,
-      ),
-      if (teamChatEnabled)
-        _YorksDestination(
-          label: YorksV1TeamChatStrings.teamChat,
-          icon: Icons.chat_bubble_outline_rounded,
-          selectedIcon: Icons.chat_bubble_rounded,
-          path: RoutePaths.yorksV1TeamChat,
-          badgeCount: chatUnread,
-          group: YorksV1ShellStrings.collaboration,
-        ),
-    ];
-
-    return switch (role) {
-      YorksV1Role.projectEngineer ||
-      YorksV1Role.siteEngineer ||
-      YorksV1Role.seniorMechanicalEngineer ||
-      YorksV1Role.projectManager ||
-      YorksV1Role.workshopInCharge ||
-      YorksV1Role.documentController => [
-        ...shared,
-        if (role?.canBrowseInventory ?? false)
-          _YorksDestination(
-            label: YorksV1ShellStrings.browseInventory,
-            icon: Icons.inventory_2_outlined,
-            selectedIcon: Icons.inventory_2_rounded,
-            path: RoutePaths.yorksV1Inventory,
-            suffix: YorksV1ShellStrings.viewOnly,
-          ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.materialReturns,
-          compactLabel: YorksV1ShellStrings.returnsCompact,
-          icon: Icons.assignment_return_outlined,
-          selectedIcon: Icons.assignment_return_rounded,
-          path: RoutePaths.yorksV1Returns,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.ductSizer,
-          compactLabel: YorksV1ShellStrings.ductCompact,
-          icon: Icons.straighten_outlined,
-          selectedIcon: Icons.straighten_rounded,
-          path: RoutePaths.yorksV1DuctSizer,
-          group: YorksV1ShellStrings.engineeringTools,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.espCalculator,
-          compactLabel: YorksV1ShellStrings.espCompact,
-          icon: Icons.speed_outlined,
-          selectedIcon: Icons.speed_rounded,
-          path: RoutePaths.yorksV1EspCalculator,
-          group: YorksV1ShellStrings.engineeringTools,
-        ),
-        if (role?.canConfigureUsers ?? false)
-          _YorksDestination(
-            label: YorksV1ShellStrings.userManagement,
-            icon: Icons.manage_accounts_outlined,
-            selectedIcon: Icons.manage_accounts_rounded,
-            path: RoutePaths.users,
-            group: YorksV1ShellStrings.administration,
-          ),
-      ],
-      YorksV1Role.accountant => [shared.first],
-      YorksV1Role.procurement => [
-        shared.first,
-        shared[2],
-        if (teamChatEnabled) shared.last,
-        _YorksDestination(
-          label: YorksV1ShellStrings.browseInventory,
-          icon: Icons.inventory_2_outlined,
-          selectedIcon: Icons.inventory_2_rounded,
-          path: RoutePaths.yorksV1Inventory,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.dispatches,
-          icon: Icons.local_shipping_outlined,
-          selectedIcon: Icons.local_shipping_rounded,
-          path: RoutePaths.yorksV1Dispatches,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.materialReturns,
-          icon: Icons.assignment_return_outlined,
-          selectedIcon: Icons.assignment_return_rounded,
-          path: RoutePaths.yorksV1Returns,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.projects,
-          icon: Icons.account_tree_outlined,
-          selectedIcon: Icons.account_tree_rounded,
-          path: RoutePaths.yorksV1Projects,
-          suffix: YorksV1ShellStrings.viewOnly,
-        ),
-      ],
-      YorksV1Role.admin => [
-        ...shared,
-        _YorksDestination(
-          label: YorksV1ShellStrings.browseInventory,
-          icon: Icons.inventory_2_outlined,
-          selectedIcon: Icons.inventory_2_rounded,
-          path: RoutePaths.yorksV1Inventory,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.materialReturns,
-          icon: Icons.assignment_return_outlined,
-          selectedIcon: Icons.assignment_return_rounded,
-          path: RoutePaths.yorksV1Returns,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.dispatches,
-          icon: Icons.local_shipping_outlined,
-          selectedIcon: Icons.local_shipping_rounded,
-          path: RoutePaths.yorksV1Dispatches,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.configuration,
-          icon: Icons.tune_outlined,
-          selectedIcon: Icons.tune_rounded,
-          path: RoutePaths.yorksV1Configuration,
-          group: YorksV1ShellStrings.administration,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.rentalProperties,
-          icon: Icons.apartment_outlined,
-          selectedIcon: Icons.apartment_rounded,
-          path: RoutePaths.rentals,
-          group: YorksV1ShellStrings.administration,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.userManagement,
-          icon: Icons.manage_accounts_outlined,
-          selectedIcon: Icons.manage_accounts_rounded,
-          path: RoutePaths.users,
-          group: YorksV1ShellStrings.administration,
-        ),
-        _YorksDestination(
-          label: YorksV1ShellStrings.auditTrail,
-          icon: Icons.history_outlined,
-          selectedIcon: Icons.history_rounded,
-          path: RoutePaths.activityLog,
-          group: YorksV1ShellStrings.administration,
-        ),
-      ],
-      null => shared,
-    };
   }
 
   _YorksDestination? _currentDestination(
@@ -1104,6 +523,613 @@ class YorksV1WorkspaceShell extends ConsumerWidget {
     }
     return [current?.label ?? YorksV1ShellStrings.overview];
   }
+}
+
+// Shared pure destination catalog for workspace chrome and the More page.
+List<_YorksDestination> _mobileDestinationsFor(
+  YorksV1Role? role, {
+  required bool nativeMobile,
+  bool teamChatEnabled = true,
+  int chatUnread = 0,
+  YorksV1CurrentPermissionSnapshotState? permissionState,
+  bool companyRequestsEnabled = false,
+  bool accountsEnabled = false,
+  bool workforceEnabled = false,
+  bool analyticsEnabled = false,
+}) {
+  final all = _destinationsFor(
+    role,
+    teamChatEnabled: teamChatEnabled,
+    chatUnread: chatUnread,
+    permissionState: permissionState,
+    companyRequestsEnabled: companyRequestsEnabled,
+    accountsEnabled: accountsEnabled,
+    workforceEnabled: workforceEnabled,
+    analyticsEnabled: analyticsEnabled,
+  );
+  _YorksDestination? path(String route) {
+    for (final destination in all) {
+      if (destination.path == route) return destination;
+    }
+    return null;
+  }
+
+  final home = path(RoutePaths.engineerHome);
+  if (role == YorksV1Role.accountant) {
+    final accounts = path(RoutePaths.yorksV1Accounts);
+    final projects = path(RoutePaths.yorksV1AccountsProjects);
+    final claims = path(RoutePaths.yorksV1AccountsClaims);
+    final requests = path(RoutePaths.yorksV1MaterialRequests);
+    final payments = path(RoutePaths.yorksV1AccountsClientPayments);
+    final more = _YorksDestination(
+      label: AppStrings.more,
+      icon: nativeMobile ? Icons.menu_rounded : Icons.grid_view_outlined,
+      selectedIcon: nativeMobile ? Icons.menu_rounded : Icons.grid_view_rounded,
+      path: RoutePaths.yorksV1MobileMore,
+    );
+    return [
+      ?accounts,
+      ?projects,
+      if (companyRequestsEnabled) ?requests else ?claims,
+      ?payments,
+      more,
+    ];
+  }
+  final requiredHome = home!;
+  if (!nativeMobile) {
+    final more = _YorksDestination(
+      label: AppStrings.more,
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
+      path: RoutePaths.yorksV1MobileMore,
+    );
+    final preferred = role == YorksV1Role.procurement
+        ? <_YorksDestination?>[
+            requiredHome,
+            path(RoutePaths.yorksV1MaterialRequests),
+            path(RoutePaths.yorksV1Inventory),
+            teamChatEnabled
+                ? path(RoutePaths.yorksV1TeamChat)
+                : path(RoutePaths.yorksV1Dispatches),
+          ]
+        : <_YorksDestination?>[
+            requiredHome,
+            path(RoutePaths.yorksV1Projects),
+            if (teamChatEnabled) path(RoutePaths.yorksV1TeamChat),
+            path(RoutePaths.yorksV1MaterialRequests),
+          ];
+    return [...preferred.whereType<_YorksDestination>(), more];
+  }
+  _YorksDestination mobilePath(
+    _YorksDestination source,
+    IconData icon,
+    IconData selectedIcon, {
+    TranslatableString? mobileLabel,
+  }) {
+    return _YorksDestination(
+      label: mobileLabel ?? source.label,
+      compactLabel: mobileLabel ?? source.compactLabel,
+      icon: icon,
+      selectedIcon: selectedIcon,
+      path: source.path,
+    );
+  }
+
+  final mobileHome = mobilePath(
+    requiredHome,
+    Icons.home_outlined,
+    Icons.home_rounded,
+    mobileLabel: AppStrings.home,
+  );
+  final projectSource = path(RoutePaths.yorksV1Projects);
+  final projects = projectSource == null
+      ? null
+      : mobilePath(projectSource, Icons.folder_outlined, Icons.folder_rounded);
+  final requestSource = path(RoutePaths.yorksV1MaterialRequests);
+  final requests = requestSource == null
+      ? null
+      : mobilePath(
+          requestSource,
+          Icons.receipt_long_outlined,
+          Icons.receipt_long_rounded,
+        );
+  final chatSource = path(RoutePaths.yorksV1TeamChat);
+  final chat = teamChatEnabled && chatSource != null
+      ? mobilePath(
+          chatSource,
+          Icons.chat_bubble_outline_rounded,
+          Icons.chat_bubble_rounded,
+        )
+      : null;
+  final more = _YorksDestination(
+    label: AppStrings.more,
+    icon: Icons.menu_rounded,
+    selectedIcon: Icons.menu_rounded,
+    path: RoutePaths.yorksV1MobileMore,
+  );
+  if (role == YorksV1Role.procurement) {
+    return [
+      mobileHome,
+      ?requests,
+      ?path(RoutePaths.yorksV1Inventory),
+      ?(chat ?? path(RoutePaths.yorksV1Dispatches)),
+      more,
+    ];
+  }
+  return [mobileHome, ?projects, ?chat, ?requests, more];
+}
+
+List<_YorksDestination> _destinationsFor(
+  YorksV1Role? role, {
+  bool teamChatEnabled = true,
+  int chatUnread = 0,
+  YorksV1CurrentPermissionSnapshotState? permissionState,
+  bool companyRequestsEnabled = false,
+  bool accountsEnabled = false,
+  bool workforceEnabled = false,
+  bool analyticsEnabled = false,
+}) {
+  final accountsOfficeEligible =
+      role == YorksV1Role.admin ||
+      role == YorksV1Role.accountant ||
+      role == YorksV1Role.projectManager ||
+      role == YorksV1Role.seniorMechanicalEngineer;
+  final accountsOffice = accountsEnabled && accountsOfficeEligible
+      ? <_YorksDestination>[
+          _YorksDestination(
+            label: YorksV1ShellStrings.accounts,
+            icon: Icons.dashboard_outlined,
+            selectedIcon: Icons.dashboard_rounded,
+            path: RoutePaths.yorksV1Accounts,
+            group: role == YorksV1Role.accountant
+                ? YorksV1ShellStrings.accountantWorkspace
+                : null,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.projectAccounts,
+            icon: Icons.folder_outlined,
+            selectedIcon: Icons.folder_rounded,
+            path: RoutePaths.yorksV1AccountsProjects,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.billingProgress,
+            icon: Icons.stacked_bar_chart_outlined,
+            selectedIcon: Icons.stacked_bar_chart_rounded,
+            path: RoutePaths.yorksV1AccountsBillingProgress,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.accountsClaims,
+            icon: Icons.request_page_outlined,
+            selectedIcon: Icons.request_page_rounded,
+            path: RoutePaths.yorksV1AccountsClaims,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.receiptsPdc,
+            icon: Icons.account_balance_wallet_outlined,
+            selectedIcon: Icons.account_balance_wallet_rounded,
+            path: RoutePaths.yorksV1AccountsClientPayments,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.supplierBills,
+            icon: Icons.receipt_long_outlined,
+            selectedIcon: Icons.receipt_long_rounded,
+            path: RoutePaths.yorksV1AccountsSupplierBills,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.dueSchedule,
+            icon: Icons.calendar_month_outlined,
+            selectedIcon: Icons.calendar_month_rounded,
+            path: RoutePaths.yorksV1AccountsDueSchedule,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.accountsDocuments,
+            icon: Icons.folder_copy_outlined,
+            selectedIcon: Icons.folder_copy_rounded,
+            path: RoutePaths.yorksV1AccountsDocuments,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.accountsReports,
+            icon: Icons.analytics_outlined,
+            selectedIcon: Icons.analytics_rounded,
+            path: RoutePaths.yorksV1AccountsReports,
+          ),
+          _YorksDestination(
+            label: YorksV1ShellStrings.accountsAuditTrail,
+            icon: Icons.policy_outlined,
+            selectedIcon: Icons.policy_rounded,
+            path: RoutePaths.yorksV1AccountsActivity,
+          ),
+        ]
+      : const <_YorksDestination>[];
+  final candidates = <_YorksDestination>[
+    if (!(accountsEnabled && role == YorksV1Role.accountant))
+      ..._legacyDestinationsFor(
+        role,
+        teamChatEnabled: teamChatEnabled,
+        chatUnread: chatUnread,
+      ),
+    ...accountsOffice,
+    if (analyticsEnabled)
+      _YorksDestination(
+        label: YorksV1ShellStrings.analytics,
+        icon: Icons.insights_outlined,
+        selectedIcon: Icons.insights_rounded,
+        path: RoutePaths.yorksV1Analytics,
+      ),
+    if (workforceEnabled)
+      _YorksDestination(
+        label: YorksV1ShellStrings.workforce,
+        icon: Icons.groups_2_outlined,
+        selectedIcon: Icons.groups_2_rounded,
+        path: RoutePaths.yorksV1Workforce,
+      ),
+    if (workforceEnabled)
+      _YorksDestination(
+        label: YorksV1ShellStrings.workforceAdministration,
+        icon: Icons.badge_outlined,
+        selectedIcon: Icons.badge_rounded,
+        path: RoutePaths.yorksV1WorkforceAdministration,
+        group: YorksV1ShellStrings.administration,
+      ),
+    ..._legacyDestinationsFor(
+      YorksV1Role.admin,
+      teamChatEnabled: teamChatEnabled,
+      chatUnread: chatUnread,
+    ),
+    ..._legacyDestinationsFor(
+      YorksV1Role.procurement,
+      teamChatEnabled: teamChatEnabled,
+      chatUnread: chatUnread,
+    ),
+    ..._legacyDestinationsFor(
+      YorksV1Role.seniorMechanicalEngineer,
+      teamChatEnabled: teamChatEnabled,
+      chatUnread: chatUnread,
+    ),
+  ];
+  final unique = <String, _YorksDestination>{};
+  for (final destination in candidates) {
+    final path = destination.path;
+    if (path != null) unique.putIfAbsent(path, () => destination);
+  }
+
+  bool allows(String capabilityKey, bool legacyAllowed) {
+    return permissionState?.hybridAllows(
+          capabilityKey,
+          legacyAllowed: legacyAllowed,
+          organizationSummary: true,
+        ) ??
+        legacyAllowed;
+  }
+
+  bool destinationAllowed(_YorksDestination destination) {
+    final path = destination.path;
+    if (path == RoutePaths.engineerHome) return true;
+    if (role == YorksV1Role.accountant &&
+        !(companyRequestsEnabled &&
+            path == RoutePaths.yorksV1MaterialRequests) &&
+        path != RoutePaths.yorksV1Accounts &&
+        path != RoutePaths.yorksV1Workforce &&
+        (path == null || !path.startsWith('${RoutePaths.yorksV1Accounts}/'))) {
+      return false;
+    }
+    if (path == RoutePaths.yorksV1Accounts ||
+        (path?.startsWith('${RoutePaths.yorksV1Accounts}/') ?? false)) {
+      final structurallyEligible =
+          role == YorksV1Role.admin ||
+          role == YorksV1Role.accountant ||
+          role == YorksV1Role.projectManager ||
+          role == YorksV1Role.seniorMechanicalEngineer;
+      final canViewAccounts = allows(
+        YorksV1CapabilityKeys.viewProjectAccounts,
+        false,
+      );
+      final canViewDestination =
+          path != RoutePaths.yorksV1AccountsSupplierBills ||
+          allows(YorksV1CapabilityKeys.viewSupplierCosts, false);
+      return accountsEnabled &&
+          structurallyEligible &&
+          canViewAccounts &&
+          canViewDestination;
+    }
+    if (path == RoutePaths.yorksV1Workforce) {
+      return workforceEnabled &&
+          allows(YorksV1CapabilityKeys.workforceView, false);
+    }
+    if (path == RoutePaths.yorksV1WorkforceAdministration) {
+      return workforceEnabled &&
+          allows(YorksV1CapabilityKeys.workforceView, false) &&
+          (allows(YorksV1CapabilityKeys.workforceWorkersManage, false) ||
+              allows(YorksV1CapabilityKeys.workforceTeamsManage, false) ||
+              allows(
+                YorksV1CapabilityKeys.workforceConfigurationManage,
+                false,
+              ));
+    }
+    if (path == RoutePaths.yorksV1Analytics) {
+      return analyticsEnabled &&
+          allows(YorksV1CapabilityKeys.analyticsView, false);
+    }
+    if (path == RoutePaths.yorksV1Projects) {
+      return allows(YorksV1CapabilityKeys.projectsView, role != null);
+    }
+    if (path == RoutePaths.yorksV1MaterialRequests) {
+      return (companyRequestsEnabled && role != null) ||
+          allows(YorksV1CapabilityKeys.materialRequestsView, role != null);
+    }
+    if (path == RoutePaths.yorksV1TeamChat) {
+      return allows(YorksV1CapabilityKeys.chatView, role != null);
+    }
+    if (path == RoutePaths.yorksV1Inventory) {
+      return allows(
+        YorksV1CapabilityKeys.inventoryView,
+        role?.canBrowseInventory ?? false,
+      );
+    }
+    if (path == RoutePaths.yorksV1Returns) {
+      return allows(YorksV1CapabilityKeys.returnsView, role != null);
+    }
+    if (path == RoutePaths.yorksV1Dispatches) {
+      return allows(
+        YorksV1CapabilityKeys.dispatchView,
+        role == YorksV1Role.procurement || role == YorksV1Role.admin,
+      );
+    }
+    if (path == RoutePaths.yorksV1Configuration) {
+      return allows(
+        YorksV1CapabilityKeys.configurationView,
+        role == YorksV1Role.admin,
+      );
+    }
+    if (path == RoutePaths.rentals) {
+      return allows(
+        YorksV1CapabilityKeys.rentalsView,
+        role == YorksV1Role.admin,
+      );
+    }
+    if (path == RoutePaths.users) {
+      return allows(
+        YorksV1CapabilityKeys.usersView,
+        role?.canConfigureUsers ?? false,
+      );
+    }
+    if (path == RoutePaths.activityLog) {
+      return allows(YorksV1CapabilityKeys.auditView, role == YorksV1Role.admin);
+    }
+    if (path == RoutePaths.yorksV1DuctSizer ||
+        path == RoutePaths.yorksV1EspCalculator) {
+      return role?.isEngineering ?? false;
+    }
+    return false;
+  }
+
+  final visible = <_YorksDestination>[
+    for (final destination in unique.values)
+      if (destinationAllowed(destination)) destination,
+  ];
+  final accountsDestinations = visible
+      .where(
+        (destination) =>
+            destination.path == RoutePaths.yorksV1Accounts ||
+            (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
+                false),
+      )
+      .toList(growable: false);
+  final requestsIndex = visible.indexWhere(
+    (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
+  );
+  if (accountsDestinations.isNotEmpty) {
+    visible.removeWhere(accountsDestinations.contains);
+    final updatedRequestsIndex = visible.indexWhere(
+      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
+    );
+    final insertionIndex = updatedRequestsIndex >= 0
+        ? updatedRequestsIndex + 1
+        : requestsIndex >= 0
+        ? requestsIndex + 1
+        : 0;
+    visible.insertAll(insertionIndex, accountsDestinations);
+  }
+  final workforceIndex = visible.indexWhere(
+    (destination) => destination.path == RoutePaths.yorksV1Workforce,
+  );
+  if (workforceIndex >= 0) {
+    final workforce = visible.removeAt(workforceIndex);
+    final accountsEndIndex = visible.lastIndexWhere(
+      (destination) =>
+          destination.path == RoutePaths.yorksV1Accounts ||
+          (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
+              false),
+    );
+    final updatedRequestsIndex = visible.indexWhere(
+      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
+    );
+    final anchor = accountsEndIndex >= 0
+        ? accountsEndIndex
+        : updatedRequestsIndex;
+    visible.insert(anchor >= 0 ? anchor + 1 : visible.length, workforce);
+  }
+  final analyticsIndex = visible.indexWhere(
+    (destination) => destination.path == RoutePaths.yorksV1Analytics,
+  );
+  if (analyticsIndex >= 0) {
+    final analytics = visible.removeAt(analyticsIndex);
+    final overviewIndex = visible.indexWhere(
+      (destination) => destination.path == RoutePaths.engineerHome,
+    );
+    visible.insert(overviewIndex >= 0 ? overviewIndex + 1 : 0, analytics);
+  }
+  return visible;
+}
+
+List<_YorksDestination> _legacyDestinationsFor(
+  YorksV1Role? role, {
+  bool teamChatEnabled = true,
+  int chatUnread = 0,
+}) {
+  final workspace = _workspaceCopy(role);
+  final shared = <_YorksDestination>[
+    _YorksDestination(
+      label: YorksV1ShellStrings.overview,
+      icon: Icons.dashboard_outlined,
+      selectedIcon: Icons.dashboard_rounded,
+      path: RoutePaths.engineerHome,
+      group: workspace,
+    ),
+    _YorksDestination(
+      label: YorksV1ShellStrings.projects,
+      icon: Icons.account_tree_outlined,
+      selectedIcon: Icons.account_tree_rounded,
+      path: RoutePaths.yorksV1Projects,
+    ),
+    _YorksDestination(
+      label: YorksV1ShellStrings.materialRequests,
+      compactLabel: YorksV1ShellStrings.requestsCompact,
+      icon: Icons.assignment_outlined,
+      selectedIcon: Icons.assignment_rounded,
+      path: RoutePaths.yorksV1MaterialRequests,
+    ),
+    if (teamChatEnabled)
+      _YorksDestination(
+        label: YorksV1TeamChatStrings.teamChat,
+        icon: Icons.chat_bubble_outline_rounded,
+        selectedIcon: Icons.chat_bubble_rounded,
+        path: RoutePaths.yorksV1TeamChat,
+        badgeCount: chatUnread,
+        group: YorksV1ShellStrings.collaboration,
+      ),
+  ];
+
+  return switch (role) {
+    YorksV1Role.projectEngineer ||
+    YorksV1Role.siteEngineer ||
+    YorksV1Role.seniorMechanicalEngineer ||
+    YorksV1Role.projectManager ||
+    YorksV1Role.workshopInCharge ||
+    YorksV1Role.documentController => [
+      ...shared,
+      if (role?.canBrowseInventory ?? false)
+        _YorksDestination(
+          label: YorksV1ShellStrings.browseInventory,
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2_rounded,
+          path: RoutePaths.yorksV1Inventory,
+          suffix: YorksV1ShellStrings.viewOnly,
+        ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.materialReturns,
+        compactLabel: YorksV1ShellStrings.returnsCompact,
+        icon: Icons.assignment_return_outlined,
+        selectedIcon: Icons.assignment_return_rounded,
+        path: RoutePaths.yorksV1Returns,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.ductSizer,
+        compactLabel: YorksV1ShellStrings.ductCompact,
+        icon: Icons.straighten_outlined,
+        selectedIcon: Icons.straighten_rounded,
+        path: RoutePaths.yorksV1DuctSizer,
+        group: YorksV1ShellStrings.engineeringTools,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.espCalculator,
+        compactLabel: YorksV1ShellStrings.espCompact,
+        icon: Icons.speed_outlined,
+        selectedIcon: Icons.speed_rounded,
+        path: RoutePaths.yorksV1EspCalculator,
+        group: YorksV1ShellStrings.engineeringTools,
+      ),
+      if (role?.canConfigureUsers ?? false)
+        _YorksDestination(
+          label: YorksV1ShellStrings.userManagement,
+          icon: Icons.manage_accounts_outlined,
+          selectedIcon: Icons.manage_accounts_rounded,
+          path: RoutePaths.users,
+          group: YorksV1ShellStrings.administration,
+        ),
+    ],
+    YorksV1Role.accountant => [shared.first],
+    YorksV1Role.procurement => [
+      shared.first,
+      shared[2],
+      if (teamChatEnabled) shared.last,
+      _YorksDestination(
+        label: YorksV1ShellStrings.browseInventory,
+        icon: Icons.inventory_2_outlined,
+        selectedIcon: Icons.inventory_2_rounded,
+        path: RoutePaths.yorksV1Inventory,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.dispatches,
+        icon: Icons.local_shipping_outlined,
+        selectedIcon: Icons.local_shipping_rounded,
+        path: RoutePaths.yorksV1Dispatches,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.materialReturns,
+        icon: Icons.assignment_return_outlined,
+        selectedIcon: Icons.assignment_return_rounded,
+        path: RoutePaths.yorksV1Returns,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.projects,
+        icon: Icons.account_tree_outlined,
+        selectedIcon: Icons.account_tree_rounded,
+        path: RoutePaths.yorksV1Projects,
+        suffix: YorksV1ShellStrings.viewOnly,
+      ),
+    ],
+    YorksV1Role.admin => [
+      ...shared,
+      _YorksDestination(
+        label: YorksV1ShellStrings.browseInventory,
+        icon: Icons.inventory_2_outlined,
+        selectedIcon: Icons.inventory_2_rounded,
+        path: RoutePaths.yorksV1Inventory,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.materialReturns,
+        icon: Icons.assignment_return_outlined,
+        selectedIcon: Icons.assignment_return_rounded,
+        path: RoutePaths.yorksV1Returns,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.dispatches,
+        icon: Icons.local_shipping_outlined,
+        selectedIcon: Icons.local_shipping_rounded,
+        path: RoutePaths.yorksV1Dispatches,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.configuration,
+        icon: Icons.tune_outlined,
+        selectedIcon: Icons.tune_rounded,
+        path: RoutePaths.yorksV1Configuration,
+        group: YorksV1ShellStrings.administration,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.rentalProperties,
+        icon: Icons.apartment_outlined,
+        selectedIcon: Icons.apartment_rounded,
+        path: RoutePaths.rentals,
+        group: YorksV1ShellStrings.administration,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.userManagement,
+        icon: Icons.manage_accounts_outlined,
+        selectedIcon: Icons.manage_accounts_rounded,
+        path: RoutePaths.users,
+        group: YorksV1ShellStrings.administration,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.auditTrail,
+        icon: Icons.history_outlined,
+        selectedIcon: Icons.history_rounded,
+        path: RoutePaths.activityLog,
+        group: YorksV1ShellStrings.administration,
+      ),
+    ],
+    null => shared,
+  };
 }
 
 /// Prevents protected feature widgets, navigation and actions from building
@@ -1226,8 +1252,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
     final chatUnread = teamChatEnabled
         ? ref.watch(yorksV1TeamChatUnreadProvider)
         : 0;
-    final shell = YorksV1WorkspaceShell(child: const SizedBox.shrink());
-    final all = shell._destinationsFor(
+    final all = _destinationsFor(
       role,
       teamChatEnabled: teamChatEnabled,
       chatUnread: chatUnread,
@@ -1237,21 +1262,17 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       workforceEnabled: workforceEnabled,
       analyticsEnabled: analyticsEnabled,
     );
-    final primaryRoutes = shell
-        ._mobileDestinationsFor(
-          role,
-          nativeMobile: YorksMobileUi.isActive(context),
-          teamChatEnabled: teamChatEnabled,
-          chatUnread: chatUnread,
-          permissionState: permissionState,
-          companyRequestsEnabled: companyRequestsEnabled,
-          accountsEnabled: accountsEnabled,
-          workforceEnabled: workforceEnabled,
-          analyticsEnabled: analyticsEnabled,
-        )
-        .map((destination) => destination.path)
-        .whereType<String>()
-        .toSet();
+    final primaryRoutes = _mobileDestinationsFor(
+      role,
+      nativeMobile: YorksMobileUi.isActive(context),
+      teamChatEnabled: teamChatEnabled,
+      chatUnread: chatUnread,
+      permissionState: permissionState,
+      companyRequestsEnabled: companyRequestsEnabled,
+      accountsEnabled: accountsEnabled,
+      workforceEnabled: workforceEnabled,
+      analyticsEnabled: analyticsEnabled,
+    ).map((destination) => destination.path).whereType<String>().toSet();
     final moreDestinations = all
         .where(
           (destination) =>

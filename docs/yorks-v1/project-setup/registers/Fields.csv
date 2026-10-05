@@ -1,0 +1,23 @@
+﻿key,label,requiredness,handling
+project_ref,York Reference / Ref. No.,Required at commit; incomplete allowed in local draft,Text; trim/case normalization per server; preserve leading zeroes. Do not reserve by local save.
+name,Project name,Required at commit,Preserve full name; use wrapping or disclosure in headings. No forced all-caps input.
+client,Client / end user,Optional,Existing readable party input; search enhancement only if authorized master is available. No implicit contact/account creation.
+job_contract_reference,Contract / Job No.,Optional,"Text, not a money field; preserve punctuation and leading zeroes."
+project_site,Site location,Optional,Readable address/location text. Do not require GPS or geocoding.
+start_date,Start date,Optional; Today is an explicit helper,ISO date at boundary. Do not silently stamp today into restored or edited empty data.
+target_completion_date,Expected end date,Optional,"If both dates exist, end >= start; preserve absent versus entered."
+notes,Project notes,Optional,Multiline plain text; preserve paragraphs. No financial or security commands hidden in notes.
+client contacts,Contact name / phone / email / address,Optional; progressive disclosure,Preserve existing hidden values on edit. Validate only entered values and current supported constraints.
+consultant,Consultant,Optional,One party of this kind; clearing is a deliberate edit.
+main_contractor,Main contractor,Optional,One party of this kind; show typed pending value before list/step change.
+subcontractors,Subcontractors,Optional repeatable list,Stable local row identity; explicit add/remove with recoverable input. Duplicate warning does not merge history.
+other_contractors,Other contractors,Optional repeatable list,Never reinterpret legacy authorityRef. Names do not grant access.
+initial_members,Project team,Conditional for activation,Eligible directory records only; activation needs active PE. Site Engineer creation exception remains bounded.
+buildings,Physical buildings,At least one named building at commit,Common is system-created and excluded from physical count. No default building inferred from title.
+building.code,Building code,Optional; blank permits server generation,"Current base SQL canonical format: 1–64 ASCII letters/digits/_/- starting alphanumeric, normalized case. Verify later overrides."
+building.name,Building name,Required for each added building,Not required until row is being applied/committed; reject whitespace-only.
+building.floors_levels,Floors / levels,Optional list of text labels,"Examples B1, Ground, L1, Roof. “3” is a label unless an explicit separate count feature is approved."
+building.delivery_address,Delivery address,Optional,"Offer explicit Copy site location, not an invisible changing link."
+building.has_frp_room,Has FRP room,Boolean per building; retained default false,True/false must round-trip exactly. No FRP capacity field; no inheritance from another building unless explicitly copied.
+building.sourceScopeId,Existing building identity,Mandatory internal identity for retained edit rows,Hidden immutable reference. Preserve through draft reload and update; never recreate it from the code/name.
+attachments,Project documents,Optional selection,Metadata is not uploaded evidence; bytes may require reselection. File policy from controlled document service.

@@ -94,9 +94,39 @@ void main() {
     },
   );
 
+  test(
+    'project setup capture strips unapproved keys and identifier values',
+    () async {
+      analytics.capture(
+        AnalyticsEvent.projectCommandReconciled,
+        properties: {
+          AnalyticsProperty.operation: 'project_create',
+          AnalyticsProperty.phase: 'create',
+          AnalyticsProperty.outcome: 'confirmed',
+          AnalyticsProperty.source: 'private_project_123',
+          AnalyticsProperty.itemCount: 123,
+        },
+      );
+      analytics.capture(
+        AnalyticsEvent.projectDraftSaved,
+        properties: {
+          AnalyticsProperty.mode: 'create',
+          AnalyticsProperty.storageScope: 'device',
+          AnalyticsProperty.saveTrigger: 'private_project_123',
+        },
+      );
+      await analytics.drain();
+      expect(sink.events[0].properties['operation'], 'project_create');
+      expect(sink.events[0].properties.containsKey('source'), false);
+      expect(sink.events[0].properties.containsKey('item_count'), false);
+      expect(sink.events[1].properties.containsKey('save_trigger'), false);
+      expect(sink.events[1].properties['storage_scope'], 'device');
+    },
+  );
+
   test('taxonomy stays bounded, stable, and unique', () {
     final names = AnalyticsEvent.values.map((event) => event.wireName).toList();
-    expect(names, hasLength(78));
+    expect(names, hasLength(86));
     expect(names.toSet(), hasLength(names.length));
     expect(names, everyElement(matches(RegExp(r'^[a-z0-9]+(?: [a-z0-9]+)*$'))));
     expect(names, isNot(contains('material_request_opened')));

@@ -4,6 +4,7 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/analytics_event.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_project.dart';
+import '../models/yorks_v1_project_setup_operation.dart';
 import '../services/analytics_service.dart';
 import '../sync/connectivity_service.dart';
 
@@ -61,10 +62,28 @@ abstract interface class YorksV1ProjectRepository {
   Future<YorksV1Project> archiveProject(YorksV1ArchiveProjectInput input);
 }
 
+/// Only the recovery coordinator supplies this exact, persisted intent seam.
+/// It avoids rebuilding an uncertain command from editable widget state.
+abstract interface class YorksV1ProjectReviewedCommandRepository {
+  Future<Map<String, dynamic>> executeReviewedCommand(
+    YorksV1ProjectSetupCommand command,
+  );
+}
+
+/// Readiness failed before any request left this repository. Transport errors
+/// after invoke starts deliberately do not use this marker.
+class YorksV1ProjectCommandNotDispatchedException implements Exception {
+  const YorksV1ProjectCommandNotDispatchedException(this.error);
+  final YorksV1DomainException error;
+}
+
 /// Connected V1 implementation. There is deliberately no local project-write
 /// fallback: creation, membership and state changes require an online trusted
 /// Postgres transaction.
-class YorksV1SupabaseProjectRepository implements YorksV1ProjectRepository {
+class YorksV1SupabaseProjectRepository
+    implements
+        YorksV1ProjectRepository,
+        YorksV1ProjectReviewedCommandRepository {
   const YorksV1SupabaseProjectRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -79,6 +98,67 @@ class YorksV1SupabaseProjectRepository implements YorksV1ProjectRepository {
   final ConnectivityService _connectivity;
   final YorksV1ProjectRpcClient? _rpcClient;
   final AnalyticsService _analytics;
+
+  @override
+  Future<Map<String, dynamic>> executeReviewedCommand(
+    YorksV1ProjectSetupCommand command,
+  ) async {
+    final YorksV1ProjectRpcClient rpc;
+    try {
+      rpc = _readyRpc();
+    } on YorksV1DomainException catch (error) {
+      throw YorksV1ProjectCommandNotDispatchedException(error);
+    }
+    final payload = command.payload;
+    if (command.kind == YorksV1ProjectSetupCommandKind.create) {
+      _captureReviewedSafely(
+        AnalyticsEvent.projectCreationAttempted,
+        properties: {
+          AnalyticsProperty.buildingCount:
+              (payload['buildings'] as List).length,
+          AnalyticsProperty.attachmentCount:
+              (payload['attachments'] as List).length,
+        },
+      );
+    }
+    try {
+      final response = await rpc.invoke(
+        functionName: command.kind.functionName,
+        parameters: {
+          'p_payload': payload,
+          'p_idempotency_key': command.idempotencyKey,
+        },
+      );
+      // Parse the authoritative projection before claiming success. A lost or
+      // malformed response remains uncertain and is reconciled with this key.
+      if (command.kind == YorksV1ProjectSetupCommandKind.create) {
+        YorksV1ProjectCreationResult.fromRpcJson(response);
+      } else {
+        YorksV1Project.fromRpcJson(_projectJson(response));
+      }
+      return response;
+    } on YorksV1DomainException {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw _mapPostgrestException(error);
+    } catch (error) {
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+        cause: error,
+      );
+    }
+  }
+
+  void _captureReviewedSafely(
+    AnalyticsEvent event, {
+    AnalyticsProperties properties = const {},
+  }) {
+    try {
+      _analytics.capture(event, properties: properties);
+    } catch (_) {
+      // Instrumentation cannot alter dispatch or a known server result.
+    }
+  }
 
   @override
   Future<YorksV1ProjectCreationResult> createProject(

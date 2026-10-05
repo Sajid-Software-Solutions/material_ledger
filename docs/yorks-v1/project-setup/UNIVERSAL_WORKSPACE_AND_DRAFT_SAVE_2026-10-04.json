@@ -1,0 +1,781 @@
+{
+  "date": "2026-10-04",
+  "scope": "Universal workspace integration and explicit local draft save; staging only",
+  "source": {
+    "commit": "cf15c70c8bf129db72a69809048f0eddfc3ed8f8",
+    "branch": "codex/project-creation-ux",
+    "clean_before_build": true,
+    "remote_ref_matched": true,
+    "entrypoint": "lib/main.dart",
+    "documentation_followup_only": true
+  },
+  "artifact": {
+    "source": "cf15c70c8bf129db72a69809048f0eddfc3ed8f8",
+    "entrypoint": "lib/main.dart",
+    "isolated": "/tmp/yorks-universal-workspace-staging-cf15c70c8bf1",
+    "files": 59,
+    "bytes": 54032461,
+    "markers": {
+      "staging": 2,
+      "production": 0,
+      "ci_url": 0,
+      "ci_key": 0,
+      "fixture": 0
+    },
+    "main": {
+      "path": "main.dart.js",
+      "bytes": 10030686,
+      "sha256": "67c798d097602b09fe4be7dbb0707be72db03d329651283c2c848b77938f7cba"
+    },
+    "assets": [
+      {
+        "path": ".last_build_id",
+        "bytes": 32,
+        "sha256": "2296311f81e4ccc0626b012d6b0712f3cc6bb148b63e1f1b3a75cb821d2b0fba"
+      },
+      {
+        "path": "assets/AssetManifest.bin",
+        "bytes": 1173,
+        "sha256": "e0f80a1e6af229d9a8c02585d8fbdc467a823f78cba0f5b407d1e98d4ba94b52"
+      },
+      {
+        "path": "assets/AssetManifest.bin.json",
+        "bytes": 1566,
+        "sha256": "ac730e527e541cd355e6b64c6dc8e5e98fbf24513abdca41774b9911fa4ceab8"
+      },
+      {
+        "path": "assets/FontManifest.json",
+        "bytes": 433,
+        "sha256": "e1e69fb1a09061af0c9983b69523f80e77afe4a24712515c47a92d3c4fcfaf7e"
+      },
+      {
+        "path": "assets/NOTICES",
+        "bytes": 1453806,
+        "sha256": "7bf475ca722fa67d0b8816b594dc49173bc888ddd1bb5d370f391c6565f867ab"
+      },
+      {
+        "path": "assets/assets/branding/source_emblem.png",
+        "bytes": 1587537,
+        "sha256": "93290a704e52f37a7a6846b55bb72b07875546fdaa5265cfd5f3f9620607395d"
+      },
+      {
+        "path": "assets/assets/branding/yorks_emblem_black.png",
+        "bytes": 239889,
+        "sha256": "1f06f04eefaf6715256f4352853697f4ee4113d9988003eba0c92ad296b81378"
+      },
+      {
+        "path": "assets/assets/branding/yorks_emblem_mobile.png",
+        "bytes": 8144,
+        "sha256": "cfa6cd113fd527621e3c8de6c34631e91e35e656355f2c6c848ecd8d8f920abb"
+      },
+      {
+        "path": "assets/assets/branding/yorks_emblem_web.png",
+        "bytes": 57284,
+        "sha256": "ba1645f25370dcb77e09f49da04767d32b8f38cbbae768b56e7d3d7a2b718bd6"
+      },
+      {
+        "path": "assets/assets/fonts/NotoSans-Bold.ttf",
+        "bytes": 575740,
+        "sha256": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a"
+      },
+      {
+        "path": "assets/assets/fonts/NotoSans-Regular.ttf",
+        "bytes": 569208,
+        "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5"
+      },
+      {
+        "path": "assets/assets/fonts/NotoSansArabic-Regular.ttf",
+        "bytes": 240456,
+        "sha256": "ceea25b464a656dc3b26849bab9356740401af62aedf1bfa8b7f0d9b75925b1b"
+      },
+      {
+        "path": "assets/assets/icons/.gitkeep",
+        "bytes": 1,
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      {
+        "path": "assets/assets/images/.gitkeep",
+        "bytes": 1,
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      {
+        "path": "assets/assets/logo.png",
+        "bytes": 529439,
+        "sha256": "4eb293305c60f58c3f4ab5abc7b00c060773c047e7167a1359b106ec2d8275b3"
+      },
+      {
+        "path": "assets/fonts/MaterialIcons-Regular.otf",
+        "bytes": 75600,
+        "sha256": "ff959328dd2791984efc4b6bd0cc3d9342ea207efb376b0ab110eb44b2d852c8"
+      },
+      {
+        "path": "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+        "bytes": 1472,
+        "sha256": "3d90c370aa4cf00dc57ee2b902f6652147c0f81e03e483df584a9c08b1687c9d"
+      },
+      {
+        "path": "assets/packages/flutter_dropzone_web/assets/flutter_dropzone.js",
+        "bytes": 5019,
+        "sha256": "63bc7c101b97357f82a95de4a929cc1dc72c50490f62fb2e8f56bcce0b7f7e42"
+      },
+      {
+        "path": "assets/packages/flutter_local_notifications_web/web/notifications_service_worker.js",
+        "bytes": 3407,
+        "sha256": "566f47dccc0f417f0164a3d0852334c340d0941472af43fc65ee50a314555058"
+      },
+      {
+        "path": "assets/shaders/ink_sparkle.frag",
+        "bytes": 8890,
+        "sha256": "2dca5ab93d4ec29e963f996f3916320ba60825e9537dfb149a68008c7a16b026"
+      },
+      {
+        "path": "assets/shaders/stretch_effect.frag",
+        "bytes": 6737,
+        "sha256": "ab412f07a5b9b50b67a885b24dbe16929738ae28630407d6490c924caf0a3220"
+      },
+      {
+        "path": "canvaskit/canvaskit.js",
+        "bytes": 86987,
+        "sha256": "bb559f6080c7d312ac2a912b4abec9f68ff3d3022d4a603c7796b9b31460642b"
+      },
+      {
+        "path": "canvaskit/canvaskit.js.symbols",
+        "bytes": 1356926,
+        "sha256": "384f80b392972c83fd4f262527e3d06215a297d33ed59732c726721e9d9311bd"
+      },
+      {
+        "path": "canvaskit/canvaskit.wasm",
+        "bytes": 7284602,
+        "sha256": "fbed517a43e82452404446683f00f2e876d835aed84410695759e67b6bb01cd3"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.js",
+        "bytes": 86226,
+        "sha256": "6018b12bd8ed37e6952eee72d59c1cf7ad707ccdb74a0a45190010f77edd9068"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.js.symbols",
+        "bytes": 1235870,
+        "sha256": "31c86fac6042dd8b756150832c1d15495d0d07742e2718f75dbdde5a5a91455e"
+      },
+      {
+        "path": "canvaskit/chromium/canvaskit.wasm",
+        "bytes": 5428806,
+        "sha256": "ae8ff1d858140f7b1300ced3fa89fb8c9dce0a400a0f4f1e11f6dcfb3315fdcf"
+      },
+      {
+        "path": "canvaskit/skwasm.js",
+        "bytes": 63537,
+        "sha256": "71d7d3e34bf71b52bdba3b588b103bba8148ba28de5754083e01b3398e7a6e1c"
+      },
+      {
+        "path": "canvaskit/skwasm.js.symbols",
+        "bytes": 1540006,
+        "sha256": "9137f1a3ae744dea575043abfc6e063a047e910e6dab1ee53e496c975d1c033e"
+      },
+      {
+        "path": "canvaskit/skwasm.wasm",
+        "bytes": 3593715,
+        "sha256": "e540fd5e8303b7b68ec2718cb49e9c421f8ade3075b15e02a7059a62654df9a1"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.js",
+        "bytes": 63650,
+        "sha256": "cec554b46ddcf4c0e63d799e0556d546f42d2c3f69316fb4f67ed776f6104558"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.js.symbols",
+        "bytes": 1672152,
+        "sha256": "b6b79ed497e11d4cd13cc46724f9e289eacc744d2d185e31c72d595cdf62772b"
+      },
+      {
+        "path": "canvaskit/skwasm_heavy.wasm",
+        "bytes": 5216217,
+        "sha256": "565f5cc1cca6ab120f11934b105f01fec4b58b480c82e0889dca93af8e6f8635"
+      },
+      {
+        "path": "canvaskit/webparagraph/canvaskit.js",
+        "bytes": 76114,
+        "sha256": "3110e3e4d9b7b5657d336f253aaca8acca5777cde9319fb69ac302d6ff5a8b23"
+      },
+      {
+        "path": "canvaskit/webparagraph/canvaskit.js.symbols",
+        "bytes": 963641,
+        "sha256": "44d6c47919106235cf32252252490cdf798d907ee874ba343ab53dc94bc2a9dc"
+      },
+      {
+        "path": "canvaskit/webparagraph/canvaskit.wasm",
+        "bytes": 3729129,
+        "sha256": "0ce1b05082efdc8529550e8a01f6ff0593972d55525035010e26f5600aa9f254"
+      },
+      {
+        "path": "canvaskit/wimp.js",
+        "bytes": 59127,
+        "sha256": "8fd8a47480c6eb0a374d159912d0b3fb15661b41f5c113ecdd39c2f01f2bee46"
+      },
+      {
+        "path": "canvaskit/wimp.js.symbols",
+        "bytes": 1813030,
+        "sha256": "b4907ebd33131302a8cd99f7c55f52357bdfde04f421b605a616ba8764ae1de4"
+      },
+      {
+        "path": "canvaskit/wimp.wasm",
+        "bytes": 3581677,
+        "sha256": "e924eaafd801d41e017d178f3fd5cf8a417f641fe35c9ed34a4e1d7582283e0c"
+      },
+      {
+        "path": "favicon.png",
+        "bytes": 678,
+        "sha256": "dc1a2651f3a0054e2fb521cbedc5174384d15ef650c138b153f4b02bce357d14"
+      },
+      {
+        "path": "firebase-messaging-sw.js",
+        "bytes": 7729,
+        "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7"
+      },
+      {
+        "path": "flutter.js",
+        "bytes": 12136,
+        "sha256": "2beb1ce6b159c71540aa66030af1d7964b6a92377cc78473745e02f97b74effe"
+      },
+      {
+        "path": "flutter_bootstrap.js",
+        "bytes": 14186,
+        "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6"
+      },
+      {
+        "path": "flutter_service_worker.js",
+        "bytes": 784,
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c"
+      },
+      {
+        "path": "icons/Icon-192.png",
+        "bytes": 27785,
+        "sha256": "96d4343d8cd876d8c68bcb44bd7104a9e90b09b78a09054abd86a4e91892240f"
+      },
+      {
+        "path": "icons/Icon-512.png",
+        "bytes": 147516,
+        "sha256": "eaf6177137000a9e074f89a083a15e9425a0abbbcbf63e26759eefdc8db160bf"
+      },
+      {
+        "path": "icons/Icon-maskable-192.png",
+        "bytes": 27785,
+        "sha256": "96d4343d8cd876d8c68bcb44bd7104a9e90b09b78a09054abd86a4e91892240f"
+      },
+      {
+        "path": "icons/Icon-maskable-512.png",
+        "bytes": 147516,
+        "sha256": "eaf6177137000a9e074f89a083a15e9425a0abbbcbf63e26759eefdc8db160bf"
+      },
+      {
+        "path": "index.html",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985"
+      },
+      {
+        "path": "main.dart.js",
+        "bytes": 10030686,
+        "sha256": "67c798d097602b09fe4be7dbb0707be72db03d329651283c2c848b77938f7cba"
+      },
+      {
+        "path": "main.dart.js_1.part.js",
+        "bytes": 966,
+        "sha256": "2f569fab21f193931357fc511a41c108c7f3305dd3ac437f9fe1a4a593d1f6ad"
+      },
+      {
+        "path": "main.dart.js_2.part.js",
+        "bytes": 1173,
+        "sha256": "829d54caa95a5f9ec32853a5722a082bf08c1b23e70f038c4f1de2f28251978b"
+      },
+      {
+        "path": "main.dart.js_4.part.js",
+        "bytes": 26916,
+        "sha256": "1f6eb131d1c2cfec6f381d6678a751ceb3c42aea8303ee758dd60bb3677c46f2"
+      },
+      {
+        "path": "main.dart.js_5.part.js",
+        "bytes": 42838,
+        "sha256": "003ef38fe10cacaa9e04b636d3a69b6eb4bb80374ace536fb77c116fddaf87d3"
+      },
+      {
+        "path": "main.dart.js_6.part.js",
+        "bytes": 199113,
+        "sha256": "968843fd6001f069c4aca1571cc370bd799e7ef1bb54e30c656bc8e22654c49a"
+      },
+      {
+        "path": "main.dart.js_7.part.js",
+        "bytes": 114585,
+        "sha256": "f12e27f2d3a9db024bfc0759913baa067d02cb54d6816a7f2b5f5c1f2899e3fe"
+      },
+      {
+        "path": "manifest.json",
+        "bytes": 1007,
+        "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c"
+      },
+      {
+        "path": "vercel.json",
+        "bytes": 692,
+        "sha256": "d7d7ce67199b1879e242597721407f356258bd413505dbf9eda0744637ea2817"
+      },
+      {
+        "path": "version.json",
+        "bytes": 100,
+        "sha256": "19dfeead822f893ee9a8aece524f6c2ae8b44e9b1fe3f213447405104dc69d55"
+      }
+    ],
+    "link": {
+      "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+      "orgId": "team_EsIrL8Cazj49Pzj2tN6wB2SJ",
+      "projectName": "yorks-r35"
+    }
+  },
+  "deployment": {
+    "id": "dpl_G1EJYYDsSwXZNcpmTarzfLHn2V7g",
+    "url": "yorks-r35-qvah0q2wf-sajid-alis-projects-0ec775a2.vercel.app",
+    "readyState": "READY",
+    "target": null,
+    "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+    "createdAt": 1791117068594,
+    "aliases": null,
+    "builds": [],
+    "meta": {
+      "yorksSourceCommit": "cf15c70c8bf129db72a69809048f0eddfc3ed8f8",
+      "yorksBackend": "staging",
+      "yorksProjectSetup": "true"
+    }
+  },
+  "alias": {
+    "before": {
+      "alias": "yorks-r35-staging.vercel.app",
+      "deploymentId": "dpl_6RaX6nWDp1cnXPbV2hh1xVet6ovq",
+      "deployment": {
+        "id": "dpl_6RaX6nWDp1cnXPbV2hh1xVet6ovq",
+        "url": "yorks-r35-qf5rat3sj-sajid-alis-projects-0ec775a2.vercel.app"
+      },
+      "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+      "main_bytes": 10033379,
+      "main_sha256": "82d70d8ffb2908298414bb1ee0bd7588833cbe21fdb6854b8bb737b4e6e60b3c"
+    },
+    "after": {
+      "alias": "yorks-r35-staging.vercel.app",
+      "deploymentId": "dpl_G1EJYYDsSwXZNcpmTarzfLHn2V7g",
+      "deployment": {
+        "id": "dpl_G1EJYYDsSwXZNcpmTarzfLHn2V7g",
+        "url": "yorks-r35-qvah0q2wf-sajid-alis-projects-0ec775a2.vercel.app"
+      },
+      "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+      "main_bytes": 10030686,
+      "main_sha256": "67c798d097602b09fe4be7dbb0707be72db03d329651283c2c848b77938f7cba"
+    }
+  },
+  "production": {
+    "before": {
+      "alias": "yorks-r35.vercel.app",
+      "deploymentId": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+      "deployment": {
+        "id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+        "url": "yorks-r35-5ih3bpqik-sajid-alis-projects-0ec775a2.vercel.app"
+      },
+      "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+      "main_bytes": 9678001,
+      "main_sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    },
+    "after": {
+      "alias": "yorks-r35.vercel.app",
+      "deploymentId": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+      "deployment": {
+        "id": "dpl_Gj1cfA1CbEJnkVwi4bG8eKabkRJy",
+        "url": "yorks-r35-5ih3bpqik-sajid-alis-projects-0ec775a2.vercel.app"
+      },
+      "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+      "main_bytes": 9678001,
+      "main_sha256": "739de306598a9c0d135c5c7721d133a8c800321538b05894bda2627b8471b19f"
+    },
+    "unchanged": true,
+    "read_only": true
+  },
+  "project_settings_unchanged": true,
+  "verification": {
+    "immutable_routes_and_assets": [
+      {
+        "route": "/about",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/profile",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notification-preferences",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notifications",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/analytics",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/workforce",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/rentals",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests/company/new",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/team-chat",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/returns",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/flutter_bootstrap.js",
+        "bytes": 14186,
+        "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js",
+        "bytes": 10030686,
+        "sha256": "67c798d097602b09fe4be7dbb0707be72db03d329651283c2c848b77938f7cba",
+        "verified": true
+      },
+      {
+        "route": "/flutter_service_worker.js",
+        "bytes": 784,
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+        "verified": true
+      },
+      {
+        "route": "/firebase-messaging-sw.js",
+        "bytes": 7729,
+        "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_1.part.js",
+        "bytes": 966,
+        "sha256": "2f569fab21f193931357fc511a41c108c7f3305dd3ac437f9fe1a4a593d1f6ad",
+        "verified": true
+      },
+      {
+        "route": "/manifest.json",
+        "bytes": 1007,
+        "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_2.part.js",
+        "bytes": 1173,
+        "sha256": "829d54caa95a5f9ec32853a5722a082bf08c1b23e70f038c4f1de2f28251978b",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_4.part.js",
+        "bytes": 26916,
+        "sha256": "1f6eb131d1c2cfec6f381d6678a751ceb3c42aea8303ee758dd60bb3677c46f2",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_6.part.js",
+        "bytes": 199113,
+        "sha256": "968843fd6001f069c4aca1571cc370bd799e7ef1bb54e30c656bc8e22654c49a",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_5.part.js",
+        "bytes": 42838,
+        "sha256": "003ef38fe10cacaa9e04b636d3a69b6eb4bb80374ace536fb77c116fddaf87d3",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_7.part.js",
+        "bytes": 114585,
+        "sha256": "f12e27f2d3a9db024bfc0759913baa067d02cb54d6816a7f2b5f5c1f2899e3fe",
+        "verified": true
+      }
+    ],
+    "stable_routes_and_assets": [
+      {
+        "route": "/about",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notification-preferences",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/profile",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/notifications",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/analytics",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/workforce",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/rentals",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests/company/new",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/material-requests",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/team-chat",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/returns",
+        "bytes": 11024,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/flutter_bootstrap.js",
+        "bytes": 14186,
+        "sha256": "8de1e204c062438eab5a00de30ed05b02a8c6dee871c8c7861fa40a347ddbca6",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js",
+        "bytes": 10030686,
+        "sha256": "67c798d097602b09fe4be7dbb0707be72db03d329651283c2c848b77938f7cba",
+        "verified": true
+      },
+      {
+        "route": "/flutter_service_worker.js",
+        "bytes": 784,
+        "sha256": "a131df5ca46154cc4eb79044f7f5a14029c2f8bfccf8cef34e3ec3b5a9f5a88c",
+        "verified": true
+      },
+      {
+        "route": "/firebase-messaging-sw.js",
+        "bytes": 7729,
+        "sha256": "1055f04e9abb387fa59c13837a18b458b89fe54dc0f1e86045d3d0dc95a92cc7",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_1.part.js",
+        "bytes": 966,
+        "sha256": "2f569fab21f193931357fc511a41c108c7f3305dd3ac437f9fe1a4a593d1f6ad",
+        "verified": true
+      },
+      {
+        "route": "/manifest.json",
+        "bytes": 1007,
+        "sha256": "9cd22466de94f77b60a5545f0ba2f2c6fda19f0ece2e0d232fca7b875cdd000c",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_2.part.js",
+        "bytes": 1173,
+        "sha256": "829d54caa95a5f9ec32853a5722a082bf08c1b23e70f038c4f1de2f28251978b",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_4.part.js",
+        "bytes": 26916,
+        "sha256": "1f6eb131d1c2cfec6f381d6678a751ceb3c42aea8303ee758dd60bb3677c46f2",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_5.part.js",
+        "bytes": 42838,
+        "sha256": "003ef38fe10cacaa9e04b636d3a69b6eb4bb80374ace536fb77c116fddaf87d3",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_6.part.js",
+        "bytes": 199113,
+        "sha256": "968843fd6001f069c4aca1571cc370bd799e7ef1bb54e30c656bc8e22654c49a",
+        "verified": true
+      },
+      {
+        "route": "/main.dart.js_7.part.js",
+        "bytes": 114585,
+        "sha256": "f12e27f2d3a9db024bfc0759913baa067d02cb54d6816a7f2b5f5c1f2899e3fe",
+        "verified": true
+      }
+    ],
+    "immutable_deep_routes": [
+      {
+        "route": "/projects/new",
+        "status": 200,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/projects/3c0cb131-29a8-47de-b233-1a439afc9ec6/edit",
+        "status": 200,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      }
+    ],
+    "stable_deep_routes": [
+      {
+        "route": "/projects/new",
+        "status": 200,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      },
+      {
+        "route": "/yorks/projects/3c0cb131-29a8-47de-b233-1a439afc9ec6/edit",
+        "status": 200,
+        "sha256": "972a64c127b49a2567a638054c0dc3d4a1373983983ccb019a66558c65668985",
+        "verified": true
+      }
+    ]
+  },
+  "validation": {
+    "pub_get": "passed; lock unchanged",
+    "dart_format": {
+      "result": "passed",
+      "files": 14
+    },
+    "flutter_analyze": "no issues",
+    "flutter_test": {
+      "passed": 2297,
+      "existing_skips": 4
+    },
+    "focused_draft_tests": 22,
+    "workspace_integration_tests": 20,
+    "content_interaction_tests": 41,
+    "intentional_project_setup_golden_updates": 24,
+    "ci_web": {
+      "result": "passed",
+      "main_bytes": 10004347,
+      "verifier_gzip_bytes": 2881058
+    },
+    "ci_apk": {
+      "result": "passed",
+      "signature_v2_verified": true,
+      "certificate": "CN=Yorks CI Ephemeral, OU=CI Only, O=Yorks, C=AE",
+      "certificate_sha256": "d2c5a136dc07d5fcf68b5b0d7a31fad546d36c4c6c6ee2473e152c4e37dd2526",
+      "production_signed": false
+    },
+    "git_diff_check": "passed",
+    "local_document_links": "passed"
+  },
+  "live_browser": {
+    "application": "full staging application",
+    "actor": "Local Admin",
+    "entity": "existing YRA-123 project",
+    "flow": "Edit -> Review -> Save draft -> Projects -> Edit; desktop Details -> Save draft -> Projects",
+    "acknowledgement": "Changes saved on this device. Not applied to the project.",
+    "exit_warning_after_unchanged_save": false,
+    "review_and_values_restored": true,
+    "desktop_css_viewport": [
+      1367,
+      911
+    ],
+    "normal_css_viewport": [
+      1280,
+      720
+    ],
+    "captured_warning_error_logs": [],
+    "create_entry": "Resumed retained confirmed project result with pending file re-selection; preserved",
+    "final_server_commands_exercised": [],
+    "resident_javascript_hash": "Unavailable through browser resource API; HTTP artifact hashes verified",
+    "original_user_tab_untouched": true,
+    "temporary_viewport_reset": true
+  },
+  "limits": [
+    "Nested Flutter web semantics-map error on accessibility-enabled desktop/phone breakpoint resize remains open",
+    "No fresh authenticated live Create/Update/upload acceptance",
+    "No database or access changes; no DB reset/RLS redeployment performed",
+    "No real-device Android acceptance or production signing",
+    "No hosted Flutter CI acceptance; Vercel success is a separate check"
+  ],
+  "rollback": {
+    "staging_deployment": "dpl_6RaX6nWDp1cnXPbV2hh1xVet6ovq",
+    "flag": "YORKS_V1_PROJECT_SETUP=false",
+    "preserve_namespaces": [
+      "draft",
+      "journal",
+      "quarantine",
+      "tombstone"
+    ],
+    "database_rollback_needed": false
+  },
+  "pull_request": "https://github.com/SajidAfridi/material_ledger/pull/44"
+}

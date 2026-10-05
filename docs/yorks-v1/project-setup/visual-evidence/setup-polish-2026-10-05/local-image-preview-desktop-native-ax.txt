@@ -1,0 +1,9 @@
+Browser tab: 30, Title: "Yorks AC. & Ref.", URL: "http://127.0.0.1:43971/?stage=3&session=polish-native-desktop#/projects/new".
+0 AXWebArea Yorks AC. & Ref., URL: 127.0.0.1:43971/?stage=3&session=polish-native-desktop#/projects/new
+	2 container
+		3 container Description: Dismiss, ID: flt-semantic-node-1
+			4 container flt-semantic-node-94
+				5 button Close preview, ID: flt-semantic-node-95
+				6 image flt-semantic-node-96
+
+The focused UI element is 5 button Close preview, ID: flt-semantic-node-95
