@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/analytics_event.dart';
 import '../models/yorks_v1_arrangement.dart';
 import '../models/yorks_v1_role.dart';
+import '../services/analytics_service.dart';
 import '../sync/yorks_v1_protected_read_coordinator.dart';
 import 'yorks_v1_arrangement_repository_provider.dart';
 import 'yorks_v1_identity_provider.dart';
@@ -22,7 +24,22 @@ final yorksV1ArrangementWorkspaceReadCoordinatorProvider =
         ),
       );
       ref.watch(yorksV1ArrangementRepositoryProvider);
-      return YorksV1ProtectedReadCoordinator<YorksV1ArrangementWorkspace>();
+      final analytics = ref.watch(analyticsServiceProvider);
+      return YorksV1ProtectedReadCoordinator<YorksV1ArrangementWorkspace>(
+        onObservation: (observation) => analytics.capture(
+          AnalyticsEvent.protectedReadCoordinated,
+          properties: {
+            AnalyticsProperty.operation: 'procurement_workspace_load',
+            AnalyticsProperty.workflow: 'procurement',
+            AnalyticsProperty.outcome: observation.outcome,
+            AnalyticsProperty.loadTrigger: observation.trigger,
+            AnalyticsProperty.coalesced: observation.coalesced,
+            AnalyticsProperty.cacheState: observation.cacheState,
+            AnalyticsProperty.requestGeneration: observation.generation,
+            AnalyticsProperty.visibilityState: observation.visibilityState,
+          },
+        ),
+      );
     });
 
 /// Ordinary engineering readers use the already-authorized controlled
@@ -54,10 +71,15 @@ final yorksV1ArrangementWorkspaceProvider = FutureProvider.autoDispose
           .load(key: requestId, read: () => repository.getWorkspace(requestId));
     });
 
-void yorksV1InvalidateArrangementWorkspace(WidgetRef ref, String requestId) {
+void yorksV1InvalidateArrangementWorkspace(
+  WidgetRef ref,
+  String requestId, {
+  YorksV1ProtectedReadTrigger trigger =
+      YorksV1ProtectedReadTrigger.confirmedCommand,
+}) {
   ref
       .read(yorksV1ArrangementWorkspaceReadCoordinatorProvider)
-      .markStale(requestId);
+      .markStale(requestId, trigger: trigger);
   ref.invalidate(yorksV1ArrangementWorkspaceProvider(requestId));
 }
 

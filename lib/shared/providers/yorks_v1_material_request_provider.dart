@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../controllers/yorks_v1_material_request_draft_controller.dart';
+import '../models/analytics_event.dart';
 import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_material_request.dart';
 import '../models/yorks_v1_material_request_document.dart';
@@ -328,6 +329,43 @@ enum YorksV1MaterialRequestRefreshReason {
   deliveryOrder,
   materialReturn,
   subscriptionReconnected,
+  appResumed,
+}
+
+YorksV1ProtectedReadTrigger _yorksV1MaterialRequestLoadTrigger(Ref ref) {
+  final reasons = ref
+      .read(yorksV1MaterialRequestRealtimeRevisionProvider.notifier)
+      .lastReasons;
+  if (reasons.contains(YorksV1MaterialRequestRefreshReason.appResumed)) {
+    return YorksV1ProtectedReadTrigger.foregroundResume;
+  }
+  if (reasons.contains(
+    YorksV1MaterialRequestRefreshReason.subscriptionReconnected,
+  )) {
+    return YorksV1ProtectedReadTrigger.realtimeReconnect;
+  }
+  return YorksV1ProtectedReadTrigger.realtime;
+}
+
+void _captureProtectedReadCoordination({
+  required AnalyticsService analytics,
+  required String operation,
+  required String workflow,
+  required YorksV1ProtectedReadObservation observation,
+}) {
+  analytics.capture(
+    AnalyticsEvent.protectedReadCoordinated,
+    properties: {
+      AnalyticsProperty.operation: operation,
+      AnalyticsProperty.workflow: workflow,
+      AnalyticsProperty.outcome: observation.outcome,
+      AnalyticsProperty.loadTrigger: observation.trigger,
+      AnalyticsProperty.coalesced: observation.coalesced,
+      AnalyticsProperty.cacheState: observation.cacheState,
+      AnalyticsProperty.requestGeneration: observation.generation,
+      AnalyticsProperty.visibilityState: observation.visibilityState,
+    },
+  );
 }
 
 /// The most recent coalesced refresh contains only low-cardinality workflow
@@ -339,7 +377,11 @@ bool yorksV1MaterialRequestRefreshIncludes(
   final emitted = ref
       .read(yorksV1MaterialRequestRealtimeRevisionProvider.notifier)
       .lastReasons;
-  return emitted.any(reasons.contains);
+  return emitted.any(reasons.contains) ||
+      (emitted.contains(YorksV1MaterialRequestRefreshReason.appResumed) &&
+          reasons.contains(
+            YorksV1MaterialRequestRefreshReason.subscriptionReconnected,
+          ));
 }
 
 /// Test seam for the recipient-scoped database-change subscription.
@@ -478,7 +520,7 @@ class YorksV1MaterialRequestRealtimeNotifier extends StateNotifier<int>
       if (wasBackgrounded) {
         unawaited(
           _refreshAuthorizedProjections(
-            YorksV1MaterialRequestRefreshReason.subscriptionReconnected,
+            YorksV1MaterialRequestRefreshReason.appResumed,
           ),
         );
       }
@@ -811,7 +853,10 @@ final yorksV1MaterialRequestDetailProvider = FutureProvider.autoDispose
         next,
       ) {
         if (previous != null && previous != next) {
-          coordinator.markStale(requestId);
+          coordinator.markStale(
+            requestId,
+            trigger: _yorksV1MaterialRequestLoadTrigger(ref),
+          );
           ref.invalidateSelf();
         }
       });
@@ -838,17 +883,30 @@ final yorksV1MaterialRequestDetailReadCoordinatorProvider =
         ),
       );
       ref.watch(yorksV1MaterialRequestRepositoryProvider);
-      return YorksV1ProtectedReadCoordinator<YorksV1MaterialRequest>();
+      final analytics = ref.watch(analyticsServiceProvider);
+      return YorksV1ProtectedReadCoordinator<YorksV1MaterialRequest>(
+        onObservation: (observation) => _captureProtectedReadCoordination(
+          analytics: analytics,
+          operation: 'material_request_load',
+          workflow: 'material_request',
+          observation: observation,
+        ),
+      );
     });
 
 /// Marks the authority-scoped detail projection stale before rebuilding it.
 /// This is important when a confirmed command and its Realtime notification
 /// arrive while the previous read is still active: both requests then share
 /// one trailing refresh instead of racing in parallel.
-void yorksV1InvalidateMaterialRequestDetail(WidgetRef ref, String requestId) {
+void yorksV1InvalidateMaterialRequestDetail(
+  WidgetRef ref,
+  String requestId, {
+  YorksV1ProtectedReadTrigger trigger =
+      YorksV1ProtectedReadTrigger.confirmedCommand,
+}) {
   ref
       .read(yorksV1MaterialRequestDetailReadCoordinatorProvider)
-      .markStale(requestId);
+      .markStale(requestId, trigger: trigger);
   ref.invalidate(yorksV1MaterialRequestDetailProvider(requestId));
 }
 

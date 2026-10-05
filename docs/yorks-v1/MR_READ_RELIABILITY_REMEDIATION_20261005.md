@@ -156,10 +156,15 @@ There is no migration in this remediation.
 | Workshop role boundary | Role-policy test confirms no eager Procurement workspace read |
 | Responsive regression | Existing desktop and 360 px MR suites pass |
 
-Existing PostHog operation events remain the measurement source. The
-coordinator records no user, project, request, material or document identifiers
-and adds no high-volume event. A coalesced consumer does not create another
-repository operation event because no backend call occurred.
+Existing PostHog operation events remain the network-latency measurement
+source. Each logical protected read also emits one bounded
+`protected read coordinated` event with only `operation`, `workflow`,
+`load_trigger`, `outcome`, `coalesced`, `cache_state`,
+`request_generation` and `visibility_state`. It records no user, project,
+request, material or document identifier. A coalesced consumer does not create
+another repository operation event because no backend call occurred; the
+coordination event makes that avoided call measurable without logging widget
+rebuilds.
 
 ## Rollout and rollback
 

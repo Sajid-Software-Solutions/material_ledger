@@ -128,6 +128,7 @@ All events below are centrally defined in `analytics_event.dart`.
 | `material request submitted` | Submit success | Server returns submitted record | `source`, `item_count` | Draft controller |
 | `material request submission failed` | Submit failure | Connected submit fails | `source`, `error_category` | Draft controller |
 | `material request opened` | Request engagement | Detail route entry | `source` | Route mapper |
+| `protected read coordinated` | Explain why an MR/procurement protected read ran or was avoided | One logical coordinator decision | `operation`, `workflow`, `load_trigger`, `outcome`, `coalesced`, `cache_state`, `request_generation`, `visibility_state` | No request/project/entity ID or business content; repository operation events remain the network-latency source |
 | `material request editing access changed` | Confirmed MR grant/revoke | Grant RPC returns successfully | `action_type`, `success` | No request or editor IDs; server audit remains authoritative |
 | `material request editing access failed` | Rejected/unconfirmed access change | Grant RPC fails | `action_type`, `success`, `error_category` | No free text or identifiers |
 | `material request approved` | Request approval | Decision RPC returns approved | `action_type` | MR repository |

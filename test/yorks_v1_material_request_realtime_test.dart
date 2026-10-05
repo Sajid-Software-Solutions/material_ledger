@@ -203,6 +203,10 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(notifier.state, 2);
+        expect(
+          notifier.lastReasons,
+          contains(YorksV1MaterialRequestRefreshReason.appResumed),
+        );
       },
     );
 

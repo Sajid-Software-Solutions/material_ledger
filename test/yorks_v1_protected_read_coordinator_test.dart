@@ -165,5 +165,45 @@ void main() {
 
       expect(reads, 1);
     });
+
+    test('coordination observations contain no record key', () async {
+      final observations = <YorksV1ProtectedReadObservation>[];
+      final response = Completer<String>();
+      final coordinator = YorksV1ProtectedReadCoordinator<String>(
+        onObservation: observations.add,
+      );
+
+      final first = coordinator.load(
+        key: 'protected-request-id',
+        read: () => response.future,
+      );
+      final second = coordinator.load(
+        key: 'protected-request-id',
+        read: () => response.future,
+        trigger: YorksV1ProtectedReadTrigger.realtime,
+      );
+      response.complete('confirmed');
+      await Future.wait([first, second]);
+      await coordinator.load(
+        key: 'protected-request-id',
+        read: () async => 'unused',
+      );
+
+      expect(
+        observations.map((item) => item.outcome),
+        containsAll(<YorksV1ProtectedReadOutcome>[
+          YorksV1ProtectedReadOutcome.coalesced,
+          YorksV1ProtectedReadOutcome.freshFetch,
+          YorksV1ProtectedReadOutcome.freshCache,
+        ]),
+      );
+      expect(observations.every((item) => item.generation == 1), isTrue);
+      expect(
+        observations
+            .map((item) => '${item.trigger}:${item.cacheState}')
+            .join('|'),
+        isNot(contains('protected-request-id')),
+      );
+    });
   });
 }

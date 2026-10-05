@@ -96,14 +96,45 @@ void main() {
 
   test('taxonomy stays bounded, stable, and unique', () {
     final names = AnalyticsEvent.values.map((event) => event.wireName).toList();
-    expect(names, hasLength(77));
+    expect(names, hasLength(78));
     expect(names.toSet(), hasLength(names.length));
     expect(names, everyElement(matches(RegExp(r'^[a-z0-9]+(?: [a-z0-9]+)*$'))));
     expect(names, isNot(contains('material_request_opened')));
     expect(names, contains('material request opened'));
     expect(names, contains('reliability error occurred'));
     expect(names, contains('accounts building group toggled'));
+    expect(names, contains('protected read coordinated'));
   });
+
+  test(
+    'protected-read telemetry is bounded and contains no record ID',
+    () async {
+      analytics.capture(
+        AnalyticsEvent.protectedReadCoordinated,
+        properties: const {
+          AnalyticsProperty.operation: 'material_request_load',
+          AnalyticsProperty.workflow: 'material_request',
+          AnalyticsProperty.outcome: 'fresh_fetch',
+          AnalyticsProperty.loadTrigger: 'foreground_resume',
+          AnalyticsProperty.coalesced: false,
+          AnalyticsProperty.cacheState: 'miss',
+          AnalyticsProperty.requestGeneration: 2,
+          AnalyticsProperty.visibilityState: 'foreground',
+        },
+      );
+      await analytics.drain();
+
+      final event = sink.events.single;
+      expect(event.name, 'protected read coordinated');
+      expect(event.properties['operation'], 'material_request_load');
+      expect(event.properties['load_trigger'], 'foreground_resume');
+      expect(event.properties['request_generation'], 2);
+      expect(
+        event.properties.keys,
+        isNot(contains(anyOf('request_id', 'project_id', 'entity_id'))),
+      );
+    },
+  );
 
   test(
     'Accounts analytics keep commercial identifiers and values out',

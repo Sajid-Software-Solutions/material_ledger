@@ -50,6 +50,7 @@ enum AnalyticsEvent {
   ),
   materialRequestSubmissionReconciled('material request submission reconciled'),
   materialRequestOpened('material request opened'),
+  protectedReadCoordinated('protected read coordinated'),
   materialRequestApproved('material request approved'),
   materialRequestReturned('material request returned'),
   materialRequestDecisionFailed('material request decision failed'),
@@ -145,7 +146,12 @@ enum AnalyticsProperty {
   listFilter,
   recordState,
   receiptOutcome,
-  feedbackExpectedMs;
+  feedbackExpectedMs,
+  loadTrigger,
+  coalesced,
+  cacheState,
+  requestGeneration,
+  visibilityState;
 
   String get wireName => _snakeCase(name);
 }
