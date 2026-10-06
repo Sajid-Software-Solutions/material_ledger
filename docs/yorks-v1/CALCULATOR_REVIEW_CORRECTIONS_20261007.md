@@ -102,3 +102,10 @@ history and the existing server archive guard. Production publication remains
 subject to the owner's separate review. No production mutation or PR merge was
 performed. Hosted permission-failure injection and physical-device/printer
 acceptance are not claimed by the widget/browser evidence above.
+
+## Subsequent authorized production release
+
+The owner subsequently approved production publication. The verified merged
+source, guarded production migration, artifact and live evidence are recorded in
+[CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md](CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md).
+The staging-only statements above describe the earlier candidate stage.

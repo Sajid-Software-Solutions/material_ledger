@@ -127,3 +127,10 @@ This does not substitute for a live Accountant browser session; that role is
 covered by the widget visual/route tests and the staging trusted-RPC witness.
 Production still resolves to `dpl_5N1eU8yvGGi9gGaRX4bBoa3ZW2yr`, with unchanged
 save-function hash `b2e6e5e4fd91acbfc804133afdccf706` and no archive guard yet.
+
+## Subsequent authorized production release
+
+The owner subsequently approved production publication. The verified merged
+source, guarded production migration, artifact and live evidence are recorded in
+[CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md](CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md).
+The staging-only statements above describe the earlier candidate stage.

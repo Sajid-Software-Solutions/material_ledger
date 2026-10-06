@@ -162,3 +162,10 @@ The owner-reported rejected access downgrade and coalesced Delete/Clear history
 findings are corrected in [CALCULATOR_REVIEW_CORRECTIONS_20261007.md](CALCULATOR_REVIEW_CORRECTIONS_20261007.md).
 That document identifies the latest staging artifact and full verification.
 The accepted staging identity above remains historical evidence.
+
+## Subsequent authorized production release
+
+The owner subsequently approved production publication. The verified merged
+source, guarded production migration, artifact and live evidence are recorded in
+[CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md](CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md).
+The staging-only statements above describe the earlier candidate stage.
