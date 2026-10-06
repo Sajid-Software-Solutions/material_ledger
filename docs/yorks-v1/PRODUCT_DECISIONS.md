@@ -1803,5 +1803,7 @@ named saved records, general/project scope, import/export/print and explicit
 view/edit sharing. Admin, Senior Mechanical Engineer and Project Manager
 manage calculator access. Grants affect only the selected calculation and never
 grant project membership, commercial access or operational mutations. See
-[CALCULATOR_WORKSPACE.md](CALCULATOR_WORKSPACE.md). The new interface remains
-behind `YORKS_V1_CALCULATOR_WORKSPACE` pending rollout acceptance.
+[CALCULATOR_WORKSPACE.md](CALCULATOR_WORKSPACE.md). The new interface stays
+behind `YORKS_V1_CALCULATOR_WORKSPACE`, default off. The accepted production web
+artifact enables it after the owner-authorized 6 October 2026 release; see
+[CALCULATOR_PRODUCTION_RELEASE_20261006.md](CALCULATOR_PRODUCTION_RELEASE_20261006.md).

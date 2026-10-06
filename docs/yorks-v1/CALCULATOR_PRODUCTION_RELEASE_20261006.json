@@ -1,0 +1,297 @@
+{
+  "date": "2026-10-06",
+  "status": "released_and_verified",
+  "application_source": "53396252c9cb1a197656f8aa765effb3c51f7cd5",
+  "staging_source": "59122c6f4705548056a4ab9e4a5e14402db8f850",
+  "implementation_pr": "https://github.com/SajidAfridi/material_ledger/pull/47",
+  "production": {
+    "url": "https://yorks-r35.vercel.app",
+    "calculator_url": "https://yorks-r35.vercel.app/#/tools/calculators",
+    "immutable_url": "https://yorks-r35-ppd0aiybn-sajid-alis-projects-0ec775a2.vercel.app",
+    "deployment_id": "dpl_9rjHvheK76jH9z5kysbewH36oG8M",
+    "ready_state": "READY",
+    "backend": "czykuksmlwswjsgotrpo",
+    "source": "53396252c9cb1a197656f8aa765effb3c51f7cd5",
+    "main_bytes": 9850473,
+    "gzip_bytes": 2840104,
+    "main_sha256": "ab69fe1071d256ef6572855417ce03c66b143d52a561cb09d8c01211f74d7d94",
+    "files": 60,
+    "bytes": 54263949,
+    "service_role_tokens": 0,
+    "release_marker_count": 1,
+    "calculator_workspace": true,
+    "project_setup": true,
+    "accounts": true,
+    "company_requests": true,
+    "workforce": true,
+    "analytics": true,
+    "telemetry": true
+  },
+  "staging": {
+    "url": "https://yorks-r35-staging.vercel.app",
+    "immutable_url": "https://yorks-r35-iwrqj7lv8-sajid-alis-projects-0ec775a2.vercel.app",
+    "deployment_id": "dpl_9B9oMNf2WbCgpcomhzF2FmyvvkXq",
+    "backend": "iqltcyimlqtcwyzlemwx",
+    "main_bytes": 9836106,
+    "main_sha256": "644bf2844bc057da24e0e920fa6545b8cf69287af16bb34d9a6fd9ebb28ef937",
+    "fixture_calculators": 2,
+    "fixture_calculators_archived": 2,
+    "remaining_fixture_grants": 0
+  },
+  "migration": {
+    "canonical_source": "20261006092502_calculator_workspace.sql",
+    "staging_ledger": [
+      {
+        "name": "calculator_workspace",
+        "version": "20261006122538"
+      }
+    ],
+    "production_ledger": [
+      {
+        "name": "calculator_workspace",
+        "version": "20261006130951"
+      }
+    ],
+    "functions": [
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "f6c55538a86c1df28246c884e2212550",
+        "name": "v1_calculator_access",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "66b268eedfdd0e34a10ac9311a9ab3c8",
+        "name": "v1_calculator_active_actor",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "aaaa089e540073940990349a45f88951",
+        "name": "v1_calculator_json",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "e1104a7958fae52f84f7926ae5b57a32",
+        "name": "v1_calculator_manager",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "0766cbd4fa947284a7554aa2bf6ae116",
+        "name": "v1_calculator_options",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "d4eaa7e5f38dc3c90e108987f2c5b829",
+        "name": "v1_get_calculator",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "51d017649d6020e152c3c2908ce0772e",
+        "name": "v1_list_calculators",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "929db799e19138bd0aeca420ae65ef10",
+        "name": "v1_manage_calculator",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "authenticated=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "b2e6e5e4fd91acbfc804133afdccf706",
+        "name": "v1_save_calculator",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": true
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "md5": "e105660d17868995235c2f5b3119586c",
+        "name": "v1_validate_calculator_data",
+        "config": [
+          "search_path=\"\""
+        ],
+        "security_definer": false
+      }
+    ],
+    "table_security": [
+      {
+        "rls": true,
+        "table": "v1_calculator_grants",
+        "anon_select": false,
+        "authenticated_select": false
+      },
+      {
+        "rls": true,
+        "table": "v1_calculators",
+        "anon_select": false,
+        "authenticated_select": false
+      }
+    ],
+    "definition_matches_local_and_staging": true,
+    "existing_business_table_dml": false,
+    "ledger_versions_aligned": false,
+    "source_sha256": "d77bd928247ad232020e9f745c9c907dc081c88ceaee7a7540b01a916568c4a6",
+    "source_bytes": 17938
+  },
+  "production_preserved_counts": {
+    "projects": 14,
+    "material_requests": 193,
+    "inventory_movements": 1160,
+    "profiles": 27,
+    "audit_events": 1974,
+    "calculators_created_by_verification": 0
+  },
+  "production_role_read_smoke": [
+    {
+      "role": "accountant",
+      "active_accounts": 1
+    },
+    {
+      "role": "admin",
+      "active_accounts": 3
+    },
+    {
+      "role": "document_controller",
+      "active_accounts": 1
+    },
+    {
+      "role": "procurement",
+      "active_accounts": 2
+    },
+    {
+      "role": "project_engineer",
+      "active_accounts": 10
+    },
+    {
+      "role": "project_manager",
+      "active_accounts": 1
+    },
+    {
+      "role": "senior_mechanical_engineer",
+      "active_accounts": 1
+    },
+    {
+      "role": "site_engineer",
+      "active_accounts": 5
+    },
+    {
+      "role": "workshop_in_charge",
+      "active_accounts": 1
+    }
+  ],
+  "gates": {
+    "flutter_analyze": "No issues",
+    "flutter_passed": 2469,
+    "retained_skips": 4,
+    "focused_calculator_passed": 21,
+    "database_files": 123,
+    "database_assertions": 3597,
+    "calculator_database_assertions": 50,
+    "mr_register_assertions": 69,
+    "competing_writers": "one commit, one conflict, replay idempotent",
+    "candidate_routes_assets": 26,
+    "live_routes_assets": 26,
+    "staging_routes_assets": 26,
+    "visual_widths": [
+      1366,
+      768,
+      360
+    ],
+    "pdf_esp_rows": 1000,
+    "pdf_esp_pages": 31,
+    "ci_web": "passed",
+    "ci_apk": "passed_ephemeral_signing_not_store_artifact",
+    "production_browser_errors": 0
+  },
+  "ci_apk": {
+    "bytes": 111385812,
+    "sha256": "4ded54c68d251dffab1eaf63f05c854246fdcbaa2ace26b649f55bb445382ebb",
+    "publishable": false
+  },
+  "backup": {
+    "schema_bytes": 3444691,
+    "schema_sha256": "ab833118edcd9fdb1ba4e4c2eaa187e16e7cd317f707b15fc160028a552dbfde",
+    "data_bytes": 62751879,
+    "data_sha256": "9f9e2b1ed1daaf4e4076ef586f65e8bded990c17fe3c50a04fa033412f84504c",
+    "directory": "/tmp/yorks-calculator-workspace",
+    "private_file_permissions": "0600"
+  },
+  "rollback": {
+    "deployment_id": "dpl_GKcFd2A49YWDNHCiyL8Eh5Hnkqf3",
+    "immutable_url": "https://yorks-r35-gu8hyjnul-sajid-alis-projects-0ec775a2.vercel.app",
+    "retain_calculator_data_and_audit": true
+  },
+  "limits": {
+    "production_saved_record_mutation": false,
+    "production_sharing_mutation": false,
+    "physical_device_and_printer_acceptance": false,
+    "hosted_flutter_ci": "not run; retained workflow/account exception",
+    "pdf_labels": "existing English technical report convention"
+  }
+}

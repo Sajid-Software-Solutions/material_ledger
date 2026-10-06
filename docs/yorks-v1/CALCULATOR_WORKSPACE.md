@@ -61,7 +61,9 @@ legacy calculation keys are not deleted or overwritten. Disable the feature flag
 to roll back the interface; retain new tables, grants and audit. Do not drop data
 or run a generic remote database push across an unreconciled migration ledger.
 
-Production enablement is not part of this implementation's acceptance claim.
+Production enablement was separately authorized and completed; see
+[CALCULATOR_PRODUCTION_RELEASE_20261006.md](CALCULATOR_PRODUCTION_RELEASE_20261006.md)
+for the published artifact and live evidence.
 Apply only this reviewed additive migration to an explicitly verified target,
 then enable the feature in a tested artifact. Staging browser/persona acceptance
 must precede production promotion.
@@ -101,7 +103,7 @@ Local acceptance:
 - The earlier local browser witness covered Admin sign-in, the universal shell,
   Duct creation/edit/save/reopen, sharing, JSON values and PDF generation.
   Final staging/production witnesses and artifact identities are recorded in
-  the release evidence file once publication is verified.
+  [CALCULATOR_PRODUCTION_RELEASE_20261006.md](CALCULATOR_PRODUCTION_RELEASE_20261006.md).
 
 Both production schema and data backups were captured before DDL. This additive
 migration creates only calculator relations/functions and its migration ledger

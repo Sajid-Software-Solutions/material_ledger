@@ -117,6 +117,8 @@ explicit V7-to-V1 conflict resolution.
 
 ## Calculator workspace
 
+The completed release is recorded in [CALCULATOR_PRODUCTION_RELEASE_20261006.md](CALCULATOR_PRODUCTION_RELEASE_20261006.md).
+
 See [CALCULATOR_WORKSPACE.md](CALCULATOR_WORKSPACE.md) for the approved combined calculator home, view/edit sharing, data preservation and rollout boundary.
 
 ## Project setup redesign
