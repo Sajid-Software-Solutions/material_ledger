@@ -155,3 +155,10 @@ revisions, audit and local data. Do not use a generic remote database push.
 - [ESP, desktop](evidence/calculator-interaction-polish-20261007/esp-desktop.jpg)
 - [ESP, mobile](evidence/calculator-interaction-polish-20261007/esp-mobile.jpg)
 - [Named sizing menu](evidence/calculator-interaction-polish-20261007/dropdown-desktop.jpg)
+
+## Subsequent audit corrections
+
+The owner-reported rejected access downgrade and coalesced Delete/Clear history
+findings are corrected in [CALCULATOR_REVIEW_CORRECTIONS_20261007.md](CALCULATOR_REVIEW_CORRECTIONS_20261007.md).
+That document identifies the latest staging artifact and full verification.
+The accepted staging identity above remains historical evidence.

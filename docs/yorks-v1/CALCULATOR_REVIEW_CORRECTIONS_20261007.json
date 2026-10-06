@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-07",
+  "status": "staging_only_ready_for_owner_audit",
+  "source": "00acb394fcb81a7621dd05033749c86e9db281d5",
+  "main_bytes": 9930142,
+  "main_sha256": "009b31015410a610ab88345fa59139f3b43f5929972bbd7bbfa12d789d8f3b03",
+  "main_gzip_bytes": 2862668,
+  "staging_backend": "iqltcyimlqtcwyzlemwx",
+  "calculator_flag": true,
+  "project_setup_flag": true,
+  "main_python_gzip6_bytes": 2860138,
+  "deployment_id": "dpl_4qd6oXoyZcS5Lq4ejEvB9h6xWJQL",
+  "preview_url": "https://yorks-r35-koeb4s5mn-sajid-alis-projects-0ec775a2.vercel.app",
+  "staging_url": "https://yorks-r35-staging.vercel.app/#/tools/calculators",
+  "findings": [
+    {
+      "issue": "rejected_access_change",
+      "before": "Can view remains displayed after Edit to View rejection while the confirmed grant is edit",
+      "after": "Grant picker resets to confirmed permission after every completed request, including failure",
+      "tests": "upgrade and downgrade rejection, pending controls, unchanged grant/version, successful retry at 1366 and 360 pixels"
+    },
+    {
+      "issue": "merged_row_history",
+      "before": "One Undo after two deletions and Clear restores all three original rows",
+      "after": "Delete and Clear flush pending input edits and each record an atomic snapshot",
+      "tests": "three separate Undo/Redo steps preserve row IDs and unknown imported fields"
+    }
+  ],
+  "gates": {
+    "pub_get": true,
+    "format": true,
+    "analyze": "no_issues",
+    "flutter_tests_passed": 2503,
+    "flutter_tests_skipped": 4,
+    "new_regression_tests": 5,
+    "db_reset_local": true,
+    "database_files": 124,
+    "database_assertions": 3625,
+    "ci_web": true,
+    "ci_apk": "ephemeral_ci_signing_not_store_artifact",
+    "ci_apk_mb": 111.8,
+    "immutable_route_asset_checks": 26,
+    "staging_route_asset_checks": 26
+  },
+  "visuals": [
+    "../../test/goldens/calculators/access_rejected_1366.png",
+    "../../test/goldens/calculators/access_rejected_360.png",
+    "evidence/calculator-review-corrections-20261007/staging-undo.jpg"
+  ],
+  "browser": {
+    "persona": "existing staging Local Admin",
+    "reload_calculator_route": true,
+    "temporary_unsaved_esp": true,
+    "add_button_and_mac_shortcut": true,
+    "clear_then_undo_row_counts": [
+      3,
+      0,
+      3
+    ],
+    "delete_then_undo_row_counts": [
+      3,
+      2,
+      1,
+      2,
+      3
+    ],
+    "redo_row_counts": [
+      3,
+      2,
+      1
+    ],
+    "mac_redo_shortcut": true,
+    "review_inputs_discarded": true,
+    "server_save_performed": false,
+    "live_permission_mutations_performed": false,
+    "console_errors": 0
+  },
+  "production": {
+    "changed": false,
+    "deployment_before": "dpl_5N1eU8yvGGi9gGaRX4bBoa3ZW2yr",
+    "deployment_after": "dpl_5N1eU8yvGGi9gGaRX4bBoa3ZW2yr",
+    "review_gate": "owner Astra audit before production"
+  },
+  "preservation": {
+    "new_migration": false,
+    "server_grants_changed": false,
+    "formulas_changed": false,
+    "primary_checkout_changed": false,
+    "rollback_preview": "https://yorks-r35-6t7icvw3i-sajid-alis-projects-0ec775a2.vercel.app"
+  }
+}
