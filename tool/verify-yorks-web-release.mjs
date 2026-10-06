@@ -31,6 +31,8 @@ const checks = [
   ['/yorks/material-requests/company/new', 'index.html'],
   ['/yorks/returns', 'index.html'],
   ['/yorks/team-chat', 'index.html'],
+  ['/tools/calculators', 'index.html'],
+  ['/tools/calculators/new', 'index.html'],
   ...['main.dart.js', 'flutter_bootstrap.js', 'flutter_service_worker.js', 'firebase-messaging-sw.js', 'manifest.json'].map(file => [`/${file}`, file]),
   ...deferredParts.map(file => [`/${file}`, file]),
 ];
