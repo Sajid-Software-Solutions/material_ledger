@@ -149,3 +149,6 @@ localized calculator copy and their tests/goldens. No repository, RPC, RLS,
 route, feature flag, migration or production data change is part of this slice.
 The web artifact can be rolled back to the prior verified deployment while all
 saved calculations and grants remain intact.
+
+Published interface evidence and rollback are recorded in
+[CALCULATOR_UI_RELEASE_20261006.md](CALCULATOR_UI_RELEASE_20261006.md).

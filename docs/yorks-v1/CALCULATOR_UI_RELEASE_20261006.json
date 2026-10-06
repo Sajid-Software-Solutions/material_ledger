@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-06",
+  "status": "released_and_verified",
+  "implementation_pr": "https://github.com/SajidAfridi/material_ledger/pull/49",
+  "application_source": "58cf37f2062d175a36a201d269c561d01f826e75",
+  "production": {
+    "source": "58cf37f2062d175a36a201d269c561d01f826e75",
+    "main_bytes": 9863668,
+    "gzip_bytes": 2843319,
+    "main_sha256": "f4fa8955da03cf52356d4f6c370b5ad4b791d129eb41bc2c9b7f81224a845669",
+    "files": 60,
+    "bytes": 54277398,
+    "service_role_tokens": 0,
+    "release_marker_count": 1,
+    "url": "https://yorks-r35.vercel.app/#/tools/calculators",
+    "immutable_url": "https://yorks-r35-3435qbql5-sajid-alis-projects-0ec775a2.vercel.app",
+    "deployment_id": "dpl_5N1eU8yvGGi9gGaRX4bBoa3ZW2yr",
+    "ready_state": "READY",
+    "backend": "czykuksmlwswjsgotrpo"
+  },
+  "staging": {
+    "source": "f811b95dca24566f22dbfceff5efbe976bb7ad63",
+    "url": "https://yorks-r35-staging.vercel.app/#/tools/calculators",
+    "immutable_url": "https://yorks-r35-nqwlis83o-sajid-alis-projects-0ec775a2.vercel.app",
+    "deployment_id": "dpl_3BsKDGQ1k9V1KxhpF9m86kmWNpGZ",
+    "main_bytes": 9849319,
+    "main_sha256": "09ff6f75238cba36f02cac51509bbeac8007494cbeaf0871535ebd85ed2fb0d2",
+    "backend": "iqltcyimlqtcwyzlemwx",
+    "fixtures": [
+      {
+        "id": "6c1a9171-a527-40f1-bec7-8c89e6148958",
+        "tool": "duct",
+        "archived": true
+      },
+      {
+        "id": "50144dd8-698b-4f65-9efc-7becdbffcd7d",
+        "tool": "esp",
+        "archived": true
+      }
+    ],
+    "temporary_grants": 0
+  },
+  "gates": {
+    "flutter_analyze": "No issues",
+    "flutter_passed": 2473,
+    "retained_skips": 4,
+    "focused_calculator_passed": 25,
+    "database_files": 123,
+    "database_assertions": 3597,
+    "ci_web": "passed",
+    "ci_apk": "passed_ephemeral_ci_signing_not_store_artifact",
+    "candidate_routes_assets": 26,
+    "production_routes_assets": 26,
+    "staging_routes_assets": 26,
+    "visual_widths": [
+      1366,
+      768,
+      360
+    ],
+    "production_browser_errors": 0,
+    "vercel_error_fatal_entries": 0,
+    "icon_font_bytes": 76260,
+    "icon_font_sha256": "a8d182187f8f41ab42af9b5fbb1ffad22a09296dad03e852100985f8393f262e"
+  },
+  "preservation": {
+    "migrations_applied": 0,
+    "rpc_rls_changes": false,
+    "repository_changes": false,
+    "formula_changes": false,
+    "project_settings_changes": false,
+    "production_business_data_mutated": false
+  },
+  "rollback": {
+    "deployment_id": "dpl_9rjHvheK76jH9z5kysbewH36oG8M",
+    "immutable_url": "https://yorks-r35-ppd0aiybn-sajid-alis-projects-0ec775a2.vercel.app",
+    "retain_data_and_audit": true
+  },
+  "limits": {
+    "physical_device_printer_verification": false,
+    "all_role_interactive_browser_logins": false,
+    "long_operational_observation": false,
+    "hosted_flutter_ci": "retained workflow/account exception; local gates recorded"
+  }
+}
