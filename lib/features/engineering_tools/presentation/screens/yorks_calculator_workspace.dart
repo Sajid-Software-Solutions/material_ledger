@@ -964,24 +964,27 @@ class _WorkspaceState extends ConsumerState<_Workspace> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: title,
-                    readOnly: !canEdit,
-                    maxLength: 160,
-                    style: AppTypography.headlineMedium,
-                    decoration: InputDecoration(
-                      hintText: t(S.name),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: const UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.blue),
+                  Semantics(
+                    label: t(S.name),
+                    child: TextField(
+                      controller: title,
+                      readOnly: !canEdit,
+                      maxLength: 160,
+                      style: AppTypography.headlineMedium,
+                      decoration: InputDecoration(
+                        hintText: t(S.name),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: AppColors.blue),
+                        ),
+                        filled: false,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm,
+                        ),
+                        counterText: '',
+                        isDense: true,
                       ),
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.sm,
-                      ),
-                      counterText: '',
-                      isDense: true,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -1017,7 +1020,9 @@ class _WorkspaceState extends ConsumerState<_Workspace> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            c.hasPending
+                            c.busy
+                                ? Icons.sync
+                                : c.hasPending
                                 ? Icons.cloud_off_outlined
                                 : c.record?.archived == true
                                 ? Icons.archive_outlined
@@ -1027,7 +1032,7 @@ class _WorkspaceState extends ConsumerState<_Workspace> {
                                 ? Icons.circle_outlined
                                 : Icons.check_circle_outline,
                             size: 14,
-                            color: c.hasPending
+                            color: c.hasPending && !c.busy
                                 ? AppColors.warning
                                 : AppColors.muted,
                           ),
@@ -1035,7 +1040,9 @@ class _WorkspaceState extends ConsumerState<_Workspace> {
                           Flexible(
                             child: Text(
                               t(
-                                c.hasPending
+                                c.busy
+                                    ? S.saving
+                                    : c.hasPending
                                     ? S.pending
                                     : c.record?.archived == true
                                     ? S.archived

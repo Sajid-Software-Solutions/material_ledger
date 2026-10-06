@@ -23,6 +23,7 @@ import 'package:material_ledger/features/engineering_tools/presentation/screens/
 import 'package:material_ledger/features/engineering_tools/presentation/screens/yorks_v1_engineering_calculator_screens.dart';
 
 class FakeCalculatorRpc implements YorksV1ProjectRpcClient {
+  Completer<void>? saveGate;
   Object? fail;
   final calls = <Map<String, dynamic>>[];
   Map<String, dynamic> record = {
@@ -71,6 +72,7 @@ class FakeCalculatorRpc implements YorksV1ProjectRpcClient {
       return {'projects': <dynamic>[], 'people': <dynamic>[]};
     }
     if (functionName == 'v1_save_calculator') {
+      await saveGate?.future;
       final intent = parameters['p_payload'] as Map;
       record = {
         ...record,
@@ -603,6 +605,49 @@ void main() {
       c.dispose();
     },
   );
+
+  testWidgets('in-flight save shows progress until server confirmation', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final rpc = FakeCalculatorRpc()..saveGate = Completer<void>();
+    final c = YorksCalculatorController(
+      YorksCalculatorRepository(rpc),
+      identity: 'in-flight',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          yorksCalculatorControllerProvider('one').overrideWithValue(c),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: YorksCalculatorWorkspace(recordId: 'one')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextField).first,
+      'Saved after confirmation',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pump();
+    expect(find.text('Saving…'), findsNWidgets(2));
+    expect(
+      find.text('Save not confirmed. Retry to confirm the same changes.'),
+      findsNothing,
+    );
+    rpc.saveGate!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Saved'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    c.dispose();
+  });
 
   testWidgets('collapsible design basis preserves edits and selected method', (
     tester,
