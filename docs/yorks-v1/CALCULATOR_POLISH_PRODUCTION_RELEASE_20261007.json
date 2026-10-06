@@ -1,0 +1,114 @@
+{
+  "source": "74a6fd599bdcfbdbbce7c63cbaa5611037645aea",
+  "main_bytes": 9930231,
+  "main_sha256": "d20305f92502cd584daa254818e5b3c957d78e5a8995475e1efaa61656e10667",
+  "budget_gzip_bytes": 2862736,
+  "static_files": 60,
+  "static_bytes": 54327298,
+  "production_backend": "czykuksmlwswjsgotrpo",
+  "calculator_flag": true,
+  "project_setup_flag": true,
+  "service_role_tokens": 0,
+  "date": "2026-10-07",
+  "status": "released_and_verified",
+  "owner_authorization": "update the production",
+  "implementation_pr": "https://github.com/SajidAfridi/material_ledger/pull/51",
+  "deployment_id": "dpl_EvfCnBCDQSLT3F2CoAMMJzE58ups",
+  "immutable_url": "https://yorks-r35-a4ra7ocvu-sajid-alis-projects-0ec775a2.vercel.app",
+  "production_url": "https://yorks-r35.vercel.app/#/tools/calculators",
+  "previous_deployment": "dpl_5N1eU8yvGGi9gGaRX4bBoa3ZW2yr",
+  "previous_url": "https://yorks-r35-3435qbql5-sajid-alis-projects-0ec775a2.vercel.app",
+  "migration": {
+    "source_file": "20261006204245_calculator_archived_project_guard.sql",
+    "remote_version": "20261006222807",
+    "name": "calculator_archived_project_guard",
+    "save_hash": "b6ae7cc249507855b222b155b64ef537",
+    "projection_hash": "66ed5e3e1e8d27997c57c12bd243b810",
+    "matches_verified_staging": true,
+    "project_row_lock": true,
+    "anonymous_save": false,
+    "authenticated_save": true,
+    "internal_projection_callable": false
+  },
+  "security_advisors": {
+    "groups_before": 4,
+    "groups_after": 4,
+    "findings_before": 508,
+    "findings_after": 508,
+    "unchanged_except_observed_at": true
+  },
+  "preservation": {
+    "calculators_before": 1,
+    "calculators_after": 1,
+    "grants_before": 1,
+    "grants_after": 1,
+    "synthetic_release_records_after": 0,
+    "migration_dml": false,
+    "witness_fixtures_rolled_back": true,
+    "primary_checkout_untouched": true
+  },
+  "backup": {
+    "schema.sql": {
+      "bytes": 3467108,
+      "sha256": "cfdc7b78b716fd305b98dda5da6594d828d4ff37dd9bae9e2f5fd7e8c458f45c",
+      "mode": "0o600"
+    },
+    "data.sql": {
+      "bytes": 62803520,
+      "sha256": "9cebdd89ff51f8e3f57056b7f88ec23c7fad4fd4791167570571a352b9c8cbce",
+      "mode": "0o600"
+    }
+  },
+  "gates": {
+    "reviewed_tree_identical_to_merge": true,
+    "flutter_tests_passed": 2503,
+    "flutter_tests_skipped": 4,
+    "database_files": 124,
+    "database_assertions": 3625,
+    "analyzer": "no_issues",
+    "ci_web": true,
+    "ci_apk": "ephemeral_signing_not_store_artifact",
+    "production_web": true,
+    "candidate_routes_assets": 26,
+    "production_routes_assets": 26,
+    "production_transactional_grant_archive_witness": true
+  },
+  "browser": {
+    "persona": "existing production Owner/Admin",
+    "refreshed_home_and_saved_library": true,
+    "new_dialog": true,
+    "server_save": false,
+    "add_and_mac_shortcut": true,
+    "clear_undo_counts": [
+      3,
+      0,
+      3
+    ],
+    "delete_undo_counts": [
+      3,
+      2,
+      1,
+      2,
+      3
+    ],
+    "redo_counts": [
+      3,
+      2,
+      1
+    ],
+    "mac_redo": true,
+    "shared_back_guard": true,
+    "review_inputs_discarded": true,
+    "console_errors": 0
+  },
+  "observability": {
+    "window": "30m at publication",
+    "vercel_error_entries": 0,
+    "vercel_fatal_entries": 0,
+    "scope": "static web deployment; not backend soak or all-role UAT"
+  },
+  "visuals": [
+    "evidence/calculator-polish-production-20261007/production-home.jpg",
+    "evidence/calculator-polish-production-20261007/production-undo.jpg"
+  ]
+}

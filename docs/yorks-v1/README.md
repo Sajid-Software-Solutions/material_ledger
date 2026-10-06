@@ -123,6 +123,8 @@ The next staging-only audit candidate is described in [CALCULATOR_INTERACTION_PO
 Sharing discovery and archived-project hardening are recorded in [CALCULATOR_ACCESS_HARDENING_20261007.md](CALCULATOR_ACCESS_HARDENING_20261007.md).
 The subsequent rejected-grant and row-history audit corrections are in [CALCULATOR_REVIEW_CORRECTIONS_20261007.md](CALCULATOR_REVIEW_CORRECTIONS_20261007.md).
 
+The owner-authorized interaction/sharing release is recorded in [CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md](CALCULATOR_POLISH_PRODUCTION_RELEASE_20261007.md).
+
 See [CALCULATOR_WORKSPACE.md](CALCULATOR_WORKSPACE.md) for the approved combined calculator home, view/edit sharing, data preservation and rollout boundary.
 
 ## Project setup redesign
