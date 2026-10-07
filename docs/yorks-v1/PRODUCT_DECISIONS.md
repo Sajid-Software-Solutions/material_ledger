@@ -1848,4 +1848,4 @@ or Workforce access continue to receive no corresponding destination.
 Local verification: 2,556 Flutter tests passed with four retained skips; analyzer
 clean. Focused navigation and 1366px/360px golden checks passed after the final
 layout adjustment. CI web/startup-budget and ephemeral-signed APK builds are
-verification artifacts only. This navigation update has not been deployed.
+verification artifacts only. This navigation update was deployed with owner authorization on 8 October 2026; see [release evidence](NAVIGATION_PRODUCTION_UPDATE_20261008.md).
