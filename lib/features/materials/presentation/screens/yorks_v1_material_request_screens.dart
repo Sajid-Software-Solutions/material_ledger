@@ -15826,8 +15826,8 @@ class _RequestedItemsSurface extends StatelessWidget {
                 2: FlexColumnWidth(1.05),
                 3: FlexColumnWidth(1.15),
                 4: FlexColumnWidth(1.1),
-                5: FixedColumnWidth(68),
-                6: FixedColumnWidth(58),
+                5: MaxColumnWidth(FixedColumnWidth(68), IntrinsicColumnWidth()),
+                6: MaxColumnWidth(FixedColumnWidth(88), IntrinsicColumnWidth()),
               },
               children: [
                 TableRow(
@@ -15968,16 +15968,21 @@ class _RequestLineLifecycleLedger extends StatelessWidget {
                       child: Table(
                         border: TableBorder.all(color: AppColors.line),
                         columnWidths: const {
-                          0: FlexColumnWidth(),
-                          1: FixedColumnWidth(68),
-                          2: FixedColumnWidth(64),
-                          3: FixedColumnWidth(60),
-                          4: FixedColumnWidth(72),
-                          5: FixedColumnWidth(86),
-                          6: FixedColumnWidth(54),
-                          7: FixedColumnWidth(62),
-                          8: FixedColumnWidth(60),
-                          9: FixedColumnWidth(75),
+                          // Keep quantity + unit together at the current text scale.
+                          // The description receives spare width; narrow views scroll.
+                          0: MaxColumnWidth(
+                            FixedColumnWidth(200),
+                            FlexColumnWidth(),
+                          ),
+                          1: IntrinsicColumnWidth(),
+                          2: IntrinsicColumnWidth(),
+                          3: IntrinsicColumnWidth(),
+                          4: IntrinsicColumnWidth(),
+                          5: IntrinsicColumnWidth(),
+                          6: IntrinsicColumnWidth(),
+                          7: IntrinsicColumnWidth(),
+                          8: IntrinsicColumnWidth(),
+                          9: IntrinsicColumnWidth(),
                         },
                         children: [
                           TableRow(
@@ -17267,8 +17272,14 @@ class _ArrangementSummarySurface extends StatelessWidget {
                   0: FlexColumnWidth(2.2),
                   1: FlexColumnWidth(1),
                   2: FlexColumnWidth(1.5),
-                  3: FixedColumnWidth(90),
-                  4: FixedColumnWidth(94),
+                  3: MaxColumnWidth(
+                    FixedColumnWidth(90),
+                    IntrinsicColumnWidth(),
+                  ),
+                  4: MaxColumnWidth(
+                    FixedColumnWidth(94),
+                    IntrinsicColumnWidth(),
+                  ),
                 },
                 children: [
                   TableRow(
