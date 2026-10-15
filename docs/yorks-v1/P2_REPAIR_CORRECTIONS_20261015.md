@@ -1,7 +1,7 @@
 # P0 release review corrections — 15 October 2026
 
-Status: **implemented and verified locally; pushed for review; no additional
-staging or production release**.
+Status: **implemented, verified and subsequently released to production with
+owner authorization**. See [the 16 October release record](P2_PRODUCTION_RELEASE_20261016.md).
 
 ## Ownership
 
