@@ -1,7 +1,7 @@
 # P0 command outcomes and approval cancellation — 15 October 2026
 
-Status: **implemented; staging database verification passed; final client and
-production release gates pending**. The product owner subsequently authorized
+Status: **released to production; final automated gates and canonical artifact
+verification passed**. The product owner subsequently authorized
 production release with “Let's push these fixes to production right away.”
 That explicit instruction supersedes the attached repair prompt's initial
 read-only production boundary. It does not waive verification or authorize
@@ -10,7 +10,8 @@ load testing or synthetic business mutations in production.
 The supplied incident evidence, production review and two repair prompts define
 this focused repair. Their observations and proposed causes are treated as
 separate evidence. This document records verified mechanisms, implementation,
-remaining checks and release identity; it does not promise outage-free operation.
+release identity and remaining coverage limits; it does not promise outage-free
+operation.
 
 ## 1. Verified release baseline
 
@@ -188,7 +189,7 @@ Focused command, recovery, project, upload and protected-read suites passed.
 New desktop 1366 px and phone 360 px goldens cover checking, unknown, confirmed,
 reconciled dispatch and upload status. Existing relevant mobile/register goldens
 were also checked. Final whole-suite, analyzer, web/APK build and production
-artifact checks are recorded below only when completed.
+artifact results are recorded in section 8.
 
 [Approval and upload evidence](P0_APPROVAL_ARCHIVAL_UPLOAD_EVIDENCE_20261015.md)
 records reproduction commands, preservation details and synthetic-transfer limits.
@@ -208,25 +209,64 @@ records reproduction commands, preservation details and synthetic-transfer limit
   Historical incident counts remain historical evidence, even after a command
   is later reconciled as committed.
 
-## 8. Production release record — pending
+## 8. Verified production release record
 
-Production mutation is authorized by the latest user instruction. Populate these
-fields only from the final release's actual outputs; a Git push or an uploaded
-candidate alone does not prove that the canonical alias is live.
+The owner-authorized release is live at
+[Yorks production](https://yorks-r35.vercel.app). The frozen application source is
+`3cba2e6812fd06db1a56907436c9855717aa359e`, containing implementation commit
+`82e1b46` and the final obsolete-import cleanup. The branch
+`codex/p0-truthful-command-outcomes-20261015` was pushed. A later commit that
+changes only documentation may record these outputs; it is not the source identity embedded in
+the already compiled artifact.
 
 | Release gate or identity | Result |
 |---|---|
-| Final source commit and remote branch | **PENDING** |
-| Final `flutter pub get`, changed-file formatting and `flutter analyze` | **PENDING** |
-| Final full `flutter test` | **PENDING** |
-| Final clean `supabase db reset` and `supabase test db` | PASS: 4,558 assertions / 135 files |
-| CI web/startup-budget build | PASS: startup gzip 2,874,144 bytes, under 2,900,000 bytes |
-| CI ephemeral-signed APK verification build | PASS: release build, 113.5 MB; not a distribution artifact |
-| Production migration ledger and function verification | **PENDING** |
-| Production web artifact/configuration/hash verification | **PENDING** |
-| Immutable deployment ID and URL | **PENDING** |
-| Candidate verification and canonical alias/hash checks | **PENDING** |
-| Read-only post-release smoke checks | **PENDING** |
+| `flutter pub get`, changed-file formatting and `flutter analyze` | PASS: dependency resolution, 63 Dart files checked without formatting changes, zero analyzer issues |
+| Full `flutter test` | PASS: **2,775 tests**, four retained skips; final log `/tmp/p0-release-flutter-clean.log` |
+| Clean `supabase db reset` and `supabase test db` | PASS: **4,558 assertions / 135 files** |
+| CI web/startup-budget build | PASS: startup gzip **2,874,144 bytes**, under 2,900,000 bytes |
+| CI ephemeral-signed APK verification build | PASS: release build, **113.5 MB**; not a distribution artifact |
+| Production migration and function verification | PASS: five migrations applied; all eight relevant function definitions and grants hash-identical to staging |
+| Fresh production build | PASS: explicit Project Setup and Calculator enablement; other existing production flags/configuration preserved |
+| Production `main.dart.js` | **10,045,787 bytes**; SHA-256 `824cc7f13ef60acd39155fc2c1a20de4d069217aa6ed6a8de6e013246bace386` |
+| Production startup gzip budget | PASS: **2,895,048 bytes**, under 2,900,000 bytes |
+| Immutable deployment | **READY**: `dpl_AYg9ywdQzdZSNCsyhZ6CXC6hJSKJ`; [immutable deployment](https://yorks-r35-g924bznxr-sajid-alis-projects-0ec775a2.vercel.app) |
+| Candidate and canonical verification | PASS: **28 route/asset hash checks** for both candidate and promoted `yorks-r35.vercel.app` |
+| Read-only browser smoke | Register rendered **234 records**; an existing detail and fresh projection read rendered successfully after an initial read needed Refresh; see observation below |
+
+### Production migration ledger
+
+Supabase assigned the following production versions to the reviewed SQL. The
+source filenames retain their original versions; compare names and SQL/function
+hashes rather than assuming a remote apply operation preserves the filename's
+version.
+
+| Source migration version | Production ledger version |
+|---|---|
+| `20261015080249` — bounded recovery archival | `20261015111412` |
+| `20261015080348` — material workflow outcomes | `20261015111416` |
+| `20261015080635` — prepared Procurement reconciliation | `20261015111420` |
+| `20261015081241` — register permission memoization | `20261015111425` |
+| `20261015091400` — project outcome lookup | `20261015111429` |
+
+The archival queue has RLS enabled and no anonymous/authenticated access. Its
+one-minute cron job is active; the observed **11:18 UTC** run succeeded with an
+empty queue. Security advisors reported four existing notice groups and **zero
+ERROR findings** before and after release; existing notices are not represented
+as resolved by this repair.
+
+Pre-release function definitions were backed up privately at
+`/Users/eapple/.codex/private-backups/yorks/p0-production-20261015/pre-release-functions.txt`.
+The backup is outside version control. Production verification used no synthetic
+business mutations or load tests.
+
+### Release execution notes
+
+The first CLI upload returned “Not authorized”; after inspecting authentication,
+the retry succeeded. That failed upload was not treated as a deployed release.
+Two test compiler hangs were resolved by clearing the test cache and rerunning
+the complete suite with concurrency two; the final clean pass above is the
+acceptance result. Neither issue required weakening a product safety check.
 
 ### Rollback
 
@@ -244,6 +284,16 @@ transitions, delete receipts/audit, erase unknown intent, or mint a replacement
 key merely to undo a presentation problem.
 
 ### Low-cost post-release observation
+
+The live Owner/Admin session loaded the 234-record request register and an
+existing request detail, including its stage, approval, items, quantity history,
+dispatch/Delivery Order links and discussion. A fresh manual detail refresh
+returned HTTP 200 from `v1_material_request_projection`; the corresponding
+PostHog request also returned HTTP 200. No business command was submitted.
+The first detail read displayed a generic read error and required Refresh before
+recovering. Network capture began after that first failure, so its cause remains
+unconfirmed. This observation is retained for follow-up rather than counted as
+proof that every transient read failure has been eliminated.
 
 1. Verify production migration identities, function grants and the archival cron
    job; inspect bounded queue age/retry counts and recent job outcomes using the

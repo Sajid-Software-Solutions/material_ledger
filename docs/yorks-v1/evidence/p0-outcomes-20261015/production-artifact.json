@@ -1,0 +1,17 @@
+{
+  "source": "3cba2e6812fd06db1a56907436c9855717aa359e",
+  "bytes": 10045787,
+  "gzip": 2864670,
+  "sha256": "824cc7f13ef60acd39155fc2c1a20de4d069217aa6ed6a8de6e013246bace386",
+  "checks": {
+    "production_backend": true,
+    "no_staging_backend": true,
+    "no_ci_backend": true,
+    "source_stamp": true,
+    "no_dirty_stamp": true,
+    "no_service_role_jwt": true
+  },
+  "gzipCompressionLevel": 9,
+  "startupBudgetGzipBytes": 2895048,
+  "startupBudgetLimitBytes": 2900000
+}

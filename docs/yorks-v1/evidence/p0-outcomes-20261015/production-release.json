@@ -1,0 +1,150 @@
+{
+  "checkedAt": "2026-10-15",
+  "backend": "czykuksmlwswjsgotrpo",
+  "source": "3cba2e6812fd06db1a56907436c9855717aa359e",
+  "deploymentId": "dpl_AYg9ywdQzdZSNCsyhZ6CXC6hJSKJ",
+  "url": "https://yorks-r35-g924bznxr-sajid-alis-projects-0ec775a2.vercel.app",
+  "canonical": "https://yorks-r35.vercel.app",
+  "functionParity": [
+    {
+      "function": "v1_get_material_workflow_command_outcome(text,uuid)",
+      "definition_hash": "ba4b5c3841b97195be4db7283bc3ec69",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "function": "v1_get_procurement_progress_recovery(uuid,text,uuid)",
+      "definition_hash": "f7029b663ed0a1f05e3922e4ec28a3b6",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "function": "v1_get_project_setup_command_outcome(text,uuid)",
+      "definition_hash": "1f97ac21c800b257ea4ebd2d17d58114",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "function": "v1_list_unified_material_request_summaries(uuid,text,text[],uuid,text,timestamp with time zone,boolean,text,text,integer,integer,text,text)",
+      "definition_hash": "01aec9d7d644996840d3009316056eff",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "function": "v1_material_register_permission_map(uuid,uuid,text[])",
+      "definition_hash": "83ecfc1baae137853798f839837a8497",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "function": "v1_process_material_request_recovery_archival(integer)",
+      "definition_hash": "59acdcfcf75d72325c5b7352fe90ac4b",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "function": "v1_reconcile_procurement_command_outcome(uuid,text,uuid,boolean)",
+      "definition_hash": "3df50d31d35e579a1fef77c3670cc7a1",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "function": "v1_retire_progressed_material_request_recovery()",
+      "definition_hash": "d36b8bbaab51e6de1d5a859e5609ef5d",
+      "security_definer": true,
+      "anon_execute": false,
+      "authenticated_execute": false
+    }
+  ],
+  "database": [
+    {
+      "verification": {
+        "cron": [
+          {
+            "active": true,
+            "command": "select public.v1_process_material_request_recovery_archival(25);",
+            "jobname": "yorks-v1-mr-recovery-archival",
+            "schedule": "* * * * *"
+          }
+        ],
+        "queue": {
+          "count": 0,
+          "oldest": null,
+          "max_attempts": null
+        },
+        "migrations": [
+          {
+            "name": "p0_project_command_outcome_lookup",
+            "version": "20261015111429"
+          },
+          {
+            "name": "p0_register_permission_graph_memoization",
+            "version": "20261015111425"
+          },
+          {
+            "name": "procurement_truthful_outcome_reconciliation",
+            "version": "20261015111420"
+          },
+          {
+            "name": "material_workflow_command_outcomes",
+            "version": "20261015111416"
+          },
+          {
+            "name": "bound_progressed_material_request_recovery_archival",
+            "version": "20261015111412"
+          }
+        ],
+        "queue_security": {
+          "rls": true,
+          "anon_access": false,
+          "employee_access": false
+        }
+      }
+    }
+  ],
+  "securityAdvisors": {
+    "before": [
+      {
+        "name": "rls_enabled_no_policy",
+        "level": "INFO"
+      },
+      {
+        "name": "anon_security_definer_function_executable",
+        "level": "WARN"
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "level": "WARN"
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "level": "WARN"
+      }
+    ],
+    "after": [
+      {
+        "name": "rls_enabled_no_policy",
+        "level": "INFO"
+      },
+      {
+        "name": "anon_security_definer_function_executable",
+        "level": "WARN"
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "level": "WARN"
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "level": "WARN"
+      }
+    ]
+  }
+}
