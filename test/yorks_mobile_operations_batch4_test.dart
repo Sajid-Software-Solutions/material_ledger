@@ -17,9 +17,11 @@ import 'package:material_ledger/shared/providers/permissions_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_arrangement_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_logistics_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_material_request_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_material_request_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_permission_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_arrangement_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_logistics_repository.dart';
+import 'package:material_ledger/shared/repositories/yorks_v1_material_request_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/yorks_v1_permission_test_support.dart';
@@ -384,16 +386,18 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
   });
 
-  testWidgets('receipt retry preserves reviewed state and command identity', (
+  testWidgets('pending receipt checks preserve review and never resend mutation', (
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 844));
     final repository = _OperationsRepository()..receiptFailures = 1;
+    final outcomes = _ReceiptOutcomeRpcClient();
     await _pumpLogistics(
       tester,
       requestId: 'receipt',
       focusReceipt: true,
       repository: repository,
+      outcomeRpc: outcomes,
     );
     await tester.tap(find.text('Receive all as dispatched'));
     await tester.pumpAndSettle();
@@ -401,20 +405,41 @@ void main() {
       find.widgetWithText(FilledButton, 'Confirm receipt review'),
     );
     await tester.pumpAndSettle();
-    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    // Finish the bounded automatic status reads without resending the receipt.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    expect(find.text('Confirm receipt review'), findsNothing);
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys, hasLength(3));
+
+    final receiveAll = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Receive all as dispatched'),
+    );
+    expect(receiveAll.onPressed, isNull);
+    final statusReads = outcomes.keys.length;
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Confirm receipt review'),
+      find.widgetWithText(FilledButton, 'Check submission status'),
     );
     await tester.pumpAndSettle();
+    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    expect(outcomes.keys, hasLength(statusReads + 1));
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys.toSet(), {repository.receipts.single.idempotencyKey});
 
-    expect(repository.receipts, hasLength(2));
-    expect(
-      repository.receipts.first.idempotencyKey,
-      repository.receipts.last.idempotencyKey,
+    // A committed command stays successful even if its optional view is absent.
+    outcomes.confirmed = true;
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Check submission status'),
     );
+    await tester.pumpAndSettle();
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys, hasLength(statusReads + 2));
+    expect(find.byKey(const ValueKey('mobile-receipt-review')), findsNothing);
     await tester.pump(const Duration(seconds: 6));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('return draft retry reuses the same command identity', (
@@ -532,12 +557,15 @@ Future<_OperationsRepository> _pumpLogistics(
   required String requestId,
   bool focusReceipt = false,
   _OperationsRepository? repository,
+  YorksV1MaterialRequestRpcClient? outcomeRpc,
 }) async {
   final fixture = repository ?? _OperationsRepository();
   await tester.pumpWidget(
     _app(
       overrides: [
         yorksV1LogisticsRepositoryProvider.overrideWithValue(fixture),
+        if (outcomeRpc != null)
+          yorksV1MaterialRequestRpcClientProvider.overrideWithValue(outcomeRpc),
       ],
       child: YorksV1LogisticsScreen(
         requestId: requestId,
@@ -1146,3 +1174,27 @@ final _returnsWorkspaceWithScaledDraft = YorksV1ReturnsDocumentsWorkspace(
   ],
   returnInventoryItems: const [],
 );
+
+class _ReceiptOutcomeRpcClient implements YorksV1MaterialRequestRpcClient {
+  final List<String> keys = [];
+  bool confirmed = false;
+
+  @override
+  Future<Object?> invoke({
+    required String functionName,
+    required Map<String, Object?> parameters,
+  }) async {
+    expect(functionName, 'v1_get_material_workflow_command_outcome');
+    expect(parameters['p_command_name'], 'v1_confirm_receipt');
+    final key = parameters['p_idempotency_key']! as String;
+    keys.add(key);
+    return {
+      'status': confirmed ? 'confirmed' : 'unknown',
+      'command_name': 'v1_confirm_receipt',
+      'command_key': key,
+      if (confirmed) 'entity_id': 'receipt',
+      if (confirmed) 'record_version': 9,
+      'response': null,
+    };
+  }
+}

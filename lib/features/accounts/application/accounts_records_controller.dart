@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/yorks_v1_document.dart';
+import '../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../shared/repositories/yorks_v1_documents_repository.dart';
 import '../data/accounts_records_repository.dart';
@@ -86,6 +87,18 @@ final class YorksAccountsDocumentsController
     try {
       await _repository.uploadAccounts(input);
       await load(search: state.search, documentType: state.documentType);
+      return true;
+    } on YorksV1CommittedViewUnavailable catch (error) {
+      state = YorksAccountsDocumentsState(
+        status: state.workspace == null
+            ? YorksAccountsViewStatus.idle
+            : YorksAccountsViewStatus.success,
+        workspace: state.workspace,
+        error: error,
+        search: state.search,
+        documentType: state.documentType,
+      );
+      // Upload succeeded; the existing error state offers a read-only refresh.
       return true;
     } on YorksV1DomainException catch (error) {
       state = YorksAccountsDocumentsState(

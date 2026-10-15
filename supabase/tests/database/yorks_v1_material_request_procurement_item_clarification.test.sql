@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(35);
+select plan(40);
 
 select ok(
   has_function_privilege(
@@ -344,6 +344,36 @@ select lives_ok(
   )$$,
   'Project Engineer approves the exact Procurement clarification revision'
 );
+select ok(
+  (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010') ->> 'status') = 'confirmed'
+  and (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010') -> 'response') ?& array['id','state','lines'],
+  'actor can reconcile exact committed clarification with readable projection'
+);
+select ok(
+  not (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010')::text like '%unit_cost%'),
+  'Engineering outcome readback contains no protected commercial fields'
+);
+select is(
+  public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000099')->>'status', 'unknown',
+  'absent command is unknown, never a fabricated rejection'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer"}}',true);
+select is(
+  public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010')->>'status','unknown',
+  'another actor cannot discover or retrieve the confirmed receipt'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}',true);
+select ok(not has_function_privilege('anon',
+  'public.v1_get_material_workflow_command_outcome(text,uuid)','execute'),
+  'anonymous callers cannot read command outcomes');
+
 reset role;
 
 select ok(

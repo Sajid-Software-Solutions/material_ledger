@@ -109,6 +109,7 @@ enum AnalyticsEvent {
   uiRepeatedActionDetected('repeated action detected'),
   uiActionNoFeedback('action produced no feedback'),
   operationCompleted('operation completed'),
+  commandOutcomeChanged('command outcome changed'),
   featureFlagInteracted('feature flag evaluated'),
   reliabilityError('reliability error occurred');
 
@@ -131,6 +132,8 @@ enum AnalyticsProperty {
   entryPoint,
   networkState,
   operation,
+  commandFingerprint,
+  commandPhase,
   actionType,
   objectType,
   workflow,

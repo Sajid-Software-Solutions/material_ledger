@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/yorks_v1_document.dart';
+import '../models/yorks_v1_command_outcome.dart';
 import '../models/analytics_event.dart';
 import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../sync/connectivity_service.dart';
 import '../services/analytics_service.dart';
+import '../services/yorks_v1_document_upload_journal.dart';
 import 'yorks_v1_material_request_repository.dart';
 
 /// A narrow Storage/Edge/RPC boundary. Widgets never receive a Supabase client,
@@ -154,12 +157,14 @@ class YorksV1SupabaseDocumentsRepository
     YorksV1MaterialRequestRpcClient? rpcClient,
     YorksV1DocumentStorageClient? storageClient,
     YorksV1DocumentFinalizerClient? finalizerClient,
+    YorksV1DocumentUploadJournal? uploadJournal,
     AnalyticsService analytics = const NoopAnalyticsService(),
   }) : _featureFlags = featureFlags,
        _connectivity = connectivity,
        _rpcClient = rpcClient,
        _storageClient = storageClient,
        _finalizerClient = finalizerClient,
+       _uploadJournal = uploadJournal,
        _analytics = analytics;
 
   final YorksV1FeatureFlags _featureFlags;
@@ -167,6 +172,7 @@ class YorksV1SupabaseDocumentsRepository
   final YorksV1MaterialRequestRpcClient? _rpcClient;
   final YorksV1DocumentStorageClient? _storageClient;
   final YorksV1DocumentFinalizerClient? _finalizerClient;
+  final YorksV1DocumentUploadJournal? _uploadJournal;
   final AnalyticsService _analytics;
 
   @override
@@ -291,6 +297,22 @@ class YorksV1SupabaseDocumentsRepository
       ),
     );
     AnalyticsOperation? operation;
+    String? actualKey;
+    void outcome(String phase) => _uploadAnalyticsSafely(
+      () => _analytics.capture(
+        AnalyticsEvent.commandOutcomeChanged,
+        properties: {
+          AnalyticsProperty.operation: 'document_upload',
+          AnalyticsProperty.phase: phase,
+          AnalyticsProperty.commandPhase: phase,
+          if (actualKey != null)
+            AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+              prepareFunction,
+              actualKey!,
+            ),
+        },
+      ),
+    );
     _uploadAnalyticsSafely(
       () => operation = _analytics.beginOperation(
         'document_upload',
@@ -304,7 +326,9 @@ class YorksV1SupabaseDocumentsRepository
         reload: reload,
         includeSupplierMetadata: includeSupplierMetadata,
         includeAccountsMetadata: includeAccountsMetadata,
+        onIntentKey: (key) => actualKey = key,
       );
+      outcome('confirmed');
       _uploadAnalyticsSafely(() => operation?.complete());
       _uploadAnalyticsSafely(
         () => _analytics.capture(
@@ -313,7 +337,32 @@ class YorksV1SupabaseDocumentsRepository
         ),
       );
       return result;
+    } on YorksV1CommittedViewUnavailable {
+      // The document/version receipt is authoritative. A list reload or local
+      // journal cleanup cannot turn that acknowledged mutation into failure.
+      _uploadAnalyticsSafely(() => operation?.complete());
+      outcome('confirmed_view_unavailable');
+      _uploadAnalyticsSafely(
+        () => _analytics.capture(
+          AnalyticsEvent.documentUploadSucceeded,
+          properties: properties,
+        ),
+      );
+      rethrow;
     } catch (error) {
+      outcome(
+        error is YorksV1DocumentUploadNotSent
+            ? 'not_sent'
+            : error is YorksV1DomainException &&
+                  {
+                    YorksV1DomainErrorCode.unauthorized,
+                    YorksV1DomainErrorCode.invalidInput,
+                    YorksV1DomainErrorCode.conflict,
+                    YorksV1DomainErrorCode.featureDisabled,
+                  }.contains(error.code)
+            ? 'rejected'
+            : 'unknown',
+      );
       _uploadAnalyticsSafely(() => operation?.fail(error));
       _uploadAnalyticsSafely(
         () => _analytics.capture(
@@ -343,29 +392,56 @@ class YorksV1SupabaseDocumentsRepository
     required Future<T> Function() reload,
     bool includeSupplierMetadata = false,
     bool includeAccountsMetadata = false,
+    required void Function(String key) onIntentKey,
   }) async {
-    _requireReady();
+    try {
+      _requireReady();
+    } on YorksV1DomainException catch (error) {
+      throw YorksV1DocumentUploadNotSent(error.code, cause: error);
+    }
     final rpc = _rpcClient!;
     final storage = _storageClient;
     final finalizer = _finalizerClient;
     if (storage == null || finalizer == null) {
-      throw const YorksV1DomainException(
+      throw const YorksV1DocumentUploadNotSent(
         YorksV1DomainErrorCode.backendUnavailable,
       );
     }
     final hash = sha256.convert(input.bytes).toString();
+    final journal = input.hasDurableIntent ? null : _uploadJournal;
+    final payload = includeSupplierMetadata
+        ? input.toSupplierRpcPayload(hash)
+        : includeAccountsMetadata
+        ? input.toAccountsRpcPayload(hash)
+        : input.toRpcPayload(hash);
+    late final String uploadKey;
+    try {
+      uploadKey =
+          await journal?.acquire(
+            input: input,
+            operation: prepareFunction,
+            contentHash: hash,
+            payload: payload,
+          ) ??
+          input.idempotencyKey;
+    } catch (error) {
+      throw YorksV1DocumentUploadNotSent(
+        error is YorksV1DomainException
+            ? error.code
+            : YorksV1DomainErrorCode.backendUnavailable,
+        cause: error,
+      );
+    }
+    final prepareParameters = <String, Object?>{
+      'p_payload': payload,
+      'p_idempotency_key': uploadKey,
+    };
+    onIntentKey(uploadKey);
     final intent = _intent(
       await _rpc(
         rpc,
         functionName: prepareFunction,
-        parameters: {
-          'p_payload': includeSupplierMetadata
-              ? input.toSupplierRpcPayload(hash)
-              : includeAccountsMetadata
-              ? input.toAccountsRpcPayload(hash)
-              : input.toRpcPayload(hash),
-          'p_idempotency_key': input.idempotencyKey,
-        },
+        parameters: prepareParameters,
       ),
     );
     if ((intent.finalizedDocumentId == null) !=
@@ -378,6 +454,7 @@ class YorksV1SupabaseDocumentsRepository
         intent.finalizedDocumentId != replacementDocumentId) {
       _unexpected();
     }
+    var documentId = intent.finalizedDocumentId;
     if (intent.finalizedDocumentId == null) {
       try {
         await storage.upload(
@@ -389,7 +466,13 @@ class YorksV1SupabaseDocumentsRepository
       } on StorageException catch (error) {
         // A retry after an ambiguous transport failure may encounter the same
         // immutable object. The server finalizer remains the authority.
-        if (!error.message.toLowerCase().contains('already exists')) rethrow;
+        if (!error.message.toLowerCase().contains('already exists')) {
+          throw YorksV1DomainException(switch (error.statusCode) {
+            '401' || '403' => YorksV1DomainErrorCode.unauthorized,
+            '400' || '413' || '415' => YorksV1DomainErrorCode.invalidInput,
+            _ => YorksV1DomainErrorCode.backendUnavailable,
+          }, cause: error);
+        }
       } catch (error) {
         throw YorksV1DomainException(
           YorksV1DomainErrorCode.backendUnavailable,
@@ -397,7 +480,19 @@ class YorksV1SupabaseDocumentsRepository
         );
       }
       try {
-        final response = await finalizer.finalize(intent.id);
+        Object? response;
+        try {
+          response = await finalizer
+              .finalize(intent.id)
+              .timeout(const Duration(seconds: 20));
+        } on FunctionException catch (error) {
+          throw YorksV1DomainException(switch (error.status) {
+            401 || 403 => YorksV1DomainErrorCode.unauthorized,
+            400 || 422 => YorksV1DomainErrorCode.invalidInput,
+            409 => YorksV1DomainErrorCode.conflict,
+            _ => YorksV1DomainErrorCode.backendUnavailable,
+          }, cause: error);
+        }
         // HTTP success alone is not proof of document finalization. Require
         // the protected RPC's exact identity/revision projection before the
         // coordinator may label this immutable file intent Ready.
@@ -412,23 +507,102 @@ class YorksV1SupabaseDocumentsRepository
                 response['document_id'] != replacementDocumentId)) {
           _unexpected();
         }
-      } on FunctionException catch (error) {
-        throw YorksV1DomainException(
-          error.status == 401 || error.status == 403
-              ? YorksV1DomainErrorCode.unauthorized
-              : YorksV1DomainErrorCode.conflict,
-          cause: error,
-        );
-      } on YorksV1DomainException {
-        rethrow;
+        documentId = response['document_id'] as String;
       } catch (error) {
-        throw YorksV1DomainException(
-          YorksV1DomainErrorCode.backendUnavailable,
-          cause: error,
+        final ambiguous =
+            error is! YorksV1DomainException ||
+            {
+              YorksV1DomainErrorCode.backendUnavailable,
+              YorksV1DomainErrorCode.offline,
+              YorksV1DomainErrorCode.unexpectedResponse,
+            }.contains(error.code);
+        if (!ambiguous) rethrow;
+        _uploadAnalyticsSafely(
+          () => _analytics.capture(
+            AnalyticsEvent.reliabilityError,
+            properties: {
+              AnalyticsProperty.operation: 'document_upload',
+              AnalyticsProperty.phase: 'finalize',
+              AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
+              AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+                prepareFunction,
+                uploadKey,
+              ),
+              AnalyticsProperty.retryable: true,
+            },
+          ),
         );
+        // One bounded, authorized readback of the SAME immutable key/payload.
+        // No Storage replay or new revision is started during reconciliation.
+        YorksV1DocumentUploadIntent? recovered;
+        try {
+          recovered = _intent(
+            await _rpc(
+              rpc,
+              functionName: prepareFunction,
+              parameters: prepareParameters,
+            ),
+          );
+        } catch (_) {
+          // A failed read is not a denial or proof the finalizer did not commit.
+        }
+        if (recovered != null &&
+            recovered.id == intent.id &&
+            recovered.plannedRevisionNumber == intent.plannedRevisionNumber &&
+            recovered.finalizedDocumentId != null &&
+            recovered.finalizedVersionId != null &&
+            (replacementDocumentId == null ||
+                recovered.finalizedDocumentId == replacementDocumentId)) {
+          documentId = recovered.finalizedDocumentId;
+        } else if (error is YorksV1DomainException) {
+          rethrow;
+        } else {
+          throw YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+            cause: error,
+          );
+        }
       }
     }
-    return reload();
+    final receipt = YorksV1CommandReceipt(
+      commandName: prepareFunction,
+      commandKey: uploadKey,
+      entityId: documentId!,
+      recordVersion: intent.plannedRevisionNumber,
+    );
+    Never degraded(Object error, String phase) {
+      _uploadAnalyticsSafely(
+        () => _analytics.capture(
+          AnalyticsEvent.reliabilityError,
+          properties: {
+            AnalyticsProperty.operation: 'document_upload',
+            AnalyticsProperty.phase: phase,
+            AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
+            AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+              prepareFunction,
+              uploadKey,
+            ),
+            AnalyticsProperty.outcome: 'confirmed_view_unavailable',
+          },
+        ),
+      );
+      throw YorksV1CommittedViewUnavailable(receipt, cause: error);
+    }
+
+    try {
+      await journal?.confirm(
+        input: input,
+        operation: prepareFunction,
+        key: uploadKey,
+      );
+    } catch (error) {
+      degraded(error, 'cleanup');
+    }
+    try {
+      return await reload();
+    } catch (error) {
+      degraded(error, 'refresh');
+    }
   }
 
   static String _fileType(String mimeType) {
@@ -518,10 +692,9 @@ class YorksV1SupabaseDocumentsRepository
     required Map<String, Object?> parameters,
   }) async {
     try {
-      return await rpc.invoke(
-        functionName: functionName,
-        parameters: parameters,
-      );
+      return await rpc
+          .invoke(functionName: functionName, parameters: parameters)
+          .timeout(const Duration(seconds: 20));
     } on YorksV1DomainException {
       rethrow;
     } on PostgrestException catch (error) {

@@ -174,9 +174,47 @@ void main() {
     },
   );
 
+  test(
+    'command correlation accepts opaque hashes and rejects identifiers or payloads',
+    () async {
+      for (final value in [
+        'abc-raw-command-id',
+        'Sensitive customer',
+        'a' * 32,
+      ]) {
+        analytics.capture(
+          AnalyticsEvent.commandOutcomeChanged,
+          properties: {
+            AnalyticsProperty.commandFingerprint: value,
+            AnalyticsProperty.outcome: 'confirmed',
+          },
+        );
+      }
+      await analytics.drain();
+      expect(
+        sink.events
+            .take(2)
+            .every((e) => !e.properties.containsKey('command_fingerprint')),
+        isTrue,
+      );
+      expect(sink.events.last.properties['command_fingerprint'], 'a' * 32);
+    },
+  );
+  test(
+    'operation retains originating surface when navigation changes during flight',
+    () async {
+      analytics.screenViewed(AnalyticsScreen.logistics);
+      final operation = analytics.beginOperation('dispatch_materials');
+      analytics.screenViewed(AnalyticsScreen.materialRequests);
+      operation.complete();
+      await analytics.drain();
+      expect(sink.events.last.properties['screen_name'], 'logistics');
+    },
+  );
+
   test('taxonomy stays bounded, stable, and unique', () {
     final names = AnalyticsEvent.values.map((event) => event.wireName).toList();
-    expect(names, hasLength(100));
+    expect(names, hasLength(101));
     expect(names.toSet(), hasLength(names.length));
     expect(names, everyElement(matches(RegExp(r'^[a-z0-9]+(?: [a-z0-9]+)*$'))));
     expect(names, isNot(contains('material_request_opened')));

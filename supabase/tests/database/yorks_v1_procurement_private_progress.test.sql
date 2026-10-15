@@ -202,5 +202,86 @@ select throws_ok($$select public.v1_discard_procurement_progress(jsonb_build_obj
 reset role;
 select is((select count(*) from public.v1_material_dispatches where request_id=(select request_id from dispatch_progress_target)),1::bigint,
  'Prepared final intent creates exactly one dispatch across retries');
+
+-- Minimal receipts remain independent of optional full-workspace hydration.
+create temp table expected_dispatch_receipt as
+ select d.request_id,d.id from public.v1_material_dispatches d
+ join dispatch_progress_target t on t.request_id=d.request_id;
+grant select on expected_dispatch_receipt to authenticated;
+set local role authenticated;
+select pg_temp.audit_actor(3,'procurement');
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_save_arrangement',
+ 'af000000-0000-4000-8000-000000000005')#>>'{receipt,effect_id}',arrangement_id::text,
+ 'Arrangement receipt witnesses the exact nested-key effect') from progress_targets;
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006')#>>'{receipt,effect_id}',
+ (select id::text from expected_dispatch_receipt where request_id=t.request_id),
+ 'Dispatch receipt identifies the exact committed dispatch') from dispatch_progress_target t;
+select ok(not(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006') ? 'workspace'),
+ 'Minimal acknowledgement has no optional workspace dependency') from dispatch_progress_target;
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000099')->>'status','not_found',
+ 'Lookup miss remains unknown rather than rejected') from dispatch_progress_target;
+select is((public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006',true)->>'automatic_checks_remaining')::int,3,
+ 'Automatic check claims one shared server budget slot') from dispatch_progress_target;
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006',true)->>'check_deferred','true',
+ 'Competing tab cannot consume a second check inside backoff') from dispatch_progress_target;
+reset role;
+select is((select automatic_check_count::int from public.v1_procurement_command_intents
+ where command_key='af000000-0000-4000-8000-000000000006'),1,
+ 'Rejected concurrent poll does not increment shared budget');
+do $$ declare j int; r uuid; begin
+ select request_id into r from dispatch_progress_target;
+ for j in 1..3 loop
+   update public.v1_procurement_command_intents set automatic_check_after=clock_timestamp()-interval '1 second'
+    where command_key='af000000-0000-4000-8000-000000000006';
+   perform public.v1_reconcile_procurement_command_outcome(r,'v1_dispatch_materials',
+    'af000000-0000-4000-8000-000000000006',true);
+ end loop;
+end $$;
+set local role authenticated;
+select is((public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006',true)->>'automatic_checks_remaining')::int,0,
+ 'Reload and reconnect cannot reset exhausted server budget') from dispatch_progress_target;
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006')->>'status','confirmed',
+ 'Explicit status check remains available after automatic budget') from dispatch_progress_target;
+select is((public.v1_get_procurement_progress_recovery(request_id,'dispatch',null)
+ #>>'{pending_command,automatic_checks}')::int,4,
+ 'Fresh device hydrates exhausted shared budget before sending automatic polls') from dispatch_progress_target;
+select ok(not(public.v1_get_procurement_progress(request_id,'dispatch',null)->'pending_command' ? 'automatic_checks'),
+ 'Released clients retain the original strict pending-command JSON shape') from dispatch_progress_target;
+
+select pg_temp.audit_actor(1,'project_engineer');
+select throws_ok($$select public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006') from dispatch_progress_target$$,
+ '42501','V1_PROCUREMENT_PROGRESS_DENIED','Project Engineer cannot read Procurement command receipts');
+select pg_temp.audit_actor(2,'site_engineer');
+select throws_ok($$select public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006') from dispatch_progress_target$$,
+ '42501','V1_PROCUREMENT_PROGRESS_DENIED','Site Engineer cannot read Procurement command receipts');
+select pg_temp.audit_actor(4,'admin');
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006')->>'status','not_found',
+ 'Admin cannot witness another actor private command by knowing its key') from dispatch_progress_target;
+reset role;
+select ok(not has_function_privilege('anon',
+ 'public.v1_reconcile_procurement_command_outcome(uuid,text,uuid,boolean)','execute'),
+ 'Anonymous receipt and budget reads denied');
+create or replace function public.v1_logistics_workspace_projection(p_request_id uuid)
+ returns jsonb language plpgsql security definer set search_path='' as $$
+ begin raise exception 'SYNTHETIC_VIEW_FAILURE'; end $$;
+set local role authenticated;
+select pg_temp.audit_actor(3,'procurement');
+select is(public.v1_reconcile_procurement_command_outcome(request_id,'v1_dispatch_materials',
+ 'af000000-0000-4000-8000-000000000006')->>'status','confirmed',
+ 'Broken optional workspace cannot erase a durable dispatch receipt') from dispatch_progress_target;
+reset role;
+select is((select count(*) from public.v1_material_dispatches
+ where request_id=(select request_id from dispatch_progress_target)),1::bigint,
+ 'Repeated reconciliation creates no dispatch effect');
 select * from finish();
 rollback;

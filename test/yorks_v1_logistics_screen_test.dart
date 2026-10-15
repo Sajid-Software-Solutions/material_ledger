@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/shared/models/yorks_v1_inventory_history.dart';
@@ -29,6 +30,65 @@ import 'support/yorks_v1_permission_test_support.dart';
 void main() {
   setUpAll(_loadDispatchFonts);
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final size in [const Size(1366, 800), const Size(360, 800)]) {
+    testWidgets(
+      'lost dispatch response confirms exact receipt at ${size.width}',
+      (tester) async {
+        final preferences = await SharedPreferences.getInstance();
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final repository = _FakeLogisticsRepository()
+          ..dispatchErrorAfterCommit = const YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+          );
+        final progress = _FakeProgressRepository()
+          ..resolvedOutcome = const YorksV1ProcurementCommandOutcome(
+            status: 'confirmed',
+            effectId: 'dispatch-exact-42',
+            effectReference: 'DN-EXACT-42',
+            committedVersion: 6,
+          );
+        await tester.pumpWidget(
+          _testApp(
+            preferences: preferences,
+            repository: repository,
+            progressRepository: progress,
+            request: _informationRequest,
+            useAppTheme: true,
+            child: const YorksV1LogisticsScreen(requestId: 'request-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final quantity = find.byKey(
+          const ValueKey('dispatch-quantity-request-line-1'),
+        );
+        if (quantity.evaluate().isNotEmpty) {
+          await tester.enterText(quantity, '2');
+        } else {
+          await tester.enterText(find.byType(TextField).last, '2');
+        }
+        await tester.ensureVisible(find.text('Review dispatch').last);
+        await tester.tap(find.text('Review dispatch').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('confirm-dispatch')));
+        await tester.pumpAndSettle();
+        expect(repository.dispatchCalls, 1);
+        expect(progress.outcomeCalls, 1);
+        expect(find.text('Dispatch confirmed — DN-EXACT-42.'), findsWidgets);
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/r35/procurement_dispatch_reconciled_${size.width.toInt()}.png',
+          ),
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 
   testWidgets('logistics editor remains usable at a 360px mobile width', (
     tester,
@@ -766,6 +826,8 @@ class _DispatchDeliveryOrderRefreshHarness extends ConsumerWidget {
 }
 
 class _FakeProgressRepository implements YorksV1ProcurementProgressRepository {
+  YorksV1ProcurementCommandOutcome? resolvedOutcome;
+  int outcomeCalls = 0;
   YorksV1ProcurementProgressRead read = const YorksV1ProcurementProgressRead();
   @override
   Future<YorksV1ProcurementProgressRead> get(
@@ -820,7 +882,13 @@ class _FakeProgressRepository implements YorksV1ProcurementProgressRepository {
     required String requestId,
     required String commandName,
     required String commandKey,
-  }) async => const YorksV1ProcurementCommandOutcome(status: 'not_found');
+    bool automatic = false,
+  }) async {
+    outcomeCalls++;
+    return resolvedOutcome ??
+        const YorksV1ProcurementCommandOutcome(status: 'not_found');
+  }
+
   @override
   Future<String> abandon({
     required String requestId,
@@ -844,6 +912,8 @@ class _FakeLogisticsRepository
 
   YorksV1InventoryItemMetadataInput? metadataInput;
   bool _dispatchCommitted = false;
+  Object? dispatchErrorAfterCommit;
+  int dispatchCalls = 0;
   YorksV1DispatchInput? lastDispatchInput;
   int returnsWorkspaceCalls = 0;
 
@@ -953,8 +1023,10 @@ class _FakeLogisticsRepository
 
   @override
   Future<YorksV1LogisticsWorkspace> dispatch(YorksV1DispatchInput input) async {
+    dispatchCalls++;
     _dispatchCommitted = true;
     lastDispatchInput = input;
+    if (dispatchErrorAfterCommit != null) throw dispatchErrorAfterCommit!;
     return getWorkspace(input.requestId);
   }
 

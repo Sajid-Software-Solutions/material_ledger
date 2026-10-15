@@ -3,9 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/yorks_v1_documents_repository.dart';
 import '../sync/connectivity_service.dart';
 import '../services/analytics_service.dart';
+import '../services/yorks_v1_document_upload_journal.dart';
 import 'language_provider.dart';
 import 'yorks_v1_feature_flags_provider.dart';
 import 'yorks_v1_material_request_repository_provider.dart';
+import 'yorks_v1_identity_provider.dart';
+import 'yorks_v1_project_creation_draft_provider.dart';
+
+final yorksV1DocumentUploadJournalProvider =
+    Provider<YorksV1DocumentUploadJournal>(
+      (ref) => YorksV1DocumentUploadJournal(
+        storage: ref.watch(yorksV1ProjectDraftAtomicStorageProvider),
+        backend: ref.watch(yorksV1ProjectDraftBackendIdentityProvider),
+        owner: ref.watch(yorksV1AuthUserIdProvider) ?? '',
+      ),
+    );
 
 final yorksV1DocumentsRepositoryProvider = Provider<YorksV1DocumentsRepository>(
   (ref) {
@@ -21,6 +33,7 @@ final yorksV1DocumentsRepositoryProvider = Provider<YorksV1DocumentsRepository>(
           ? null
           : SupabaseYorksV1DocumentFinalizerClient(client),
       analytics: ref.watch(analyticsServiceProvider),
+      uploadJournal: ref.watch(yorksV1DocumentUploadJournalProvider),
     );
   },
 );

@@ -39,22 +39,52 @@ class YorksV1ProcurementProgressPanel extends StatelessWidget {
       String message;
       IconData icon;
       var attention = false;
+      var commandInformation = false;
+      var commandConfirmed = false;
       if (state.isLoading) {
         message = YorksV1ProcurementProgressStrings.checkingResult.active(
           language,
         );
         icon = Icons.sync;
-      } else if (state.isPending || state.outcome?.isConfirmed == true) {
-        attention = true;
+      } else if (state.outcome?.isConfirmed == true || state.isRetired) {
+        commandConfirmed = true;
+        final reference =
+            state.outcome?.effectReference ?? state.outcome?.effectId;
         message =
-            (state.isChecking
-                    ? YorksV1ProcurementProgressStrings.checkingResult
+            (state.commandPhase ==
+                        YorksV1ProcurementCommandPhase.viewRefreshDegraded
+                    ? YorksV1ProcurementProgressStrings.confirmedRefreshDegraded
+                    : state.current?.editorKind ==
+                              YorksV1ProcurementEditorKind.dispatch &&
+                          reference != null
+                    ? YorksV1ProcurementProgressStrings.confirmedDispatch(
+                        reference,
+                      )
+                    : YorksV1ProcurementProgressStrings.confirmedResult)
+                .active(language);
+        icon = Icons.check_circle_outline;
+      } else if (state.isPending) {
+        commandInformation = true;
+        message =
+            (state.commandPhase == YorksV1ProcurementCommandPhase.inFlight
+                    ? YorksV1ProcurementProgressStrings.sendingCommand
+                    : state.isChecking || state.isRecovering
+                    ? state.current?.editorKind ==
+                              YorksV1ProcurementEditorKind.dispatch
+                          ? YorksV1ProcurementProgressStrings.checkingDispatch
+                          : YorksV1ProcurementProgressStrings.checkingResult
                     : YorksV1ProcurementProgressStrings.uncertainResult)
                 .active(language);
-        icon = Icons.sync_problem_outlined;
+        icon = state.isChecking || state.isRecovering
+            ? Icons.sync
+            : Icons.info_outline;
         actions.add(
           TextButton.icon(
-            onPressed: state.isChecking
+            onPressed:
+                state.isChecking ||
+                    state.isRecovering ||
+                    state.commandPhase ==
+                        YorksV1ProcurementCommandPhase.inFlight
                 ? null
                 : () async {
                     final result = await controller.checkCommandStatus();
@@ -68,7 +98,9 @@ class YorksV1ProcurementProgressPanel extends StatelessWidget {
         );
         if (controller.pendingCommandPayload != null &&
             onRetryPending != null &&
-            !state.isChecking) {
+            !state.isChecking &&
+            !state.isRecovering &&
+            state.commandPhase != YorksV1ProcurementCommandPhase.inFlight) {
           actions.add(
             TextButton(
               onPressed: onRetryPending,
@@ -79,10 +111,11 @@ class YorksV1ProcurementProgressPanel extends StatelessWidget {
           );
         }
         if (state.outcome?.status == 'prepared' ||
-            state.outcome?.status == 'not_found') {
+            state.outcome?.status == 'not_found' ||
+            state.outcome?.status == 'abandoned') {
           actions.add(
             TextButton(
-              onPressed: state.isChecking
+              onPressed: state.isChecking || state.isRecovering
                   ? null
                   : () async {
                       final command = controller.state.pendingCommand;
@@ -199,7 +232,11 @@ class YorksV1ProcurementProgressPanel extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: attention
+            color: commandConfirmed
+                ? AppColors.successContainer
+                : commandInformation
+                ? AppColors.primaryContainer
+                : attention
                 ? Theme.of(
                     context,
                   ).colorScheme.errorContainer.withValues(alpha: .25)
@@ -208,6 +245,7 @@ class YorksV1ProcurementProgressPanel extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(

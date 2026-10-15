@@ -460,6 +460,11 @@ class YorksV1SupabaseLogisticsRepository
   Future<YorksV1LogisticsWorkspace> dispatch(YorksV1DispatchInput input) async {
     final properties = <AnalyticsProperty, Object?>{
       AnalyticsProperty.itemCount: input.lines.length,
+      AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+        'v1_dispatch_materials',
+        input.idempotencyKey,
+      ),
+      AnalyticsProperty.commandPhase: 'transport',
     };
     _analytics.capture(
       AnalyticsEvent.dispatchAttempted,
@@ -469,6 +474,7 @@ class YorksV1SupabaseLogisticsRepository
       'dispatch_materials',
       properties: {...properties, AnalyticsProperty.workflow: 'procurement'},
     );
+    var phase = 'transport';
     try {
       final response = await _invoke(
         functionName: 'v1_dispatch_materials',
@@ -477,6 +483,7 @@ class YorksV1SupabaseLogisticsRepository
           'p_idempotency_key': input.idempotencyKey,
         },
       );
+      phase = 'response_decode';
       final workspace = _workspace(response);
       operation.complete();
       _analytics.capture(
@@ -485,11 +492,28 @@ class YorksV1SupabaseLogisticsRepository
       );
       return workspace;
     } catch (error) {
-      operation.fail(error);
+      operation.fail(
+        error,
+        properties: {AnalyticsProperty.commandPhase: phase},
+      );
+      // Transport/decode diagnostics remain measured, while business outcome
+      // is reconciled separately by the durable prepared command controller.
+      final uncertain =
+          error is! YorksV1DomainException ||
+          {
+            YorksV1DomainErrorCode.backendUnavailable,
+            YorksV1DomainErrorCode.offline,
+            YorksV1DomainErrorCode.unexpectedResponse,
+          }.contains(error.code);
       _analytics.capture(
-        AnalyticsEvent.dispatchFailed,
+        uncertain
+            ? AnalyticsEvent.commandOutcomeChanged
+            : AnalyticsEvent.dispatchFailed,
         properties: {
           ...properties,
+          AnalyticsProperty.operation: 'v1_dispatch_materials',
+          AnalyticsProperty.commandPhase: phase,
+          AnalyticsProperty.outcome: uncertain ? 'unknown' : 'rejected',
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );

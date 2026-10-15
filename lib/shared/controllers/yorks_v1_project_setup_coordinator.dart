@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/analytics_event.dart';
+import '../models/yorks_v1_command_outcome.dart';
 import '../models/yorks_v1_document.dart';
 import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_project.dart';
@@ -39,6 +40,18 @@ class YorksV1ProjectSetupState {
   final bool busy;
   YorksV1Project? get project => operation?.project;
   bool get outcomeUncertain => operation?.hasUnresolvedCommand ?? false;
+  YorksV1CommandPhase get commandPhase => busy && outcomeUncertain
+      ? YorksV1CommandPhase.checking
+      : busy
+      ? YorksV1CommandPhase.inFlight
+      : outcomeUncertain
+      ? YorksV1CommandPhase.unknown
+      : operation?.coreSucceeded == true
+      ? YorksV1CommandPhase.confirmed
+      : operation?.core.status ==
+            YorksV1ProjectSetupCommandStatus.confirmedRejected
+      ? YorksV1CommandPhase.rejected
+      : YorksV1CommandPhase.notSent;
 }
 
 /// Explicit connected submission/reconciliation. Restoring the journal never
@@ -54,6 +67,8 @@ class YorksV1ProjectSetupCoordinator
     DateTime Function()? clock,
     Future<void> Function(Duration)? retryDelay,
     double Function()? retryRandom,
+    int automaticReconciliationAttempts = 0,
+    void Function() Function()? beginActivity,
   }) : _store = store,
        _repository = repository,
        _keyFactory = keyFactory,
@@ -62,6 +77,8 @@ class YorksV1ProjectSetupCoordinator
        _clock = clock ?? DateTime.now,
        _retryDelay = retryDelay ?? Future<void>.delayed,
        _retryRandom = retryRandom ?? Random().nextDouble,
+       _automaticReconciliationAttempts = automaticReconciliationAttempts,
+       _beginActivity = beginActivity,
        super(const YorksV1ProjectSetupState()) {
     try {
       state = YorksV1ProjectSetupState(operation: _store.read());
@@ -80,6 +97,9 @@ class YorksV1ProjectSetupCoordinator
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _retryDelay;
   final double Function() _retryRandom;
+  final int _automaticReconciliationAttempts;
+  final void Function() Function()? _beginActivity;
+  final Map<bool, Future<YorksV1Project>> _executing = {};
 
   YorksV1ProjectSetupState get currentState => state;
 
@@ -187,7 +207,51 @@ class YorksV1ProjectSetupCoordinator
     return _execute(activation: true);
   }
 
-  Future<YorksV1Project> _execute({required bool activation}) async {
+  Future<YorksV1Project> _execute({required bool activation}) {
+    final active = _executing[activation];
+    if (active != null) return active;
+    final release = _beginActivity?.call();
+    late final Future<YorksV1Project> execution;
+    execution = _executeWithReconciliation(activation: activation).whenComplete(
+      () {
+        if (identical(_executing[activation], execution)) {
+          _executing.remove(activation);
+        }
+        release?.call();
+      },
+    );
+    _executing[activation] = execution;
+    return execution;
+  }
+
+  Future<YorksV1Project> _executeWithReconciliation({
+    required bool activation,
+  }) async {
+    var reconciliations = 0;
+    while (true) {
+      try {
+        return await _executeAttempt(activation: activation);
+      } on YorksV1DomainException catch (error) {
+        if (!mounted) rethrow;
+        final operation = state.operation;
+        final command = activation ? operation?.activation : operation?.core;
+        if (command?.status !=
+                YorksV1ProjectSetupCommandStatus.outcomeUncertain ||
+            (error.code != YorksV1DomainErrorCode.backendUnavailable &&
+                error.code != YorksV1DomainErrorCode.unexpectedResponse) ||
+            reconciliations >= _automaticReconciliationAttempts ||
+            command!.attempts >= _maxAttempts) {
+          rethrow;
+        }
+        reconciliations++;
+        // _executeAttempt reuses the acknowledged journal's exact payload/key,
+        // observes its persisted backoff and resolves the stored RPC response.
+        // A new project or business command identity is never generated here.
+      }
+    }
+  }
+
+  Future<YorksV1Project> _executeAttempt({required bool activation}) async {
     _requireRecoverable();
     if (state.busy) {
       throw const YorksV1ProjectSetupRecoveryException(
@@ -211,6 +275,42 @@ class YorksV1ProjectSetupCoordinator
       throw YorksV1DomainException(
         command.errorCode ?? YorksV1DomainErrorCode.serverRejected,
       );
+    }
+    final outcomeRepository = _repository;
+    if (command.status.unresolved &&
+        outcomeRepository is YorksV1ProjectCommandOutcomeRepository) {
+      state = YorksV1ProjectSetupState(operation: state.operation, busy: true);
+      try {
+        command = await _waitBeforeRetry(
+          operation,
+          command,
+          activation: activation,
+        );
+        final response =
+            await (outcomeRepository as YorksV1ProjectCommandOutcomeRepository)
+                .lookupReviewedCommand(command);
+        if (response != null) {
+          return await _confirmCommandResponse(
+            operation,
+            command,
+            response,
+            activation: activation,
+            reconciled: true,
+          );
+        }
+      } finally {
+        state = YorksV1ProjectSetupState(
+          operation: state.operation,
+          recoveryError: state.recoveryError,
+        );
+      }
+    }
+    if (command.attempts >= _maxAttempts &&
+        outcomeRepository is YorksV1ProjectCommandOutcomeRepository &&
+        command.status.unresolved) {
+      // Mutation retries remain bounded. A later explicit Check status still
+      // reaches the read-only witness, so a long outage cannot freeze recovery.
+      throw YorksV1CommandOutcomeUnknown(command.idempotencyKey);
     }
     if (command.attempts >= _maxAttempts) {
       throw const YorksV1ProjectSetupRecoveryException(
@@ -246,38 +346,13 @@ class YorksV1ProjectSetupCoordinator
     }
     try {
       final response = await _repository.executeReviewedCommand(dispatched);
-      final confirmed = dispatched.withOutcome(
-        status: YorksV1ProjectSetupCommandStatus.confirmedSuccess,
-        result: response,
+      return await _confirmCommandResponse(
+        operation,
+        dispatched,
+        response,
+        activation: activation,
+        reconciled: wasUnresolved,
       );
-      // Validate result before persisting a success marker.
-      final project = confirmed.project!;
-      // A server-confirmed result is kept in memory even if its local
-      // acknowledgement fails. Reload then reconciles the prior intent.
-      final confirmedOperation = activation
-          ? state.operation!.copyWith(activation: confirmed)
-          : state.operation!.copyWith(core: confirmed);
-      state = YorksV1ProjectSetupState(
-        operation: confirmedOperation,
-        busy: true,
-      );
-      try {
-        await _replaceCommand(operation, confirmed, activation: activation);
-      } catch (_) {
-        state = YorksV1ProjectSetupState(
-          operation: confirmedOperation,
-          recoveryError: YorksV1ProjectSetupRecoveryError.journalUnavailable,
-        );
-      }
-      if (wasUnresolved) {
-        _capture(
-          AnalyticsEvent.projectCommandReconciled,
-          dispatched.kind,
-          outcome: 'confirmed',
-        );
-      }
-      if (!activation) await _captureCoreSuccessOnce();
-      return project;
     } on YorksV1ProjectCommandNotDispatchedException catch (failure) {
       await _recordFailure(
         operation,
@@ -342,6 +417,44 @@ class YorksV1ProjectSetupCoordinator
         recoveryError: state.recoveryError,
       );
     }
+  }
+
+  Future<YorksV1Project> _confirmCommandResponse(
+    YorksV1ProjectSetupOperation operation,
+    YorksV1ProjectSetupCommand command,
+    Map<String, dynamic> response, {
+    required bool activation,
+    required bool reconciled,
+  }) async {
+    final confirmed = command.withOutcome(
+      status: YorksV1ProjectSetupCommandStatus.confirmedSuccess,
+      result: response,
+    );
+    // Validate result before persisting a success marker.
+    final project = confirmed.project!;
+    // A server-confirmed result is kept in memory even if its local
+    // acknowledgement fails. Reload then reconciles the prior intent.
+    final confirmedOperation = activation
+        ? state.operation!.copyWith(activation: confirmed)
+        : state.operation!.copyWith(core: confirmed);
+    state = YorksV1ProjectSetupState(operation: confirmedOperation, busy: true);
+    try {
+      await _replaceCommand(operation, confirmed, activation: activation);
+    } catch (_) {
+      state = YorksV1ProjectSetupState(
+        operation: confirmedOperation,
+        recoveryError: YorksV1ProjectSetupRecoveryError.journalUnavailable,
+      );
+    }
+    if (reconciled) {
+      _capture(
+        AnalyticsEvent.projectCommandReconciled,
+        command.kind,
+        outcome: 'confirmed',
+      );
+    }
+    if (!activation) await _captureCoreSuccessOnce();
+    return project;
   }
 
   Duration _retryBackoff(int attempts) => Duration(
@@ -459,22 +572,30 @@ class YorksV1ProjectSetupCoordinator
     // are deliberately not stored; reselection must reproduce this hash.
     await _replaceFile(current, started);
     try {
-      await documents.upload(
-        YorksV1DocumentUploadInput(
-          projectId: project.id,
-          entityType: YorksV1DocumentEntityType.project,
-          entityId: project.id,
-          classification: file.classification,
-          fileName: file.fileName,
-          mimeType: file.mimeType,
-          bytes: bytes,
-          idempotencyKey: file.idempotencyKey,
-        ),
-      );
-      await _replaceFile(
-        current,
-        started.withOutcome(YorksV1ProjectSetupFileStatus.ready),
-      );
+      try {
+        await documents.upload(
+          YorksV1DocumentUploadInput(
+            projectId: project.id,
+            entityType: YorksV1DocumentEntityType.project,
+            entityId: project.id,
+            classification: file.classification,
+            fileName: file.fileName,
+            mimeType: file.mimeType,
+            bytes: bytes,
+            idempotencyKey: file.idempotencyKey,
+            hasDurableIntent: true,
+          ),
+        );
+      } on YorksV1CommittedViewUnavailable catch (acknowledgement) {
+        if (acknowledgement.receipt.commandName !=
+                'v1_prepare_document_upload' ||
+            acknowledgement.receipt.commandKey != file.idempotencyKey) {
+          throw const YorksV1DomainException(
+            YorksV1DomainErrorCode.unexpectedResponse,
+          );
+        }
+        // The immutable file version is confirmed even if its list is offline.
+      }
     } catch (error) {
       final domain = error is YorksV1DomainException ? error : null;
       try {
@@ -493,6 +614,29 @@ class YorksV1ProjectSetupCoordinator
         // key/hash. Never replace the known core success with a file error.
       }
       rethrow;
+    }
+    final confirmed = started.withOutcome(YorksV1ProjectSetupFileStatus.ready);
+    try {
+      await _replaceFile(current, confirmed);
+    } catch (_) {
+      // Keep server truth in memory when acknowledging the local journal fails.
+      // The durable key/hash still permits exact readback after restart.
+      if (mounted) {
+        final latest = state.operation!;
+        state = YorksV1ProjectSetupState(
+          operation: latest.copyWith(
+            files: [
+              for (final item in latest.files)
+                if (item.localId == localId &&
+                    item.idempotencyKey == confirmed.idempotencyKey)
+                  confirmed
+                else
+                  item,
+            ],
+          ),
+          recoveryError: YorksV1ProjectSetupRecoveryError.journalUnavailable,
+        );
+      }
     }
   }
 
@@ -609,7 +753,28 @@ class YorksV1ProjectSetupCoordinator
             YorksV1ProjectSetupCommandStatus.confirmedSuccess ||
         persisted?.activation?.canonicalResult ==
             knownActivation?.canonicalResult;
-    if (coreMatches && activationMatches && state.recoveryError == null) return;
+    final confirmedFiles = {
+      for (final file in known.files)
+        if (file.status == YorksV1ProjectSetupFileStatus.ready)
+          file.localId: file,
+    };
+    final filesMatch = confirmedFiles.values.every(
+      (file) =>
+          persisted?.files.any(
+            (stored) =>
+                stored.localId == file.localId &&
+                stored.idempotencyKey == file.idempotencyKey &&
+                stored.contentHash == file.contentHash &&
+                stored.status == YorksV1ProjectSetupFileStatus.ready,
+          ) ==
+          true,
+    );
+    if (coreMatches &&
+        activationMatches &&
+        filesMatch &&
+        state.recoveryError == null) {
+      return;
+    }
     await _persist((latest) {
       _requireSameCore(known, latest);
       if (latest!.coreSucceeded &&
@@ -632,6 +797,17 @@ class YorksV1ProjectSetupCoordinator
       return latest.copyWith(
         core: known.core,
         activation: activation,
+        files: [
+          for (final file in latest.files)
+            if (confirmedFiles[file.localId] case final confirmed?)
+              if (confirmed.idempotencyKey == file.idempotencyKey &&
+                  confirmed.contentHash == file.contentHash)
+                confirmed
+              else
+                file
+            else
+              file,
+        ],
         revision: latest.revision + 1,
       );
     });

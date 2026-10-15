@@ -78,6 +78,7 @@ dev_dependencies:
   # Icon generation (build-time only)
   flutter_launcher_icons: ^0.14.4
   image: ^4.3.0
+  shared_preferences_platform_interface: ^2.4.2
 
 # App launcher icon: the approved complete black Yorks seal. The source is
 # normalized by tool/prepare_branding.dart, then this turns it into all

@@ -90,6 +90,24 @@ commit;
         'checkpoint_revision',1,'command_name','v1_dispatch_materials','command_key',command_key,
         'command_payload',payload_a),gen_random_uuid()) from public.procurement_race_fixture;
     """)
+    # Two browser tabs share one persisted automatic-check budget. The first
+    # deliberately holds only the existing intent row; the other must observe
+    # its consumed slot rather than racing a new local counter.
+    check_first = subprocess.Popen(BASE + ['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    check_first.stdin.write(setup + "begin; select public.v1_reconcile_procurement_command_outcome(a,'v1_dispatch_materials',command_key,true)->>'status' from public.procurement_race_fixture; select 'CHECK_BUDGET_HELD'; select pg_sleep(2); commit;\n")
+    check_first.stdin.close()
+    while True:
+        line = check_first.stdout.readline()
+        if 'CHECK_BUDGET_HELD' in line:
+            break
+        if not line:
+            raise RuntimeError('Outcome check did not claim budget: ' + check_first.stderr.read())
+    competing = sql(setup + "select public.v1_reconcile_procurement_command_outcome(a,'v1_dispatch_materials',command_key,true)->>'check_deferred' from public.procurement_race_fixture;")
+    check_first.wait()
+    assert check_first.returncode == 0, check_first.stderr.read()
+    assert competing.stdout.strip() == 'true', competing.stdout
+    budget = sql("select automatic_check_count from public.v1_procurement_command_intents i join public.procurement_race_fixture f on i.command_key=f.command_key;")
+    assert budget.stdout.strip() == '1', budget.stdout
     abandon = subprocess.Popen(BASE + ['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     abandon.stdin.write(setup + "begin; select public.v1_abandon_procurement_command(a,'v1_dispatch_materials',command_key)->>'status' from public.procurement_race_fixture; select 'ABANDON_LOCK_HELD'; select pg_sleep(2); commit;\n")
     abandon.stdin.close()
@@ -103,6 +121,42 @@ commit;
     abandon.wait()
     assert abandon.returncode == 0, abandon.stderr.read()
     assert late.returncode != 0 and 'V1_PROCUREMENT_COMMAND_INTENT_CHANGED' in late.stderr, late.stderr
+    # Reuse the checkpoint with a new *explicitly prepared* command after the
+    # old command was authoritatively fenced. Simulate an in-flight transaction
+    # then a lost HTTP response: a lookup miss must not release or replay it.
+    sql(setup + """
+      update public.procurement_race_fixture set command_key=gen_random_uuid();
+      select public.v1_adjust_inventory(jsonb_build_object('inventory_item_id',item,
+        'quantity_delta','2','reason','Outcome race fixture'),gen_random_uuid()) from public.procurement_race_fixture;
+      select public.v1_prepare_procurement_command(jsonb_build_object('request_id',a,'editor_kind','dispatch',
+        'checkpoint_revision',1,'command_name','v1_dispatch_materials','command_key',command_key,
+        'command_payload',payload_a),gen_random_uuid()) from public.procurement_race_fixture;
+    """)
+    sending = subprocess.Popen(BASE + ['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', DB], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    sending.stdin.write(setup + "begin; select public.v1_dispatch_materials(payload_a,command_key) is not null from public.procurement_race_fixture; select 'DISPATCH_IN_FLIGHT'; select pg_sleep(2); commit;\n")
+    sending.stdin.close()
+    while True:
+        line = sending.stdout.readline()
+        if 'DISPATCH_IN_FLIGHT' in line:
+            break
+        if not line:
+            raise RuntimeError('Dispatch did not reach in-flight boundary: ' + sending.stderr.read())
+    start = time.monotonic()
+    interim = sql(setup + "select public.v1_reconcile_procurement_command_outcome(a,'v1_dispatch_materials',command_key)->>'status' from public.procurement_race_fixture;")
+    lookup_seconds = time.monotonic() - start
+    assert interim.stdout.strip() in ('prepared', 'pending', 'not_found'), interim.stdout
+    assert lookup_seconds < 1, 'Outcome lookup waited behind the in-flight request lock'
+    sending.wait()
+    assert sending.returncode == 0, sending.stderr.read()
+    result = sql(setup + "select public.v1_reconcile_procurement_command_outcome(a,'v1_dispatch_materials',command_key) from public.procurement_race_fixture;")
+    receipt = json.loads(result.stdout.strip())
+    assert receipt['status'] == 'confirmed' and receipt['receipt']['effect_id'], receipt
+    before = sql("select jsonb_build_object('dispatches',(select count(*) from public.v1_material_dispatches where request_id=f.a),'audit',(select count(*) from public.v1_audit_events where actor_auth_user_id='10000000-0000-4000-8000-000000000003' and idempotency_key=f.command_key),'stock',(select on_hand_qty from public.v1_inventory_balances where inventory_item_id=f.item)) from public.procurement_race_fixture f;").stdout.strip()
+    sql(setup + "select public.v1_dispatch_materials(payload_a,command_key) is not null from public.procurement_race_fixture;")
+    after = sql("select jsonb_build_object('dispatches',(select count(*) from public.v1_material_dispatches where request_id=f.a),'audit',(select count(*) from public.v1_audit_events where actor_auth_user_id='10000000-0000-4000-8000-000000000003' and idempotency_key=f.command_key),'stock',(select on_hand_qty from public.v1_inventory_balances where inventory_item_id=f.item)) from public.procurement_race_fixture f;").stdout.strip()
+    assert before == after, (before, after)
+    print('PASS: competing automatic status checks consumed exactly one shared budget slot.')
+    print(f'PASS: in-flight lookup remained unknown in {lookup_seconds:.3f}s; later exact-key receipt confirmed; replay duplicated no stock, dispatch or audit.')
     print('PASS: independent requests waited on shared stock; one dispatch committed, one rejected; competing reservation fully covered; loser created no document.')
     print('PASS: delayed final command waited for abandon and was rejected by the immutable intent fence.')
 finally:

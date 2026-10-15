@@ -11,6 +11,7 @@ import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
@@ -1921,6 +1922,25 @@ class _DeliveryOrderGenerationDialogState
         );
       }
       if (mounted) Navigator.of(context).pop(true);
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings
+              .commandCommittedViewUnavailable
+              .primary,
+          tone: YorksAppToastTone.success,
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+          tone: YorksAppToastTone.information,
+        );
+      }
     } on YorksV1DomainException catch (error) {
       if (mounted) {
         _showFailure(

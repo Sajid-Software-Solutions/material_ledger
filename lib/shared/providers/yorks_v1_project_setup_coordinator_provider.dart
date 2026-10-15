@@ -14,6 +14,7 @@ import '../services/analytics_service.dart';
 import 'yorks_v1_project_creation_draft_provider.dart';
 import 'yorks_v1_identity_provider.dart';
 import 'yorks_v1_project_repository_provider.dart';
+import 'yorks_v1_read_activity_provider.dart';
 
 final yorksV1ProjectReviewedCommandRepositoryProvider =
     Provider<YorksV1ProjectReviewedCommandRepository>((ref) {
@@ -23,6 +24,12 @@ final yorksV1ProjectReviewedCommandRepositoryProvider =
       }
       throw StateError('Project repository does not support reviewed intents');
     });
+
+/// Injectable for legacy-journal recovery tests; production uses two bounded
+/// automatic checks in addition to the original attempt.
+final yorksV1ProjectAutomaticReconciliationAttemptsProvider = Provider<int>(
+  (ref) => 2,
+);
 
 typedef YorksV1ProjectSetupScope = ({
   String ownerAuthUserId,
@@ -176,6 +183,10 @@ YorksV1ProjectSetupCoordinator _coordinator(
     },
   );
   return YorksV1ProjectSetupCoordinator(
+    automaticReconciliationAttempts: ref.watch(
+      yorksV1ProjectAutomaticReconciliationAttemptsProvider,
+    ),
+    beginActivity: ref.watch(yorksV1ReadActivityGateProvider).begin,
     store: store,
     repository: ref.watch(yorksV1ProjectReviewedCommandRepositoryProvider),
     keyFactory: const Uuid().v4,

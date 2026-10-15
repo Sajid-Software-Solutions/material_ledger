@@ -1,0 +1,2892 @@
+{
+  "scope": "local synthetic mixed register/detail read load; no critical workflow writes or HTTP/browser evidence",
+  "projects": 30,
+  "requests": 600,
+  "lines": 2400,
+  "rounds": [
+    {
+      "version": "before",
+      "concurrency": 5,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 202.137,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 169.257,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 138.59,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 126.368,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 13.461,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 196.106,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 159.939,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 129.602,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 121.094,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 14.085,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 188.186,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 156.234,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 127.036,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 119.773,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 12.741,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 12,
+        "p50_ms": 147.412,
+        "p95_ms": 202.137,
+        "p99_ms": 202.137
+      },
+      "detail": {
+        "count": 3,
+        "p50_ms": 13.461,
+        "p95_ms": 14.085,
+        "p99_ms": 14.085
+      },
+      "errors": []
+    },
+    {
+      "version": "before",
+      "concurrency": 10,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 200.994,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 161.188,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 142.253,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 149.708,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 19.723,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 207.21,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 171.972,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 135.395,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 134.862,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 16.645,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 212.814,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 183.888,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 153.477,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 139.844,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 18.635,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 211.451,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 184.582,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 145.066,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 137.603,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 22.166,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 223.688,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 196.514,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 164.486,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 144.734,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 25.412,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 226.885,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 183.569,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 160.126,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 149.653,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 23.068,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 24,
+        "p50_ms": 162.837,
+        "p95_ms": 223.688,
+        "p99_ms": 226.885
+      },
+      "detail": {
+        "count": 6,
+        "p50_ms": 20.944499999999998,
+        "p95_ms": 25.412,
+        "p99_ms": 25.412
+      },
+      "errors": []
+    },
+    {
+      "version": "before",
+      "concurrency": 20,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 343.528,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 255.158,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 224.504,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 202.723,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 63.364,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 393.195,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 373.321,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 237.589,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 257.859,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 38.289,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 418.892,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 291.756,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 246.448,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 225.895,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 17.516,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 316.513,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 266.876,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 315.108,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 295.059,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 29.064,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 299.776,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 365.803,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 331.544,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 224.251,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 41.437,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 391.472,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 367.355,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 322.469,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 210.323,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 32.291,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 307.911,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 319.416,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 300.065,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 199.003,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 39.605,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 322.968,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 255.928,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 291.646,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 307.48,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 31.403,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 373.823,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 271.444,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 249.256,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 287.085,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 28.001,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 293.349,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 236.776,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 290.505,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 316.905,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 33.286,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 298.095,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 360.08,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 314.774,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 179.282,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 39.694,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 376.915,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 331.483,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 235.628,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 228.781,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 30.814,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 48,
+        "p50_ms": 296.577,
+        "p95_ms": 391.472,
+        "p99_ms": 418.892
+      },
+      "detail": {
+        "count": 12,
+        "p50_ms": 32.7885,
+        "p95_ms": 63.364,
+        "p99_ms": 63.364
+      },
+      "errors": []
+    },
+    {
+      "version": "before",
+      "concurrency": 30,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 554.587,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 289.118,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 501.111,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 495.987,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 52.407,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 345.847,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 343.476,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 302.942,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 206.223,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 44.435,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 399.897,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 531.922,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 341.883,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 484.877,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 51.575,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 600.216,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 517.25,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 241.836,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 381.698,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 56.857,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 386.093,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 532.911,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 472.775,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 537.116,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 41.476,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 538.181,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 478.164,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 307.166,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 481.827,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 43.563,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 369.79,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 365.468,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 469.249,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 386.906,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 58.252,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 526.243,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 431.519,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 466.73,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 479.065,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 50.776,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 525.104,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 512.811,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 385.91,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 449.473,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 42.643,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 461.9,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 470.783,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 199.107,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 502.075,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 49.12,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 429.103,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 298.094,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 245.044,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 323.128,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 57.333,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 483.444,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 271.163,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 385.94,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 279.305,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 69.757,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 522.699,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 452.255,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 398.561,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 474.163,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 51.329,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 519.456,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 322.309,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 498.07,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 179.635,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 43.933,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 558.876,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 432.613,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 268.446,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 426.112,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 49.961,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 347.828,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 521.919,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 487.547,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 470.827,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 57.204,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 534.717,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 442.552,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 409.334,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 374.484,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 58.136,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 318.785,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 254.848,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 479.719,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 222.014,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 39.157,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 72,
+        "p50_ms": 437.5825,
+        "p95_ms": 538.181,
+        "p99_ms": 600.216
+      },
+      "detail": {
+        "count": 18,
+        "p50_ms": 51.0525,
+        "p95_ms": 69.757,
+        "p99_ms": 69.757
+      },
+      "errors": []
+    },
+    {
+      "version": "after",
+      "concurrency": 5,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 115.01,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 108.94,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 108.43,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 103.467,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 13.581,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 109.124,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 108.569,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 108.303,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 106.336,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 13.405,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 105.259,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 108.521,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 109.088,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 104.416,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 13.087,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 12,
+        "p50_ms": 108.47550000000001,
+        "p95_ms": 115.01,
+        "p99_ms": 115.01
+      },
+      "detail": {
+        "count": 3,
+        "p50_ms": 13.405,
+        "p95_ms": 13.581,
+        "p99_ms": 13.581
+      },
+      "errors": []
+    },
+    {
+      "version": "after",
+      "concurrency": 10,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 124.196,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 124.488,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 144.232,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 132.116,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 19.913,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 124.363,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 130.138,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 129.094,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 134.994,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 18.028,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 159.708,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 169.603,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 160.902,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 167.976,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 22.738,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 151.139,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 182.446,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 159.47,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 155.115,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 25.61,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 150.413,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 138.977,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 126.638,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 136.69,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 26.123,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 158.037,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 152.373,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 129.593,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 158.941,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 21.375,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 24,
+        "p50_ms": 147.3225,
+        "p95_ms": 169.603,
+        "p99_ms": 182.446
+      },
+      "detail": {
+        "count": 6,
+        "p50_ms": 22.0565,
+        "p95_ms": 26.123,
+        "p99_ms": 26.123
+      },
+      "errors": []
+    },
+    {
+      "version": "after",
+      "concurrency": 20,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 240.666,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 300.003,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 289.217,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 216.794,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 32.571,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 277.266,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 200.208,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 180.792,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 235.327,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 47.099,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 286.674,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 289.73,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 301.558,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 234.912,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 54.243,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 233.125,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 175.655,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 204.279,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 234.732,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 34.094,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 308.128,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 224.476,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 277.403,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 248.134,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 53.539,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 317.058,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 274.773,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 320.742,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 303.049,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 61.583,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 329.698,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 311.815,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 230.089,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 251.721,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 48.435,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 235.327,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 236.598,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 234.029,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 211.085,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 55.721,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 287.657,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 297.616,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 284.0,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 247.986,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 31.019,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 245.561,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 200.61,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 295.696,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 192.376,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 51.23,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 268.908,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 305.671,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 202.778,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 206.545,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 36.557,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 226.954,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 252.89,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 182.95,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 178.625,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 40.438,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 48,
+        "p50_ms": 246.7735,
+        "p95_ms": 317.058,
+        "p99_ms": 329.698
+      },
+      "detail": {
+        "count": 12,
+        "p50_ms": 47.766999999999996,
+        "p95_ms": 61.583,
+        "p99_ms": 61.583
+      },
+      "errors": []
+    },
+    {
+      "version": "after",
+      "concurrency": 30,
+      "samples": [
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 225.104,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 420.046,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 479.862,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 475.566,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 78.992,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 495.825,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 441.185,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 324.539,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 471.927,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 90.748,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 443.801,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 491.701,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 484.457,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 517.137,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 96.198,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 512.709,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 318.817,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 392.06,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 317.535,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 45.573,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 297.774,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 522.48,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 473.397,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 392.09,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 110.057,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 341.848,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 550.048,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 520.231,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 446.976,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 118.361,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 246.334,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 272.615,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 267.564,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 321.196,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 44.905,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 302.162,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 401.567,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 228.761,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 247.775,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 80.591,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 417.217,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 252.663,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 336.111,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 282.124,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 51.397,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 430.218,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 401.859,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 246.069,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 392.863,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 63.531,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 414.522,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 330.205,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 452.76,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 262.262,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 47.374,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 426.878,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 397.337,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 475.415,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 366.697,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 57.806,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 343.868,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 255.003,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 461.338,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 417.065,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 85.601,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 396.088,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 266.061,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 358.64,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 236.769,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 165.609,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 366.789,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 210.241,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 288.309,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 353.468,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 172.614,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 457.214,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 330.735,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 335.708,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 233.199,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 93.593,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 453.812,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 434.368,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 444.228,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 175.237,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 170.856,
+          "items": 0
+        },
+        {
+          "kind": "register",
+          "role": "admin",
+          "ok": true,
+          "ms": 397.146,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "project_engineer",
+          "ok": true,
+          "ms": 246.35,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "site_engineer",
+          "ok": true,
+          "ms": 379.784,
+          "items": 15
+        },
+        {
+          "kind": "register",
+          "role": "procurement",
+          "ok": true,
+          "ms": 469.789,
+          "items": 15
+        },
+        {
+          "kind": "detail",
+          "role": "project_manager",
+          "ok": true,
+          "ms": 49.074,
+          "items": 0
+        }
+      ],
+      "register": {
+        "count": 72,
+        "p50_ms": 392.075,
+        "p95_ms": 517.137,
+        "p99_ms": 550.048
+      },
+      "detail": {
+        "count": 18,
+        "p50_ms": 83.096,
+        "p95_ms": 172.614,
+        "p99_ms": 172.614
+      },
+      "errors": []
+    }
+  ],
+  "before_plan_ms": 175.775,
+  "after_plan_ms": 95.582
+}

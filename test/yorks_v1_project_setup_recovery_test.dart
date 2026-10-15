@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/shared/controllers/yorks_v1_project_setup_coordinator.dart';
 import 'package:material_ledger/shared/models/analytics_event.dart';
+import 'package:material_ledger/shared/models/yorks_v1_command_outcome.dart';
 import 'package:material_ledger/shared/models/yorks_v1_document.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
@@ -19,6 +20,151 @@ import 'package:material_ledger/shared/services/analytics_service.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 
 void main() {
+  test(
+    'production-style read-only witness recovers without mutation replay',
+    () async {
+      final server = _LookupServer()..loseNextResponse = true;
+      final fixture = _Fixture(server: server);
+      final coordinator = fixture.restore(automaticReconciliationAttempts: 2);
+      await coordinator.prepareCreate(_input());
+      expect((await coordinator.submitCore()).id, 'project-1');
+      expect(server.lookups, 1);
+      expect(server.calls, hasLength(1));
+      expect(server.effects, 1);
+    },
+  );
+
+  test(
+    'a later read-only status check works after the mutation retry limit',
+    () async {
+      final server = _LookupServer()
+        ..alwaysLoseResponse = true
+        ..hideLookups = true;
+      final fixture = _Fixture(server: server);
+      final coordinator = fixture.restore(automaticReconciliationAttempts: 2);
+      await coordinator.prepareCreate(_input());
+      await expectLater(
+        coordinator.submitCore(),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(server.calls, hasLength(3));
+      final key = coordinator.currentState.operation!.core.idempotencyKey;
+      server.hideLookups = false;
+      expect((await coordinator.reconcileCore()).id, 'project-1');
+      expect(
+        server.calls,
+        hasLength(3),
+        reason: 'Exhausted mutations are never reissued',
+      );
+      expect(server.effects, 1);
+      expect(coordinator.currentState.operation!.core.idempotencyKey, key);
+    },
+  );
+  test(
+    'automatic reconciliation recovers a lost create response with one effect',
+    () async {
+      final fixture = _Fixture();
+      var active = 0;
+      var leases = 0;
+      final coordinator = fixture.restore(
+        automaticReconciliationAttempts: 2,
+        beginActivity: () {
+          leases++;
+          active++;
+          return () => active--;
+        },
+      );
+      fixture.repository.loseNextResponse = true;
+      fixture.retryGate = Completer<void>();
+      await coordinator.prepareCreate(_input());
+      final first = coordinator.submitCore();
+      await fixture.retryDelayStarted.future;
+      final second = coordinator.submitCore();
+      expect(active, 1);
+      expect(leases, 1);
+      expect(coordinator.currentState.busy, isTrue);
+      expect(
+        coordinator.currentState.commandPhase,
+        YorksV1CommandPhase.checking,
+      );
+      fixture.retryGate!.complete();
+      expect((await first).id, 'project-1');
+      expect((await second).id, 'project-1');
+      expect(active, 0);
+      expect(fixture.repository.effects, 1);
+      expect(
+        fixture.repository.calls.map((e) => e.idempotencyKey).toSet(),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'automatic reconciliation of a project update preserves its exact intent',
+    () async {
+      final fixture = _Fixture(
+        mode: YorksV1ProjectSetupMode.edit,
+        projectId: 'project-1',
+      );
+      final coordinator = fixture.restore(automaticReconciliationAttempts: 2);
+      fixture.repository.loseNextResponse = true;
+      await coordinator.prepareUpdate(
+        YorksV1ProjectUpdateInput(
+          idempotencyKey: 'input-update',
+          projectId: 'project-1',
+          expectedProjectVersion: 1,
+          project: _input(),
+        ),
+      );
+      expect((await coordinator.submitCore()).id, 'project-1');
+      expect(fixture.repository.effects, 1);
+      expect(
+        fixture.repository.calls.map((e) => e.canonicalPayload).toSet(),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'automatic project recovery is bounded and never calls an unknown result rejected',
+    () async {
+      final fixture = _Fixture();
+      final coordinator = fixture.restore(automaticReconciliationAttempts: 2);
+      fixture.repository.alwaysLoseResponse = true;
+      await coordinator.prepareCreate(_input());
+      await expectLater(
+        coordinator.submitCore(),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(
+        coordinator.currentState.operation!.core.status,
+        YorksV1ProjectSetupCommandStatus.outcomeUncertain,
+      );
+      expect(fixture.repository.calls, hasLength(3));
+      expect(fixture.repository.effects, 1);
+      expect(coordinator.currentState.busy, isFalse);
+    },
+  );
+
+  test(
+    'automatic project recovery does not retry authoritative rejection',
+    () async {
+      final fixture = _Fixture();
+      final coordinator = fixture.restore(automaticReconciliationAttempts: 2);
+      fixture.repository.rejection = YorksV1DomainErrorCode.unauthorized;
+      await coordinator.prepareCreate(_input());
+      await expectLater(
+        coordinator.submitCore(),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(
+        coordinator.currentState.operation!.core.status,
+        YorksV1ProjectSetupCommandStatus.confirmedRejected,
+      );
+      expect(fixture.repository.calls, hasLength(1));
+      expect(fixture.delays, isEmpty);
+    },
+  );
   test('canonical intent is immutable and detects corrupt payload/hash', () {
     final payload = <String, dynamic>{
       'a': <String, dynamic>{'value': 1},
@@ -698,6 +844,66 @@ void main() {
       );
     },
   );
+  test('confirmed file survives a degraded document view', () async {
+    final fixture = _Fixture();
+    await fixture.coordinator.prepareCreate(_input(), files: [_file()]);
+    await fixture.coordinator.submitCore();
+    final documents = _Documents()
+      ..postCommitError = const YorksV1CommittedViewUnavailable(
+        YorksV1CommandReceipt(
+          commandName: 'v1_prepare_document_upload',
+          commandKey: 'upload-key',
+          entityId: 'document-1',
+          recordVersion: 1,
+        ),
+      );
+    await fixture.coordinator.uploadFile(
+      localId: 'file-1',
+      bytes: Uint8List.fromList([1, 2, 3]),
+      documents: documents,
+    );
+    expect(
+      fixture.coordinator.currentState.operation!.files.single.status,
+      YorksV1ProjectSetupFileStatus.ready,
+    );
+    expect(
+      fixture.restore().currentState.operation!.files.single.status,
+      YorksV1ProjectSetupFileStatus.ready,
+    );
+    expect(documents.effects, 1);
+  });
+  test(
+    'file receipt is not downgraded when its local acknowledgement fails',
+    () async {
+      final fixture = _Fixture();
+      await fixture.coordinator.prepareCreate(_input(), files: [_file()]);
+      await fixture.coordinator.submitCore();
+      final documents = _Documents()
+        ..afterUpload = () {
+          fixture.storage.failNextWrite = true;
+        };
+      await fixture.coordinator.uploadFile(
+        localId: 'file-1',
+        bytes: Uint8List.fromList([1, 2, 3]),
+        documents: documents,
+      );
+      expect(
+        fixture.coordinator.currentState.operation!.files.single.status,
+        YorksV1ProjectSetupFileStatus.ready,
+      );
+      expect(
+        fixture.coordinator.currentState.recoveryError,
+        YorksV1ProjectSetupRecoveryError.journalUnavailable,
+      );
+      // Repair the exact journal receipt without uploading the file again.
+      await fixture.coordinator.markCleanupComplete();
+      expect(documents.effects, 1);
+      expect(
+        fixture.restore().currentState.operation!.files.single.status,
+        YorksV1ProjectSetupFileStatus.ready,
+      );
+    },
+  );
 
   test(
     'unknown and finalized file attempts cannot be removed from recovery',
@@ -882,13 +1088,17 @@ Map<String, dynamic> _result(YorksV1ProjectSetupCommandKind kind) => {
 };
 
 class _Fixture {
-  _Fixture({this.mode = YorksV1ProjectSetupMode.create, this.projectId}) {
+  _Fixture({
+    this.mode = YorksV1ProjectSetupMode.create,
+    this.projectId,
+    _Server? server,
+  }) : repository = server ?? _Server() {
     coordinator = restore();
   }
   final YorksV1ProjectSetupMode mode;
   final String? projectId;
   final storage = _AtomicStorage();
-  final repository = _Server();
+  final _Server repository;
   final analytics = _RecordingAnalytics();
   late YorksV1ProjectSetupCoordinator coordinator;
   int key = 0;
@@ -902,7 +1112,11 @@ class _Fixture {
     AnalyticsService? analyticsService,
     bool restoreConfirmedFollowUps = true,
     bool updateLatestOperation = true,
+    int automaticReconciliationAttempts = 0,
+    void Function() Function()? beginActivity,
   }) => YorksV1ProjectSetupCoordinator(
+    automaticReconciliationAttempts: automaticReconciliationAttempts,
+    beginActivity: beginActivity,
     store: YorksV1ProjectSetupJournalStore(
       storage: storage,
       journalKey: 'scope:journal:$draftId',
@@ -1018,11 +1232,26 @@ class _Server implements YorksV1ProjectReviewedCommandRepository {
   }
 }
 
+class _LookupServer extends _Server
+    implements YorksV1ProjectCommandOutcomeRepository {
+  int lookups = 0;
+  bool hideLookups = false;
+  @override
+  Future<Map<String, dynamic>?> lookupReviewedCommand(
+    YorksV1ProjectSetupCommand command,
+  ) async {
+    lookups++;
+    return hideLookups ? null : responses[command.idempotencyKey];
+  }
+}
+
 class _Documents implements YorksV1DocumentsRepository {
   final keys = <String>[];
   final committed = <String>{};
   bool loseNext = false;
   int effects = 0;
+  Object? postCommitError;
+  void Function()? afterUpload;
   @override
   Future<YorksV1DocumentWorkspace> upload(
     YorksV1DocumentUploadInput input,
@@ -1035,6 +1264,8 @@ class _Documents implements YorksV1DocumentsRepository {
         YorksV1DomainErrorCode.backendUnavailable,
       );
     }
+    afterUpload?.call();
+    if (postCommitError != null) throw postCommitError!;
     return YorksV1DocumentWorkspace(
       projectId: input.projectId,
       documents: const [],

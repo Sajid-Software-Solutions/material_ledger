@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/materials/presentation/screens/yorks_v1_material_request_centre.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
+import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_register.dart';
 
@@ -28,6 +29,99 @@ void main() {
       iconFontLoader.load(),
     ]);
   });
+
+  for (final temporary in [true, false]) {
+    testWidgets(
+      'register ${temporary ? 'retains and retries transient data' : 'clears data on confirmed denial'}',
+      (tester) async {
+        await _setViewport(tester, const Size(1440, 1024));
+        var revision = 0;
+        var loads = 0;
+        late StateSetter rebuild;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) {
+                  rebuild = setState;
+                  return YorksV1MaterialRequestCentre(
+                    requests: const [],
+                    language: AppLanguage.english,
+                    canCreate: true,
+                    onCreate: () {},
+                    onOpen: (_) {},
+                    onRefresh: () {},
+                    refreshRevision: revision,
+                    registerPageLoader: (_) async {
+                      if (++loads == 2) {
+                        throw YorksV1DomainException(
+                          temporary
+                              ? YorksV1DomainErrorCode.backendUnavailable
+                              : YorksV1DomainErrorCode.unauthorized,
+                        );
+                      }
+                      return YorksV1MaterialRegisterPage(
+                        items: [
+                          YorksV1MaterialRegisterEntry.project(
+                            _summary(
+                              index: 1,
+                              updatedAt: DateTime.utc(2026, 9, 25),
+                            ).toRegisterProjection(),
+                          ),
+                        ],
+                        totalCount: 1,
+                        limit: 15,
+                        offset: 0,
+                        hasMore: false,
+                        metrics: const YorksV1MaterialRequestSummaryMetrics(
+                          total: 1,
+                          open: 1,
+                          inProgress: 0,
+                          dispatched: 0,
+                          received: 0,
+                          closed: 0,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final row = find.byKey(
+          const ValueKey('material-request-row-server-summary-1'),
+        );
+        expect(row, findsOneWidget);
+        rebuild(() => revision++);
+        await tester.pumpAndSettle();
+        expect(row, temporary ? findsOneWidget : findsNothing);
+        if (temporary) {
+          expect(
+            find.textContaining('Showing the last available data.'),
+            findsOneWidget,
+          );
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pumpAndSettle();
+          expect(loads, 3);
+          expect(
+            find.textContaining('Showing the last available data.'),
+            findsNothing,
+          );
+        } else {
+          await tester.pump(const Duration(seconds: 4));
+          expect(
+            loads,
+            2,
+            reason: 'Confirmed denials are never automatically retried',
+          );
+        }
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   for (final width in [1440.0, 1024.0, 360.0]) {
     testWidgets('unified register opens native Company rows at $width px', (

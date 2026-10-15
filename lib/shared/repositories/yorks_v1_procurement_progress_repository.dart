@@ -26,11 +26,21 @@ class YorksV1ProcurementCommandOutcome {
     this.attemptId,
     this.commandPayload,
     this.workspace,
+    this.effectId,
+    this.effectReference,
+    this.committedVersion,
+    this.automaticChecksRemaining,
+    this.retryAfter = Duration.zero,
+    this.checkDeferred = false,
   });
   final String status;
   final String? attemptId;
   final Map<String, Object?>? commandPayload;
   final Map<String, Object?>? workspace;
+  final String? effectId, effectReference;
+  final int? committedVersion, automaticChecksRemaining;
+  final Duration retryAfter;
+  final bool checkDeferred;
   bool get isConfirmed => status == 'confirmed';
   bool get isAccessChanged => status == 'access_changed';
 }
@@ -66,6 +76,7 @@ abstract interface class YorksV1ProcurementProgressRepository {
     required String requestId,
     required String commandName,
     required String commandKey,
+    bool automatic = false,
   });
 }
 
@@ -75,18 +86,20 @@ class YorksV1SupabaseProcurementProgressRepository
     required ConnectivityService connectivity,
     YorksV1MaterialRequestRpcClient? rpcClient,
     Duration timeout = const Duration(seconds: 20),
+    Duration outcomeTimeout = const Duration(seconds: 5),
   }) : _connectivity = connectivity,
        _rpc = rpcClient,
-       _timeout = timeout;
+       _timeout = timeout,
+       _outcomeTimeout = outcomeTimeout;
   final ConnectivityService _connectivity;
   final YorksV1MaterialRequestRpcClient? _rpc;
-  final Duration _timeout;
+  final Duration _timeout, _outcomeTimeout;
 
   @override
   Future<YorksV1ProcurementProgressRead> get(
     YorksV1ProcurementProgressScope scope,
   ) async {
-    final raw = await _invoke('v1_get_procurement_progress', {
+    final raw = await _invoke('v1_get_procurement_progress_recovery', {
       'p_request_id': scope.requestId,
       'p_editor_kind': scope.editorKind.name,
       'p_arrangement_id': scope.arrangementId,
@@ -220,13 +233,15 @@ class YorksV1SupabaseProcurementProgressRepository
     required String requestId,
     required String commandName,
     required String commandKey,
+    bool automatic = false,
   }) async {
     final json = _object(
-      await _invoke('v1_get_procurement_command_outcome', {
+      await _invoke('v1_reconcile_procurement_command_outcome', {
         'p_request_id': requestId,
         'p_command_name': commandName,
         'p_idempotency_key': commandKey,
-      }),
+        'p_automatic': automatic,
+      }, timeout: _outcomeTimeout),
     );
     final status = json['status'];
     if (status is! String ||
@@ -243,20 +258,49 @@ class YorksV1SupabaseProcurementProgressRepository
         YorksV1DomainErrorCode.unexpectedResponse,
       );
     }
+    if (json['request_id'] != requestId ||
+        json['command_name'] != commandName ||
+        json['idempotency_key'] != commandKey) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+      );
+    }
+    final receipt = json['receipt'] is Map ? _object(json['receipt']) : null;
+    if (status == 'confirmed' &&
+        (receipt?['effect_id'] is! String ||
+            (receipt!['effect_id'] as String).isEmpty)) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+      );
+    }
     return YorksV1ProcurementCommandOutcome(
       status: status,
-      attemptId: json['attempt_id'] as String?,
+      attemptId: json['attempt_id'] is String
+          ? json['attempt_id'] as String
+          : null,
       commandPayload: json['command_payload'] == null
           ? null
           : _object(json['command_payload']),
-      workspace: json['workspace'] == null ? null : _object(json['workspace']),
+      // Optional projection problems cannot invalidate an authoritative receipt.
+      workspace: json['workspace'] is Map ? _object(json['workspace']) : null,
+      effectId: receipt?['effect_id'] as String?,
+      effectReference: receipt?['effect_reference'] is String
+          ? receipt!['effect_reference'] as String
+          : null,
+      committedVersion: receipt?['committed_version'] is int
+          ? receipt!['committed_version'] as int
+          : null,
+      automaticChecksRemaining: json['automatic_checks_remaining'] as int?,
+      retryAfter: Duration(milliseconds: (json['retry_after_ms'] as int?) ?? 0),
+      checkDeferred: json['check_deferred'] == true,
     );
   }
 
   Future<Object?> _invoke(
     String function,
-    Map<String, Object?> parameters,
-  ) async {
+    Map<String, Object?> parameters, {
+    Duration? timeout,
+  }) async {
     if (!_connectivity.isOnline) {
       throw const YorksV1DomainException(YorksV1DomainErrorCode.offline);
     }
@@ -268,13 +312,16 @@ class YorksV1SupabaseProcurementProgressRepository
     try {
       return await _rpc
           .invoke(functionName: function, parameters: parameters)
-          .timeout(_timeout);
+          .timeout(timeout ?? _timeout);
     } on YorksV1DomainException {
       rethrow;
     } on PostgrestException catch (error) {
       throw YorksV1DomainException(
         switch (error.code) {
-          '42501' || '28000' => YorksV1DomainErrorCode.unauthorized,
+          '42501' => YorksV1DomainErrorCode.unauthorized,
+          '28000' ||
+          'PGRST301' ||
+          'PGRST302' => YorksV1DomainErrorCode.unauthenticated,
           '40001' || '23505' || '55P03' => YorksV1DomainErrorCode.conflict,
           '22023' ||
           '22007' ||

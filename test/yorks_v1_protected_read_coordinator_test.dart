@@ -5,7 +5,149 @@ import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/sync/yorks_v1_protected_read_coordinator.dart';
 
 void main() {
+  testWidgets('pausing a projection cancels its pending retry timer', (
+    tester,
+  ) async {
+    final coordinator = YorksV1ProtectedReadCoordinator<String>(
+      retryDelays: const [Duration(milliseconds: 350)],
+    );
+    addTearDown(coordinator.dispose);
+    var calls = 0;
+    final pending = coordinator.load(
+      key: 'request-a',
+      read: () async {
+        calls++;
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        );
+      },
+    );
+    await tester.pump();
+    final cancelled = expectLater(
+      pending,
+      throwsA(isA<YorksV1ProtectedReadCancelled>()),
+    );
+    coordinator.pause();
+    await tester.pump();
+    await cancelled;
+    expect(calls, 1);
+    coordinator.resume();
+    expect(
+      await coordinator.load(key: 'request-a', read: () async => 'new'),
+      'new',
+    );
+  });
+
+  test(
+    'disposing an authority scope discards a late protected response',
+    () async {
+      final response = Completer<String>();
+      final coordinator = YorksV1ProtectedReadCoordinator<String>();
+      final pending = coordinator.load(
+        key: 'request-a',
+        read: () => response.future,
+      );
+      final cancelled = expectLater(
+        pending,
+        throwsA(isA<YorksV1ProtectedReadCancelled>()),
+      );
+      coordinator.dispose();
+      response.complete('old-authority-data');
+      await cancelled;
+      expect(coordinator.isStale('request-a'), isFalse);
+    },
+  );
+
   group('YorksV1ProtectedReadCoordinator', () {
+    test(
+      'a transient read retries once without turning it into denial',
+      () async {
+        final delays = <Duration>[];
+        final coordinator = YorksV1ProtectedReadCoordinator<String>(
+          retryDelays: const [Duration(milliseconds: 350)],
+          delay: (delay) async => delays.add(delay),
+        );
+        var calls = 0;
+        final result = await coordinator.load(
+          key: 'request-a',
+          read: () async {
+            if (++calls == 1) {
+              throw const YorksV1DomainException(
+                YorksV1DomainErrorCode.backendUnavailable,
+              );
+            }
+            return 'server-confirmed';
+          },
+        );
+        expect(result, 'server-confirmed');
+        expect(calls, 2);
+        expect(delays, [const Duration(milliseconds: 350)]);
+      },
+    );
+
+    test('an authoritative denial is never retried', () async {
+      final coordinator = YorksV1ProtectedReadCoordinator<String>(
+        retryDelays: const [Duration(milliseconds: 350)],
+        delay: (_) async => fail('Denial must not enter backoff'),
+      );
+      var calls = 0;
+      await expectLater(
+        coordinator.load(
+          key: 'request-a',
+          read: () async {
+            calls++;
+            throw const YorksV1DomainException(
+              YorksV1DomainErrorCode.unauthorized,
+            );
+          },
+        ),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(calls, 1);
+    });
+
+    test(
+      'transient fallback remains stale and the next read checks the server',
+      () async {
+        final coordinator = YorksV1ProtectedReadCoordinator<String>();
+        await coordinator.load(key: 'a', read: () async => 'old');
+        coordinator.markStale('a');
+        final stale = await coordinator.load(
+          key: 'a',
+          read: () async => throw const YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+          ),
+        );
+        expect(stale, 'old');
+        expect(coordinator.isStale('a'), isTrue);
+        expect(
+          await coordinator.load(key: 'a', read: () async => 'new'),
+          'new',
+        );
+        expect(coordinator.isStale('a'), isFalse);
+      },
+    );
+
+    test(
+      'register can report refresh failure while retaining its own authorized view',
+      () async {
+        final coordinator = YorksV1ProtectedReadCoordinator<String>(
+          allowStaleFallback: false,
+        );
+        await coordinator.load(key: 'a', read: () async => 'old');
+        coordinator.markAllStale();
+        await expectLater(
+          coordinator.load(
+            key: 'a',
+            read: () async => throw const YorksV1DomainException(
+              YorksV1DomainErrorCode.backendUnavailable,
+            ),
+          ),
+          throwsA(isA<YorksV1DomainException>()),
+        );
+      },
+    );
+
     test('the same record requested twice in flight uses one read', () async {
       final coordinator = YorksV1ProtectedReadCoordinator<String>();
       final response = Completer<String>();

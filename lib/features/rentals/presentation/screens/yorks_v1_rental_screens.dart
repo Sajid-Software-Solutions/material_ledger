@@ -11,6 +11,8 @@ import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/models/yorks_v1_document_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_rental_strings.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
@@ -2308,6 +2310,15 @@ class _LeaseDocumentsState extends ConsumerState<_LeaseDocuments> {
       if (!mounted) return;
       _refresh();
       _showResult(context, true, 'Lease document stored securely.');
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        _refresh();
+        _showResult(
+          context,
+          true,
+          YorksV1DocumentStrings.uploadConfirmedRefreshPending.primary,
+        );
+      }
     } catch (_) {
       if (mounted) {
         _showResult(

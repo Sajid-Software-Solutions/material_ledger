@@ -57,13 +57,16 @@ void main() {
     backendIdentity: backend,
   );
   Future<YorksV1ProcurementProgressController> controller(
-    FakeRepository repository,
-  ) async => YorksV1ProcurementProgressController(
+    FakeRepository repository, {
+    bool Function()? isOnline,
+  }) async => YorksV1ProcurementProgressController(
     repository: repository,
     recoveryStore: await store(),
     scope: scope,
     debounce: const Duration(days: 1),
     uuidFactory: () => 'checkpoint-key',
+    isOnline: isOnline,
+    delay: (_) async {},
   );
 
   test(
@@ -499,6 +502,333 @@ void main() {
       expect((await SharedPreferences.getInstance()).getKeys(), isEmpty);
     },
   );
+
+  Future<void> prepare(YorksV1ProcurementProgressController editor) =>
+      editor.prepareFinalIntent(
+        commandName: 'v1_save_arrangement',
+        commandKey: 'final-key',
+        commandPayload: {'request_id': 'request', 'lines': <Object?>[]},
+      );
+  const committed = YorksV1ProcurementCommandOutcome(
+    status: 'confirmed',
+    effectId: 'arrangement',
+    committedVersion: 4,
+  );
+
+  test(
+    'late checkpoint acknowledgement cannot restore revoked costs',
+    () async {
+      final repository = FakeRepository()..saveWait = Completer<void>();
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(cost: '8'));
+      editor.update(draft(cost: '9'));
+      final saving = editor.saveProgress();
+      editor.clearCommercialInputs();
+      repository.saveWait!.complete();
+      expect(await saving, isTrue);
+      expect(editor.state.current!.commercialInputs, isNull);
+      expect(editor.state.accepted!.commercialInputs, isNull);
+      editor.useAccountProgress();
+      expect(editor.state.current!.commercialInputs, isNull);
+    },
+  );
+
+  test('prepared command body is immutable through nested rows', () async {
+    final repository = FakeRepository();
+    final editor = await controller(repository);
+    addTearDown(editor.dispose);
+    await editor.initialize(draft());
+    final row = <String, Object?>{'qty': '2'};
+    final rows = <Object?>[row];
+    await editor.prepareFinalIntent(
+      commandName: 'v1_save_arrangement',
+      commandKey: 'final-key',
+      commandPayload: {'lines': rows},
+    );
+    row['qty'] = '99';
+    rows.clear();
+    final frozen = editor.pendingCommandPayload!['lines'] as List;
+    expect((frozen.single as Map)['qty'], '2');
+    expect(() => frozen.clear(), throwsUnsupportedError);
+    expect(() => (frozen.single as Map)['qty'] = '3', throwsUnsupportedError);
+  });
+
+  test(
+    'lost response automatically confirms the exact saved command',
+    () async {
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) async => committed;
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await prepare(editor);
+      editor.markFinalCommandSent();
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.backendUnavailable),
+      );
+      expect(repository.outcomeCalls, 1);
+      expect(repository.outcomeKeys, ['final-key']);
+      expect(editor.state.outcome!.effectId, 'arrangement');
+      expect(
+        editor.state.commandPhase,
+        YorksV1ProcurementCommandPhase.confirmed,
+      );
+      expect(editor.state.isPending, isFalse);
+      expect(editor.state.canEdit, isFalse);
+    },
+  );
+
+  test('lookup miss stays frozen until later exact-key commit', () async {
+    final repository = FakeRepository()
+      ..onOutcome = (number, _) async => number == 1
+          ? const YorksV1ProcurementCommandOutcome(status: 'not_found')
+          : committed;
+    final editor = await controller(repository);
+    addTearDown(editor.dispose);
+    await editor.initialize(draft());
+    await prepare(editor);
+    await editor.rejectFinalIntent(
+      const YorksV1DomainException(YorksV1DomainErrorCode.unexpectedResponse),
+    );
+    expect(repository.outcomeKeys, ['final-key', 'final-key']);
+    expect(editor.state.outcome, committed);
+    expect(repository.abandonCalls, 0);
+  });
+
+  test(
+    'automatic budget survives remount and reconnect; manual check remains',
+    () async {
+      final repository = FakeRepository();
+      var editor = await controller(repository);
+      await editor.initialize(draft());
+      await prepare(editor);
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.backendUnavailable),
+      );
+      expect(repository.outcomeCalls, 4);
+      expect(editor.state.automaticCheckExhausted, isTrue);
+      expect(editor.state.isPending, isTrue);
+      editor.dispose();
+      editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await editor.recoverPendingCommand();
+      await editor.recoverPendingCommand();
+      expect(repository.outcomeCalls, 4);
+      expect(editor.state.pendingCommand!.commandKey, 'final-key');
+      repository.onOutcome = (_, _) async => committed;
+      await editor.checkCommandStatus();
+      expect(repository.outcomeCalls, 5);
+      expect(editor.state.outcome, committed);
+    },
+  );
+
+  test(
+    'fresh device respects the shared server budget before polling',
+    () async {
+      final repository = FakeRepository()
+        ..read = const YorksV1ProcurementProgressRead(
+          pendingCommand: YorksV1ProcurementPendingCommand(
+            attemptId: 'attempt',
+            commandName: 'v1_save_arrangement',
+            commandKey: 'remote-key',
+            automaticChecks: 4,
+          ),
+        );
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await editor.recoverPendingCommand();
+      expect(repository.outcomeCalls, 0);
+      expect(editor.state.automaticCheckExhausted, isTrue);
+      expect(editor.state.isPending, isTrue);
+    },
+  );
+
+  test(
+    'offline pauses checks without releasing intent; reconnect reconciles',
+    () async {
+      var online = false;
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) async => committed;
+      final editor = await controller(repository, isOnline: () => online);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await prepare(editor);
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.offline),
+      );
+      expect(repository.outcomeCalls, 0);
+      expect(editor.state.pendingCommand!.automaticChecks, 0);
+      online = true;
+      await editor.recoverPendingCommand();
+      expect(repository.outcomeCalls, 1);
+      expect(editor.state.outcome, committed);
+    },
+  );
+
+  test(
+    'temporary token expiry preserves intent and resumes after auth refresh',
+    () async {
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) async => throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unauthenticated,
+        );
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(cost: '9'));
+      await prepare(editor);
+      await editor.recoverPendingCommand();
+      expect(repository.outcomeCalls, 1);
+      expect(editor.state.pendingCommand!.commandKey, 'final-key');
+      expect(editor.state.current!.commercialInputs, isNull);
+      repository.onOutcome = (_, _) async => committed;
+      await editor.recoverPendingCommand();
+      expect(repository.outcomeCalls, 2);
+      expect(editor.state.outcome, committed);
+    },
+  );
+
+  test(
+    'concurrent status checks share a request and late failure preserves commit',
+    () async {
+      final response = Completer<YorksV1ProcurementCommandOutcome>();
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) => response.future;
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await prepare(editor);
+      final first = editor.checkCommandStatus();
+      final second = editor.checkCommandStatus();
+      expect(identical(first, second), isTrue);
+      response.complete(committed);
+      await Future.wait([first, second]);
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.backendUnavailable),
+      );
+      expect(repository.outcomeCalls, 1);
+      expect(editor.state.error, isNull);
+      expect(editor.state.outcome, committed);
+    },
+  );
+
+  test(
+    'status response after authority revocation cannot restore protected state',
+    () async {
+      final response = Completer<YorksV1ProcurementCommandOutcome>();
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) => response.future;
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(cost: '9'));
+      await prepare(editor);
+      final pending = editor.checkCommandStatus();
+      await editor.revoke();
+      response.complete(committed);
+      await pending;
+      expect(editor.state.current, isNull);
+      expect(editor.state.pendingCommand, isNull);
+      expect(editor.state.outcome, isNull);
+    },
+  );
+
+  test(
+    'late preparation after revocation cannot restore frozen protected payload',
+    () async {
+      final repository = FakeRepository()
+        ..prepareWait = Completer<void>()
+        ..prepareStarted = Completer<void>();
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(cost: '9'));
+      final preparing = prepare(editor);
+      await repository.prepareStarted!.future;
+      await editor.revoke();
+      repository.prepareWait!.complete();
+      await expectLater(preparing, throwsA(isA<YorksV1DomainException>()));
+      expect(editor.state.current, isNull);
+      expect(editor.state.pendingCommand, isNull);
+      expect(editor.pendingCommandPayload, isNull);
+    },
+  );
+
+  test(
+    'commercial revocation fences a late protected status response',
+    () async {
+      final response = Completer<YorksV1ProcurementCommandOutcome>();
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) => response.future;
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(cost: '9'));
+      await prepare(editor);
+      final checking = editor.checkCommandStatus();
+      editor.clearCommercialInputs();
+      response.complete(
+        const YorksV1ProcurementCommandOutcome(
+          status: 'prepared',
+          commandPayload: {'unit_cost': 'old protected value'},
+        ),
+      );
+      await checking;
+      expect(editor.state.current!.commercialInputs, isNull);
+      expect(editor.pendingCommandPayload, isNull);
+      expect(editor.state.outcome, isNull);
+    },
+  );
+
+  test(
+    'definite rejection preserves typed input and uses locked abandonment',
+    () async {
+      final repository = FakeRepository();
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft(qty: '2'));
+      await prepare(editor);
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.insufficientStock),
+      );
+      expect(repository.outcomeCalls, 0);
+      expect(repository.abandonCalls, 1);
+      expect(editor.state.pendingCommand, isNull);
+      expect(
+        editor.state.current!.inputs['lines'],
+        contains(containsPair('arranged_qty', '2')),
+      );
+      expect(
+        editor.state.commandPhase,
+        YorksV1ProcurementCommandPhase.rejected,
+      );
+    },
+  );
+
+  test(
+    'confirmed effect survives checkpoint cleanup and refresh degradation',
+    () async {
+      final repository = FakeRepository()
+        ..onOutcome = (_, _) async => committed;
+      final editor = await controller(repository);
+      addTearDown(editor.dispose);
+      await editor.initialize(draft());
+      await prepare(editor);
+      await editor.checkCommandStatus();
+      repository.discardError = StateError('local or optional cleanup');
+      await editor.retireAfterCommit();
+      editor.markViewRefreshDegraded();
+      await editor.rejectFinalIntent(
+        const YorksV1DomainException(YorksV1DomainErrorCode.backendUnavailable),
+      );
+      expect(editor.state.outcome, committed);
+      expect(
+        editor.state.commandPhase,
+        YorksV1ProcurementCommandPhase.viewRefreshDegraded,
+      );
+      expect(editor.state.isRetired, isTrue);
+      expect(editor.state.isPending, isFalse);
+    },
+  );
 }
 
 class FakeRepository implements YorksV1ProcurementProgressRepository {
@@ -506,8 +836,12 @@ class FakeRepository implements YorksV1ProcurementProgressRepository {
   YorksV1ProcurementProgressDraft? saved;
   int? expectedRevision;
   final saveKeys = <String>[];
-  Completer<void>? saveWait;
-  Object? saveError;
+  Completer<void>? saveWait, prepareWait, prepareStarted;
+  Object? saveError, discardError;
+  int outcomeCalls = 0, abandonCalls = 0;
+  final outcomeKeys = <String>[];
+  Future<YorksV1ProcurementCommandOutcome> Function(int number, bool automatic)?
+  onOutcome;
   @override
   Future<YorksV1ProcurementProgressRead> get(
     YorksV1ProcurementProgressScope scope,
@@ -541,6 +875,7 @@ class FakeRepository implements YorksV1ProcurementProgressRepository {
     required int expectedRevision,
     required String idempotencyKey,
   }) async {
+    if (discardError != null) throw discardError!;
     read = YorksV1ProcurementProgressRead(
       revision: expectedRevision + 1,
       discarded: true,
@@ -556,21 +891,38 @@ class FakeRepository implements YorksV1ProcurementProgressRepository {
     required String commandKey,
     required Map<String, Object?> commandPayload,
     required String idempotencyKey,
-  }) async => YorksV1ProcurementPendingCommand(
-    attemptId: 'attempt',
-    commandName: commandName,
-    commandKey: commandKey,
-  );
+  }) async {
+    prepareStarted?.complete();
+    await prepareWait?.future;
+    return YorksV1ProcurementPendingCommand(
+      attemptId: 'attempt',
+      commandName: commandName,
+      commandKey: commandKey,
+    );
+  }
+
   @override
   Future<YorksV1ProcurementCommandOutcome> outcome({
     required String requestId,
     required String commandName,
     required String commandKey,
-  }) async => const YorksV1ProcurementCommandOutcome(status: 'not_found');
+    bool automatic = false,
+  }) async {
+    outcomeKeys.add(commandKey);
+    outcomeCalls++;
+    return onOutcome?.call(outcomeCalls, automatic) ??
+        Future.value(
+          const YorksV1ProcurementCommandOutcome(status: 'not_found'),
+        );
+  }
+
   @override
   Future<String> abandon({
     required String requestId,
     required String commandName,
     required String commandKey,
-  }) async => 'abandoned';
+  }) async {
+    abandonCalls++;
+    return 'abandoned';
+  }
 }

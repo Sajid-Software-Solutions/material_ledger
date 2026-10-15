@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../controllers/yorks_v1_material_request_draft_controller.dart';
 import '../models/analytics_event.dart';
 import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_material_request.dart';
+import '../models/yorks_v1_material_register.dart';
 import '../models/yorks_v1_material_request_document.dart';
 import '../models/yorks_v1_role.dart';
 import '../models/yorks_v1_permission_management.dart';
@@ -21,9 +23,86 @@ import 'yorks_v1_identity_provider.dart';
 import 'yorks_v1_material_request_repository_provider.dart';
 import 'yorks_v1_permission_provider.dart';
 import 'language_provider.dart';
+import 'yorks_v1_read_activity_provider.dart';
 
 const _yorksV1MaterialRequestDraftKeyPrefix =
     'yorks_v1_material_request_drafts_v1';
+
+void _watchMaterialRequestReadAuthority(Ref ref) {
+  ref.watch(yorksV1AuthUserIdProvider);
+  ref.watch(yorksV1CurrentRoleProvider);
+  ref.watch(
+    yorksV1CurrentPermissionSnapshotProvider.select(
+      (state) => (
+        revision: state.snapshot?.revision,
+        active: state.snapshot?.user.isActive,
+      ),
+    ),
+  );
+  ref.watch(yorksV1MaterialRequestRepositoryProvider);
+}
+
+YorksV1ProtectedReadCoordinator<T> _registerReadCoordinator<T>(
+  Ref ref,
+  String operation,
+) {
+  _watchMaterialRequestReadAuthority(ref);
+  final gate = ref.watch(yorksV1ReadActivityGateProvider);
+  final analytics = ref.watch(analyticsServiceProvider);
+  final coordinator = YorksV1ProtectedReadCoordinator<T>(
+    // The register widget retains an authorized last success and labels stale
+    // data itself. It must receive a transient error rather than silently mark
+    // cached data as a successful refresh.
+    allowStaleFallback: false,
+    retryDelays: const [Duration(milliseconds: 350)],
+    beforeRead: gate.waitForIdle,
+    onObservation: (observation) => _captureProtectedReadCoordination(
+      analytics: analytics,
+      operation: operation,
+      workflow: 'material_request',
+      observation: observation,
+    ),
+  );
+  ref.onCancel(coordinator.pause);
+  ref.onResume(coordinator.resume);
+  ref.onDispose(coordinator.dispose);
+  ref.listen<int>(yorksV1MaterialRequestRealtimeRevisionProvider, (old, next) {
+    if (old != null && old != next) {
+      coordinator.markAllStale(
+        trigger: _yorksV1MaterialRequestLoadTrigger(ref),
+      );
+    }
+  });
+  return coordinator;
+}
+
+final yorksV1MaterialRegisterReadCoordinatorProvider =
+    Provider<YorksV1ProtectedReadCoordinator<YorksV1MaterialRegisterPage>>(
+      (ref) => _registerReadCoordinator(ref, 'material_register_load'),
+    );
+
+final yorksV1MaterialRequestSummaryReadCoordinatorProvider =
+    Provider<
+      YorksV1ProtectedReadCoordinator<YorksV1MaterialRequestSummaryPage>
+    >((ref) => _registerReadCoordinator(ref, 'material_request_list'));
+
+final yorksV1MaterialRequestOperationsReadCoordinatorProvider =
+    Provider<
+      YorksV1ProtectedReadCoordinator<YorksV1MaterialRequestOperationsDashboard>
+    >(
+      (ref) =>
+          _registerReadCoordinator(ref, 'material_request_operations_load'),
+    );
+
+final yorksV1MaterialRequestOverviewReadCoordinatorProvider =
+    Provider<YorksV1ProtectedReadCoordinator<YorksV1MaterialRequestOverview>>(
+      (ref) => _registerReadCoordinator(ref, 'material_request_overview_load'),
+    );
+
+/// An internal cache key includes every filter, including native Company state.
+/// It is never emitted in analytics.
+String yorksV1MaterialRegisterReadKey(YorksV1MaterialRegisterQuery query) =>
+    jsonEncode(query.toRpcParameters());
 
 /// Invalidates the device-local draft index when a single editor persists or
 /// removes one of its private recovery records.  This is deliberately local
@@ -70,6 +149,7 @@ final yorksV1MaterialRequestDraftControllerProvider = StateNotifierProvider
       );
       const uuid = Uuid();
       final controller = YorksV1MaterialRequestDraftController(
+        beginActivity: ref.watch(yorksV1ReadActivityGateProvider).begin,
         retainForDeletion: () {
           final link = ref.keepAlive();
           return link.close;
@@ -136,8 +216,13 @@ final yorksV1MaterialRequestSummaryPageProvider = FutureProvider.autoDispose
           YorksV1DomainErrorCode.featureDisabled,
         );
       }
-      return (repository as YorksV1MaterialRequestPhase2Repository)
-          .listRequestSummaries(query);
+      return ref
+          .watch(yorksV1MaterialRequestSummaryReadCoordinatorProvider)
+          .load(
+            key: jsonEncode(query.toRpcParameters()),
+            read: () => (repository as YorksV1MaterialRequestPhase2Repository)
+                .listRequestSummaries(query),
+          );
     });
 
 /// Role- and project-scoped operational facts used by both the desktop and
@@ -162,8 +247,14 @@ final yorksV1MaterialRequestOperationsDashboardProvider = FutureProvider
           YorksV1DomainErrorCode.featureDisabled,
         );
       }
-      return (repository as YorksV1MaterialRequestOperationsRepository)
-          .getOperationsDashboard(projectId: projectId);
+      return ref
+          .watch(yorksV1MaterialRequestOperationsReadCoordinatorProvider)
+          .load(
+            key: projectId ?? 'organization',
+            read: () =>
+                (repository as YorksV1MaterialRequestOperationsRepository)
+                    .getOperationsDashboard(projectId: projectId),
+          );
     });
 
 /// One bounded request projection for the landing screen. The provider keeps
@@ -194,8 +285,14 @@ final yorksV1MaterialRequestOverviewProvider = FutureProvider.autoDispose
           YorksV1DomainErrorCode.featureDisabled,
         );
       }
-      return await (repository as YorksV1MaterialRequestOperationsRepository)
-          .getOverview(limit: limit);
+      return await ref
+          .watch(yorksV1MaterialRequestOverviewReadCoordinatorProvider)
+          .load(
+            key: '$limit',
+            read: () =>
+                (repository as YorksV1MaterialRequestOperationsRepository)
+                    .getOverview(limit: limit),
+          );
     });
 
 final yorksV1MaterialRequestCommentPageProvider = FutureProvider.autoDispose
@@ -363,9 +460,11 @@ final yorksV1MaterialRequestListProvider = FutureProvider.autoDispose
       ) {
         if (previous != null && previous != next) ref.invalidateSelf();
       });
-      return ref
-          .watch(yorksV1MaterialRequestRepositoryProvider)
-          .listRequests(projectId: projectId);
+      final repository = ref.watch(yorksV1MaterialRequestRepositoryProvider);
+      final gate = ref.watch(yorksV1ReadActivityGateProvider);
+      return gate.waitForIdle().then(
+        (_) => repository.listRequests(projectId: projectId),
+      );
     });
 
 /// The kind of server event that asks current Material Request projections to
@@ -934,14 +1033,20 @@ final yorksV1MaterialRequestDetailReadCoordinatorProvider =
       );
       ref.watch(yorksV1MaterialRequestRepositoryProvider);
       final analytics = ref.watch(analyticsServiceProvider);
-      return YorksV1ProtectedReadCoordinator<YorksV1MaterialRequest>(
-        onObservation: (observation) => _captureProtectedReadCoordination(
-          analytics: analytics,
-          operation: 'material_request_load',
-          workflow: 'material_request',
-          observation: observation,
-        ),
-      );
+      final coordinator =
+          YorksV1ProtectedReadCoordinator<YorksV1MaterialRequest>(
+            retryDelays: const [Duration(milliseconds: 350)],
+            onObservation: (observation) => _captureProtectedReadCoordination(
+              analytics: analytics,
+              operation: 'material_request_load',
+              workflow: 'material_request',
+              observation: observation,
+            ),
+          );
+      ref.onCancel(coordinator.pause);
+      ref.onResume(coordinator.resume);
+      ref.onDispose(coordinator.dispose);
+      return coordinator;
     });
 
 /// Marks the authority-scoped detail projection stale before rebuilding it.

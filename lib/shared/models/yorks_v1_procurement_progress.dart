@@ -163,23 +163,53 @@ class YorksV1ProcurementProgressCheckpoint {
   }
 }
 
-/// Only opaque identifiers are permitted in device-persistent command recovery.
+/// Device recovery holds opaque identifiers and bounded retry metadata only.
 class YorksV1ProcurementPendingCommand {
   const YorksV1ProcurementPendingCommand({
     required this.attemptId,
     required this.commandName,
     required this.commandKey,
+    this.automaticChecks = 0,
+    this.automaticCheckAfter,
   });
+
+  /// Preserve the exact submitted body, including nested rows, between checks.
+  static Map<String, Object?> freezePayload(Map<String, Object?> value) =>
+      _freezeMap(value);
+
   final String attemptId;
   final String commandName;
   final String commandKey;
+  final int automaticChecks;
+  final DateTime? automaticCheckAfter;
+  YorksV1ProcurementPendingCommand withAutomaticCheck(DateTime after) =>
+      YorksV1ProcurementPendingCommand(
+        attemptId: attemptId,
+        commandName: commandName,
+        commandKey: commandKey,
+        automaticChecks: automaticChecks + 1,
+        automaticCheckAfter: after,
+      );
   Map<String, Object?> toJson() => {
     'attempt_id': attemptId,
     'command_name': commandName,
     'command_key': commandKey,
+    'automatic_checks': automaticChecks,
+    if (automaticCheckAfter != null)
+      'automatic_check_after': automaticCheckAfter!.toUtc().toIso8601String(),
   };
   factory YorksV1ProcurementPendingCommand.fromJson(Map<String, Object?> json) {
-    _onlyKeys(json, {'attempt_id', 'command_name', 'command_key'});
+    _onlyKeys(json, {
+      'attempt_id',
+      'command_name',
+      'command_key',
+      'automatic_checks',
+      'automatic_check_after',
+    });
+    final checks = json['automatic_checks'] ?? 0;
+    if (checks is! int || checks < 0 || checks > 4) {
+      throw const FormatException('Invalid command recovery budget');
+    }
     final command = _string(json['command_name']);
     if (command != 'v1_save_arrangement' &&
         command != 'v1_dispatch_materials') {
@@ -189,6 +219,10 @@ class YorksV1ProcurementPendingCommand {
       attemptId: _string(json['attempt_id']),
       commandName: command,
       commandKey: _string(json['command_key']),
+      automaticChecks: checks,
+      automaticCheckAfter: json['automatic_check_after'] == null
+          ? null
+          : DateTime.parse(_string(json['automatic_check_after'])).toUtc(),
     );
   }
 }

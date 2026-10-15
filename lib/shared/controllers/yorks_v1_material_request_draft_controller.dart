@@ -75,6 +75,7 @@ class YorksV1MaterialRequestDraftController
     bool Function(String projectId)? canReadRecoveryProject,
     VoidCallback Function()? retainForDeletion,
     AnalyticsService analytics = const NoopAnalyticsService(),
+    VoidCallback Function()? beginActivity,
     Duration privateSyncDebounce = const Duration(milliseconds: 1200),
   }) : _ownerAuthUserId = ownerAuthUserId,
        _draftId = draftId,
@@ -86,6 +87,7 @@ class YorksV1MaterialRequestDraftController
        _canReadRecoveryProject = canReadRecoveryProject,
        _retainForDeletion = retainForDeletion,
        _analytics = analytics,
+       _beginActivity = beginActivity,
        _privateSyncDebounceDuration = privateSyncDebounce,
        super(
          YorksV1MaterialRequestDraftState(
@@ -118,6 +120,7 @@ class YorksV1MaterialRequestDraftController
   final bool Function(String projectId)? _canReadRecoveryProject;
   final VoidCallback Function()? _retainForDeletion;
   final AnalyticsService _analytics;
+  final VoidCallback Function()? _beginActivity;
   final Duration _privateSyncDebounceDuration;
   Future<void> _persistQueue = Future<void>.value();
   bool _connectedCommandInFlight = false;
@@ -1325,17 +1328,25 @@ class YorksV1MaterialRequestDraftController
           : 'material_request_submit',
       properties: {
         AnalyticsProperty.workflow: 'material_request',
+        AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+          approveImmediately
+              ? 'v1_save_submit_and_approve_material_request'
+              : 'v1_save_and_submit_material_request',
+          state.draft.submissionIdempotencyKey,
+        ),
+        AnalyticsProperty.commandPhase: 'transport',
         AnalyticsProperty.source: source,
         AnalyticsProperty.itemCount: state.draft.lines.length,
       },
     );
+    final releaseActivity = _beginActivity?.call();
     try {
       final pending = _submitConnected(
         approveImmediately: approveImmediately,
         preserveUnconfirmed: retryUnconfirmed,
       );
       feedback.feedbackObserved();
-      final result = await pending;
+      var result = await pending;
       if (_inactive) return null;
       if (result == null) {
         final error =
@@ -1361,6 +1372,9 @@ class YorksV1MaterialRequestDraftController
             AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
           },
         );
+        if (unknown && !retryUnconfirmed) {
+          result = await _automaticSubmissionReadback();
+        }
       } else {
         operation.complete();
         _analytics.capture(
@@ -1382,8 +1396,58 @@ class YorksV1MaterialRequestDraftController
       }
       return result;
     } finally {
+      releaseActivity?.call();
       _connectedCommandInFlight = false;
     }
+  }
+
+  Future<YorksV1MaterialRequest?> _automaticSubmissionReadback() async {
+    final repository = _repository;
+    final draft = state.draft;
+    final mode = draft.pendingSubmissionApproval;
+    if (mode == null ||
+        repository is! YorksV1MaterialRequestSubmissionRecoveryRepository) {
+      return null;
+    }
+    // Runs only after the original new submission, never on a remount or a
+    // retry of an unresolved intent. Readback never creates another command.
+    state = YorksV1MaterialRequestDraftState(
+      draft: draft,
+      status: YorksV1MaterialRequestDraftSyncStatus.checkingSubmission,
+    );
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+      if (_inactive) return null;
+      try {
+        final result =
+            await (repository
+                    as YorksV1MaterialRequestSubmissionRecoveryRepository)
+                .findSubmissionResult(draft, approveImmediately: mode);
+        if (_inactive) return null;
+        if (result != null) {
+          try {
+            await discardLocal(submissionConfirmed: true);
+          } catch (_) {}
+          if (_inactive) return null;
+          state = YorksV1MaterialRequestDraftState(
+            draft: state.draft,
+            status: YorksV1MaterialRequestDraftSyncStatus.submitted,
+          );
+          _analytics.capture(
+            AnalyticsEvent.materialRequestSubmissionReconciled,
+          );
+          return result;
+        }
+      } catch (_) {
+        /* Lookup loss cannot release the original intent. */
+      }
+    }
+    if (!_inactive) {
+      _markSubmissionUnknown(draft, YorksV1DomainErrorCode.backendUnavailable);
+    }
+    return null;
   }
 
   Future<YorksV1MaterialRequest?> _submitConnected({

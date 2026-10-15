@@ -12,6 +12,7 @@ import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_boq_strings.dart';
 import '../../../../shared/models/yorks_v1_document_strings.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_inventory_strings.dart';
 import '../../../../shared/models/yorks_v1_inventory_supplier.dart';
 import '../../../../shared/models/yorks_v1_inventory_supplier_strings.dart';
@@ -1698,6 +1699,19 @@ class _YorksV1InventorySupplierFolderScreenState
       YorksAppToast.show(
         context,
         title: YorksV1DocumentStrings.uploadSucceeded.active(
+          ref.read(languageProvider),
+        ),
+        tone: YorksAppToastTone.success,
+      );
+    } on YorksV1CommittedViewUnavailable {
+      if (!mounted) return;
+      ref.invalidate(
+        yorksV1SupplierDocumentWorkspaceProvider(widget.supplierId),
+      );
+      ref.invalidate(yorksV1InventorySupplierFolderProvider);
+      YorksAppToast.show(
+        context,
+        title: YorksV1DocumentStrings.uploadConfirmedRefreshPending.active(
           ref.read(languageProvider),
         ),
         tone: YorksAppToastTone.success,

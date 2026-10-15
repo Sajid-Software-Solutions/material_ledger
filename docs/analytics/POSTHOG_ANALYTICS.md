@@ -114,7 +114,7 @@ All events below are centrally defined in `analytics_event.dart`.
 | `accounts filter changed` | Register findability | A protected Accounts register filter changes | categorical `list_filter`, `source` | UI surface; never search text or selected value |
 | `accounts report requested` | Export-format usefulness | Excel, PDF or print is requested | `file_type`, `object_type`, `source` | Report action; no project ID, report rows or commercial values |
 | `attachment upload started` | Upload intent | Before authorized upload | type/size buckets, `object_type` | Documents repository; no filename |
-| `attachment uploaded` | Upload completion | Storage finalize and reload succeed | type/size buckets, duration via operation | Documents repository |
+| `attachment uploaded` | Upload completion | Authorized finalization is confirmed, including a degraded later view refresh | type/size buckets, duration via operation | Documents repository |
 | `attachment upload failed` | Upload failure | Upload/finalize fails | buckets, `error_category` | Documents repository |
 | `material request started` | MR funnel start | Draft route entry | `source` | Route mapper |
 | `material request item added` | MR composition progress | One or more lines added | `action_type`, `item_count` | Draft controller; no descriptions |
@@ -126,7 +126,8 @@ All events below are centrally defined in `analytics_event.dart`.
 | `material request review reached` | Funnel review step | User enters real review step | `item_count`, `entry_point` | Draft controller |
 | `material request submit attempted` | Submit intent | Before connected submit | `source`, `item_count`, `request_timing` | Draft controller |
 | `material request submitted` | Submit success | Server returns submitted record | `source`, `item_count` | Draft controller |
-| `material request submission failed` | Submit failure | Connected submit fails | `source`, `error_category` | Draft controller |
+| `material request submission failed` | Submit transport/rejection diagnostic | Initial connected submit fails; later reconciliation may establish a commit | `source`, `error_category` | Draft controller |
+| `material request submission reconciled` | Later exact submission confirmation | Readback confirms the original pending submit intent | common, bounded categorical outcome | Draft controller; separate from the original transport diagnostic |
 | `material request opened` | Request engagement | Detail route entry | `source` | Route mapper |
 | `protected read coordinated` | Explain why an MR/procurement protected read ran or was avoided | One logical coordinator decision | `operation`, `workflow`, `load_trigger`, `outcome`, `coalesced`, `cache_state`, `request_generation`, `visibility_state` | No request/project/entity ID or business content; repository operation events remain the network-latency source |
 | `material request editing access changed` | Confirmed MR grant/revoke | Grant RPC returns successfully | `action_type`, `success` | No request or editor IDs; server audit remains authoritative |
@@ -163,8 +164,42 @@ All events below are centrally defined in `analytics_event.dart`.
 | `repeated action detected` | Unclear/slow feedback signal | Same meaningful action three times in two seconds | action, taps, duration, loading state | Analytics service |
 | `action produced no feedback` | Dead-action signal | Explicit feedback contract expires | action, screen, wait, loading state | Analytics service; critical actions only |
 | `operation completed` | Performance/success basis | Timed operation finishes once | operation, duration, success, cached, result count | Analytics operation handle |
+| `command outcome changed` | Command truth separate from transport health | A reviewed command phase or reconciliation outcome changes | `operation`, `command_fingerprint`, `command_phase`, categorical `outcome`/`phase`, normalized error category where present | No raw key, entity/reference ID or payload; exact server receipt remains authoritative |
 | `feature flag evaluated` | Experiment exposure basis | Non-security flag resolves | flag, variant | Analytics service |
 | `reliability error occurred` | Reliability rollup | Timed operation fails | operation, category, retryable, duration | Analytics service; no raw exception |
+
+## Command outcomes and operation attribution — 15 October 2026
+
+The P0 outcome repair adds `command outcome changed` to schema version 2 without
+rewriting or deleting historical events. Initial transport diagnostics remain
+visible even when exact command readback subsequently confirms a commit. An
+operation failure is not, by itself, evidence that its business transaction did
+not commit. Optional view/cleanup problems also remain distinguishable from the
+confirmed command result.
+
+- `command_fingerprint` is an opaque **32-character lowercase hexadecimal**
+  correlation value derived from the first 32 characters of
+  `SHA256(command_name + "|" + original_idempotency_key)`. The privacy guard drops
+  other lengths, arbitrary text and raw keys. It contains no business payload and
+  is not an authorization token or proof of a commit.
+- `command_phase` identifies a controlled diagnostic layer such as `transport`,
+  `command` or `reconciliation`. The categorical `outcome`/`phase` describes the
+  corresponding observed state. Do not treat a later `confirmed` state as
+  erasing an earlier transport failure, or treat an unknown lookup as rejection.
+- Correlation is provided only at reviewed command/upload call sites. Absence of
+  a fingerprint does not prove that no command ran; this is not an application-
+  wide transaction trace or a replacement for Supabase receipts and audit.
+- `beginOperation()` freezes the originating `screen_name` when the handle is
+  created. Completion after navigation retains that surface, rather than being
+  attributed to the page that happens to be current when the request finishes.
+  An explicitly supplied reviewed screen still takes precedence.
+- Timings and outcomes remain nonblocking. Sink failure, callback disposal,
+  navigation and local acknowledgement cleanup must not change command truth.
+
+Tests verify the fingerprint guard and originating-screen attribution alongside
+existing categorical/identity protections. See
+[the P0 reliability evidence](../yorks-v1/P0_OUTCOME_RELIABILITY_20261015.md) for
+release state, actual coverage and remaining physical-browser checks.
 
 ## Calculator workspace — 7 October 2026
 

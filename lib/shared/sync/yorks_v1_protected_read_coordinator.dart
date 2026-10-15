@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../models/yorks_v1_domain_error.dart';
 
 enum YorksV1ProtectedReadOutcome {
@@ -61,15 +63,61 @@ class YorksV1ProtectedReadCoordinator<T> {
     this.freshCacheDuration = const Duration(seconds: 3),
     this.maxEntries = 32,
     this.onObservation,
+    this.retryDelays = const [],
+    this.allowStaleFallback = true,
+    this.beforeRead,
+    Future<void> Function(Duration)? delay,
     DateTime Function()? now,
   }) : assert(maxEntries > 0),
+       _delay = delay,
        _now = now ?? DateTime.now;
 
   final Duration freshCacheDuration;
   final int maxEntries;
   final YorksV1ProtectedReadObserver? onObservation;
+  final List<Duration> retryDelays;
+  final bool allowStaleFallback;
+  final Future<void> Function()? beforeRead;
+  final Future<void> Function(Duration)? _delay;
   final DateTime Function() _now;
   final Map<String, _ProtectedReadSlot<T>> _slots = {};
+  final Map<Completer<void>, Timer> _retryTimers = {};
+  bool _paused = false;
+  bool _disposed = false;
+
+  /// Paused projections keep their authorized cache but perform no retry work.
+  /// Riverpod calls this when the last screen stops listening.
+  void pause() {
+    _paused = true;
+    for (final entry in _retryTimers.entries.toList(growable: false)) {
+      entry.value.cancel();
+      if (!entry.key.isCompleted) entry.key.complete();
+    }
+    _retryTimers.clear();
+  }
+
+  void resume() {
+    if (!_disposed) _paused = false;
+  }
+
+  void dispose() {
+    _disposed = true;
+    pause();
+    _slots.clear();
+  }
+
+  bool isStale(String key) =>
+      _slots[key]?.hasCachedValue == true && _slots[key]?.stale == true;
+
+  /// Invalidates cached results without starting reads for hidden projections.
+  void markAllStale({
+    YorksV1ProtectedReadTrigger trigger = YorksV1ProtectedReadTrigger.realtime,
+  }) {
+    if (_disposed) return;
+    for (final key in _slots.keys.toList(growable: false)) {
+      markStale(key, trigger: trigger);
+    }
+  }
 
   Future<T> load({
     required String key,
@@ -79,12 +127,15 @@ class YorksV1ProtectedReadCoordinator<T> {
     YorksV1ProtectedReadVisibility visibilityState =
         YorksV1ProtectedReadVisibility.foreground,
   }) {
+    if (_disposed || _paused) {
+      return Future<T>.error(const YorksV1ProtectedReadCancelled());
+    }
     final slot = _slots.putIfAbsent(key, _ProtectedReadSlot<T>.new);
     final effectiveTrigger = slot.pendingTrigger ?? trigger;
     final effectiveVisibility = slot.pendingVisibilityState ?? visibilityState;
     final active = slot.inFlight;
     if (active != null) {
-      if (!slot.stale) {
+      if (!slot.stale || slot.waitingForRead) {
         _observe(
           outcome: YorksV1ProtectedReadOutcome.coalesced,
           trigger: effectiveTrigger,
@@ -174,6 +225,7 @@ class YorksV1ProtectedReadCoordinator<T> {
     slot.pendingTrigger = null;
     slot.pendingVisibilityState = null;
     slot.generation += 1;
+    slot.waitingForRead = beforeRead != null;
     final token = Object();
     slot.inFlightToken = token;
     late final Future<T> operation;
@@ -210,7 +262,12 @@ class YorksV1ProtectedReadCoordinator<T> {
     required YorksV1ProtectedReadOutcome successOutcome,
   }) async {
     try {
-      final value = await read();
+      final value = await _readWithRetry(() {
+        if (slot.waitingForRead) slot.stale = false;
+        slot.waitingForRead = false;
+        return read();
+      });
+      if (_disposed) throw const YorksV1ProtectedReadCancelled();
       slot.cachedValue = value;
       slot.hasCachedValue = true;
       slot.cachedAt = _now();
@@ -223,8 +280,13 @@ class YorksV1ProtectedReadCoordinator<T> {
       );
       return value;
     } catch (error) {
+      if (error is YorksV1ProtectedReadCancelled) rethrow;
       final canReuseCachedValue = _canReuseCachedValue(error);
-      if (slot.hasCachedValue && canReuseCachedValue) {
+      if (canReuseCachedValue) slot.stale = true;
+      if (slot.hasCachedValue && canReuseCachedValue && allowStaleFallback) {
+        // Returning prior data does not certify a successful refresh. Keep the
+        // slot stale so subsequent navigation/manual retry reaches the server.
+        slot.stale = true;
         _observe(
           outcome: YorksV1ProtectedReadOutcome.staleFallback,
           trigger: trigger,
@@ -251,12 +313,43 @@ class YorksV1ProtectedReadCoordinator<T> {
     }
   }
 
+  Future<T> _readWithRetry(Future<T> Function() read) async {
+    var attempt = 0;
+    while (true) {
+      if (_disposed || _paused) throw const YorksV1ProtectedReadCancelled();
+      final gate = beforeRead;
+      if (gate != null) await gate();
+      if (_disposed || _paused) throw const YorksV1ProtectedReadCancelled();
+      try {
+        return await read();
+      } catch (error) {
+        if (!_canReuseCachedValue(error) || attempt >= retryDelays.length) {
+          rethrow;
+        }
+        if (_disposed || _paused) throw const YorksV1ProtectedReadCancelled();
+        await _waitForRetry(retryDelays[attempt++]);
+      }
+    }
+  }
+
+  Future<void> _waitForRetry(Duration duration) {
+    final customDelay = _delay;
+    if (customDelay != null) return customDelay(duration);
+    final completion = Completer<void>();
+    _retryTimers[completion] = Timer(duration, () {
+      _retryTimers.remove(completion);
+      completion.complete();
+    });
+    return completion.future;
+  }
+
   void _observe({
     required YorksV1ProtectedReadOutcome outcome,
     required YorksV1ProtectedReadTrigger trigger,
     required _ProtectedReadSlot<T> slot,
     required YorksV1ProtectedReadVisibility visibilityState,
   }) {
+    if (_disposed || _paused) return;
     onObservation?.call(
       YorksV1ProtectedReadObservation(
         outcome: outcome,
@@ -292,11 +385,18 @@ class YorksV1ProtectedReadCoordinator<T> {
   }
 }
 
+/// A projection stopped listening; this is neither an authorization result nor
+/// an operation failure and must not be shown as a workflow rejection.
+class YorksV1ProtectedReadCancelled implements Exception {
+  const YorksV1ProtectedReadCancelled();
+}
+
 class _ProtectedReadSlot<T> {
   Future<T>? inFlight;
   Object? inFlightToken;
   Future<T>? trailing;
   bool stale = false;
+  bool waitingForRead = false;
   bool hasCachedValue = false;
   T? cachedValue;
   DateTime? cachedAt;

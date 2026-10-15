@@ -141,6 +141,11 @@ class YorksV1SupabaseArrangementRepository
   ) async {
     final properties = <AnalyticsProperty, Object?>{
       AnalyticsProperty.itemCount: input.lines.length,
+      AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+        'v1_save_arrangement',
+        input.idempotencyKey,
+      ),
+      AnalyticsProperty.commandPhase: 'transport',
     };
     _analytics.capture(
       AnalyticsEvent.arrangementSaveAttempted,
@@ -150,6 +155,7 @@ class YorksV1SupabaseArrangementRepository
       'arrangement_save',
       properties: {...properties, AnalyticsProperty.workflow: 'procurement'},
     );
+    var phase = 'transport';
     try {
       final response = await _invoke(
         functionName: 'v1_save_arrangement',
@@ -158,6 +164,7 @@ class YorksV1SupabaseArrangementRepository
           'p_idempotency_key': input.idempotencyKey,
         },
       );
+      phase = 'response_decode';
       final workspace = _workspace(response);
       operation.complete();
       _analytics.capture(
@@ -166,11 +173,28 @@ class YorksV1SupabaseArrangementRepository
       );
       return workspace;
     } catch (error) {
-      operation.fail(error);
+      operation.fail(
+        error,
+        properties: {AnalyticsProperty.commandPhase: phase},
+      );
+      // Transport/decode diagnostics remain measured, while business outcome
+      // is reconciled separately by the durable prepared command controller.
+      final uncertain =
+          error is! YorksV1DomainException ||
+          {
+            YorksV1DomainErrorCode.backendUnavailable,
+            YorksV1DomainErrorCode.offline,
+            YorksV1DomainErrorCode.unexpectedResponse,
+          }.contains(error.code);
       _analytics.capture(
-        AnalyticsEvent.procurementActionFailed,
+        uncertain
+            ? AnalyticsEvent.commandOutcomeChanged
+            : AnalyticsEvent.procurementActionFailed,
         properties: {
           ...properties,
+          AnalyticsProperty.operation: 'v1_save_arrangement',
+          AnalyticsProperty.commandPhase: phase,
+          AnalyticsProperty.outcome: uncertain ? 'unknown' : 'rejected',
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );

@@ -13,6 +13,7 @@ import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
 import '../../../../shared/models/yorks_v1_dispatch_preparation.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_document.dart';
@@ -839,6 +840,13 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
 
   void _progressChanged() {
     if (!mounted) return;
+    if (_progress?.state.outcome?.isConfirmed == true && !_committed) {
+      unawaited(
+        Future<void>.microtask(() async {
+          if (mounted) await _confirmedRecovery();
+        }),
+      );
+    }
     _unloadGuard.setActive(
       _progress?.state.isDirty == true || _progress?.state.isPending == true,
     );
@@ -941,9 +949,25 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
   );
 
   Future<void> _confirmedRecovery() async {
+    if (_committed) return;
     _committed = true;
-    await _progress?.retireAfterCommit();
-    if (mounted) widget.onChanged();
+    final reference =
+        _progress?.state.outcome?.effectReference ??
+        _progress?.state.outcome?.effectId;
+    try {
+      await _progress?.retireAfterCommit();
+      if (!mounted) return;
+      widget.onChanged();
+      YorksAppToast.show(
+        context,
+        title: reference == null
+            ? t(YorksV1ProcurementProgressStrings.confirmedResult)
+            : t(YorksV1ProcurementProgressStrings.confirmedDispatch(reference)),
+        tone: YorksAppToastTone.success,
+      );
+    } catch (_) {
+      _progress?.markViewRefreshDegraded();
+    }
   }
 
   Future<void> _retryPending() async {
@@ -1354,6 +1378,7 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
                 commandKey: key,
                 commandPayload: input.toRpcPayload(),
               );
+              _progress!.markFinalCommandSent();
             },
           );
       _committed = true;
@@ -1387,8 +1412,19 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
       }
       _restoring = false;
     } on YorksV1DomainException catch (error) {
+      if (_committed) {
+        _progress?.markViewRefreshDegraded();
+        return;
+      }
       final rejected = _progress?.state.pendingCommand;
       await _progress?.rejectFinalIntent(error);
+      if (_progress?.state.outcome?.isConfirmed == true) {
+        await _confirmedRecovery();
+        return;
+      }
+      // An uncertain write has its own live status panel; a failure toast
+      // would contradict that state and invite an unsafe second dispatch.
+      if (_progress?.state.isPending == true) return;
       if (rejected != null && _progress?.state.pendingCommand == null) {
         await ref
             .read(yorksV1MaterialWorkflowCommandControllerProvider)
@@ -1404,8 +1440,19 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
         );
       }
     } catch (error) {
+      if (_committed) {
+        _progress?.markViewRefreshDegraded();
+        return;
+      }
       final rejected = _progress?.state.pendingCommand;
       await _progress?.rejectFinalIntent(error);
+      if (_progress?.state.outcome?.isConfirmed == true) {
+        await _confirmedRecovery();
+        return;
+      }
+      // An uncertain write has its own live status panel; a failure toast
+      // would contradict that state and invite an unsafe second dispatch.
+      if (_progress?.state.isPending == true) return;
       if (rejected != null && _progress?.state.pendingCommand == null) {
         await ref
             .read(yorksV1MaterialWorkflowCommandControllerProvider)
@@ -2598,6 +2645,10 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   late String _photoIdempotencyKey;
   bool _allReviewed = false;
   bool _saving = false;
+  bool get _pendingReceipt => ref
+      .read(yorksV1MaterialWorkflowCommandControllerProvider)
+      .hasPendingReceipt(widget.dispatch.id);
+  bool get _locked => _saving || _pendingReceipt;
 
   @override
   void initState() {
@@ -2644,10 +2695,13 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
             outcomes: _outcomes,
             reviewed: _reviewed,
             saving: _saving,
+            outcomeUnknown: _pendingReceipt,
             onClose: () => Navigator.of(context).pop(),
             onReceiveAll: _receiveAll,
             onOutcome: _selectMobileOutcome,
-            onConfirm: _reviewed.length == widget.dispatch.lines.length
+            onConfirm:
+                _pendingReceipt ||
+                    _reviewed.length == widget.dispatch.lines.length
                 ? _confirm
                 : null,
           ),
@@ -2780,12 +2834,17 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
                             : () => Navigator.of(context).pop(),
                       ),
                       PrimaryButton(
-                        label:
-                            YorksV1LogisticsStrings.saveReceiptReview.primary,
+                        label: _pendingReceipt
+                            ? YorksV1MaterialRequestStrings
+                                  .checkSubmissionStatus
+                                  .primary
+                            : YorksV1LogisticsStrings.saveReceiptReview.primary,
                         icon: Icons.verified_outlined,
                         isExpanded: false,
                         isLoading: _saving,
-                        onPressed: _allReviewed && !_saving ? _confirm : null,
+                        onPressed: (_pendingReceipt || _allReviewed) && !_saving
+                            ? _confirm
+                            : null,
                       ),
                     ],
                   ),
@@ -2799,6 +2858,41 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   }
 
   Future<void> _confirm() async {
+    if (_pendingReceipt) {
+      setState(() => _saving = true);
+      try {
+        final result = await ref
+            .read(yorksV1MaterialWorkflowCommandControllerProvider)
+            .checkReceiptStatus(widget.workspace.requestId, widget.dispatch.id);
+        if (result != null && mounted) {
+          widget.onChanged();
+          Navigator.of(context).pop(true);
+        }
+      } on YorksV1CommittedViewUnavailable {
+        if (mounted) {
+          widget.onChanged();
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        }
+      } catch (_) {
+        if (mounted) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+            tone: YorksAppToastTone.information,
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+      return;
+    }
     if (YorksMobileUi.isActive(context) &&
         _reviewed.length != widget.dispatch.lines.length) {
       _showFailure(YorksV1LogisticsStrings.allLinesReviewed.primary);
@@ -2868,6 +2962,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
       );
     }
     setState(() => _saving = true);
+    var acknowledged = false;
     try {
       final confirmedWorkspace = await ref
           .read(yorksV1MaterialWorkflowCommandControllerProvider)
@@ -2881,6 +2976,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
               idempotencyKey: _receiptIdempotencyKey,
             ),
           );
+      acknowledged = true;
       if (!mounted) return;
       _receiptIdempotencyKey = const Uuid().v4();
       widget.onChanged();
@@ -2945,14 +3041,60 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        widget.onChanged();
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings
+              .commandCommittedViewUnavailable
+              .primary,
+          tone: YorksAppToastTone.success,
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+          tone: YorksAppToastTone.information,
+        );
+      }
     } on YorksV1DomainException catch (error) {
+      if (acknowledged) {
+        if (mounted) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
       if (mounted) {
         _showFailure(
           YorksV1MaterialRequestStrings.commandFailure(error.code).primary,
         );
       }
     } catch (_) {
-      if (mounted) _showFailure(YorksV1LogisticsStrings.savingFailed.primary);
+      if (mounted) {
+        if (acknowledged) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        } else {
+          _showFailure(YorksV1LogisticsStrings.savingFailed.primary);
+        }
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -2965,7 +3107,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   );
 
   void _receiveAll() {
-    if (_saving) return;
+    if (_locked) return;
     setState(() {
       for (final line in widget.dispatch.lines) {
         _outcomes[line.id] = YorksV1ReceiptOutcome.received;
@@ -2984,7 +3126,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
     YorksV1DispatchLine line,
     YorksV1ReceiptOutcome outcome,
   ) async {
-    if (_saving) return;
+    if (_locked) return;
     if (outcome == YorksV1ReceiptOutcome.received) {
       setState(() {
         _outcomes[line.id] = outcome;
@@ -3034,6 +3176,7 @@ class _MobileReceiptReview extends StatelessWidget {
     required this.outcomes,
     required this.reviewed,
     required this.saving,
+    this.outcomeUnknown = false,
     required this.onClose,
     required this.onReceiveAll,
     required this.onOutcome,
@@ -3044,6 +3187,7 @@ class _MobileReceiptReview extends StatelessWidget {
   final Map<String, YorksV1ReceiptOutcome> outcomes;
   final Set<String> reviewed;
   final bool saving;
+  final bool outcomeUnknown;
   final VoidCallback onClose;
   final VoidCallback onReceiveAll;
   final void Function(YorksV1DispatchLine, YorksV1ReceiptOutcome) onOutcome;
@@ -3077,7 +3221,7 @@ class _MobileReceiptReview extends StatelessWidget {
               _ReceiptDispatchBanner(dispatch: dispatch),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: saving ? null : onReceiveAll,
+                onPressed: saving || outcomeUnknown ? null : onReceiveAll,
                 icon: const Icon(Icons.done_all_rounded, size: 19),
                 label: Text(
                   YorksV1LogisticsStrings.receiveAllAsDispatched.primary,
@@ -3090,7 +3234,7 @@ class _MobileReceiptReview extends StatelessWidget {
                   line: dispatch.lines[index],
                   reviewed: reviewed.contains(dispatch.lines[index].id),
                   outcome: outcomes[dispatch.lines[index].id],
-                  enabled: !saving,
+                  enabled: !saving && !outcomeUnknown,
                   onOutcome: (value) => onOutcome(dispatch.lines[index], value),
                 ),
                 const SizedBox(height: 10),
@@ -3112,7 +3256,13 @@ class _MobileReceiptReview extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.verified_outlined, size: 19),
-              label: Text(YorksV1LogisticsStrings.confirmReceipt.primary),
+              label: Text(
+                outcomeUnknown
+                    ? YorksV1MaterialRequestStrings
+                          .checkSubmissionStatus
+                          .primary
+                    : YorksV1LogisticsStrings.confirmReceipt.primary,
+              ),
             ),
           ],
         ),

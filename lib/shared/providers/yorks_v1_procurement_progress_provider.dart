@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../controllers/yorks_v1_procurement_progress_controller.dart';
@@ -11,6 +12,7 @@ import '../sync/connectivity_service.dart';
 import '../services/analytics_service.dart';
 import 'language_provider.dart';
 import 'permissions_provider.dart';
+import 'session_provider.dart' show authSessionRevisionProvider;
 import 'yorks_v1_identity_provider.dart';
 import 'yorks_v1_permission_provider.dart';
 
@@ -55,6 +57,20 @@ final yorksV1ProcurementProgressControllerProvider = Provider.autoDispose
           actorAuthUserId: actor,
         ),
         scope: scope,
+        isOnline: () => ref.read(connectivityProvider).isOnline,
+      );
+      final connection = ref.read(connectivityProvider).onChange.listen((
+        online,
+      ) {
+        if (online) unawaited(controller.recoverPendingCommand());
+      });
+      ref.onDispose(connection.cancel);
+      final resumeObserver = _ProcurementResumeObserver(() {
+        unawaited(controller.recoverPendingCommand());
+      });
+      WidgetsBinding.instance.addObserver(resumeObserver);
+      ref.onDispose(
+        () => WidgetsBinding.instance.removeObserver(resumeObserver),
       );
       ref.listen(yorksV1AuthUserIdProvider, (previous, next) {
         if (next != actor) {
@@ -62,14 +78,33 @@ final yorksV1ProcurementProgressControllerProvider = Provider.autoDispose
           ref.invalidateSelf();
         }
       });
+      ref.listen(authSessionRevisionProvider, (previous, next) {
+        if (previous != next && ref.read(yorksV1AuthUserIdProvider) == actor) {
+          unawaited(
+            controller.revalidateAuthority().then(
+              (_) => controller.recoverPendingCommand(),
+            ),
+          );
+        }
+      });
       ref.listen(yorksV1CurrentRoleProvider, (previous, next) {
-        if (previous != next) unawaited(controller.revalidateAuthority());
+        if (previous != next) {
+          unawaited(
+            controller.revalidateAuthority().then(
+              (_) => controller.recoverPendingCommand(),
+            ),
+          );
+        }
       });
       ref.listen(yorksV1CurrentPermissionSnapshotProvider, (previous, next) {
         if (next.snapshot?.user.isActive == false) {
           unawaited(controller.revoke());
         } else if (previous?.snapshot?.revision != next.snapshot?.revision) {
-          unawaited(controller.revalidateAuthority());
+          unawaited(
+            controller.revalidateAuthority().then(
+              (_) => controller.recoverPendingCommand(),
+            ),
+          );
         }
       });
       ref.listen(canViewCommercialsProvider, (previous, next) {
@@ -89,3 +124,12 @@ final yorksV1ProcurementExitGuardProvider =
     Provider<YorksV1ProcurementExitGuard>(
       (ref) => YorksV1ProcurementExitGuard(),
     );
+
+class _ProcurementResumeObserver with WidgetsBindingObserver {
+  _ProcurementResumeObserver(this.onResume);
+  final VoidCallback onResume;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) onResume();
+  }
+}

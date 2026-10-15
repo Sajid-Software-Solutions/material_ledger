@@ -886,6 +886,7 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
   bool _allowExit = false;
   bool _reviewOpen = false;
   bool _progressReady = false;
+  bool _recoveryCompletionStarted = false;
   final _incompleteRestoredChoices = <String>{};
 
   YorksV1ProcurementProgressScope get _progressScope =>
@@ -941,6 +942,14 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
 
   void _progressChanged() {
     if (!mounted) return;
+    if (_progress.state.outcome?.isConfirmed == true &&
+        !_recoveryCompletionStarted) {
+      unawaited(
+        Future<void>.microtask(() async {
+          if (mounted) await _completeRecovered();
+        }),
+      );
+    }
     _unloadGuard.setActive(
       _progress.state.isDirty || _progress.state.isPending,
     );
@@ -1874,13 +1883,19 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
   }
 
   Future<void> _completeRecovered() async {
-    await _progress.retireAfterCommit();
-    if (!mounted) return;
-    setState(() => _allowExit = true);
-    yorksV1InvalidateArrangementWorkspace(ref, widget.workspace.requestId);
-    yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
-    ref.invalidate(yorksV1MaterialRequestListProvider);
-    widget.onCompleted?.call();
+    if (_recoveryCompletionStarted) return;
+    _recoveryCompletionStarted = true;
+    try {
+      await _progress.retireAfterCommit();
+      if (!mounted) return;
+      setState(() => _allowExit = true);
+      yorksV1InvalidateArrangementWorkspace(ref, widget.workspace.requestId);
+      yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
+      ref.invalidate(yorksV1MaterialRequestListProvider);
+      widget.onCompleted?.call();
+    } catch (_) {
+      _progress.markViewRefreshDegraded();
+    }
   }
 
   Future<void> _releaseAbandoned(YorksV1ProcurementPendingCommand command) =>
@@ -1947,7 +1962,9 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
       await _completeRecovered();
     } catch (error) {
       await _rejectIntent(error);
-      await _progress.checkCommandStatus();
+      if (_progress.state.outcome?.isConfirmed == true) {
+        await _completeRecovered();
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1978,11 +1995,14 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
           .read(yorksV1MaterialWorkflowCommandControllerProvider)
           .saveArrangement(
             input,
-            beforeInvoke: (key) => _progress.prepareFinalIntent(
-              commandName: 'v1_save_arrangement',
-              commandKey: key,
-              commandPayload: input.toRpcPayload(),
-            ),
+            beforeInvoke: (key) async {
+              await _progress.prepareFinalIntent(
+                commandName: 'v1_save_arrangement',
+                commandKey: key,
+                commandPayload: input.toRpcPayload(),
+              );
+              _progress.markFinalCommandSent();
+            },
           );
       await _progress.retireAfterCommit();
       _allowExit = true;
@@ -1993,13 +2013,22 @@ class _ArrangementEditorState extends ConsumerState<_ArrangementEditor> {
       saved = true;
     } on YorksV1DomainException catch (error) {
       await _rejectIntent(error);
+      if (_progress.state.outcome?.isConfirmed == true) {
+        await _completeRecovered();
+        return;
+      }
+      if (_progress.state.isPending) return;
       if (error.code == YorksV1DomainErrorCode.insufficientStock) {
         await _refreshInventoryAfterStockFailure();
       }
       if (mounted) _showFailure(context, error);
     } catch (error) {
       await _rejectIntent(error);
-      await _progress.checkCommandStatus();
+      if (_progress.state.outcome?.isConfirmed == true) {
+        await _completeRecovered();
+        return;
+      }
+      if (_progress.state.isPending) return;
       if (mounted) _showFailure(context);
     } finally {
       if (mounted) setState(() => _busy = false);

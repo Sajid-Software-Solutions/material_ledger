@@ -25,21 +25,27 @@ final yorksV1ArrangementWorkspaceReadCoordinatorProvider =
       );
       ref.watch(yorksV1ArrangementRepositoryProvider);
       final analytics = ref.watch(analyticsServiceProvider);
-      return YorksV1ProtectedReadCoordinator<YorksV1ArrangementWorkspace>(
-        onObservation: (observation) => analytics.capture(
-          AnalyticsEvent.protectedReadCoordinated,
-          properties: {
-            AnalyticsProperty.operation: 'procurement_workspace_load',
-            AnalyticsProperty.workflow: 'procurement',
-            AnalyticsProperty.outcome: observation.outcome,
-            AnalyticsProperty.loadTrigger: observation.trigger,
-            AnalyticsProperty.coalesced: observation.coalesced,
-            AnalyticsProperty.cacheState: observation.cacheState,
-            AnalyticsProperty.requestGeneration: observation.generation,
-            AnalyticsProperty.visibilityState: observation.visibilityState,
-          },
-        ),
-      );
+      final coordinator =
+          YorksV1ProtectedReadCoordinator<YorksV1ArrangementWorkspace>(
+            retryDelays: const [Duration(milliseconds: 350)],
+            onObservation: (observation) => analytics.capture(
+              AnalyticsEvent.protectedReadCoordinated,
+              properties: {
+                AnalyticsProperty.operation: 'procurement_workspace_load',
+                AnalyticsProperty.workflow: 'procurement',
+                AnalyticsProperty.outcome: observation.outcome,
+                AnalyticsProperty.loadTrigger: observation.trigger,
+                AnalyticsProperty.coalesced: observation.coalesced,
+                AnalyticsProperty.cacheState: observation.cacheState,
+                AnalyticsProperty.requestGeneration: observation.generation,
+                AnalyticsProperty.visibilityState: observation.visibilityState,
+              },
+            ),
+          );
+      ref.onCancel(coordinator.pause);
+      ref.onResume(coordinator.resume);
+      ref.onDispose(coordinator.dispose);
+      return coordinator;
     });
 
 /// Ordinary engineering readers use the already-authorized controlled

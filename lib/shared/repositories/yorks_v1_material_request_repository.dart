@@ -634,7 +634,14 @@ class YorksV1SupabaseMaterialRequestRepository
     );
     final operation = _analytics.beginOperation(
       'material_request_decide',
-      properties: const {AnalyticsProperty.workflow: 'material_request'},
+      properties: {
+        AnalyticsProperty.workflow: 'material_request',
+        AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+          'v1_decide_material_request',
+          input.idempotencyKey,
+        ),
+        AnalyticsProperty.commandPhase: 'transport',
+      },
     );
     try {
       final response = await _invoke(

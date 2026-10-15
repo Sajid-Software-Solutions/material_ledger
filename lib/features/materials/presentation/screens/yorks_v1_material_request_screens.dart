@@ -29,6 +29,7 @@ import '../../../../shared/models/yorks_v1_configuration.dart';
 import '../../../../shared/models/yorks_v1_arrangement_strings.dart';
 import '../../../../shared/models/yorks_v1_arrangement.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
@@ -233,20 +234,42 @@ class _ProjectMaterialRequestsScreen extends ConsumerWidget {
           )
         : localDraftNotice;
     if (phase2Repository != null) {
+      final summaryReads = ref.watch(
+        yorksV1MaterialRequestSummaryReadCoordinatorProvider,
+      );
+      final registerReads = ref.watch(
+        yorksV1MaterialRegisterReadCoordinatorProvider,
+      );
+      final operationsReads = ref.watch(
+        yorksV1MaterialRequestOperationsReadCoordinatorProvider,
+      );
       final body = SafeArea(
         top: false,
         child: YorksV1MaterialRequestCentre(
-          key: ValueKey<int?>(permissionState.snapshot?.revision),
+          key: ValueKey((
+            ownerAuthUserId,
+            role,
+            permissionState.snapshot?.revision,
+            permissionState.snapshot?.user.isActive,
+          )),
           requests: const [],
           language: language,
           canCreate: canCreate,
           canCreateCompany:
               companyRequestsEnabled && projectId == null && !embedded,
           fixedProjectId: projectId,
-          summaryPageLoader: phase2Repository.listRequestSummaries,
+          summaryPageLoader: (query) => summaryReads.load(
+            key: jsonEncode(query.toRpcParameters()),
+            read: () => phase2Repository.listRequestSummaries(query),
+          ),
           registerPageLoader: unifiedRegisterEnabled
-              ? (repository as YorksV1UnifiedMaterialRequestRegisterRepository)
-                    .listMaterialRegister
+              ? (query) => registerReads.load(
+                  key: yorksV1MaterialRegisterReadKey(query),
+                  read: () =>
+                      (repository
+                              as YorksV1UnifiedMaterialRequestRegisterRepository)
+                          .listMaterialRegister(query),
+                )
               : null,
           onOpenCompany: (id) async {
             await context.push(
@@ -255,8 +278,11 @@ class _ProjectMaterialRequestsScreen extends ConsumerWidget {
           },
           operationsDashboardLoader: operationsRepository == null
               ? null
-              : (projectId) => operationsRepository.getOperationsDashboard(
-                  projectId: projectId,
+              : (projectId) => operationsReads.load(
+                  key: projectId ?? 'organization',
+                  read: () => operationsRepository.getOperationsDashboard(
+                    projectId: projectId,
+                  ),
                 ),
           refreshRevision: refreshRevision,
           onCreate: createAccess.canWrite
@@ -3057,13 +3083,42 @@ class YorksV1MaterialRequestDetailScreen extends ConsumerWidget {
             projectId: value.projectId,
           ),
           language: language,
-          child: _RequestDetailBody(
-            request: value,
-            language: language,
-            showPageHeader: !compactRoute,
-            commentId: commentId,
-            onRefresh: () =>
-                yorksV1InvalidateMaterialRequestDetail(ref, requestId),
+          child: Column(
+            children: [
+              if (ref
+                  .watch(yorksV1MaterialRequestDetailReadCoordinatorProvider)
+                  .isStale(requestId))
+                MaterialBanner(
+                  key: const ValueKey('material-request-stale-read-notice'),
+                  leading: const Icon(Icons.cloud_off_outlined),
+                  content: _CopyText(
+                    copy: YorksV1MaterialRequestStrings.showingLastKnownData,
+                    language: language,
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => yorksV1InvalidateMaterialRequestDetail(
+                        ref,
+                        requestId,
+                      ),
+                      child: _CopyText(
+                        copy: YorksV1MaterialRequestStrings.tryAgain,
+                        language: language,
+                      ),
+                    ),
+                  ],
+                ),
+              Expanded(
+                child: _RequestDetailBody(
+                  request: value,
+                  language: language,
+                  showPageHeader: !compactRoute,
+                  commentId: commentId,
+                  onRefresh: () =>
+                      yorksV1InvalidateMaterialRequestDetail(ref, requestId),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -11858,6 +11913,18 @@ class _RequestDetailBody extends ConsumerWidget {
       yorksV1InvalidateMaterialRequestDetail(ref, request.id);
       ref.invalidate(yorksV1MaterialRequestListProvider);
       _snack(context, YorksV1MaterialRequestStrings.cancelled.primary);
+    } on YorksV1CommittedViewUnavailable {
+      if (context.mounted) {
+        yorksV1InvalidateMaterialRequestDetail(ref, request.id);
+        _snack(
+          context,
+          YorksV1MaterialRequestStrings.commandCommittedViewUnavailable.primary,
+        );
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (context.mounted) {
+        _snack(context, YorksV1MaterialRequestStrings.commandUnknown.primary);
+      }
     } on YorksV1DomainException catch (error) {
       if (context.mounted) {
         _snack(
@@ -11890,6 +11957,18 @@ class _RequestDetailBody extends ConsumerWidget {
       if (!context.mounted) return;
       _refreshWorkflow(ref, request);
       _snack(context, YorksV1MaterialRequestStrings.requestClosed.primary);
+    } on YorksV1CommittedViewUnavailable {
+      if (context.mounted) {
+        yorksV1InvalidateMaterialRequestDetail(ref, request.id);
+        _snack(
+          context,
+          YorksV1MaterialRequestStrings.commandCommittedViewUnavailable.primary,
+        );
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (context.mounted) {
+        _snack(context, YorksV1MaterialRequestStrings.commandUnknown.primary);
+      }
     } on YorksV1DomainException catch (error) {
       if (context.mounted) {
         _snack(
@@ -12938,6 +13017,39 @@ class _RequestApprovalActionsState
     extends ConsumerState<_RequestApprovalActions> {
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_restoreDecision);
+  }
+
+  @override
+  void didUpdateWidget(covariant _RequestApprovalActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.request.id != widget.request.id) {
+      Future.microtask(_restoreDecision);
+    }
+  }
+
+  Future<void> _restoreDecision() async {
+    if (!mounted) return;
+    final requestId = widget.request.id;
+    try {
+      final request = await ref
+          .read(yorksV1MaterialWorkflowCommandControllerProvider)
+          .restoreDecisionStatus(requestId);
+      if (mounted && widget.request.id == requestId && request != null) {
+        yorksV1InvalidateMaterialRequestDetail(ref, requestId);
+      }
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted && widget.request.id == requestId) {
+        yorksV1InvalidateMaterialRequestDetail(ref, requestId);
+      }
+    } catch (_) {
+      // Status stays unknown; the visible manual status action remains available.
+    }
+  }
+
   Future<void> _toggleProcurement(bool value) async {
     if (_busy) return;
     final repository = ref.read(yorksV1MaterialRequestRepositoryProvider);
@@ -12978,7 +13090,27 @@ class _RequestApprovalActionsState
   @override
   Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
+    final phase = ref.watch(yorksV1CommandPhaseProvider(widget.request.id));
+    final checking = phase == YorksV1CommandPhase.checking;
+    final unresolved = checking || phase == YorksV1CommandPhase.unknown;
     final actions = <Widget>[
+      if (unresolved)
+        Semantics(
+          liveRegion: true,
+          child: Text(
+            checking
+                ? YorksV1MaterialRequestStrings.commandChecking.primary
+                : YorksV1MaterialRequestStrings.commandUnknown.primary,
+            key: const ValueKey('request-command-status'),
+          ),
+        ),
+      if (phase == YorksV1CommandPhase.unknown)
+        TextButton(
+          onPressed: _busy ? null : _checkDecision,
+          child: Text(
+            YorksV1MaterialRequestStrings.checkSubmissionStatus.primary,
+          ),
+        ),
       if (widget.showEdit &&
           (widget.request.canEditBeforeApproval ||
               widget.request.canEditPostApproval ||
@@ -13057,7 +13189,7 @@ class _RequestApprovalActionsState
           label: YorksV1MaterialRequestStrings.approveForProcurement.primary,
           icon: Icons.verified_rounded,
           primary: true,
-          onPressed: _busy || !widget.canApprove
+          onPressed: _busy || unresolved || !widget.canApprove
               ? null
               : () => _decide(YorksV1MaterialRequestReviewDecision.approved),
         ),
@@ -13065,7 +13197,7 @@ class _RequestApprovalActionsState
         _RecordActionButton(
           label: YorksV1MaterialRequestStrings.returnForChanges.primary,
           icon: Icons.reply_rounded,
-          onPressed: _busy || !widget.canReturnForChanges
+          onPressed: _busy || unresolved || !widget.canReturnForChanges
               ? null
               : () => _decide(YorksV1MaterialRequestReviewDecision.returned),
         ),
@@ -13196,6 +13328,32 @@ class _RequestApprovalActionsState
     }
   }
 
+  Future<void> _checkDecision() async {
+    setState(() => _busy = true);
+    try {
+      final result = await ref
+          .read(yorksV1MaterialWorkflowCommandControllerProvider)
+          .checkDecisionStatus(widget.request.id);
+      if (result != null && mounted) {
+        yorksV1InvalidateMaterialRequestDetail(ref, widget.request.id);
+      }
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        _snack(
+          context,
+          YorksV1MaterialRequestStrings.commandCommittedViewUnavailable.primary,
+        );
+        yorksV1InvalidateMaterialRequestDetail(ref, widget.request.id);
+      }
+    } catch (_) {
+      if (mounted) {
+        _snack(context, YorksV1MaterialRequestStrings.commandUnknown.primary);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _decide(YorksV1MaterialRequestReviewDecision decision) async {
     String? reason;
     if (decision == YorksV1MaterialRequestReviewDecision.returned) {
@@ -13276,6 +13434,18 @@ class _RequestApprovalActionsState
           );
       yorksV1InvalidateMaterialRequestDetail(ref, widget.request.id);
       ref.invalidate(yorksV1MaterialRequestListProvider);
+    } on YorksV1CommittedViewUnavailable catch (_) {
+      if (mounted) {
+        _snack(
+          context,
+          YorksV1MaterialRequestStrings.commandCommittedViewUnavailable.primary,
+        );
+        yorksV1InvalidateMaterialRequestDetail(ref, widget.request.id);
+      }
+    } on YorksV1CommandOutcomeUnknown catch (_) {
+      if (mounted) {
+        _snack(context, YorksV1MaterialRequestStrings.commandUnknown.primary);
+      }
     } on YorksV1DomainException catch (error) {
       if (mounted) {
         _snack(

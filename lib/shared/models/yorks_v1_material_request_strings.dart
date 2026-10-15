@@ -7,6 +7,31 @@ import 'yorks_v1_project_strings.dart';
 /// Centralized bilingual-capable presentation copy for the Yorks V1 Material
 /// Request slice. Domain and database layers use stable codes, never this copy.
 abstract final class YorksV1MaterialRequestStrings {
+  static const commandChecking = TranslatableString(
+    en: 'Checking whether the action completed…',
+    ar: 'جارٍ التحقق من اكتمال الإجراء…',
+    ur: 'کارروائی مکمل ہونے کی جانچ جاری ہے…',
+    hi: 'कार्रवाई पूरी हुई या नहीं, जाँच जारी है…',
+  );
+  static const commandUnknown = TranslatableString(
+    en: 'The result is not confirmed yet. Your details are preserved. Check status before trying again.',
+    ar: 'لم يتم تأكيد النتيجة بعد. تم حفظ تفاصيلك. تحقق من الحالة قبل المحاولة مجددًا.',
+    ur: 'نتیجے کی تصدیق نہیں ہوئی۔ تفصیلات محفوظ ہیں۔ دوبارہ کوشش سے پہلے حالت دیکھیں۔',
+    hi: 'परिणाम की पुष्टि नहीं हुई है। विवरण सुरक्षित हैं। दोबारा कोशिश से पहले स्थिति जाँचें।',
+  );
+  static const commandCommittedViewUnavailable = TranslatableString(
+    en: 'Action completed. The latest view could not be refreshed yet.',
+    ar: 'اكتمل الإجراء. تعذّر تحديث العرض الأخير بعد.',
+    ur: 'کارروائی مکمل ہوگئی۔ تازہ منظر ابھی لوڈ نہیں ہوسکا۔',
+    hi: 'कार्रवाई पूरी हुई। नवीनतम दृश्य अभी रीफ़्रेश नहीं हो सका।',
+  );
+
+  static const showingLastKnownData = TranslatableString(
+    en: 'Showing the last available data. The latest view could not be refreshed.',
+    ar: 'تُعرض آخر بيانات متاحة. تعذر تحديث العرض الأحدث.',
+    ur: 'آخری دستیاب معلومات دکھائی جا رہی ہیں۔ تازہ منظر اپ ڈیٹ نہیں ہو سکا۔',
+    hi: 'पिछली उपलब्ध जानकारी दिखाई जा रही है। नया दृश्य अपडेट नहीं हो सका।',
+  );
   static const recoveryAddedLine = TranslatableString(
     en: 'Added line',
     ar: 'بند مضاف',

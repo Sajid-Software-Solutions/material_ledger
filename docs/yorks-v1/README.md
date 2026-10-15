@@ -105,6 +105,7 @@ explicit V7-to-V1 conflict resolution.
 | [`TEST_AND_ACCEPTANCE_PLAN.md`](TEST_AND_ACCEPTANCE_PLAN.md) | Canonical scenarios, R39 phase gates and platform/security evidence |
 | [`YORKS_PERFORMANCE_REVIEW.md`](YORKS_PERFORMANCE_REVIEW.md) | Measured production performance findings, incremental fixes, release evidence and remaining attribution |
 | [`MR_READ_RELIABILITY_REMEDIATION_20261005.md`](MR_READ_RELIABILITY_REMEDIATION_20261005.md) | Android/PWA MR timeout evidence, client read coalescing, targeted invalidation, staging profile and rollout boundary |
+| [`P0_OUTCOME_RELIABILITY_20261015.md`](P0_OUTCOME_RELIABILITY_20261015.md) | Exact command outcomes, bounded recovery, approval archival contention, protected-read performance, staging evidence and authorized production release record |
 | [`COMBINED_PRODUCTION_RELEASE_20261006.md`](COMBINED_PRODUCTION_RELEASE_20261006.md) | Verified combined project setup/MR production release, source inclusion, artifact and guard mapping, rollback and remaining observation gates |
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | Dependency-ordered Batches 0–10 |
 | [`BATCH_00_COMPLETION.md`](BATCH_00_COMPLETION.md) | Re-baseline changes, verification and known blockers |
