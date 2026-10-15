@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-15",
+  "source": "dd127acf1000c79a20a578a0c651644f15905f86",
+  "branch": "codex/p0-truthful-command-outcomes-20261015",
+  "environment": "local and CI-only builds",
+  "deployed": false,
+  "analyzerIssues": 0,
+  "flutter": {
+    "passed": 2808,
+    "skipped": 4
+  },
+  "database": {
+    "assertions": 4638,
+    "files": 137,
+    "cleanReset": true
+  },
+  "web": {
+    "mainBytes": 9991746,
+    "startupGzipBytes": 2876788,
+    "startupGzipLimit": 2900000
+  },
+  "apk": {
+    "megabytes": 113.6,
+    "signing": "ephemeral CI verification only"
+  },
+  "migrations": [
+    "20261015143625_renew_expired_document_upload_intents",
+    "20261015143651_material_workflow_receipt_first_view_hydration"
+  ],
+  "limits": [
+    "No fresh production failure reproduction",
+    "No additional staging or production deployment",
+    "No physical browser/device failure injection",
+    "Distinct competing replacement intents retain existing explicit version conflicts"
+  ]
+}

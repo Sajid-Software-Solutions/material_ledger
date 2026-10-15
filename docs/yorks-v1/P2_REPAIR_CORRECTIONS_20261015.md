@@ -1,6 +1,7 @@
 # P0 release review corrections — 15 October 2026
 
-Status: corrections in progress; no additional production release is claimed.
+Status: **implemented and verified locally; pushed for review; no additional
+staging or production release**.
 
 ## Ownership
 
@@ -120,7 +121,32 @@ receipt with a null optional response and retain their degraded-refresh path.
   cover exhausted automatic checks, another offline manual read, reconnect and
   confirmation without a new mutation or parent rebuild.
 
-Final whole-client and build gates will be recorded after the last UI review
-corrections. New SQL has been applied only to the local test database. No new
-staging or production deployment belongs to these corrections. Source commits
-and evidence will be pushed on the same repair branch for review.
+Final source: `dd127acf1000c79a20a578a0c651644f15905f86`, following the loader
+removal commit `125e98e`, on the same repair branch. A later documentation-only
+commit records verification; it is not a different compiled application source.
+
+| Final gate | Result |
+|---|---|
+| Dependency resolution and changed-file formatting | Passed; no formatting changes |
+| Whole `flutter analyze` | Passed; zero issues |
+| Whole `flutter test --no-pub --concurrency=2` | **2,808 passed**, four retained skips |
+| Clean local `supabase db reset` and `supabase test db` | **4,638 assertions / 137 files passed** |
+| CI web build and startup budget | Passed; main 9,991,746 bytes; startup gzip **2,876,788 / 2,900,000 bytes** |
+| CI ephemeral-signed APK build | Passed; **113.6 MB**; verification artifact, not a native distribution release |
+
+The final review also verified pending approval controls after an exact-role
+phase reset, explicit arrangement refresh after receipt-only confirmation, and
+failed local cleanup followed by a preferences reload. Confirmed commands stay
+out of pending UI while their on-disk evidence remains available for recovery
+after a restart. The final narrow review suite passed 31 tests.
+
+Retained [verification metadata](evidence/p2-corrections-20261015/verification.json)
+and [independent-session race results](evidence/p2-corrections-20261015/upload-renewal-race.json)
+identify the tested source and scope. These tests are local deterministic and
+synthetic evidence, not fresh production or physical-browser reproductions.
+
+New SQL has been applied only to the local test database. No additional staging
+or production deployment belongs to these corrections. Apply both migrations
+before deploying the matching client. Preserve receipt-first lookup during any
+client rollback; the optional view may degrade independently. Upload intents,
+original keys, objects, receipts, versions and audit history must remain intact.
