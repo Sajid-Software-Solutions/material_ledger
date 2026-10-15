@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(11);
+select plan(12);
 
 select ok(
   has_function_privilege(
@@ -131,7 +131,21 @@ select is(
   'rental_property',
   'The upload intent retains the exact rental property target'
 );
+create temporary table rental_resume_intent as
+select id from public.v1_document_upload_intents
+where idempotency_key='84100000-0000-4000-8000-000000000004';
+grant select on rental_resume_intent to authenticated;
+update public.v1_document_upload_intents
+set created_at=clock_timestamp()-interval '16 minutes',
+    expires_at=clock_timestamp()-interval '1 minute'
+where id=(select id from rental_resume_intent);
 set local role authenticated;
+select is(
+  public.v1_resume_document_upload((select id from rental_resume_intent),
+    '84100000-0000-4000-8000-000000000004')->>'upload_intent_id',
+  (select id::text from rental_resume_intent),
+  'Admin renews the same expired commercial rental intent without forging project scope'
+);
 
 select lives_ok(
   $$select public.v1_prepare_rental_document_upload(

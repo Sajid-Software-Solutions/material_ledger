@@ -1,0 +1,21 @@
+{
+  "upload_renewal_independent_sessions": "PASS",
+  "cases": [
+    {
+      "first_lock_holder": "resume",
+      "competing_wait": "Lock|1",
+      "document_versions": 1,
+      "finalization_audits": 1
+    },
+    {
+      "first_lock_holder": "finalize",
+      "competing_wait": "Lock|1",
+      "document_versions": 1,
+      "finalization_audits": 1
+    },
+    {
+      "competing_resumers": "same original intent and expiry",
+      "created_version": null
+    }
+  ]
+}

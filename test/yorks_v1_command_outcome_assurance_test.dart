@@ -393,6 +393,65 @@ void main() {
       expect(prefs.getKeys(), isEmpty);
     },
   );
+  test(
+    'acknowledged cleanup failure and reload cannot restore an unknown panel lease',
+    () async {
+      final platform = _FailingStore();
+      SharedPreferencesStorePlatform.instance = platform;
+      final prefs = await SharedPreferences.getInstance();
+      var serial = 0;
+      final store = YorksV1CriticalCommandKeyStore(
+        preferences: prefs,
+        actorAuthUserId: 'actor',
+        uuidFactory: () => 'key-${serial++}',
+      );
+      for (final operation in [
+        'close_material_request',
+        'save_arrangement',
+        'dispatch_materials',
+      ]) {
+        final entity = operation == 'save_arrangement' ? 'arrangement' : 'mr';
+        final key = await store.acquire(
+          operation: operation,
+          entityId: entity,
+          payload: const {'request_id': 'mr'},
+          trackSendState: true,
+        );
+        await store.markDispatched(operation, entity, key);
+        platform.rejectRemove = true;
+        await store.confirm(
+          operation: operation,
+          entityId: entity,
+          idempotencyKey: key,
+        );
+        await prefs.reload();
+        expect(
+          store.pendingKey(operation, entity),
+          key,
+          reason: 'Durable recovery evidence stays on disk',
+        );
+        expect(store.hasPendingDispatch(operation, entity), isFalse);
+        expect(store.hasTrackedPendingDispatch(operation, entity), isFalse);
+      }
+      final c = await controller(_Logistics(), _Outcomes(), store: store);
+      expect(
+        c.pendingCommandsForRequest('mr', arrangementIds: ['arrangement']),
+        isEmpty,
+      );
+      // A fresh instance still sees the retained lease and checks its receipt;
+      // this in-memory acknowledgement filter never discards restart evidence.
+      final restarted = YorksV1CriticalCommandKeyStore(
+        preferences: prefs,
+        actorAuthUserId: 'actor',
+        uuidFactory: () => 'different',
+      );
+      expect(
+        restarted.hasPendingDispatch('close_material_request', 'mr'),
+        isTrue,
+      );
+    },
+  );
+
   test('failed dispatched marker is never trusted as a sent request', () async {
     final platform = _FailingStore();
     SharedPreferencesStorePlatform.instance = platform;
@@ -526,7 +585,13 @@ void main() {
 
 class _FailingStore extends InMemorySharedPreferencesStore {
   _FailingStore() : super.empty();
-  bool rejectAll = false, rejectSent = false;
+  bool rejectAll = false, rejectSent = false, rejectRemove = false;
+  @override
+  Future<bool> remove(String key) async {
+    if (rejectRemove) return false;
+    return super.remove(key);
+  }
+
   @override
   Future<bool> setValue(String type, String key, Object value) async {
     if (rejectAll ||

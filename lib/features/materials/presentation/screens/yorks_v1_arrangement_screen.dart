@@ -12,6 +12,8 @@ import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_arrangement.dart';
 import '../../../../shared/models/yorks_v1_arrangement_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/widgets/yorks_v1_material_workflow_recovery_panel.dart';
 import '../../../../shared/models/yorks_v1_inventory_strings.dart';
 import '../../../../shared/models/yorks_v1_inventory_workbook.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
@@ -162,6 +164,18 @@ class YorksV1ArrangementScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
+              ),
+              YorksV1MaterialWorkflowRecoveryPanel(
+                requestId: requestId,
+                language: language,
+                arrangementIds: [
+                  for (final item in value.arrangements) item.id,
+                ],
+                onConfirmed: () {
+                  yorksV1InvalidateArrangementWorkspace(ref, requestId);
+                  yorksV1InvalidateMaterialRequestDetail(ref, requestId);
+                  ref.invalidate(yorksV1MaterialRequestListProvider);
+                },
               ),
               Expanded(child: content),
             ],
@@ -820,6 +834,20 @@ class _BeginArrangementActionState
       yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
       ref.invalidate(yorksV1MaterialRequestListProvider);
       _idempotencyKey = const Uuid().v4();
+    } on YorksV1CommittedViewUnavailable {
+      yorksV1InvalidateArrangementWorkspace(ref, widget.workspace.requestId);
+      yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
+      ref.invalidate(yorksV1MaterialRequestListProvider);
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.active(
+            widget.language,
+          ),
+          tone: YorksAppToastTone.information,
+        );
+      }
     } on YorksV1DomainException catch (error) {
       if (mounted) _showFailure(context, error);
       return;
@@ -3799,6 +3827,20 @@ class _MobileArrangementDecisionViewState
       } else {
         _returnIdempotencyKey = const Uuid().v4();
       }
+    } on YorksV1CommittedViewUnavailable {
+      yorksV1InvalidateArrangementWorkspace(ref, widget.workspace.requestId);
+      yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
+      ref.invalidate(yorksV1MaterialRequestListProvider);
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.active(
+            widget.language,
+          ),
+          tone: YorksAppToastTone.information,
+        );
+      }
     } on YorksV1DomainException catch (error) {
       if (mounted) _showFailure(context, error);
     } catch (_) {
@@ -6284,6 +6326,20 @@ class _DecisionActionsState extends ConsumerState<_DecisionActions> {
         _approveIdempotencyKey = const Uuid().v4();
       } else {
         _returnIdempotencyKey = const Uuid().v4();
+      }
+    } on YorksV1CommittedViewUnavailable {
+      yorksV1InvalidateArrangementWorkspace(ref, widget.workspace.requestId);
+      yorksV1InvalidateMaterialRequestDetail(ref, widget.workspace.requestId);
+      ref.invalidate(yorksV1MaterialRequestListProvider);
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.active(
+            widget.language,
+          ),
+          tone: YorksAppToastTone.information,
+        );
       }
     } on YorksV1DomainException catch (error) {
       if (mounted) _showFailure(context, error);

@@ -385,6 +385,22 @@ match the request's one persisted Common/building scope at save and submit.
 | `admin_restricted` | Admin |
 | Team Chat attachment | Current active conversation membership plus any current project/MR context access; object must be bound to an append-only message after server verification |
 
+Upload recovery uses `v1_resume_document_upload` with the original actor-owned
+intent ID and idempotency key. The RPC shares the finalizer's intent row lock,
+rechecks the current exact role, active actor, target/classification and document
+write authority, and extends only an expired, uncommitted intent. It preserves
+the key, path, planned revision and metadata. A finalized intent returns its
+existing readable receipt without renewal; an occupied replacement revision
+returns a conflict without silently appending a new revision.
+
+Generic workflow status reads use `v1_get_material_workflow_command_outcome` to
+return the exact actor/key/command receipt after current entity readability
+checks. Optional current screen data is read separately through
+`v1_get_material_workflow_command_view`, which repeats those authorization
+checks. Neither RPC replays historical commercial response data. Manual status
+reads remain available after the automatic budget stops and cannot replay a
+mutation or allocate a replacement key.
+
 Upload uses a short-lived authorized path/operation. The final document row and
 link are committed by a trusted function after object metadata/hash validation.
 Object-path guessing never grants read.

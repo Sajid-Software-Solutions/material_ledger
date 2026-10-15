@@ -126,7 +126,19 @@ class YorksV1CriticalCommandKeyStore {
     );
     return pending != null &&
         pending.dispatched != false &&
-        !_knownNotSent.contains(pending.idempotencyKey);
+        !_knownNotSent.contains(pending.idempotencyKey) &&
+        !_acknowledged.contains(pending.idempotencyKey);
+  }
+
+  /// New generic commands persist a send marker. Prepared Procurement commands
+  /// own a separate recovery surface and intentionally do not create this flag.
+  bool hasTrackedPendingDispatch(String operation, String entityId) {
+    final pending = _decode(
+      _preferences.getString(_storageKey(operation, entityId)),
+    );
+    return pending?.dispatched == true &&
+        !_knownNotSent.contains(pending!.idempotencyKey) &&
+        !_acknowledged.contains(pending.idempotencyKey);
   }
 
   Future<bool> wasDispatched(

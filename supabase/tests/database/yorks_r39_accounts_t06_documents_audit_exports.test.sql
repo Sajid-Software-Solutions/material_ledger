@@ -196,6 +196,11 @@ select 'admin_prepare',public.v1_prepare_accounts_document_upload(
 );
 
 reset role;
+update public.v1_document_upload_intents
+set created_at=clock_timestamp()-interval '16 minutes',
+    expires_at=clock_timestamp()-interval '1 minute'
+where id=(select (payload->>'upload_intent_id')::uuid
+  from v1_r39_t06_results where result_key='admin_prepare');
 insert into v1_r39_t06_results(result_key,payload)
 select 'prepare_metadata',jsonb_build_object(
   'captured',exists(select 1
@@ -210,6 +215,15 @@ select set_config(
   'request.jwt.claims',
   '{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',
   true
+);
+select is(
+  public.v1_resume_document_upload(
+    (select (payload->>'upload_intent_id')::uuid
+      from v1_r39_t06_results where result_key='admin_prepare'),
+    '39690000-0000-4000-8000-000000000004')->>'upload_intent_id',
+  (select payload->>'upload_intent_id'
+    from v1_r39_t06_results where result_key='admin_prepare'),
+  'An authorized Accounts upload renews its original expired commercial intent'
 );
 select ok(
   (select payload->>'bucket_id'='yorks-documents'

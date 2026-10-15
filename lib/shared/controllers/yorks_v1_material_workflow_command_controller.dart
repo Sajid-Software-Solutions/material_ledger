@@ -14,6 +14,19 @@ import '../repositories/yorks_v1_logistics_repository.dart';
 import '../repositories/yorks_v1_material_request_repository.dart';
 import '../services/yorks_v1_critical_command_key_store.dart';
 
+/// An existing opaque command lease in this request's known entity scope.
+/// It contains no saved business payload and can only be checked, never replayed.
+class YorksV1PendingWorkflowCommand {
+  const YorksV1PendingWorkflowCommand({
+    required this.operation,
+    required this.entityId,
+    required this.requestId,
+  });
+  final String operation;
+  final String entityId;
+  final String requestId;
+}
+
 /// Presentation-facing boundary for critical Material Request transitions.
 ///
 /// Widgets supply typed intent only. This controller owns persistent retry
@@ -54,6 +67,189 @@ class YorksV1MaterialWorkflowCommandController {
   final Map<String, Future<Object?>> _inFlight = {};
   final Map<String, String> _activePayloads = {};
   final Map<String, Future<YorksV1MaterialRequest?>> _decisionRestores = {};
+  final Map<String, Future<YorksV1WorkflowCommandOutcome>> _manualChecks = {};
+
+  bool hasPendingCommand(String operation, String entityId) =>
+      _commandName(operation) != null &&
+      _commandKeys.hasPendingDispatch(operation, entityId);
+
+  /// Enumerates only existing leases belonging to the currently readable
+  /// request and its known arrangement/dispatch identities. Prepared Procurement
+  /// saves and dispatches retain their dedicated recovery panel and budget.
+  List<YorksV1PendingWorkflowCommand> pendingCommandsForRequest(
+    String requestId, {
+    Iterable<String> arrangementIds = const [],
+    Iterable<String> dispatchIds = const [],
+  }) => [
+    for (final operation in const [
+      'decide_material_request_approved',
+      'decide_material_request_returned',
+      'begin_arrangement',
+      'cancel_material_request',
+      'close_material_request',
+    ])
+      if (hasPendingCommand(operation, requestId))
+        YorksV1PendingWorkflowCommand(
+          operation: operation,
+          entityId: requestId,
+          requestId: requestId,
+        ),
+    if (_commandKeys.hasTrackedPendingDispatch('dispatch_materials', requestId))
+      YorksV1PendingWorkflowCommand(
+        operation: 'dispatch_materials',
+        entityId: requestId,
+        requestId: requestId,
+      ),
+    for (final id in arrangementIds.toSet())
+      if (_commandKeys.hasTrackedPendingDispatch('save_arrangement', id))
+        YorksV1PendingWorkflowCommand(
+          operation: 'save_arrangement',
+          entityId: id,
+          requestId: requestId,
+        ),
+    for (final id in arrangementIds.toSet())
+      for (final operation in const [
+        'decide_arrangement_approved',
+        'decide_arrangement_returned',
+      ])
+        if (hasPendingCommand(operation, id))
+          YorksV1PendingWorkflowCommand(
+            operation: operation,
+            entityId: id,
+            requestId: requestId,
+          ),
+    for (final id in dispatchIds.toSet())
+      for (final operation in const [
+        'confirm_receipt',
+        'generate_delivery_order',
+      ])
+        if (hasPendingCommand(operation, id))
+          YorksV1PendingWorkflowCommand(
+            operation: operation,
+            entityId: id,
+            requestId: requestId,
+          ),
+  ];
+
+  /// An explicit read of the original key. Automatic retry limits never apply
+  /// to this user action, and no payload or replacement key is reconstructed.
+  Future<YorksV1CommandReceipt?> checkCommandStatus(
+    YorksV1PendingWorkflowCommand pending,
+  ) async {
+    final key = _commandKeys.pendingKey(pending.operation, pending.entityId);
+    if (key == null ||
+        !hasPendingCommand(pending.operation, pending.entityId)) {
+      return null;
+    }
+    final result = await _manualOutcome(
+      pending.operation,
+      pending.entityId,
+      pending.requestId,
+      key,
+    );
+    return result.receipt;
+  }
+
+  Future<YorksV1WorkflowCommandOutcome> _manualOutcome(
+    String operation,
+    String entityId,
+    String requestId,
+    String key,
+  ) {
+    final identity = '$operation:$entityId:$key';
+    return _manualChecks.putIfAbsent(identity, () async {
+      try {
+        return await _lookupOriginalOutcome(
+          operation,
+          entityId,
+          requestId,
+          key,
+        );
+      } finally {
+        _manualChecks.remove(identity);
+      }
+    });
+  }
+
+  Future<YorksV1WorkflowCommandOutcome> _lookupOriginalOutcome(
+    String operation,
+    String entityId,
+    String requestId,
+    String key,
+  ) async {
+    final command = _commandName(operation);
+    if (command == null) throw ArgumentError.value(operation, 'operation');
+    if (_isCurrentAuthority?.call() == false) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.unauthenticated,
+      );
+    }
+    _emit(command, key, entityId, YorksV1CommandPhase.checking);
+    try {
+      final result = await _outcomes?.check(command, key);
+      if (_isCurrentAuthority?.call() == false) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unauthenticated,
+        );
+      }
+      final receipt = result?.receipt;
+      if (result?.confirmed == true &&
+          receipt != null &&
+          receipt.commandKey == key &&
+          receipt.commandName == command &&
+          receipt.entityId == requestId) {
+        _emit(command, key, entityId, YorksV1CommandPhase.confirmed);
+        await _retire(operation, entityId, key);
+        if (_isCurrentAuthority?.call() == false) {
+          throw const YorksV1DomainException(
+            YorksV1DomainErrorCode.unauthenticated,
+          );
+        }
+        return result!;
+      }
+    } on YorksV1DomainException catch (error) {
+      if (error.code == YorksV1DomainErrorCode.unauthenticated) rethrow;
+    } catch (_) {
+      // An unavailable read never establishes that the original command failed.
+    }
+    _emit(command, key, entityId, YorksV1CommandPhase.unknown);
+    throw YorksV1CommandOutcomeUnknown(key);
+  }
+
+  Future<T> _loadConfirmedView<T>(
+    YorksV1WorkflowCommandOutcome outcome,
+    String operation,
+    String entityId,
+    String requestId,
+    String key,
+  ) async {
+    try {
+      final response = await outcome.loadResponse();
+      if (_isCurrentAuthority?.call() == false) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unauthenticated,
+        );
+      }
+      if (response == null ||
+          (response['request_id'] ?? response['id']) != requestId) {
+        throw StateError('view_unavailable');
+      }
+      return _decode<T>(response);
+    } catch (error) {
+      if (_isCurrentAuthority?.call() == false) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unauthenticated,
+        );
+      }
+      _emit(
+        _commandName(operation)!,
+        key,
+        entityId,
+        YorksV1CommandPhase.confirmedViewUnavailable,
+      );
+      throw YorksV1CommittedViewUnavailable(outcome.receipt!, cause: error);
+    }
+  }
 
   void _emit(
     String operation,
@@ -172,74 +368,24 @@ class YorksV1MaterialWorkflowCommandController {
   }
 
   Future<YorksV1MaterialRequest?> checkDecisionStatus(String requestId) async {
-    final outcomes = _outcomes;
-    if (outcomes == null) return null;
+    if (_outcomes == null) return null;
     for (final decision in ['approved', 'returned']) {
       final operation = 'decide_material_request_$decision';
       final key = _commandKeys.pendingKey(operation, requestId);
       if (key == null) continue;
-      _emit(
-        'v1_decide_material_request',
-        key,
+      final outcome = await _manualOutcome(
+        operation,
         requestId,
-        YorksV1CommandPhase.checking,
-      );
-      try {
-        final result = await outcomes.check('v1_decide_material_request', key);
-        if (_isCurrentAuthority?.call() == false) {
-          throw const YorksV1DomainException(
-            YorksV1DomainErrorCode.unauthenticated,
-          );
-        }
-        if (result.confirmed) {
-          final receipt = result.receipt;
-          if (receipt == null ||
-              receipt.entityId != requestId ||
-              receipt.commandKey != key ||
-              receipt.commandName != 'v1_decide_material_request') {
-            throw const YorksV1DomainException(
-              YorksV1DomainErrorCode.unexpectedResponse,
-            );
-          }
-          await _retire(operation, requestId, key);
-          YorksV1MaterialRequest request;
-          try {
-            final response = result.response;
-            if (response == null || response['id'] != requestId) {
-              throw StateError('view_unavailable');
-            }
-            request = YorksV1MaterialRequest.fromRpcJson(response);
-          } catch (error) {
-            _emit(
-              'v1_decide_material_request',
-              key,
-              requestId,
-              YorksV1CommandPhase.confirmedViewUnavailable,
-            );
-            throw YorksV1CommittedViewUnavailable(receipt, cause: error);
-          }
-          _emit(
-            'v1_decide_material_request',
-            key,
-            requestId,
-            YorksV1CommandPhase.confirmed,
-          );
-          return request;
-        }
-      } on YorksV1CommittedViewUnavailable {
-        rethrow;
-      } on YorksV1DomainException catch (error) {
-        if (error.code == YorksV1DomainErrorCode.unauthenticated) rethrow;
-      } catch (_) {
-        /* Never translate an unavailable read into denial. */
-      }
-      _emit(
-        'v1_decide_material_request',
-        key,
         requestId,
-        YorksV1CommandPhase.unknown,
+        key,
       );
-      throw YorksV1CommandOutcomeUnknown(key);
+      return _loadConfirmedView<YorksV1MaterialRequest>(
+        outcome,
+        operation,
+        requestId,
+        requestId,
+        key,
+      );
     }
     return null;
   }
@@ -252,56 +398,21 @@ class YorksV1MaterialWorkflowCommandController {
     String requestId,
     String dispatchId,
   ) async {
-    final outcomes = _outcomes;
     final key = _commandKeys.pendingKey('confirm_receipt', dispatchId);
-    if (outcomes == null || key == null) return null;
-    const command = 'v1_confirm_receipt';
-    _emit(command, key, dispatchId, YorksV1CommandPhase.checking);
-    try {
-      final result = await outcomes.check(command, key);
-      if (_isCurrentAuthority?.call() == false) {
-        throw const YorksV1DomainException(
-          YorksV1DomainErrorCode.unauthenticated,
-        );
-      }
-      if (result.confirmed) {
-        final receipt = result.receipt;
-        if (receipt == null ||
-            receipt.entityId != requestId ||
-            receipt.commandKey != key ||
-            receipt.commandName != command) {
-          throw const YorksV1DomainException(
-            YorksV1DomainErrorCode.unexpectedResponse,
-          );
-        }
-        await _retire('confirm_receipt', dispatchId, key);
-        try {
-          final response = result.response;
-          if (response == null || response['request_id'] != requestId) {
-            throw StateError('view_unavailable');
-          }
-          final workspace = YorksV1LogisticsWorkspace.fromRpcJson(response);
-          _emit(command, key, dispatchId, YorksV1CommandPhase.confirmed);
-          return workspace;
-        } catch (error) {
-          _emit(
-            command,
-            key,
-            dispatchId,
-            YorksV1CommandPhase.confirmedViewUnavailable,
-          );
-          throw YorksV1CommittedViewUnavailable(receipt, cause: error);
-        }
-      }
-    } on YorksV1CommittedViewUnavailable {
-      rethrow;
-    } on YorksV1DomainException catch (error) {
-      if (error.code == YorksV1DomainErrorCode.unauthenticated) rethrow;
-    } catch (_) {
-      // A failed status read does not establish a failed receipt command.
-    }
-    _emit(command, key, dispatchId, YorksV1CommandPhase.unknown);
-    throw YorksV1CommandOutcomeUnknown(key);
+    if (_outcomes == null || key == null) return null;
+    final outcome = await _manualOutcome(
+      'confirm_receipt',
+      dispatchId,
+      requestId,
+      key,
+    );
+    return _loadConfirmedView<YorksV1LogisticsWorkspace>(
+      outcome,
+      'confirm_receipt',
+      dispatchId,
+      requestId,
+      key,
+    );
   }
 
   Future<List<YorksV1MaterialRequestComment>> addMaterialRequestComment(
@@ -591,6 +702,27 @@ class YorksV1MaterialWorkflowCommandController {
     final command = _commandName(operation);
     final prepared = beforeInvoke != null || recoveredIdempotencyKey != null;
     final tracked = !prepared && _outcomes != null && command != null;
+    final pendingKey = tracked
+        ? _commandKeys.pendingKey(operation, entityId)
+        : null;
+    if (pendingKey != null &&
+        await _commandKeys.wasDispatched(operation, entityId, pendingKey)) {
+      // Repeating an action is an explicit status check, even after the durable
+      // automatic budget is exhausted. Never resend or acquire a new key.
+      final outcome = await _manualOutcome(
+        operation,
+        entityId,
+        payload['request_id'] as String,
+        pendingKey,
+      );
+      return _loadConfirmedView<T>(
+        outcome,
+        operation,
+        entityId,
+        payload['request_id'] as String,
+        pendingKey,
+      );
+    }
     final key =
         recoveredIdempotencyKey ??
         await _commandKeys.acquire(
@@ -706,27 +838,15 @@ class YorksV1MaterialWorkflowCommandController {
           _emit(command, key, entityId, YorksV1CommandPhase.unknown);
           throw YorksV1CommandOutcomeUnknown(key, cause: error);
         }
-        try {
-          final response = confirmed.response;
-          if (response == null ||
-              (response['request_id'] ?? response['id']) !=
-                  payload['request_id']) {
-            throw StateError('view_unavailable');
-          }
-          result = _decode<T>(response);
-        } catch (error) {
-          _emit(
-            command,
-            key,
-            entityId,
-            YorksV1CommandPhase.confirmedViewUnavailable,
-          );
-          await _retire(operation, entityId, key);
-          throw YorksV1CommittedViewUnavailable(
-            confirmed.receipt!,
-            cause: error,
-          );
-        }
+        _emit(command, key, entityId, YorksV1CommandPhase.confirmed);
+        await _retire(operation, entityId, key);
+        return await _loadConfirmedView<T>(
+          confirmed,
+          operation,
+          entityId,
+          payload['request_id'] as String,
+          key,
+        );
       }
       // Acknowledgement is final. Storage cleanup is a separate best-effort step.
       _emit(command ?? operation, key, entityId, YorksV1CommandPhase.confirmed);

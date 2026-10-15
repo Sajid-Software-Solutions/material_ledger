@@ -436,13 +436,47 @@ class YorksV1SupabaseDocumentsRepository
       'p_idempotency_key': uploadKey,
     };
     onIntentKey(uploadKey);
-    final intent = _intent(
+    var intent = _intent(
       await _rpc(
         rpc,
         functionName: prepareFunction,
         parameters: prepareParameters,
       ),
     );
+    Future<YorksV1DocumentUploadIntent> resume(
+      YorksV1DocumentUploadIntent previous,
+    ) async {
+      // The server clock and the same row lock as the finalizer decide whether
+      // this original intent may be renewed. Never replace a journal key, infer
+      // expiry from a device clock, or create a second revision after a restart.
+      final renewed = _intent(
+        await _rpc(
+          rpc,
+          functionName: 'v1_resume_document_upload',
+          parameters: {
+            'p_upload_intent_id': previous.id,
+            'p_idempotency_key': uploadKey,
+          },
+        ),
+      );
+      if (renewed.id != previous.id ||
+          renewed.bucketId != previous.bucketId ||
+          renewed.objectPath != previous.objectPath ||
+          renewed.mimeType != previous.mimeType ||
+          renewed.byteSize != previous.byteSize ||
+          renewed.plannedRevisionNumber != previous.plannedRevisionNumber ||
+          (renewed.finalizedDocumentId != null &&
+              _nullableTrimmed(input.documentId) != null &&
+              renewed.finalizedDocumentId !=
+                  _nullableTrimmed(input.documentId))) {
+        _unexpected();
+      }
+      return renewed;
+    }
+
+    if (intent.finalizedDocumentId == null) {
+      intent = await resume(intent);
+    }
     if ((intent.finalizedDocumentId == null) !=
         (intent.finalizedVersionId == null)) {
       _unexpected();
@@ -478,88 +512,93 @@ class YorksV1SupabaseDocumentsRepository
           cause: error,
         );
       }
-      try {
-        Object? response;
+      // A mobile transfer can itself outlast the original 15-minute window.
+      // Renew after bytes arrive as well, without re-uploading or rotating the
+      // immutable intent. A competing finalizer's receipt skips finalization.
+      intent = await resume(intent);
+      documentId = intent.finalizedDocumentId;
+      if (documentId == null) {
         try {
-          response = await finalizer
-              .finalize(intent.id)
-              .timeout(const Duration(seconds: 20));
-        } on FunctionException catch (error) {
-          throw YorksV1DomainException(switch (error.status) {
-            401 || 403 => YorksV1DomainErrorCode.unauthorized,
-            400 || 422 => YorksV1DomainErrorCode.invalidInput,
-            409 => YorksV1DomainErrorCode.conflict,
-            _ => YorksV1DomainErrorCode.backendUnavailable,
-          }, cause: error);
-        }
-        // HTTP success alone is not proof of document finalization. Require
-        // the protected RPC's exact identity/revision projection before the
-        // coordinator may label this immutable file intent Ready.
-        if (response is! Map ||
-            response['document_id'] is! String ||
-            (response['document_id'] as String).trim().isEmpty ||
-            response['document_version_id'] is! String ||
-            (response['document_version_id'] as String).trim().isEmpty ||
-            response['revision_number'] is! int ||
-            response['revision_number'] != intent.plannedRevisionNumber ||
-            (replacementDocumentId != null &&
-                response['document_id'] != replacementDocumentId)) {
-          _unexpected();
-        }
-        documentId = response['document_id'] as String;
-      } catch (error) {
-        final ambiguous =
-            error is! YorksV1DomainException ||
-            {
-              YorksV1DomainErrorCode.backendUnavailable,
-              YorksV1DomainErrorCode.offline,
-              YorksV1DomainErrorCode.unexpectedResponse,
-            }.contains(error.code);
-        if (!ambiguous) rethrow;
-        _uploadAnalyticsSafely(
-          () => _analytics.capture(
-            AnalyticsEvent.reliabilityError,
-            properties: {
-              AnalyticsProperty.operation: 'document_upload',
-              AnalyticsProperty.phase: 'finalize',
-              AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
-              AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
-                prepareFunction,
-                uploadKey,
-              ),
-              AnalyticsProperty.retryable: true,
-            },
-          ),
-        );
-        // One bounded, authorized readback of the SAME immutable key/payload.
-        // No Storage replay or new revision is started during reconciliation.
-        YorksV1DocumentUploadIntent? recovered;
-        try {
-          recovered = _intent(
-            await _rpc(
-              rpc,
-              functionName: prepareFunction,
-              parameters: prepareParameters,
+          Object? response;
+          try {
+            response = await finalizer
+                .finalize(intent.id)
+                .timeout(const Duration(seconds: 20));
+          } on FunctionException catch (error) {
+            throw YorksV1DomainException(switch (error.status) {
+              401 || 403 => YorksV1DomainErrorCode.unauthorized,
+              400 || 422 => YorksV1DomainErrorCode.invalidInput,
+              409 => YorksV1DomainErrorCode.conflict,
+              _ => YorksV1DomainErrorCode.backendUnavailable,
+            }, cause: error);
+          }
+          // HTTP success alone is not proof of document finalization. Require
+          // the protected RPC's exact identity/revision projection before the
+          // coordinator may label this immutable file intent Ready.
+          if (response is! Map ||
+              response['document_id'] is! String ||
+              (response['document_id'] as String).trim().isEmpty ||
+              response['document_version_id'] is! String ||
+              (response['document_version_id'] as String).trim().isEmpty ||
+              response['revision_number'] is! int ||
+              response['revision_number'] != intent.plannedRevisionNumber ||
+              (replacementDocumentId != null &&
+                  response['document_id'] != replacementDocumentId)) {
+            _unexpected();
+          }
+          documentId = response['document_id'] as String;
+        } catch (error) {
+          final ambiguous =
+              error is! YorksV1DomainException ||
+              {
+                YorksV1DomainErrorCode.backendUnavailable,
+                YorksV1DomainErrorCode.offline,
+                YorksV1DomainErrorCode.unexpectedResponse,
+              }.contains(error.code);
+          if (!ambiguous) rethrow;
+          _uploadAnalyticsSafely(
+            () => _analytics.capture(
+              AnalyticsEvent.reliabilityError,
+              properties: {
+                AnalyticsProperty.operation: 'document_upload',
+                AnalyticsProperty.phase: 'finalize',
+                AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
+                AnalyticsProperty.commandFingerprint:
+                    analyticsCommandFingerprint(prepareFunction, uploadKey),
+                AnalyticsProperty.retryable: true,
+              },
             ),
           );
-        } catch (_) {
-          // A failed read is not a denial or proof the finalizer did not commit.
-        }
-        if (recovered != null &&
-            recovered.id == intent.id &&
-            recovered.plannedRevisionNumber == intent.plannedRevisionNumber &&
-            recovered.finalizedDocumentId != null &&
-            recovered.finalizedVersionId != null &&
-            (replacementDocumentId == null ||
-                recovered.finalizedDocumentId == replacementDocumentId)) {
-          documentId = recovered.finalizedDocumentId;
-        } else if (error is YorksV1DomainException) {
-          rethrow;
-        } else {
-          throw YorksV1DomainException(
-            YorksV1DomainErrorCode.backendUnavailable,
-            cause: error,
-          );
+          // One bounded, authorized readback of the SAME immutable key/payload.
+          // No Storage replay or new revision is started during reconciliation.
+          YorksV1DocumentUploadIntent? recovered;
+          try {
+            recovered = _intent(
+              await _rpc(
+                rpc,
+                functionName: prepareFunction,
+                parameters: prepareParameters,
+              ),
+            );
+          } catch (_) {
+            // A failed read is not a denial or proof the finalizer did not commit.
+          }
+          if (recovered != null &&
+              recovered.id == intent.id &&
+              recovered.plannedRevisionNumber == intent.plannedRevisionNumber &&
+              recovered.finalizedDocumentId != null &&
+              recovered.finalizedVersionId != null &&
+              (replacementDocumentId == null ||
+                  recovered.finalizedDocumentId == replacementDocumentId)) {
+            documentId = recovered.finalizedDocumentId;
+          } else if (error is YorksV1DomainException) {
+            rethrow;
+          } else {
+            throw YorksV1DomainException(
+              YorksV1DomainErrorCode.backendUnavailable,
+              cause: error,
+            );
+          }
         }
       }
     }

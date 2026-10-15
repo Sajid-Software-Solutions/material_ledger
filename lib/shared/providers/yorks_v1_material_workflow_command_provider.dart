@@ -13,7 +13,14 @@ import 'yorks_v1_logistics_repository_provider.dart';
 import 'yorks_v1_material_request_repository_provider.dart';
 
 final yorksV1CommandPhaseProvider =
-    StateProvider.family<YorksV1CommandPhase?, String>((ref, id) => null);
+    StateProvider.family<YorksV1CommandPhase?, String>((ref, id) {
+      // A stale checking phase must not survive switching away and back to the
+      // same record. Command keys remain actor-scoped and controllers fence late
+      // callbacks; presentation starts afresh for the current authority.
+      ref.watch(yorksV1AuthUserIdProvider);
+      ref.watch(yorksV1CurrentRoleProvider);
+      return null;
+    });
 
 final yorksV1MaterialWorkflowCommandControllerProvider =
     Provider<YorksV1MaterialWorkflowCommandController>((ref) {

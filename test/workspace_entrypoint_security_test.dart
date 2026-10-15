@@ -8,7 +8,7 @@ void main() {
     final settings =
         jsonDecode(File('.vscode/settings.json').readAsStringSync())
             as Map<String, dynamic>;
-    expect(settings['task.allowAutomaticTasks'], isFalse);
+    expect(settings['task.allowAutomaticTasks'], 'off');
     expect(settings.containsKey('tasks'), isFalse);
 
     final tasks =

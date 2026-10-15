@@ -8,10 +8,17 @@ class YorksV1WorkflowCommandOutcome {
     required this.confirmed,
     this.response,
     this.receipt,
-  });
+    Future<Map<String, dynamic>?> Function()? loadResponse,
+  }) : _loadResponse = loadResponse;
   final bool confirmed;
   final Map<String, dynamic>? response;
   final YorksV1CommandReceipt? receipt;
+  final Future<Map<String, dynamic>?> Function()? _loadResponse;
+
+  /// Optional view loading starts only after the caller has acknowledged the
+  /// receipt. Its latency or failure cannot turn a committed command unknown.
+  Future<Map<String, dynamic>?> loadResponse() async =>
+      _loadResponse == null ? response : await _loadResponse();
 }
 
 abstract interface class YorksV1CommandOutcomeRepository {
@@ -20,8 +27,14 @@ abstract interface class YorksV1CommandOutcomeRepository {
 
 class YorksV1RpcCommandOutcomeRepository
     implements YorksV1CommandOutcomeRepository {
-  const YorksV1RpcCommandOutcomeRepository(this.rpc);
+  const YorksV1RpcCommandOutcomeRepository(
+    this.rpc, {
+    this.receiptTimeout = const Duration(seconds: 4),
+    this.viewTimeout = const Duration(seconds: 4),
+  });
   final YorksV1MaterialRequestRpcClient rpc;
+  final Duration receiptTimeout;
+  final Duration viewTimeout;
   @override
   Future<YorksV1WorkflowCommandOutcome> check(
     String command,
@@ -32,7 +45,7 @@ class YorksV1RpcCommandOutcomeRepository
           functionName: 'v1_get_material_workflow_command_outcome',
           parameters: {'p_command_name': command, 'p_idempotency_key': key},
         )
-        .timeout(const Duration(seconds: 4));
+        .timeout(receiptTimeout);
     if (raw is! Map ||
         raw['command_name'] != command ||
         raw['command_key'] != key) {
@@ -49,14 +62,6 @@ class YorksV1RpcCommandOutcomeRepository
         YorksV1DomainErrorCode.unexpectedResponse,
       );
     }
-    Map<String, dynamic>? response;
-    try {
-      if (raw['response'] is Map) {
-        response = Map<String, dynamic>.from(raw['response'] as Map);
-      }
-    } catch (_) {
-      /* Optional malformed workspace cannot erase the receipt. */
-    }
     return YorksV1WorkflowCommandOutcome(
       confirmed: true,
       receipt: YorksV1CommandReceipt(
@@ -65,7 +70,31 @@ class YorksV1RpcCommandOutcomeRepository
         entityId: id,
         recordVersion: int.tryParse('${raw['record_version']}'),
       ),
-      response: response,
+      loadResponse: () => _loadResponse(command, key, id),
     );
+  }
+
+  Future<Map<String, dynamic>?> _loadResponse(
+    String command,
+    String key,
+    String entityId,
+  ) async {
+    final raw = await rpc
+        .invoke(
+          functionName: 'v1_get_material_workflow_command_view',
+          parameters: {'p_command_name': command, 'p_idempotency_key': key},
+        )
+        .timeout(viewTimeout);
+    if (raw is! Map ||
+        raw['status'] != 'confirmed' ||
+        raw['command_name'] != command ||
+        raw['command_key'] != key ||
+        raw['entity_id'] != entityId ||
+        raw['response'] is! Map) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+      );
+    }
+    return Map<String, dynamic>.from(raw['response'] as Map);
   }
 }

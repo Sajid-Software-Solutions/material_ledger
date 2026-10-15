@@ -12,6 +12,7 @@ import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/widgets/yorks_v1_material_workflow_recovery_panel.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
@@ -1472,6 +1473,7 @@ class _DeliveryOrderGenerationDialogState
                 ),
               ),
               const Divider(height: 1),
+              _commandRecoveryPanel(),
               Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1629,6 +1631,7 @@ class _DeliveryOrderGenerationDialogState
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 22),
                   children: [
+                    _commandRecoveryPanel(),
                     YorksMobilePageTitle(
                       eyebrow: widget.dispatch.dispatchNumber,
                       title:
@@ -1871,6 +1874,15 @@ class _DeliveryOrderGenerationDialogState
       ],
     );
   }
+
+  Widget _commandRecoveryPanel() => YorksV1MaterialWorkflowRecoveryPanel(
+    requestId: widget.workspace.requestId,
+    language: ref.watch(languageProvider),
+    dispatchIds: [widget.dispatch.dispatchId],
+    onConfirmed: () {
+      if (mounted) Navigator.of(context).pop(true);
+    },
+  );
 
   Future<void> _generateAndOpen(_DeliveryOrderOutput output) async {
     if (!widget.canGenerate || _working) return;

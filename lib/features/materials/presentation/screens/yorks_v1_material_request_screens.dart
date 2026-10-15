@@ -30,6 +30,7 @@ import '../../../../shared/models/yorks_v1_arrangement_strings.dart';
 import '../../../../shared/models/yorks_v1_arrangement.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/widgets/yorks_v1_material_workflow_recovery_panel.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
@@ -11448,6 +11449,33 @@ class _RequestDetailBody extends ConsumerWidget {
         ref.watch(
           yorksV1MaterialRequestWorkspaceInspectorExpandedProvider(request.id),
         );
+    final recoveryPanel = YorksV1MaterialWorkflowRecoveryPanel(
+      // Approval already provides its focused manual action beside its buttons.
+      includeRequestDecisions: false,
+      requestId: request.id,
+      language: language,
+      arrangementIds: [
+        for (final item
+            in arrangementWorkspace?.arrangements ??
+                <YorksV1ProcurementArrangement>[])
+          item.id,
+      ],
+      dispatchIds: {
+        for (final item
+            in logisticsWorkspace?.dispatches ?? <YorksV1MaterialDispatch>[])
+          item.id,
+        for (final item
+            in returnsDocumentsWorkspace?.deliveryOrderDispatches ??
+                <YorksV1DeliveryOrderDispatch>[])
+          item.dispatchId,
+      }.toList(),
+      onConfirmed: () {
+        // Receipt-only recovery must refresh the arrangement explicitly; it
+        // cannot depend on Realtime delivering a second refresh signal.
+        yorksV1InvalidateArrangementWorkspace(ref, request.id);
+        _refreshWorkflow(ref, request);
+      },
+    );
     if (YorksMobileUi.isActive(context)) {
       final mobileInlineApprovalActions =
           editingAccess ??
@@ -11520,6 +11548,7 @@ class _RequestDetailBody extends ConsumerWidget {
             : () =>
                   documentService.printDocumentPdf(documentModel.valueOrNull!),
         replacementCard: replacementCard,
+        recoveryPanel: recoveryPanel,
       );
     }
     return SafeArea(
@@ -11610,6 +11639,7 @@ class _RequestDetailBody extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    recoveryPanel,
                     if (request.timing ==
                             YorksV1MaterialRequestTiming.scheduled &&
                         request.state ==
@@ -11807,6 +11837,15 @@ class _RequestDetailBody extends ConsumerWidget {
         yorksV1InvalidateArrangementWorkspace(ref, requestId);
         yorksV1InvalidateMaterialRequestDetail(ref, requestId);
         ref.invalidate(yorksV1MaterialRequestListProvider);
+      } on YorksV1CommittedViewUnavailable {
+        yorksV1InvalidateArrangementWorkspace(ref, requestId);
+        yorksV1InvalidateMaterialRequestDetail(ref, requestId);
+        ref.invalidate(yorksV1MaterialRequestListProvider);
+      } on YorksV1CommandOutcomeUnknown {
+        if (context.mounted) {
+          _snack(context, YorksV1MaterialRequestStrings.commandUnknown.primary);
+        }
+        return;
       } on YorksV1DomainException catch (error) {
         if (context.mounted) {
           _snack(
@@ -11896,19 +11935,24 @@ class _RequestDetailBody extends ConsumerWidget {
     WidgetRef ref,
     YorksV1MaterialRequest request,
   ) async {
-    final reason = await _cancelReason(context, ref.read(languageProvider));
-    if (reason == null || reason.trim().isEmpty) return;
+    final commands = ref.read(yorksV1MaterialWorkflowCommandControllerProvider);
+    final pending = commands.hasPendingCommand(
+      'cancel_material_request',
+      request.id,
+    );
+    final reason = pending
+        ? ''
+        : await _cancelReason(context, ref.read(languageProvider));
+    if (!pending && (reason == null || reason.trim().isEmpty)) return;
     try {
-      await ref
-          .read(yorksV1MaterialWorkflowCommandControllerProvider)
-          .cancelMaterialRequest(
-            YorksV1CancelMaterialRequestInput(
-              requestId: request.id,
-              expectedVersion: request.recordVersion,
-              reason: reason,
-              idempotencyKey: const Uuid().v4(),
-            ),
-          );
+      await commands.cancelMaterialRequest(
+        YorksV1CancelMaterialRequestInput(
+          requestId: request.id,
+          expectedVersion: request.recordVersion,
+          reason: reason ?? '',
+          idempotencyKey: const Uuid().v4(),
+        ),
+      );
       if (!context.mounted) return;
       yorksV1InvalidateMaterialRequestDetail(ref, request.id);
       ref.invalidate(yorksV1MaterialRequestListProvider);
@@ -12205,6 +12249,7 @@ class _MobileMaterialRequestLifecycle extends StatefulWidget {
     required this.onPdf,
     required this.onPrint,
     required this.replacementCard,
+    required this.recoveryPanel,
   });
 
   final YorksV1MaterialRequest request;
@@ -12225,6 +12270,7 @@ class _MobileMaterialRequestLifecycle extends StatefulWidget {
   final VoidCallback? onPdf;
   final VoidCallback? onPrint;
   final Widget? replacementCard;
+  final Widget recoveryPanel;
 
   @override
   State<_MobileMaterialRequestLifecycle> createState() =>
@@ -12298,6 +12344,7 @@ class _MobileMaterialRequestLifecycleState
                   key: const ValueKey('mobile-mr-lifecycle'),
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 104),
                   children: [
+                    widget.recoveryPanel,
                     Text(
                       request.projectReference.toUpperCase(),
                       style: AppTypography.eyebrow.copyWith(
@@ -13090,9 +13137,26 @@ class _RequestApprovalActionsState
   @override
   Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
-    final phase = ref.watch(yorksV1CommandPhaseProvider(widget.request.id));
-    final checking = phase == YorksV1CommandPhase.checking;
-    final unresolved = checking || phase == YorksV1CommandPhase.unknown;
+    final commandPhase = ref.watch(
+      yorksV1CommandPhaseProvider(widget.request.id),
+    );
+    final commands = ref.read(yorksV1MaterialWorkflowCommandControllerProvider);
+    final decisionPending =
+        commands.hasPendingCommand(
+          'decide_material_request_approved',
+          widget.request.id,
+        ) ||
+        commands.hasPendingCommand(
+          'decide_material_request_returned',
+          widget.request.id,
+        );
+    final phase = decisionPending ? commandPhase : null;
+    final checking =
+        phase == YorksV1CommandPhase.checking ||
+        phase == YorksV1CommandPhase.inFlight;
+    // A restored authority starts with no presentation phase, but its durable
+    // original decision lease still requires reconciliation before another edit.
+    final unresolved = decisionPending;
     final actions = <Widget>[
       if (unresolved)
         Semantics(
@@ -13104,9 +13168,10 @@ class _RequestApprovalActionsState
             key: const ValueKey('request-command-status'),
           ),
         ),
-      if (phase == YorksV1CommandPhase.unknown)
+      if (decisionPending)
         TextButton(
-          onPressed: _busy ? null : _checkDecision,
+          key: const ValueKey('request-decision-check-status'),
+          onPressed: _busy || checking ? null : _checkDecision,
           child: Text(
             YorksV1MaterialRequestStrings.checkSubmissionStatus.primary,
           ),

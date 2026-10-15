@@ -347,9 +347,9 @@ select lives_ok(
 select ok(
   (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
     '90730000-0000-4000-8000-000000000010') ->> 'status') = 'confirmed'
-  and (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+  and (public.v1_get_material_workflow_command_view('v1_decide_material_request',
     '90730000-0000-4000-8000-000000000010') -> 'response') ?& array['id','state','lines'],
-  'actor can reconcile exact committed clarification with readable projection'
+  'actor can reconcile a receipt before separately reading the current projection'
 );
 select ok(
   not (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',

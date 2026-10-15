@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(27);
+select plan(28);
 
 select ok(
   (select bool_and(relrowsecurity)
@@ -262,12 +262,23 @@ from public.v1_document_upload_intents intent
 where intent.idempotency_key = '98100000-0000-4000-8000-000000000007';
 grant select on table v1_supplier_metadata_initial_intent
   to authenticated, service_role;
+update public.v1_document_upload_intents
+set created_at=clock_timestamp()-interval '16 minutes',
+    expires_at=clock_timestamp()-interval '1 minute'
+where id=(select upload_intent_id from v1_supplier_metadata_initial_intent);
 
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
   '{"sub":"10000000-0000-4000-8000-000000000003","role":"authenticated","app_metadata":{"role":"procurement","app_user_id":"usr-local-procurement"}}',
   true
+);
+select is(
+  public.v1_resume_document_upload(
+    (select upload_intent_id from v1_supplier_metadata_initial_intent),
+    '98100000-0000-4000-8000-000000000007')->>'upload_intent_id',
+  (select upload_intent_id::text from v1_supplier_metadata_initial_intent),
+  'Procurement renews its expired supplier intent while retaining original typed metadata'
 );
 select lives_ok(
   $$insert into storage.objects(bucket_id, name, owner_id, metadata)
