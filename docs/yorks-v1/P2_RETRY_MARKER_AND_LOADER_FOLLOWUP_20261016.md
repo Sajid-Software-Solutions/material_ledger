@@ -62,3 +62,39 @@ The new retry correction requires a subsequent web release to affect users.
 
 Rollback is the prior clean application source, never the restored loader.
 No schema, permissions, business data, persisted key format or UI layout changes.
+
+
+## Subsequent owner-authorized production release
+
+The owner subsequently authorized production deployment on 16 October 2026.
+The earlier review-only boundary above is historical; the retry marker fix is
+now live at [Yorks production](https://yorks-r35.vercel.app).
+
+- Clean compiled source: `6d3aa0cc4dd9b86df8fd5cb38c693a966fbea090`.
+- Deployment: `dpl_6kHrXZ3yHFrJA41vLhcimN9xFWdZ`, READY.
+- [Immutable deployment](https://yorks-r35-jdza2vzvp-sajid-alis-projects-0ec775a2.vercel.app).
+- Main JavaScript SHA-256:
+  `747f3891d5ccc5dc2502643bda29990a754932b11617e0685dde2088a36c2c6d`.
+- Main bytes 10,054,814; startup gzip 2,897,314 / 2,900,000 bytes.
+- Production backend and clean source stamp verified; staging/CI references
+  and service-role JWT absent. All existing production flags were preserved.
+- Empty workspace tasks, automatic tasks off, no disguised OTF payload verified
+  before build. Only build/web was copied into the isolated deployment artifact.
+- Candidate and canonical production each passed all 28 route/bootstrap/deferred
+  asset hash checks. Canonical deployment inspection resolves to the exact READY
+  deployment above. Signed-in Admin Material Requests loaded in a fresh browser
+  tab. The tab was closed after read-only verification; no business mutation or
+  live network-failure injection was performed.
+- No database migration was required or applied. Existing full acceptance gates
+  from this report apply to unchanged app code; fresh production web build passed.
+- Initial upload returned an authentication error. Account/project access were
+  rechecked, retry succeeded, and final promotion was verified independently.
+
+Evidence: [candidate](evidence/retry-marker-production-20261016/candidate.jsonl)
+and [canonical](evidence/retry-marker-production-20261016/canonical.jsonl).
+Runtime client-error trend/soak monitoring was not performed for this release;
+route/hash checks do not substitute for production failure injection.
+
+Rollback: promote retained deployment `dpl_8jq9UDFU1QCwgFnwmVbacRzb3Mg9`
+([prior immutable release](https://yorks-r35-pwhm71bae-sajid-alis-projects-0ec775a2.vercel.app)).
+No data rollback is necessary. Never restore the malicious historical loader.
