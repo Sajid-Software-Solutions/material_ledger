@@ -200,6 +200,9 @@ class YorksV1CriticalCommandKeyStore {
     try {
       await _persist(storageKey, jsonEncode({...value, 'dispatched': true}));
       _knownNotSent.remove(key);
+      // A preflight rejection acknowledged only the earlier not-sent attempt.
+      // Once this same key is sent again, an unreadable response needs recovery.
+      _acknowledged.remove(key);
     } catch (_) {
       _knownNotSent.add(key); // The final RPC has not started.
       _acknowledged.add(key);

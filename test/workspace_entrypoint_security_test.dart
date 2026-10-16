@@ -27,6 +27,7 @@ void main() {
       '.woff': [0x77, 0x4f, 0x46, 0x46],
       '.woff2': [0x77, 0x4f, 0x46, 0x32],
       '.ttf': [0, 1, 0, 0],
+      '.otf': [0x4f, 0x54, 0x54, 0x4f],
     };
     for (final file in Directory('public/fonts').listSync().whereType<File>()) {
       final bytes = file.readAsBytesSync();

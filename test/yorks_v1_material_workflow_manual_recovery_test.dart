@@ -51,6 +51,44 @@ void main() {
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test(
+    'offline then uncertain retry keeps manual recovery on the same key',
+    () async {
+      final fixture = await _Fixture.create();
+      fixture.mutations.offline = true;
+      await expectLater(
+        fixture.invoke('cancel_material_request'),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(fixture.outcomes.keys, isEmpty);
+      fixture.mutations.offline = false;
+      await expectLater(
+        fixture.invoke('cancel_material_request'),
+        throwsA(isA<YorksV1CommandOutcomeUnknown>()),
+      );
+      expect(
+        fixture.keys.hasTrackedPendingDispatch('cancel_material_request', 'mr'),
+        isTrue,
+      );
+      expect(
+        fixture.keys.hasPendingDispatch('cancel_material_request', 'mr'),
+        isTrue,
+      );
+      fixture.outcomes.online = true;
+      final receipt = await fixture.controller.checkCommandStatus(
+        _pending('cancel_material_request'),
+      );
+      expect(receipt!.commandKey, 'original');
+      expect(fixture.outcomes.keys, everyElement('original'));
+      expect(
+        fixture.mutations.calls,
+        2,
+      ); // One offline preflight, one actual send.
+      expect(fixture.mutations.sentKeys, ['original']);
+      expect(fixture.keys.pendingKey('cancel_material_request', 'mr'), isNull);
+    },
+  );
+
   for (final operation in [
     'cancel_material_request',
     'close_material_request',
@@ -756,6 +794,8 @@ class _Fixture {
 
 class _Mutations implements YorksV1MaterialRequestRepository {
   int calls = 0;
+  bool offline = false;
+  final sentKeys = <String>[];
   Future<T> lost<T>() async {
     calls++;
     throw const YorksV1DomainException(
@@ -766,7 +806,15 @@ class _Mutations implements YorksV1MaterialRequestRepository {
   @override
   Future<YorksV1MaterialRequest> cancel(
     YorksV1CancelMaterialRequestInput input,
-  ) => lost();
+  ) async {
+    if (offline) {
+      calls++;
+      throw const YorksV1DomainException(YorksV1DomainErrorCode.offline);
+    }
+    sentKeys.add(input.idempotencyKey);
+    return lost();
+  }
+
   @override
   Future<YorksV1MaterialRequest> close(
     YorksV1CloseMaterialRequestInput input,
