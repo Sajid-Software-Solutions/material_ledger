@@ -1,0 +1,255 @@
+{
+  "as_of_utc": "2026-10-20T12:17:26.243911+00:00",
+  "implementation_commit": "e1015f5fab3db4c4f9993b0939cda87049c20709",
+  "deployment_id": "dpl_ABmQsPZ2TefLjD9PWYiZLKewSRP1",
+  "canonical_host": "https://yorks-r35.vercel.app",
+  "immutable_host": "https://yorks-r35-ppgjwz916-sajid-alis-projects-0ec775a2.vercel.app",
+  "previous_deployment": "dpl_AAZBeSPhGcR6Rj8Cjssk3Ckq5F3u",
+  "project_ref": "czykuksmlwswjsgotrpo",
+  "reconciliation": {
+    "leases": 52,
+    "cheques": 0,
+    "periods": 0,
+    "receipts": 0,
+    "incomplete": 52,
+    "properties": 52,
+    "annual_total": 710238,
+    "source_cells": 572,
+    "annual_values": 39,
+    "import_audits": 1,
+    "monthly_values": 0,
+    "code_mismatches": 0,
+    "candidate_events": 23,
+    "expected_matched": 52,
+    "annual_mismatches": 0,
+    "source_mismatches": 0,
+    "opening_unconfirmed": 52,
+    "frequency_mismatches": 0
+  },
+  "integrity": {
+    "owner_digest": {
+      "seen": false,
+      "status": "sent",
+      "devices": 4
+    },
+    "finite_constraints": 4,
+    "source_index_valid": true,
+    "source_fingerprints": 52,
+    "suppressed_milestone_outbox": 0
+  },
+  "source_replay": {
+    "file_name": "Yorks Properties.xlsx",
+    "cheques_applied": 0,
+    "payments_applied": 0,
+    "properties_applied": 52
+  },
+  "release_state": {
+    "events": 69,
+    "health": {
+      "asOf": "2026-10-20T12:17:26.243911+00:00",
+      "sent1h": 2,
+      "sent24h": 84,
+      "retrying": 0,
+      "retries1h": 0,
+      "attempts1h": 3,
+      "retries24h": 0,
+      "attempts24h": 117,
+      "noDevices1h": 1,
+      "oldestRetry": null,
+      "activeTokens": 71,
+      "deadLetter1h": 0,
+      "lastWorkerAt": "2026-10-20T12:17:00.083904+00:00",
+      "noDevices24h": 111,
+      "pendingCount": 0,
+      "deadLetter24h": 0,
+      "operatorPaused": false,
+      "deadLetterTotal": 1714,
+      "lastGlobalError": null,
+      "notifications1h": 69,
+      "oldestPendingAt": null,
+      "usersWithTokens": 13,
+      "circuitOpenUntil": null,
+      "errorsByCategory": {
+        "NOTIFICATION_NO_LONGER_RELEVANT": 78
+      },
+      "notifications24h": 261,
+      "successPercent24h": 71.8,
+      "latestSuccessfulPush": "2026-10-20T11:47:03.804993+00:00",
+      "eligibleWebInstallations": 16,
+      "highestActiveAttemptCount": 0,
+      "highestHistoricalAttemptCount": 607
+    },
+    "control": {
+      "id": true,
+      "enabled": true,
+      "last_success_at": "2026-10-20T12:17:07.713139+00:00",
+      "last_business_date": "2026-10-20",
+      "last_emitted_count": 0,
+      "external_push_enabled": true,
+      "initial_evaluation_complete": true
+    },
+    "migrations": [
+      {
+        "name": "yorks_rental_financial_serialization",
+        "version": "20261020121453"
+      },
+      {
+        "name": "rental_notification_review_closure",
+        "version": "20261020121456"
+      },
+      {
+        "name": "rental_command_intent_settlement",
+        "version": "20261020121459"
+      }
+    ],
+    "rental_tables": [
+      {
+        "rls": true,
+        "name": "v1_rental_cheques",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_leases",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_notification_control",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_notification_events",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_periods",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_properties",
+        "anon_crud": false,
+        "authenticated_crud": false
+      },
+      {
+        "rls": true,
+        "name": "v1_rental_receipts",
+        "anon_crud": false,
+        "authenticated_crud": false
+      }
+    ],
+    "duplicate_event_groups": 0
+  },
+  "functions": [
+    {
+      "proname": "v1_get_rental_command_outcome",
+      "body_hash": "3055cb8c7f10031dbc4a8a42fbd31218",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "proname": "v1_notification_page",
+      "body_hash": "25349d2f369618c7f5ff4d712515613a",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "proname": "v1_record_rent_payment",
+      "body_hash": "49455c13725fad73d5f1008aad4755b7",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "proname": "v1_rental_tracker_source_fingerprint",
+      "body_hash": "a32bb0834d35d099932d872402702fa3",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "proname": "v1_run_rental_notifications",
+      "body_hash": "b428cc426600382660f04c689af7d874",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": false
+    },
+    {
+      "proname": "v1_save_rental_cheque",
+      "body_hash": "0f36616e10d7947eab8f520f515c0530",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "proname": "v1_save_rental_property",
+      "body_hash": "398f6c1eb1060377bbd3bfdc5cfa3017",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    },
+    {
+      "proname": "v1_settle_rental_command_intent",
+      "body_hash": "dc4217cd1fb08656afcb6f36c5e8ec15",
+      "prosecdef": true,
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "anon_execute": false,
+      "authenticated_execute": true
+    }
+  ],
+  "edge": {
+    "version": 16,
+    "implementation_unchanged": true
+  },
+  "gates": {
+    "flutter_tests_passed": 2880,
+    "retained_skips": 4,
+    "db_assertions_passed": 4876,
+    "db_test_files": 143,
+    "full_analyzer": "clean",
+    "ci_web": "passed",
+    "ci_apk_ephemeral_signed": "passed",
+    "immutable_route_asset_checks": 34,
+    "canonical_route_asset_checks": 34,
+    "desktop_and_360px_visual_review": "passed",
+    "independent_concurrency_races": "passed"
+  },
+  "limits": [
+    "Mac locked: physical production browser/file-picker and OS receipt/click/acknowledgement unavailable.",
+    "One active Admin has no registered push device; required inbox reminder retained.",
+    "No extended all-device soak."
+  ]
+}

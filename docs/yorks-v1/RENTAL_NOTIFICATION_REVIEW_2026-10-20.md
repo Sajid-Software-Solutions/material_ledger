@@ -90,6 +90,8 @@ identity, and real committed-command preservation. Two actual independent
 session races then passed both orderings: an old save holding the common lock
 committed once and settlement returned `confirmed`; settlement holding the lock
 fenced first and the delayed old save failed with no business record. Those
-synthetic committed local fixtures deliberately remain in the disposable test
-project until its full reset; they are never production data. The coordinating
-release records full gates and deployment separately.
+synthetic committed local fixtures were removed by the subsequent disposable
+project reset; they were never production data. The coordinating
+[release record](RENTAL_CODE_REVIEW_2026-10-20.md) records the full gate and
+deployed corrections, including the successful real hourly tick and final
+live reconciliation.

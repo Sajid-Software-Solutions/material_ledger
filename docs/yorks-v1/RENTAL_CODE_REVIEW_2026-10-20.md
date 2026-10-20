@@ -1,8 +1,9 @@
 # Rental code review and corrections — 20 October 2026
 
-Status: independent review, regression fixes and all integrated gates passed;
-follow-up deployment in progress. The prior release and all 52 imported
-properties remain live while the reviewed release is prepared.
+Status: independent review, regression fixes, staging and all integrated gates
+passed; the corrections are deployed to live Yorks. All 52 source properties
+are reconciled. Physical production browser/OS checks remain unavailable while
+the Mac is locked.
 
 The owner requested a code review of the rental changes, resolution of open
 states and bugs, and publication of the rental data to the website. The review
@@ -87,8 +88,54 @@ the completed import. Staging returned to zero properties with rental producer
 and cron off. Security advisors have no ERROR-level findings; existing
 platform advisories remain recorded rather than silently changed by this task.
 
-Clean production build, immutable deployment checks, canonical promotion and
-final source reconciliation are the remaining release steps.
+## Verified follow-up release
+
+The clean implementation commit is
+`e1015f5fab3db4c4f9993b0939cda87049c20709`. Production preserves all existing
+Accounts, Workforce, Company Requests, Analytics, Project Setup, Calculator,
+FCM and PostHog configuration. The production main bundle is 9,965,112 raw /
+2,872,493 gzip bytes measured by the unchanged Dart startup verifier. SHA-256:
+`74f816e18549d25105a9de1352e05f271999e8006a127bb2a643658ad9bb04d0`.
+No staging/CI backend, service-role JWT or private key appears in the artifact.
+
+Production migrations are `20261020121453`, `20261020121456` and
+`20261020121459`. All eight updated/new function bodies match the reviewed
+source, and all seven rental tables retain RLS without direct client CRUD.
+The source identity index is valid/unique and all four finite-money constraints
+are validated. The unchanged `send-push` Function remains version 16. Security
+advisors have no ERROR-level findings; anonymous definer findings remain the
+same two historical functions, and the new authenticated settlement RPC is
+guarded by the tested exact-active-Admin/actor checks.
+
+Deployment `dpl_ABmQsPZ2TefLjD9PWYiZLKewSRP1` was checked before promotion:
+<https://yorks-r35-ppgjwz916-sajid-alis-projects-0ec775a2.vercel.app>.
+All 34 route/asset hashes passed for both this immutable deployment and
+<https://yorks-r35.vercel.app>. The canonical domain resolves to that exact
+deployment. The prior artifact `dpl_AAZBeSPhGcR6Rj8Cjssk3Ckq5F3u` is retained.
+
+The authorized original import command was safely replayed with its original
+key, then reconciled again: **52 properties, 52 leases, 572 preserved source
+cells, 52 unique original identities, AED 710,238 annual rent, zero source/code/
+amount/frequency mismatches and exactly one import audit**. No periods,
+receipts, actual cheques or inferred historical balances were created. All 52
+incomplete records retain their completion/billing-setup warnings.
+
+Rental generation, external delivery and hourly cron remain enabled. The new
+producer executed under normal controls with initialization complete, emitted
+zero and queued zero external candidates. There are still 69 initial inbox
+events, no duplicate milestone groups, no outbox rows for the 66 suppressed
+initial lease milestones, and zero pending/retrying push jobs or new dead
+letters. The Owner's prior digest remains provider-accepted on four devices;
+its `seen_at` remains unset. The Mac lock still prevents a physical click or
+visual acceptance witness, so those limits are explicitly retained.
+
+The [production evidence](evidence/rental-audit-20261020/review-production-release.json),
+[artifact measurements](evidence/rental-audit-20261020/review-production-artifact.json),
+[immutable checks](evidence/rental-audit-20261020/review-verify-candidate.jsonl)
+and [canonical checks](evidence/rental-audit-20261020/review-verify-canonical.jsonl)
+record the concrete release. The existing dated import template remains valid;
+neither supplied workbook was overwritten. The isolated audit database was
+stopped after its successful full gate; the original local services remain.
 
 Rollback preserves the source, constraints, idempotency fences and audit rows.
 Disable rental generation/external delivery/cron if containment is needed, and

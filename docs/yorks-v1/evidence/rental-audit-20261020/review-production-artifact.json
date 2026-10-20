@@ -1,0 +1,15 @@
+{
+  "implementation_commit": "e1015f5fab3db4c4f9993b0939cda87049c20709",
+  "clean_release_stamp": true,
+  "production_ref_verified": true,
+  "no_staging_or_ci_ref": true,
+  "no_service_role_or_private_key": true,
+  "main_sha256": "74f816e18549d25105a9de1352e05f271999e8006a127bb2a643658ad9bb04d0",
+  "main_bytes": 9965112,
+  "main_gzip_bytes": 2872493,
+  "index_bytes": 11024,
+  "feature_flags_preserved": true,
+  "project_setup": true,
+  "calculator_workspace": true,
+  "gzip_measurement": "Dart gzip.encode via tool/verify_startup_performance.dart"
+}

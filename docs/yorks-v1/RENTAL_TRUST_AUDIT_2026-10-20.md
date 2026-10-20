@@ -5,6 +5,11 @@ handler and verified web release deployed. All 52 source properties are imported
 and reconciled. Rental reminders are active, with real provider acceptance.
 Production browser and physical OS acceptance remain incomplete: the Mac is locked.
 
+The subsequent owner-requested [code review and correction release](RENTAL_CODE_REVIEW_2026-10-20.md)
+is now deployed and is the current release record. It closes the first hourly
+scheduler witness and records additional financial/import/recovery safeguards;
+the original import and snapshots below remain preserved historical evidence.
+
 ## Approved outcome
 
 The owner requested the live import of `Yorks Properties.xlsx` and an audit of
