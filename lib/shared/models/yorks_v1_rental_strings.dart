@@ -10,6 +10,17 @@ abstract final class RentalWorkspaceStrings {
         : key.replaceAll('_', ' ');
   }
 
+  static String savedField(BuildContext context, String key) => switch (key) {
+    'occupancy_state' => missingField(context, 'occupancy'),
+    'billing_start' => text(context, 'billingStart'),
+    'annual_rent' => text(context, 'annualRent'),
+    'monthly_rent' => text(context, 'monthlyRent'),
+    _ =>
+      _copy.containsKey('missing_$key')
+          ? missingField(context, key)
+          : text(context, 'field_$key'),
+  };
+
   static String text(BuildContext context, String key) {
     final values = _copy[key]!;
     return values[Localizations.localeOf(context).languageCode] ??
@@ -17,6 +28,209 @@ abstract final class RentalWorkspaceStrings {
   }
 
   static const _copy = {
+    'saveSummaryNewer': {
+      'en':
+          'This property has changed since your save. The details below reflect its latest state.',
+      'ar': 'تغير هذا العقار بعد الحفظ. البيانات أدناه تعكس حالته الحالية.',
+      'ur':
+          'آپ کے محفوظ کرنے کے بعد یہ جائیداد تبدیل ہوئی ہے۔ نیچے تازہ ترین تفصیلات ہیں۔',
+      'hi': 'आपके सहेजने के बाद यह संपत्ति बदल गई है। नीचे नवीनतम विवरण हैं।',
+    },
+    "saveSummaryUpdated": {
+      "en": "Updated in this save",
+      "ar": "تم التحديث في هذا الحفظ",
+      "ur": "اس بار محفوظ کی گئی تبدیلیاں",
+      "hi": "इस बार किए गए बदलाव",
+    },
+    "saveSummaryCreated": {
+      "en": "Property created",
+      "ar": "تم إنشاء العقار",
+      "ur": "جائیداد بن گئی",
+      "hi": "संपत्ति बनाई गई",
+    },
+    "saveSummaryRecorded": {
+      "en": "Details saved",
+      "ar": "البيانات المحفوظة",
+      "ur": "محفوظ تفصیلات",
+      "hi": "सहेजी गई जानकारी",
+    },
+    "saveSummaryNoChanges": {
+      "en": "No field values changed.",
+      "ar": "لم تتغير قيم الحقول.",
+      "ur": "کسی فیلڈ کی قدر تبدیل نہیں ہوئی۔",
+      "hi": "किसी फ़ील्ड का मान नहीं बदला।",
+    },
+    "saveSummaryCleared": {
+      "en": "Cleared",
+      "ar": "تم المسح",
+      "ur": "صاف کیا گیا",
+      "hi": "हटाया गया",
+    },
+    "saveSummaryMissing": {
+      "en": "Still missing",
+      "ar": "ما زال ناقصاً",
+      "ur": "ابھی نامکمل",
+      "hi": "अभी अधूरा",
+    },
+    "saveSummaryLater": {
+      "en":
+          "Your changes are saved. Add these details whenever they are available.",
+      "ar": "تم حفظ تغييراتك. أضف هذه البيانات عند توفرها.",
+      "ur": "آپ کی تبدیلیاں محفوظ ہیں۔ معلومات دستیاب ہونے پر شامل کریں۔",
+      "hi": "आपके बदलाव सहेज दिए गए हैं। ये विवरण उपलब्ध होने पर जोड़ें।",
+    },
+    "saveSummaryComplete": {
+      "en": "No recommended details are missing.",
+      "ar": "لا توجد بيانات موصى بها ناقصة.",
+      "ur": "تجویز کردہ کوئی تفصیل نامکمل نہیں۔",
+      "hi": "कोई सुझाया गया विवरण अधूरा नहीं है।",
+    },
+    "saveSummaryLoading": {
+      "en": "Checking saved changes and remaining details…",
+      "ar": "جارٍ التحقق من البيانات المتبقية…",
+      "ur": "باقی تفصیلات کی جانچ جاری ہے…",
+      "hi": "बाकी विवरण जाँचे जा रहे हैं…",
+    },
+    "saveSummaryReadFailed": {
+      "en":
+          "Your changes are saved. We could not refresh the change summary and remaining details. Try refreshing again.",
+      "ar":
+          "تم حفظ تغييراتك. تعذر تحديث البيانات المتبقية. حاول التحديث مجدداً.",
+      "ur":
+          "آپ کی تبدیلیاں محفوظ ہیں۔ باقی تفصیلات تازہ نہیں ہو سکیں۔ دوبارہ تازہ کریں۔",
+      "hi":
+          "आपके बदलाव सहेज दिए गए हैं। बाकी विवरण ताज़ा नहीं हो सके। फिर से ताज़ा करें।",
+    },
+    "saveSummaryRefresh": {
+      "en": "Refresh details",
+      "ar": "تحديث البيانات",
+      "ur": "تفصیلات تازہ کریں",
+      "hi": "विवरण ताज़ा करें",
+    },
+    "saveSummaryContinue": {
+      "en": "Complete remaining details",
+      "ar": "إكمال البيانات المتبقية",
+      "ur": "باقی تفصیلات مکمل کریں",
+      "hi": "बाकी विवरण पूरे करें",
+    },
+    "saveSummaryDone": {"en": "Done", "ar": "تم", "ur": "مکمل", "hi": "हो गया"},
+    "saveSummaryBilling": {
+      "en":
+          "Billing setup still needs review. No opening balance has been inferred.",
+      "ar":
+          "ما زال إعداد الفوترة يحتاج إلى مراجعة. لم يتم افتراض رصيد افتتاحي.",
+      "ur": "بلنگ کی ترتیب کا جائزہ باقی ہے۔ ابتدائی بیلنس فرض نہیں کیا گیا۔",
+      "hi":
+          "बिलिंग सेटअप की समीक्षा बाकी है। शुरुआती शेष का अनुमान नहीं लगाया गया है।",
+    },
+    "field_unit_code": {
+      "en": "Unit code",
+      "ar": "رمز الوحدة",
+      "ur": "یونٹ کوڈ",
+      "hi": "यूनिट कोड",
+    },
+    "field_property_name": {
+      "en": "Property name",
+      "ar": "اسم العقار",
+      "ur": "جائیداد کا نام",
+      "hi": "संपत्ति का नाम",
+    },
+    "field_municipality_number": {
+      "en": "Property / municipality number",
+      "ar": "رقم العقار / البلدية",
+      "ur": "جائیداد / بلدیہ نمبر",
+      "hi": "संपत्ति / नगरपालिका नंबर",
+    },
+    "field_description": {
+      "en": "Description",
+      "ar": "الوصف",
+      "ur": "تفصیل",
+      "hi": "विवरण",
+    },
+    "field_trade_licence_number": {
+      "en": "Trade licence number",
+      "ar": "رقم الرخصة التجارية",
+      "ur": "تجارتی لائسنس نمبر",
+      "hi": "व्यापार लाइसेंस नंबर",
+    },
+    "field_email": {
+      "en": "Email",
+      "ar": "البريد الإلكتروني",
+      "ur": "ای میل",
+      "hi": "ईमेल",
+    },
+    "field_contract_type": {
+      "en": "Contract type",
+      "ar": "نوع العقد",
+      "ur": "معاہدے کی قسم",
+      "hi": "अनुबंध का प्रकार",
+    },
+    "field_contract_status": {
+      "en": "Contract status",
+      "ar": "حالة العقد",
+      "ur": "معاہدے کی حالت",
+      "hi": "अनुबंध की स्थिति",
+    },
+    "field_signed_date": {
+      "en": "Signed date",
+      "ar": "تاريخ التوقيع",
+      "ur": "دستخط کی تاریخ",
+      "hi": "हस्ताक्षर की तारीख",
+    },
+    "field_security_deposit": {
+      "en": "Security deposit",
+      "ar": "مبلغ التأمين",
+      "ur": "ضمانتی رقم",
+      "hi": "सुरक्षा जमा",
+    },
+    "field_monthly_due_day": {
+      "en": "Monthly due day",
+      "ar": "يوم الاستحقاق الشهري",
+      "ur": "ماہانہ ادائیگی کا دن",
+      "hi": "मासिक देय दिन",
+    },
+    "field_grace_period_days": {
+      "en": "Grace period",
+      "ar": "فترة السماح",
+      "ur": "مہلت",
+      "hi": "अनुग्रह अवधि",
+    },
+    "field_default_payment_method": {
+      "en": "Payment method",
+      "ar": "طريقة الدفع",
+      "ur": "ادائیگی کا طریقہ",
+      "hi": "भुगतान का तरीका",
+    },
+    "field_payment_frequency": {
+      "en": "Payment frequency",
+      "ar": "دورية الدفع",
+      "ur": "ادائیگی کی مدت",
+      "hi": "भुगतान की आवृत्ति",
+    },
+    "field_contract_cheque_count": {
+      "en": "Number of contract cheques",
+      "ar": "عدد شيكات العقد",
+      "ur": "معاہدے کے چیکوں کی تعداد",
+      "hi": "अनुबंध चेक की संख्या",
+    },
+    "field_annual_escalation_percent": {
+      "en": "Annual escalation",
+      "ar": "الزيادة السنوية",
+      "ur": "سالانہ اضافہ",
+      "hi": "वार्षिक वृद्धि",
+    },
+    "field_renewal_notice_days": {
+      "en": "Renewal notice",
+      "ar": "إشعار التجديد",
+      "ur": "تجدید کا نوٹس",
+      "hi": "नवीनीकरण सूचना",
+    },
+    "field_lease_notes": {
+      "en": "Contract / lease notes",
+      "ar": "ملاحظات العقد",
+      "ur": "معاہدے کے نوٹس",
+      "hi": "अनुबंध / पट्टा नोट्स",
+    },
     "actionFilter": {
       "en": "Show actions",
       "ar": "عرض الإجراءات",

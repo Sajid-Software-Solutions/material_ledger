@@ -15,6 +15,7 @@ import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_document_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_rental_strings.dart';
+import '../../../../shared/models/yorks_v1_rental_save_receipt.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/models/yorks_v1_rental_action.dart';
 import '../../../../shared/models/yorks_v1_rental_workbook.dart';
@@ -128,7 +129,7 @@ class _YorksV1RentalDashboardScreenState
                   onRefresh: busy || portfolio.isLoading
                       ? null
                       : () => ref.invalidate(yorksV1RentalPortfolioProvider),
-                  onAdd: busy ? null : () => _openPropertyEditor(context),
+                  onAdd: busy ? null : _openPropertyEditor,
                   onDownloadTemplate: busy
                       ? null
                       : () => _downloadImportTemplate(context),
@@ -197,19 +198,9 @@ class _YorksV1RentalDashboardScreenState
     );
   }
 
-  Future<void> _openPropertyEditor(BuildContext context) async {
-    final savedId = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PropertyEditorDialog(
-        onSave: (input, key) => ref
-            .read(yorksV1RentalCommandProvider.notifier)
-            .saveProperty(input, expectedVersion: null, idempotencyKey: key),
-        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
-      ),
-    );
-    if (savedId != null && context.mounted) {
-      _showResult(context, true, RentalWorkspaceStrings.text(context, 'saved'));
+  Future<void> _openPropertyEditor() async {
+    final savedId = await _editRentalProperty(context, ref);
+    if (savedId != null && mounted) {
       context.push('${RoutePaths.rentals}/$savedId');
     }
   }
@@ -1943,25 +1934,7 @@ class _YorksV1RentalPropertyScreenState
     YorksV1RentalPropertyDetail detail, [
     YorksRentalAction? action,
   ]) async {
-    final savedId = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PropertyEditorDialog(
-        detail: detail,
-        initialAction: action,
-        onSave: (input, key) => ref
-            .read(yorksV1RentalCommandProvider.notifier)
-            .saveProperty(
-              input,
-              expectedVersion: detail.property.recordVersion,
-              idempotencyKey: key,
-            ),
-        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
-      ),
-    );
-    if (savedId != null && context.mounted) {
-      _showResult(context, true, RentalWorkspaceStrings.text(context, 'saved'));
-    }
+    await _editRentalProperty(context, ref, detail: detail, action: action);
   }
 
   Future<void> _recordPayment(
@@ -3973,6 +3946,258 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
   }
 }
 
+typedef _SavedFollowUp = ({
+  YorksV1RentalPropertyDetail detail,
+  YorksRentalAction action,
+});
+
+Future<String?> _editRentalProperty(
+  BuildContext context,
+  WidgetRef ref, {
+  YorksV1RentalPropertyDetail? detail,
+  YorksRentalAction? action,
+}) async {
+  String? savedId;
+  while (true) {
+    if (!context.mounted) return savedId;
+    final editing = detail;
+    final receipt = await showDialog<YorksRentalSaveReceipt>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PropertyEditorDialog(
+        detail: editing,
+        initialAction: action,
+        onSave: (input, key) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .saveProperty(
+              input,
+              expectedVersion: editing?.property.recordVersion,
+              idempotencyKey: key,
+            ),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
+    );
+    if (receipt == null) return savedId;
+    savedId = receipt.propertyId;
+    if (!context.mounted) return savedId;
+    final next = await showDialog<_SavedFollowUp>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PropertySaveConfirmation(receipt: receipt),
+    );
+    if (next == null) return savedId;
+    // The next editor uses the refreshed version, never the pre-save version.
+    detail = next.detail;
+    action = next.action;
+  }
+}
+
+class _PropertySaveConfirmation extends ConsumerWidget {
+  const _PropertySaveConfirmation({required this.receipt});
+
+  final YorksRentalSaveReceipt receipt;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    String copy(String key) => RentalWorkspaceStrings.text(context, key);
+    final provider = yorksV1RentalPropertyProvider(receipt.propertyId);
+    final latest = ref.watch(provider);
+    final detail = latest.hasValue && !latest.isLoading && !latest.hasError
+        ? latest.requireValue
+        : null;
+    final missing =
+        detail?.property.missingFields
+            .where((field) => field != 'billing_start')
+            .toSet()
+            .toList() ??
+        <String>[];
+    final billing =
+        detail?.property.billingSetupPending == true ||
+        detail?.property.missingFields.contains('billing_start') == true;
+    final canContinue = detail != null && !detail.property.isArchived;
+    final updated = detail == null ? <String>[] : receipt.updatedFields(detail);
+    final cleared = detail == null ? <String>[] : receipt.clearedFields(detail);
+
+    Widget fieldList(List<String> fields, {bool updated = false}) => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final field in fields)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.line),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              updated
+                  ? '${RentalWorkspaceStrings.savedField(context, field)}${cleared.contains(field) ? ' · ${copy('saveSummaryCleared')}' : ''}'
+                  : RentalWorkspaceStrings.missingField(context, field),
+              style: AppTypography.bodySmall,
+            ),
+          ),
+      ],
+    );
+
+    return Dialog(
+      key: const ValueKey('rental-save-confirmation'),
+      insetPadding: const EdgeInsets.all(18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 740),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Semantics(
+                liveRegion: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            copy(
+                              receipt.created ? 'saveSummaryCreated' : 'saved',
+                            ),
+                            style: AppTypography.titleLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${receipt.input.unitCode} · ${receipt.input.propertyName}',
+                            style: AppTypography.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (detail != null) ...[
+                      Text(
+                        copy(
+                          receipt.created
+                              ? 'saveSummaryRecorded'
+                              : 'saveSummaryUpdated',
+                        ),
+                        style: AppTypography.titleMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      if (!receipt.matchesVersion(detail))
+                        Text(copy('saveSummaryNewer'))
+                      else if (updated.isEmpty)
+                        Text(copy('saveSummaryNoChanges'))
+                      else
+                        fieldList(updated, updated: true),
+                      const SizedBox(height: 22),
+                    ],
+                    Semantics(
+                      liveRegion: true,
+                      child: latest.when(
+                        skipLoadingOnRefresh: false,
+                        skipLoadingOnReload: false,
+                        loading: () => Text(copy('saveSummaryLoading')),
+                        error: (_, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(copy('saveSummaryReadFailed')),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => ref.invalidate(provider),
+                              icon: const Icon(Icons.refresh),
+                              label: Text(copy('saveSummaryRefresh')),
+                            ),
+                          ],
+                        ),
+                        data: (_) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (missing.isNotEmpty) ...[
+                              Text(
+                                '${copy('saveSummaryMissing')} (${missing.length})',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(copy('saveSummaryLater')),
+                              const SizedBox(height: 12),
+                              fieldList(missing),
+                            ] else if (!billing)
+                              Text(copy('saveSummaryComplete')),
+                            if (billing) ...[
+                              const SizedBox(height: 16),
+                              Text(copy('saveSummaryBilling')),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final buttons = <Widget>[
+                    if (canContinue && (missing.isNotEmpty || billing))
+                      OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(context).pop<_SavedFollowUp>((
+                              detail: detail,
+                              action: missing.isNotEmpty
+                                  ? YorksRentalAction.details
+                                  : YorksRentalAction.billing,
+                            )),
+                        child: Text(copy('saveSummaryContinue')),
+                      ),
+                    FilledButton(
+                      autofocus: true,
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(copy('saveSummaryDone')),
+                    ),
+                  ];
+                  return constraints.maxWidth < 440
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 8,
+                          children: buttons,
+                        )
+                      : Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: buttons,
+                        );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PropertyEditorDialog extends StatefulWidget {
   const _PropertyEditorDialog({
     this.detail,
@@ -4630,7 +4855,13 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (savedId != null) {
-      Navigator.of(context).pop(savedId);
+      Navigator.of(context).pop(
+        YorksRentalSaveReceipt(
+          propertyId: savedId,
+          input: input,
+          before: widget.detail,
+        ),
+      );
       return;
     }
     final code = failure is YorksV1DomainException ? failure.code : null;

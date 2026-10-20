@@ -1569,6 +1569,9 @@ void main() {
       expect(repo.saveKeys, hasLength(2));
       expect(repo.saveKeys.last, isNot(firstKey));
       expect(repo.saveInputs.last.propertyName, 'Shop corrected');
+      expect(find.text('Property created'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
       expect(find.text('Confirmed property'), findsOneWidget);
     },
   );
@@ -1600,6 +1603,9 @@ void main() {
         repo.saveInputs.first.toRpcPayload(),
         repo.saveInputs.last.toRpcPayload(),
       );
+      expect(find.text('Property created'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
       expect(find.text('Confirmed property'), findsOneWidget);
     },
   );
