@@ -58,7 +58,37 @@ abstract interface class YorksV1RentalRepository {
   });
 }
 
-class YorksV1SupabaseRentalRepository implements YorksV1RentalRepository {
+/// Optional recovery seam; existing repository test doubles need not expose it.
+abstract interface class YorksV1RentalCommandOutcomeRepository {
+  Future<bool> wasCommandConfirmed({
+    required String commandName,
+    required String idempotencyKey,
+  });
+}
+
+String yorksV1RentalPaymentMethodWire(String value) {
+  final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+  return switch (normalized) {
+    'bank_transfer' || 'cash' || 'pdc' || 'cdc' || 'other' => normalized,
+    'cheque' => 'other',
+    _ => throw const YorksV1DomainException(
+      YorksV1DomainErrorCode.invalidInput,
+    ),
+  };
+}
+
+Map<String, Object?> yorksV1RentalChequePayloadWire(
+  Map<String, Object?> payload,
+) {
+  final type = payload['cheque_type']?.toString().trim().toLowerCase();
+  if (type != 'pdc' && type != 'cdc') {
+    throw const YorksV1DomainException(YorksV1DomainErrorCode.invalidInput);
+  }
+  return {...payload, 'cheque_type': type};
+}
+
+class YorksV1SupabaseRentalRepository
+    implements YorksV1RentalRepository, YorksV1RentalCommandOutcomeRepository {
   const YorksV1SupabaseRentalRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -135,7 +165,7 @@ class YorksV1SupabaseRentalRepository implements YorksV1RentalRepository {
         'p_period_id': periodId,
         'p_amount': amount,
         'p_payment_date': _wireDate(paymentDate),
-        'p_payment_method': paymentMethod,
+        'p_payment_method': yorksV1RentalPaymentMethodWire(paymentMethod),
         'p_reference': reference,
         'p_note': note,
         'p_idempotency_key': idempotencyKey,
@@ -152,7 +182,7 @@ class YorksV1SupabaseRentalRepository implements YorksV1RentalRepository {
     await _invoke(
       functionName: 'v1_save_rental_cheque',
       parameters: {
-        'p_payload': payload,
+        'p_payload': yorksV1RentalChequePayloadWire(payload),
         'p_expected_version': expectedVersion,
         'p_idempotency_key': idempotencyKey,
       },
@@ -216,6 +246,23 @@ class YorksV1SupabaseRentalRepository implements YorksV1RentalRepository {
       functionName: 'v1_import_rental_workbook',
       parameters: {'p_payload': payload, 'p_idempotency_key': idempotencyKey},
     );
+  }
+
+  @override
+  Future<bool> wasCommandConfirmed({
+    required String commandName,
+    required String idempotencyKey,
+  }) async {
+    final response = _object(
+      await _invoke(
+        functionName: 'v1_get_rental_command_outcome',
+        parameters: {
+          'p_command_name': commandName,
+          'p_idempotency_key': idempotencyKey,
+        },
+      ),
+    );
+    return response['state'] == 'confirmed';
   }
 
   Future<Object?> _invoke({

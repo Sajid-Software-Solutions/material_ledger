@@ -83,6 +83,21 @@ function exactDailyRosterRoute(claim: PushClaim): string | null {
 }
 
 export function routeFor(claim: PushClaim): string {
+  if (moduleEvents[claim.eventCode] && claim.eventCode.startsWith("rental_")) {
+    if (claim.eventCode === "rental_completeness_review") {
+      return claim.entityType === "rental_portfolio"
+        ? "/rentals"
+        : "/notifications";
+    }
+    if (
+      claim.entityType === "rental_property" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        .test(claim.entityId)
+    ) {
+      return `/rentals/${claim.entityId}`;
+    }
+    return "/notifications";
+  }
   const dailyRoster = exactDailyRosterRoute(claim);
   if (dailyRoster) return dailyRoster;
   // Server resolves parent invoice/period identifiers. Accept only our module
@@ -95,6 +110,7 @@ export function routeFor(claim: PushClaim): string {
     return claim.moduleRoute;
   }
   const module = moduleEvents[claim.eventCode];
+
   if (module) {
     if (claim.eventCode.startsWith("accounts_")) {
       if (!claim.projectId || !/^[0-9a-f-]{36}$/i.test(claim.projectId)) {

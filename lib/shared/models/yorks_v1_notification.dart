@@ -96,6 +96,21 @@ class YorksV1NotificationRecord {
         entityType == 'chat_message' &&
         resolvedRequestId.isNotEmpty;
     final module = notificationModuleEvents[eventCode];
+    final isRentalEvent = module != null && eventCode.startsWith('rental_');
+    final expectedRentalRoute = isRentalEvent
+        ? (eventCode == 'rental_completeness_review'
+              ? (entityType == 'rental_portfolio' ? RoutePaths.rentals : '')
+              : entityType == 'rental_property' &&
+                    RegExp(
+                      r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+                      caseSensitive: false,
+                    ).hasMatch(entityId)
+              ? RoutePaths.rentalUnitPath(entityId)
+              : '')
+        : null;
+    final rentalRoute = isRentalEvent
+        ? (moduleRoute == expectedRentalRoute ? expectedRentalRoute : '')
+        : null;
     final moduleDestination = module == null
         ? null
         : eventCode.startsWith('accounts_')
@@ -104,6 +119,7 @@ class YorksV1NotificationRecord {
               : '/yorks/projects/$resolvedProjectId/accounts/${module['destination'] == 'invoices' ? 'client-invoices' : module['destination']}')
         : '/yorks/workforce/${module['destination']}';
     final resolvedRoute =
+        rentalRoute ??
         moduleRoute ??
         moduleDestination ??
         (isMaterialRequestCommentMention

@@ -262,7 +262,15 @@ Deno.test("module catalogue covers safe copy and guarded routes", async () => {
   for (const code of Object.keys(moduleEvents)) {
     assertEquals(safePushCopy(code).title === "Yorks workflow update", false);
     assertEquals(
-      routeFor({ ...claim(), eventCode: code }).startsWith("/yorks/"),
+      routeFor({
+        ...claim(),
+        eventCode: code,
+        entityType: code.startsWith("rental_")
+          ? (code === "rental_completeness_review"
+            ? "rental_portfolio"
+            : "rental_property")
+          : claim().entityType,
+      }).startsWith(code.startsWith("rental_") ? "/rentals" : "/yorks/"),
       true,
     );
   }
@@ -404,4 +412,48 @@ Deno.test("requested delivery check is explicit and opens the existing protected
     );
   }
   assertEquals(routeFor(fixture), `/yorks/material-requests/${requestId}`);
+});
+
+Deno.test("rental events use exact property routes and reject unrelated payload destinations", () => {
+  const property = "83000000-0000-4000-8000-000000000010";
+  for (
+    const code of [
+      "rental_lease_notice_due",
+      "rental_lease_expired",
+      "rental_cheque_due",
+      "rental_cheque_returned",
+      "rental_rent_due",
+      "rental_rent_overdue",
+    ]
+  ) {
+    const rental = {
+      ...claim(),
+      eventCode: code,
+      entityType: "rental_property",
+      entityId: property,
+      moduleRoute:
+        "/yorks/projects/83000000-0000-4000-8000-000000000011/accounts/receipts-pdc?invoice_id=83000000-0000-4000-8000-000000000012",
+    };
+    assertEquals(routeFor(rental), `/rentals/${property}`);
+    assertEquals(
+      routeFor({ ...rental, entityType: "material_request" }),
+      "/notifications",
+    );
+    assertEquals(
+      routeFor({ ...rental, entityId: "//attacker.example" }),
+      "/notifications",
+    );
+    for (const language of ["en", "ar", "ur", "hi"]) {
+      assertEquals(safePushCopy(code, language).title.length > 0, true);
+      assertEquals(safePushCopy(code, language).body.includes("AED"), false);
+    }
+  }
+  assertEquals(
+    routeFor({
+      ...claim(),
+      eventCode: "rental_completeness_review",
+      entityType: "rental_portfolio",
+    }),
+    "/rentals",
+  );
 });

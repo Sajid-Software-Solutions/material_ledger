@@ -137,15 +137,27 @@ void main() {
           final n = YorksV1NotificationRecord(
             id: 'id',
             eventCode: code,
-            entityType: code.startsWith('accounts_')
+            entityType: code.startsWith('rental_')
+                ? (code == 'rental_completeness_review'
+                      ? 'rental_portfolio'
+                      : 'rental_property')
+                : code.startsWith('accounts_')
                 ? 'accounts_client_invoice'
                 : 'workforce_monthly_period',
-            entityId: 'entity',
+            entityId: '83000000-0000-4000-8000-000000000010',
+            moduleRoute: code.startsWith('rental_')
+                ? (code == 'rental_completeness_review'
+                      ? '/rentals'
+                      : '/rentals/83000000-0000-4000-8000-000000000010')
+                : null,
             projectId: 'project',
             createdAt: DateTime.now(),
           ).toAppNotification(language);
           expect(n.title, isNot('Yorks workflow update'));
-          expect(n.route, startsWith('/yorks/'));
+          expect(
+            n.route,
+            startsWith(code.startsWith('rental_') ? '/rentals' : '/yorks/'),
+          );
           expect(n.body, isNotEmpty);
           expect(n.isUrgent, code.endsWith('_overdue'));
         }

@@ -141,8 +141,9 @@ select lives_ok(
 select is(
   (public.v1_get_rental_property('84000000-0000-4000-8000-000000000010')
     -> 'periods' -> 0 ->> 'status'),
-  'partially_paid',
-  'A partial receipt changes only the selected period to Partially Paid'
+  case when public.v1_rental_business_date() > date '2026-08-06'
+    then 'overdue' else 'partially_paid' end,
+  'A partial receipt retains its balance and becomes Overdue after its grace period'
 );
 select lives_ok(
   $$select public.v1_record_rent_payment(

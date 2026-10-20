@@ -78,8 +78,8 @@ import '../features/projects/presentation/screens/yorks_v1_project_setup_entry_s
 import '../features/projects/presentation/screens/yorks_v1_project_legacy_flow_screen.dart';
 import '../features/projects/presentation/screens/yorks_v1_documents_screen.dart';
 import '../features/projects/presentation/screens/yorks_v1_projects_screen.dart';
-import '../features/rentals/presentation/screens/rental_unit_detail_screen.dart';
-import '../features/rentals/presentation/screens/rentals_dashboard_screen.dart';
+import '../features/rentals/presentation/screens/yorks_v1_rental_screens.dart'
+    deferred as rental_workspace;
 import '../features/chat/presentation/screens/yorks_v1_team_chat_screen.dart';
 import '../features/company_overview/presentation/company_analytics_screen.dart'
     deferred as company_analytics;
@@ -1554,8 +1554,9 @@ GoRouter createAppRouter({
               routes: [
                 GoRoute(
                   path: RoutePaths.rentals,
-                  pageBuilder: (context, state) =>
-                      const NoTransitionPage(child: RentalsDashboardScreen()),
+                  pageBuilder: (context, state) => const NoTransitionPage(
+                    child: _DeferredRentalWorkspaceScreen(),
+                  ),
                 ),
               ],
             ),
@@ -2440,7 +2441,9 @@ GoRouter createAppRouter({
         path: RoutePaths.rentalUnit,
         pageBuilder: (context, state) => _slide(
           state.pageKey,
-          RentalUnitDetailScreen(unitId: state.pathParameters['id'] ?? ''),
+          _DeferredRentalWorkspaceScreen(
+            propertyId: state.pathParameters['id'] ?? '',
+          ),
         ),
       ),
       GoRoute(
@@ -2502,6 +2505,57 @@ GoRouter createAppRouter({
               _slide(state.pageKey, const MaterialLineGridDemoScreen()),
         ),
     ],
+  );
+}
+
+/// Loads the protected rental workspace only when its guarded route is opened.
+class _DeferredRentalWorkspaceScreen extends StatefulWidget {
+  const _DeferredRentalWorkspaceScreen({this.propertyId});
+  final String? propertyId;
+
+  @override
+  State<_DeferredRentalWorkspaceScreen> createState() =>
+      _DeferredRentalWorkspaceScreenState();
+}
+
+class _DeferredRentalWorkspaceScreenState
+    extends State<_DeferredRentalWorkspaceScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= rental_workspace.loadLibrary();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _load,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.done &&
+          !snapshot.hasError) {
+        return widget.propertyId == null
+            ? rental_workspace.YorksV1RentalDashboardScreen()
+            : rental_workspace.YorksV1RentalPropertyScreen(
+                propertyId: widget.propertyId!,
+              );
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            onPressed: () => setState(() {
+              _load = _sharedLoad = rental_workspace.loadLibrary();
+            }),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    },
   );
 }
 

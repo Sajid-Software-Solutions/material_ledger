@@ -3,6 +3,14 @@
 Status: implemented locally; production deployment is a separate release-owner
 action.
 
+The owner's 20 October 2026 rental-only revision is recorded in
+[`RENTAL_TRUST_AUDIT_2026-10-20.md`](RENTAL_TRUST_AUDIT_2026-10-20.md).
+It adds direct intake of the supplied eleven-column property tracker, optional
+incomplete details with completion recommendations, separate annual/monthly
+rent, explicit billing setup and protected rental reminders. That later
+approval supersedes the original occupied-lease required-field and monthly-only
+assumptions below. Release/import completion remains evidence-dependent.
+
 ## Delivered scope
 
 R38.4 replaces the retained local rental screen with one normalized,

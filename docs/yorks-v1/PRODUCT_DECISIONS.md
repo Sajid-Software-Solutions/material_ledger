@@ -1885,3 +1885,30 @@ The owner's later usability direction simplifies Project MR arrangement:
 - Final readiness notifies the authorized current project team and requester
   through the existing notification outbox, once. Interim updates do not generate
   notification spam. Existing discussion and audit remain available.
+
+## Rental source intake and completion — 20 October 2026
+
+The owner explicitly authorized importing the current `Yorks Properties.xlsx`
+into live Rental Properties with incomplete details. Location, contact,
+contract number and other descriptive lease fields are optional and editable
+later. Current facts and completion recommendations remain distinct from the
+immutable imported source. The supplied tracker format is accepted directly,
+and the downloaded template aligns with its eleven columns plus optional
+completion/monthly fields.
+
+Annual rent remains an annual amount. Monthly is a separate supported option;
+changing frequency never implicitly converts the amount. Missing rent is not
+zero. Because the source contains no payment history, imported records start
+with billing setup pending and no inferred historic debt. An explicit first
+rent date establishes the generated schedule. Security-cheque source values
+remain source evidence and never become deposits, actual cheques or receipts.
+
+Type-plus-unit codes are approved, with missing identity flagged for later
+correction. Missing details appear in the rental workspace and a protected
+daily completion digest. Current lease, cheque and confirmed-schedule rent
+milestones reuse the existing notification inbox/outbox with active-Admin
+authorization, safe routes, bounded deduplication and preferences. Asia/Dubai is
+the explicit rental business timezone. Initial evaluation sends completion
+digests externally and retains other initial milestones in the inbox without
+an OS alert burst or later replay. See
+[the rental audit and release record](RENTAL_TRUST_AUDIT_2026-10-20.md).

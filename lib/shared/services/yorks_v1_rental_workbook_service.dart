@@ -91,6 +91,30 @@ class YorksV1RentalWorkbookCodec {
   static const instructionsSheet = 'Instructions';
   static const listsSheet = 'Lists';
 
+  static const trackerHeaders = [
+    'Unit No',
+    'Unit Type',
+    'Tenant / Company',
+    'Contract Start',
+    'Contract End',
+    'Annual Rent (AED)',
+    'Status',
+    'Security Cheque (AED)',
+    'Contact',
+    'Days to Expiry',
+    'Expiry Flag',
+  ];
+  static const trackerOptionalHeaders = [
+    'Rent Frequency',
+    'Monthly Rent (AED)',
+    'Location',
+    'Contract No.',
+    'Unit Code',
+    'Billing Start',
+    'Monthly Due Day',
+    'Import Action',
+  ];
+
   static const propertyHeaders = [
     'Import Action *',
     'Unit Code *',
@@ -150,11 +174,20 @@ class YorksV1RentalWorkbookCodec {
       fileName: selected.fileName,
     );
     final issues = <YorksV1RentalImportIssue>[];
-    final properties = _propertyRows(
-      _sheet(workbook, propertySheet, issues),
-      portfolio,
-      issues,
-    );
+    final tracker = _trackerSheet(workbook);
+    final properties = tracker == null
+        ? _propertyRows(
+            _sheet(workbook, propertySheet, issues),
+            portfolio,
+            issues,
+          )
+        : _trackerRows(
+            tracker.sheet,
+            tracker.headerIndex,
+            selected.fileName,
+            portfolio,
+            issues,
+          );
     final knownCodes = <String>{
       for (final property in portfolio.properties)
         property.unitCode.trim().toUpperCase(),
@@ -162,12 +195,16 @@ class YorksV1RentalWorkbookCodec {
         if (!row.hasError) row.payload['unit_code']!.toString(),
     };
     final payments = _paymentRows(
-      _sheet(workbook, paymentSheet, issues),
+      tracker == null
+          ? _sheet(workbook, paymentSheet, issues)
+          : _optionalSheet(workbook, paymentSheet),
       knownCodes,
       issues,
     );
     final cheques = _chequeRows(
-      _sheet(workbook, chequeSheet, issues),
+      tracker == null
+          ? _sheet(workbook, chequeSheet, issues)
+          : _optionalSheet(workbook, chequeSheet),
       knownCodes,
       issues,
     );
@@ -188,16 +225,23 @@ class YorksV1RentalWorkbookCodec {
         'Preview and resolve every ERROR before Confirm Import. Nothing changes during preview.',
       ],
       [
-        'Use Create only for a new Unit Code and Update only for an existing one.',
+        'The property tracker starts at row 3. Annual Rent stays annual. Choose Monthly only when entering Monthly Rent, and leave Annual Rent blank.',
       ],
       [
-        'Dates: YYYY-MM-DD. Amounts: positive numbers without currency symbols.',
+        'Missing details remain editable after import. Billing Start must be explicitly entered to generate rent periods; it is never inferred from Contract Start.',
       ],
       [
-        'CDC/PDC payments require a reference. Do not duplicate cheque numbers.',
+        'Security Cheque is retained as source information, not a cash deposit or cleared payment. Optional Payment History and Cheque Register sheets require actual transaction evidence.',
+      ],
+      [
+        'Existing Unit Codes require an explicit Update in Import Action. Blank optional details do not clear completed fields, and original imported source evidence remains unchanged.',
       ],
     ],
-    propertySheet: [propertyHeaders],
+    propertySheet: [
+      ['YORKS PROPERTIES — Lease Contracts Tracker'],
+      <String>[],
+      [...trackerHeaders, ...trackerOptionalHeaders],
+    ],
     paymentSheet: [paymentHeaders],
     chequeSheet: [chequeHeaders],
     listsSheet: const [
@@ -230,16 +274,359 @@ class YorksV1RentalWorkbookCodec {
         'Lease',
         'Active',
         'Cash',
-        'Quarterly',
+        'Annual',
         'PDC',
         'Received',
       ],
-      ['', 'Office', '', '', 'Expired', 'CDC', 'Annual', '', 'Deposited'],
+      ['', 'Office', '', '', 'Expired', 'CDC', '', '', 'Deposited'],
       ['', 'Villa', '', '', 'Terminated', 'PDC', '', '', 'Cleared'],
       ['', 'Labour Camp', '', '', 'Renewed', 'Other', '', '', 'Returned'],
       ['', 'Other', '', '', '', '', '', '', 'Cancelled'],
+      ['', 'Store', 'Unknown', 'Licence', 'Notice Due', '', '', '', ''],
+      ['', 'Office (Store)', '', 'Other', '', '', '', '', ''],
     ],
   });
+
+  static YorksV1BoqWorkbookSheet? _optionalSheet(
+    YorksV1BoqParsedWorkbook workbook,
+    String name,
+  ) {
+    for (final sheet in workbook.sheets) {
+      if (sheet.name.trim().toLowerCase() == name.toLowerCase()) return sheet;
+    }
+    return null;
+  }
+
+  static ({YorksV1BoqWorkbookSheet sheet, int headerIndex})? _trackerSheet(
+    YorksV1BoqParsedWorkbook workbook,
+  ) {
+    for (final sheet in workbook.sheets) {
+      if (!{
+        'sheet1',
+        propertySheet.toLowerCase(),
+      }.contains(sheet.name.trim().toLowerCase())) {
+        continue;
+      }
+      for (final index in [2, 0]) {
+        if (sheet.rows.length <= index) continue;
+        final row = sheet.rows[index];
+        if (row.length >= trackerHeaders.length &&
+            List.generate(
+              trackerHeaders.length,
+              (column) => column,
+            ).every((column) => row[column].trim() == trackerHeaders[column])) {
+          return (sheet: sheet, headerIndex: index);
+        }
+      }
+    }
+    return null;
+  }
+
+  List<YorksV1RentalImportRow> _trackerRows(
+    YorksV1BoqWorkbookSheet sheet,
+    int headerIndex,
+    String fileName,
+    YorksV1RentalPortfolio portfolio,
+    List<YorksV1RentalImportIssue> allIssues,
+  ) {
+    final headers = sheet.rows[headerIndex];
+    for (final header in [...trackerHeaders, ...trackerOptionalHeaders]) {
+      if (headers.where((value) => value.trim() == header).length > 1) {
+        allIssues.add(
+          YorksV1RentalImportIssue(
+            sheet: sheet.name,
+            rowNumber: headerIndex + 1,
+            message: 'Required column “$header” is duplicated.',
+          ),
+        );
+      }
+    }
+    if (allIssues.isNotEmpty) return const [];
+    final existing = {
+      for (final property in portfolio.properties)
+        property.unitCode.trim().toUpperCase(): property,
+    };
+    final seen = <String>{};
+    final result = <YorksV1RentalImportRow>[];
+    for (var index = headerIndex + 1; index < sheet.rows.length; index++) {
+      final source = sheet.rows[index];
+      if (source.every((cell) => cell.trim().isEmpty)) continue;
+      final rowNumber = index + 1;
+      final issues = <YorksV1RentalImportIssue>[];
+      void issue(String message, {bool blocking = false}) => issues.add(
+        YorksV1RentalImportIssue(
+          sheet: sheet.name,
+          rowNumber: rowNumber,
+          message: message,
+          severity: blocking
+              ? YorksV1RentalImportSeverity.error
+              : YorksV1RentalImportSeverity.warning,
+        ),
+      );
+      String value(String header) => _sourceValue(headers, source, header);
+      double? amount(String header) {
+        final text = value(header);
+        if (text.isEmpty) return null;
+        final amount = _parsedNumber(text);
+        if (amount == null || amount < 0) {
+          issue('$header must be a valid non-negative number.', blocking: true);
+          return null;
+        }
+        return amount;
+      }
+
+      String? date(String header) {
+        final text = value(header);
+        if (text.isEmpty) return null;
+        final parsed = _date(text);
+        if (parsed == null) {
+          issue('$header must be a valid date.', blocking: true);
+        }
+        return parsed;
+      }
+
+      final unitNumber = value('Unit No');
+      final sourceType = value('Unit Type');
+      final explicitCode = value('Unit Code');
+      final code = explicitCode.isNotEmpty
+          ? explicitCode.toUpperCase()
+          : unitNumber.isEmpty
+          ? 'SOURCE-$rowNumber'
+          : _wire(
+              '${sourceType.isEmpty ? 'Unit' : sourceType} $unitNumber',
+            ).replaceAll('_', '-').toUpperCase();
+      if (!seen.add(code)) {
+        issue('Unit Code is duplicated in this workbook.', blocking: true);
+      }
+      if (code.isEmpty || code.length > 40) {
+        issue(
+          'Unit Code must contain between 1 and 40 characters.',
+          blocking: true,
+        );
+      }
+      final existingProperty = existing[code];
+      final requestedAction = value('Import Action').toLowerCase();
+      if (requestedAction.isNotEmpty &&
+          !{'create', 'update'}.contains(requestedAction)) {
+        issue('Import Action must be Create or Update.', blocking: true);
+      }
+      if (existingProperty != null && requestedAction != 'update') {
+        issue(
+          'This Unit Code already exists. Enter Update in Import Action to deliberately update it.',
+          blocking: true,
+        );
+      }
+      if (existingProperty == null && requestedAction == 'update') {
+        issue('Update requires an existing Unit Code.', blocking: true);
+      }
+      if (unitNumber.isEmpty && explicitCode.isEmpty) {
+        issue(
+          'Unit number is missing. $code preserves the source row until it is completed.',
+        );
+      }
+      final type = _wire(sourceType);
+      final supportedType = const {
+        'shop',
+        'store',
+        'office_store',
+        'warehouse',
+        'office',
+        'labour_camp',
+        'villa',
+        'other',
+      }.contains(type);
+      final propertyType = sourceType.isEmpty && existingProperty != null
+          ? _wire(existingProperty.propertyType)
+          : supportedType
+          ? type
+          : 'other';
+      if (!supportedType) {
+        issue('Property type needs review; the original value is preserved.');
+      }
+      final sourceStatus = value('Status').toLowerCase();
+      final occupancy = switch (sourceStatus) {
+        'active' => 'occupied',
+        'empty' => 'vacant',
+        _ => existingProperty?.occupancy.wireValue ?? 'unknown',
+      };
+      final frequencyText = value('Rent Frequency');
+      final frequency = frequencyText.isEmpty
+          ? value('Annual Rent (AED)').isNotEmpty
+                ? 'annual'
+                : existingProperty?.paymentFrequency ?? 'annual'
+          : _wire(frequencyText);
+      if (!{'annual', 'monthly'}.contains(frequency)) {
+        issue('Rent Frequency must be Annual or Monthly.', blocking: true);
+      }
+      final suppliedAnnualRent = amount('Annual Rent (AED)');
+      final suppliedMonthlyRent = amount('Monthly Rent (AED)');
+      final annualRent = suppliedAnnualRent ?? existingProperty?.annualRent;
+      final monthlyRent =
+          suppliedMonthlyRent ??
+          (existingProperty != null &&
+                  !existingProperty.isAnnual &&
+                  existingProperty.hasRentAmount
+              ? existingProperty.monthlyRent
+              : null);
+      if ((frequency == 'annual' && suppliedMonthlyRent != null) ||
+          (frequency == 'monthly' && suppliedAnnualRent != null)) {
+        issue(
+          'Keep only the amount for the selected Rent Frequency.',
+          blocking: true,
+        );
+      }
+      final leaseStart =
+          date('Contract Start') ??
+          existingProperty?.leaseStart?.toIso8601String().split('T').first;
+      final leaseEnd =
+          date('Contract End') ??
+          existingProperty?.leaseEnd?.toIso8601String().split('T').first;
+      final billingStart =
+          date('Billing Start') ??
+          existingProperty?.billingStart?.toIso8601String().split('T').first;
+      final location =
+          _null(value('Location')) ?? _null(existingProperty?.location);
+      final contractNumber =
+          _null(value('Contract No.')) ?? existingProperty?.contractNumber;
+      final tenantName =
+          _null(value('Tenant / Company')) ?? existingProperty?.tenantName;
+      final contactNumber =
+          _null(value('Contact')) ?? existingProperty?.contactNumber;
+      if (leaseStart != null &&
+          leaseEnd != null &&
+          leaseEnd.compareTo(leaseStart) < 0) {
+        issue('Contract End cannot be before Contract Start.', blocking: true);
+      }
+      int? dueDay = existingProperty?.monthlyDueDay;
+      final dueText = value('Monthly Due Day');
+      if (dueText.isNotEmpty) {
+        final due = _parsedNumber(dueText);
+        if (due == null ||
+            due != due.truncateToDouble() ||
+            due < 1 ||
+            due > 31) {
+          issue(
+            'Monthly Due Day must be a whole number between 1 and 31.',
+            blocking: true,
+          );
+        } else {
+          dueDay = due.toInt();
+        }
+      }
+      final missing = <String>[
+        if (location == null) 'location',
+        if (!supportedType && existingProperty == null) 'property_type',
+        if (occupancy == 'unknown') 'occupancy',
+        if (occupancy == 'occupied' && tenantName == null) 'tenant_name',
+        if (contractNumber == null) 'contract_number',
+        if (leaseStart == null) 'lease_start',
+        if (leaseEnd == null) 'lease_end',
+        if (frequency == 'annual' ? annualRent == null : monthlyRent == null)
+          'rent_amount',
+        if (billingStart == null) 'billing_start',
+      ];
+      if (missing.isNotEmpty) {
+        issue(
+          'Incomplete details: ${missing.join(', ')}. These can be completed after import.',
+        );
+      }
+      if (billingStart == null) {
+        issue(
+          'Billing has not started. No rent periods or arrears will be inferred.',
+        );
+      }
+      final security = value('Security Cheque (AED)');
+      if (security.isNotEmpty) {
+        issue(
+          'Security Cheque is preserved as source information, not a cash deposit or payment.',
+        );
+      }
+      final originalValues = <String, Object?>{
+        for (var column = 0; column < headers.length; column++)
+          if (headers[column].isNotEmpty)
+            headers[column]: column < source.length && source[column].isNotEmpty
+                ? source[column]
+                : null,
+      };
+      final oldOriginal = existingProperty?.sourceMetadata['original_values'];
+      if (oldOriginal is Map &&
+          trackerHeaders.any(
+            (header) => oldOriginal[header] != originalValues[header],
+          )) {
+        issue(
+          'Original imported source values changed. Keep the source evidence unchanged and edit live property details instead.',
+          blocking: true,
+        );
+      }
+      final propertyName =
+          existingProperty?.propertyName ??
+          (unitNumber.isEmpty
+              ? '${sourceType.isEmpty ? 'Property' : sourceType} $code'
+              : '${sourceType.isEmpty ? 'Unit' : sourceType} $unitNumber');
+      result.add(
+        YorksV1RentalImportRow(
+          sheet: sheet.name,
+          rowNumber: rowNumber,
+          action: existingProperty == null ? 'create' : 'update',
+          label: '$code · $propertyName',
+          issues: issues,
+          payload: {
+            'source_row': rowNumber,
+            'action': existingProperty == null ? 'create' : 'update',
+            if (existingProperty != null) 'property_id': existingProperty.id,
+            if (existingProperty?.leaseId != null)
+              'lease_id': existingProperty!.leaseId,
+            if (existingProperty != null)
+              'expected_version': existingProperty.recordVersion,
+            'unit_code': code,
+            'property_name': propertyName,
+            'property_type': propertyType,
+            'location': location,
+            'occupancy_state': occupancy,
+            'occupied': occupancy == 'occupied',
+            'tenant_name': tenantName,
+            'contact_number': contactNumber,
+            'contract_number': contractNumber,
+            if (existingProperty == null) ...{
+              'contract_type': 'tenancy_contract',
+              'contract_status': sourceStatus == 'active' ? 'active' : 'draft',
+            },
+            'lease_start': leaseStart,
+            'lease_end': leaseEnd,
+            if (existingProperty == null ||
+                value('Annual Rent (AED)').isNotEmpty)
+              'annual_rent': annualRent,
+            if (existingProperty == null ||
+                value('Monthly Rent (AED)').isNotEmpty)
+              'monthly_rent': monthlyRent,
+            'payment_frequency': frequency,
+            'billing_start': billingStart,
+            'monthly_due_day': ?dueDay,
+            if (existingProperty == null)
+              'lease_notes': security.isEmpty
+                  ? null
+                  : 'Source Security Cheque (AED): $security',
+            'source_metadata':
+                existingProperty?.sourceMetadata.isNotEmpty == true
+                ? existingProperty!.sourceMetadata
+                : {
+                    'format': 'yorks_properties_tracker_v1',
+                    'source_format': 'yorks_properties_tracker_v1',
+                    'source_file': fileName,
+                    'source_sheet': sheet.name,
+                    'source_row': rowNumber,
+                    'source_unit_number': _null(unitNumber),
+                    'source_unit_type': _null(sourceType),
+                    'original_values': originalValues,
+                    'missing_fields': missing,
+                  },
+          },
+        ),
+      );
+      allIssues.addAll(issues);
+    }
+    return result;
+  }
 
   Uint8List buildExport({
     required YorksV1RentalExportRegister register,
@@ -329,6 +716,49 @@ class YorksV1RentalWorkbookCodec {
         message: message,
       ),
     );
+    String choice(String field, Set<String> supported, {String fallback = ''}) {
+      final value = row[field]!.trim();
+      final result = value.isEmpty ? fallback : _wire(value);
+      if (!supported.contains(result)) {
+        error('${field.replaceAll(' *', '')} is not supported.');
+      }
+      return result;
+    }
+
+    double number(
+      String field, {
+      double fallback = 0,
+      double minimum = 0,
+      double? maximum,
+      bool integer = false,
+    }) {
+      final text = row[field]!.trim();
+      if (text.isEmpty) return fallback;
+      final value = _parsedNumber(text);
+      final label = field.replaceAll(' *', '');
+      if (value == null || (integer && value != value.truncateToDouble())) {
+        error('$label must be a valid ${integer ? 'whole number' : 'number'}.');
+        return fallback;
+      }
+      if (value < minimum || (maximum != null && value > maximum)) {
+        error(
+          maximum == null
+              ? '$label cannot be negative.'
+              : '$label must be between ${minimum.toInt()} and ${maximum.toInt()}.',
+        );
+      }
+      return value;
+    }
+
+    String? date(String field) {
+      final text = row[field]!.trim();
+      final value = _date(text);
+      if (text.isNotEmpty && value == null) {
+        error('$field must be a valid date.');
+      }
+      return value;
+    }
+
     final action = row['Import Action *']!.trim().toLowerCase();
     final code = row['Unit Code *']!.trim().toUpperCase();
     if (!{'create', 'update'}.contains(action)) {
@@ -352,7 +782,43 @@ class YorksV1RentalWorkbookCodec {
         error('${field.replaceAll(' *', '')} is required.');
       }
     }
-    final occupied = row['Occupancy *']!.trim().toLowerCase() == 'occupied';
+    final propertyType = choice('Property Type *', const {
+      'shop',
+      'store',
+      'office_store',
+      'warehouse',
+      'office',
+      'labour_camp',
+      'villa',
+      'other',
+    });
+    final occupancy = choice('Occupancy *', const {'occupied', 'vacant'});
+    final occupied = occupancy == 'occupied';
+    final contractType = choice('Contract Type', const {
+      'tenancy_contract',
+      'lease',
+      'licence',
+      'other',
+    }, fallback: 'tenancy_contract');
+    final contractStatus = choice('Contract Status', const {
+      'draft',
+      'active',
+      'notice_due',
+      'expired',
+      'renewed',
+      'terminated',
+    }, fallback: 'draft');
+    final paymentMethod = choice('Default Payment Method', const {
+      'bank_transfer',
+      'cash',
+      'cdc',
+      'pdc',
+      'other',
+    }, fallback: 'bank_transfer');
+    final paymentFrequency = choice('Payment Frequency', const {
+      'monthly',
+      'annual',
+    }, fallback: 'monthly');
     if (occupied &&
         (row['Tenant / Company Name']!.trim().isEmpty ||
             row['Contract No.']!.trim().isEmpty ||
@@ -362,11 +828,40 @@ class YorksV1RentalWorkbookCodec {
         'Occupied properties require tenant, contract number, lease start and lease end.',
       );
     }
-    final monthlyRent = _number(row['Monthly Rent AED']);
-    final dueDay = _integer(row['Monthly Due Day'], fallback: 1);
-    if (monthlyRent < 0) error('Monthly Rent cannot be negative.');
-    if (dueDay < 1 || dueDay > 31) {
-      error('Monthly Due Day must be between 1 and 31.');
+    final monthlyRent = number('Monthly Rent AED');
+    final dueDay = number(
+      'Monthly Due Day',
+      fallback: 1,
+      minimum: 1,
+      maximum: 31,
+      integer: true,
+    ).toInt();
+    final graceDays = number(
+      'Grace Period Days',
+      fallback: 5,
+      maximum: 90,
+      integer: true,
+    ).toInt();
+    final securityDeposit = number('Security Deposit AED');
+    final chequeCount = number(
+      'No. of Contract Cheques',
+      maximum: 240,
+      integer: true,
+    ).toInt();
+    final escalation = number('Annual Escalation %', maximum: 100);
+    final noticeDays = number(
+      'Renewal Notice Days',
+      fallback: 90,
+      maximum: 730,
+      integer: true,
+    ).toInt();
+    final signedDate = date('Contract Signed Date');
+    final leaseStart = date('Lease Start');
+    final leaseEnd = date('Lease End');
+    if (leaseStart != null &&
+        leaseEnd != null &&
+        leaseEnd.compareTo(leaseStart) < 0) {
+      error('Lease End cannot be before Lease Start.');
     }
     allIssues.addAll(issues);
     final existingProperty = existing[code];
@@ -386,7 +881,7 @@ class YorksV1RentalWorkbookCodec {
           'expected_version': existingProperty.recordVersion,
         'unit_code': code,
         'property_name': row['Property Name *']!.trim(),
-        'property_type': _wire(row['Property Type *']!),
+        'property_type': propertyType,
         'municipality_number': _null(row['Property / Municipality No.']),
         'location': row['Location *']!.trim(),
         'occupied': occupied,
@@ -395,37 +890,20 @@ class YorksV1RentalWorkbookCodec {
         'email': _null(row['Tenant Email']),
         'trade_licence_number': _null(row['Trade Licence No.']),
         'contract_number': _null(row['Contract No.']),
-        'contract_type': _wire(
-          row['Contract Type']!.isEmpty
-              ? 'Tenancy Contract'
-              : row['Contract Type']!,
-        ),
-        'contract_status': _wire(
-          row['Contract Status']!.isEmpty ? 'Draft' : row['Contract Status']!,
-        ),
-        'signed_date': _date(row['Contract Signed Date']),
-        'lease_start': _date(row['Lease Start']),
-        'lease_end': _date(row['Lease End']),
+        'contract_type': contractType,
+        'contract_status': contractStatus,
+        'signed_date': signedDate,
+        'lease_start': leaseStart,
+        'lease_end': leaseEnd,
         'monthly_rent': monthlyRent,
         'monthly_due_day': dueDay,
-        'grace_period_days': _integer(row['Grace Period Days'], fallback: 5),
-        'security_deposit': _number(row['Security Deposit AED']),
-        'default_payment_method': _wire(
-          row['Default Payment Method']!.isEmpty
-              ? 'Bank Transfer'
-              : row['Default Payment Method']!,
-        ),
-        'payment_frequency': _wire(
-          row['Payment Frequency']!.isEmpty
-              ? 'Monthly'
-              : row['Payment Frequency']!,
-        ),
-        'contract_cheque_count': _integer(row['No. of Contract Cheques']),
-        'annual_escalation_percent': _number(row['Annual Escalation %']),
-        'renewal_notice_days': _integer(
-          row['Renewal Notice Days'],
-          fallback: 90,
-        ),
+        'grace_period_days': graceDays,
+        'security_deposit': securityDeposit,
+        'default_payment_method': paymentMethod,
+        'payment_frequency': paymentFrequency,
+        'contract_cheque_count': chequeCount,
+        'annual_escalation_percent': escalation,
+        'renewal_notice_days': noticeDays,
         'lease_notes': _null(row['Notes']),
       },
     );
@@ -517,8 +995,25 @@ class YorksV1RentalWorkbookCodec {
       if (_number(row['Amount AED *']) <= 0) {
         issues.add('Cheque amount must be greater than zero.');
       }
+      if (!{'cdc', 'pdc'}.contains(_wire(row['Cheque Type *']!))) {
+        issues.add('Cheque Type is not supported.');
+      }
+      if (!{
+        'scheduled',
+        'received',
+        'deposited',
+        'cleared',
+        'returned',
+        'cancelled',
+      }.contains(_wire(row['Status *']!))) {
+        issues.add('Cheque Status is not supported.');
+      }
       if (_date(row['Cheque Date *']) == null) {
         issues.add('Cheque Date must be valid.');
+      }
+      if (row['Linked Rent Period *']!.isNotEmpty &&
+          _date(row['Linked Rent Period *']) == null) {
+        issues.add('Linked Rent Period must be a valid date.');
       }
       return {
         'source_row': rowNumber,
@@ -575,10 +1070,13 @@ class YorksV1RentalWorkbookCodec {
     List<String> requiredHeaders,
     List<YorksV1RentalImportIssue> issues,
   ) {
-    if (sheet.rows.isEmpty) return const {};
-    final header = sheet.rows.first.map((value) => value.trim()).toList();
+    final header = sheet.rows.isEmpty
+        ? <String>[]
+        : sheet.rows.first.map((value) => value.trim()).toList();
+    var validHeaders = true;
     for (final required in requiredHeaders) {
       if (!header.contains(required)) {
+        validHeaders = false;
         issues.add(
           YorksV1RentalImportIssue(
             sheet: sheet.name,
@@ -586,8 +1084,19 @@ class YorksV1RentalWorkbookCodec {
             message: 'Required column “$required” is missing.',
           ),
         );
+      } else if (header.where((value) => value == required).length > 1) {
+        validHeaders = false;
+        issues.add(
+          YorksV1RentalImportIssue(
+            sheet: sheet.name,
+            rowNumber: 1,
+            message: 'Required column “$required” is duplicated.',
+          ),
+        );
       }
     }
+    // A malformed header cannot safely identify any record fields.
+    if (!validHeaders) return const {};
     final result = <int, Map<String, String>>{};
     for (var index = 1; index < sheet.rows.length; index++) {
       final source = sheet.rows[index];
@@ -616,17 +1125,33 @@ class YorksV1RentalWorkbookCodec {
       .toLowerCase()
       .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
       .replaceAll(RegExp(r'^_|_$'), '');
-  static double _number(String? value) =>
-      double.tryParse((value ?? '').replaceAll(',', '').trim()) ?? 0;
-  static int _integer(String? value, {int fallback = 0}) =>
-      int.tryParse((value ?? '').trim()) ?? fallback;
+  static double? _parsedNumber(String? value) {
+    final text = (value ?? '').trim();
+    if (!RegExp(
+      r'^[+-]?(?:(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$',
+    ).hasMatch(text)) {
+      return null;
+    }
+    final number = double.tryParse(text.replaceAll(',', ''));
+    return number != null && number.isFinite ? number : null;
+  }
+
+  static double _number(String? value) => _parsedNumber(value) ?? 0;
   static String? _date(String? value) {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return null;
-    final direct = DateTime.tryParse(text);
-    if (direct != null) return DateFormat('yyyy-MM-dd').format(direct);
+    final isoDate = RegExp(r'^(\d{4}-\d{2}-\d{2})(?:$|[T ])').firstMatch(text);
+    if (isoDate != null) {
+      try {
+        // DateTime.tryParse normalizes impossible days, such as February 30.
+        DateFormat('yyyy-MM-dd').parseStrict(isoDate.group(1)!);
+        final direct = DateTime.tryParse(text);
+        if (direct != null) return DateFormat('yyyy-MM-dd').format(direct);
+      } catch (_) {}
+      return null;
+    }
     final serial = double.tryParse(text);
-    if (serial != null && serial > 0) {
+    if (serial != null && serial.isFinite && serial > 0 && serial < 2958466) {
       return DateFormat(
         'yyyy-MM-dd',
       ).format(DateTime(1899, 12, 30).add(Duration(days: serial.floor())));

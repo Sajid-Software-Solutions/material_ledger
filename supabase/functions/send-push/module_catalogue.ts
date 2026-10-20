@@ -303,6 +303,118 @@ export const moduleEvents: Record<string, {title: Record<string,string>; body: R
     },
     "destination": "timesheets",
     "urgent": false
+  },
+  "rental_completeness_review": {
+    "title": {
+      "en": "Rental details need review",
+      "ar": "تفاصيل العقارات المؤجرة تحتاج إلى مراجعة",
+      "ur": "کرایہ کی جائیدادوں کی تفصیلات کا جائزہ درکار ہے",
+      "hi": "किराये की संपत्तियों के विवरण की समीक्षा आवश्यक है"
+    },
+    "body": {
+      "en": "Review incomplete property records and add the missing details when available.",
+      "ar": "راجع سجلات العقارات غير المكتملة وأضف التفاصيل الناقصة عند توفرها.",
+      "ur": "نامکمل جائیدادوں کے ریکارڈ دیکھیں اور دستیاب ہونے پر باقی تفصیلات شامل کریں۔",
+      "hi": "अधूरे संपत्ति रिकॉर्ड की समीक्षा करें और उपलब्ध होने पर शेष विवरण जोड़ें।"
+    },
+    "destination": "rentals",
+    "urgent": false
+  },
+  "rental_lease_notice_due": {
+    "title": {
+      "en": "Rental lease renewal needs review",
+      "ar": "تجديد عقد الإيجار يحتاج إلى مراجعة",
+      "ur": "کرایہ کے معاہدے کی تجدید کا جائزہ درکار ہے",
+      "hi": "किराया अनुबंध के नवीनीकरण की समीक्षा आवश्यक है"
+    },
+    "body": {
+      "en": "A rental lease is within its renewal notice window. Review the property.",
+      "ar": "دخل عقد إيجار فترة إشعار التجديد. راجع العقار.",
+      "ur": "کرایہ کا معاہدہ تجدید کی اطلاع کی مدت میں ہے۔ جائیداد کا جائزہ لیں۔",
+      "hi": "किराया अनुबंध नवीनीकरण की सूचना अवधि में है। संपत्ति की समीक्षा करें।"
+    },
+    "destination": "rentals",
+    "urgent": false
+  },
+  "rental_lease_expired": {
+    "title": {
+      "en": "Rental lease has expired",
+      "ar": "انتهت مدة عقد الإيجار",
+      "ur": "کرایہ کا معاہدہ ختم ہو گیا ہے",
+      "hi": "किराया अनुबंध समाप्त हो गया है"
+    },
+    "body": {
+      "en": "Review the expired lease and update its current position.",
+      "ar": "راجع العقد المنتهي وحدّث وضعه الحالي.",
+      "ur": "ختم شدہ معاہدے کا جائزہ لیں اور اس کی موجودہ حالت درج کریں۔",
+      "hi": "समाप्त अनुबंध की समीक्षा करें और उसकी वर्तमान स्थिति अपडेट करें।"
+    },
+    "destination": "rentals",
+    "urgent": false
+  },
+  "rental_cheque_due": {
+    "title": {
+      "en": "Rental cheque needs review",
+      "ar": "شيك الإيجار يحتاج إلى مراجعة",
+      "ur": "کرایہ کے چیک کا جائزہ درکار ہے",
+      "hi": "किराये के चेक की समीक्षा आवश्यक है"
+    },
+    "body": {
+      "en": "A rental cheque has reached its date. Review the next collection step.",
+      "ar": "حل تاريخ شيك إيجار. راجع خطوة التحصيل التالية.",
+      "ur": "کرایہ کے چیک کی تاریخ آ گئی ہے۔ وصولی کے اگلے مرحلے کا جائزہ لیں۔",
+      "hi": "किराये के चेक की तारीख आ गई है। वसूली के अगले चरण की समीक्षा करें।"
+    },
+    "destination": "rentals",
+    "urgent": false
+  },
+  "rental_cheque_returned": {
+    "title": {
+      "en": "Rental cheque was returned",
+      "ar": "تم إرجاع شيك الإيجار",
+      "ur": "کرایہ کا چیک واپس ہو گیا ہے",
+      "hi": "किराये का चेक वापस हुआ है"
+    },
+    "body": {
+      "en": "Review the returned cheque and record the next action.",
+      "ar": "راجع الشيك المرتجع وسجّل الإجراء التالي.",
+      "ur": "واپس شدہ چیک کا جائزہ لیں اور اگلا اقدام درج کریں۔",
+      "hi": "वापस हुए चेक की समीक्षा करें और अगली कार्रवाई दर्ज करें।"
+    },
+    "destination": "rentals",
+    "urgent": false
+  },
+  "rental_rent_overdue": {
+    "title": {
+      "en": "Rental payment is overdue",
+      "ar": "دفعة الإيجار متأخرة",
+      "ur": "کرایہ کی ادائیگی واجب الادا ہے",
+      "hi": "किराये का भुगतान बकाया है"
+    },
+    "body": {
+      "en": "An unpaid rent balance is past its grace period. Review the rent schedule.",
+      "ar": "تجاوز رصيد إيجار غير مدفوع فترة السماح. راجع جدول الإيجار.",
+      "ur": "کرایہ کی باقی رقم مہلت کی مدت سے گزر چکی ہے۔ کرایہ کے شیڈول کا جائزہ لیں۔",
+      "hi": "किराये की शेष राशि की अनुग्रह अवधि बीत गई है। किराया अनुसूची की समीक्षा करें।"
+    },
+    "destination": "rentals",
+    "urgent": true
+  },
+  "rental_rent_due": {
+    "title": {
+      "en": "Rental payment is due",
+      "ar": "دفعة الإيجار مستحقة",
+      "ur": "کرایہ کی ادائیگی کا وقت آ گیا ہے",
+      "hi": "किराये का भुगतान देय है"
+    },
+    "body": {
+      "en": "Review the rent schedule and record any received payment.",
+      "ar": "راجع جدول الإيجار وسجّل أي دفعة مستلمة.",
+      "ur": "کرایہ کے شیڈول کا جائزہ لیں اور موصول شدہ ادائیگی درج کریں۔",
+      "hi": "किराया अनुसूची की समीक्षा करें और प्राप्त भुगतान दर्ज करें।"
+    },
+    "destination": "rentals",
+    "urgent": false
   }
 };
 export const workflowEvents: Record<string, {title: Record<string,string>; body: Record<string,string>; type: "request" | "project" | "info"}> = {
