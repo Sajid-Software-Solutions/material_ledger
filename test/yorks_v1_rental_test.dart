@@ -10,6 +10,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/core/constants/constants.dart';
@@ -21,6 +22,7 @@ import 'package:material_ledger/shared/models/yorks_v1_rental.dart';
 import 'package:material_ledger/shared/models/yorks_v1_rental_workbook.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_documents_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_rental_provider.dart';
+import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_documents_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_rental_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
@@ -519,6 +521,69 @@ void main() {
       },
     );
 
+    test(
+      'corrected unit codes cannot duplicate an immutable source row on replay',
+      () {
+        for (final identity in [
+          {'Unit No': '1', 'Unit Type': 'Shop'},
+          {'Unit No': '', 'Unit Type': 'Store'},
+        ]) {
+          final source = {
+            ...identity,
+            'Tenant / Company': 'Source tenant',
+            'Annual Rent (AED)': '27825',
+          };
+          final original = _previewRentalTracker([
+            _rentalTrackerValues(source),
+          ]).properties.single.payload;
+          final existing = YorksV1RentalPortfolio.fromJson({
+            'summary': {},
+            'properties': [
+              {
+                ...original,
+                'id': 'corrected-property',
+                'unit_code': 'OWNER-CORRECTED',
+                'record_version': 3,
+              },
+            ],
+          });
+          // Moving the original row does not turn its former code into a new record.
+          final replay = _previewRentalTracker([
+            _rentalTrackerValues({'Unit No': '999', 'Unit Type': 'Shop'}),
+            _rentalTrackerValues(source),
+          ], portfolio: existing);
+          expect(replay.canConfirm, isFalse);
+          expect(replay.properties.last.payload['action'], 'update');
+          expect(
+            replay.properties.last.payload['property_id'],
+            'corrected-property',
+          );
+          expect(
+            replay.issues.map((issue) => issue.message),
+            contains(
+              'This source row is already imported as OWNER-CORRECTED. Enter its current Unit Code and Update in Import Action.',
+            ),
+          );
+          final corrected = _previewRentalTracker([
+            _rentalTrackerValues({
+              ...source,
+              'Unit Code': 'OWNER-CORRECTED',
+              'Import Action': 'Update',
+            }),
+          ], portfolio: existing);
+          expect(corrected.canConfirm, isTrue);
+          expect(
+            corrected.properties.single.payload['property_id'],
+            'corrected-property',
+          );
+          expect(
+            corrected.properties.single.payload['unit_code'],
+            'OWNER-CORRECTED',
+          );
+        }
+      },
+    );
+
     test('missing or duplicated headers block unsafe field mapping', () {
       for (final duplicated in [false, true]) {
         final headers = [...YorksV1RentalWorkbookCodec.propertyHeaders];
@@ -562,6 +627,102 @@ void main() {
             contains('${entry.key.replaceAll(' *', '')} is not supported.'),
           );
         }
+      },
+    );
+
+    test(
+      'legacy detailed intake permits incomplete facts and keeps annual rent annual',
+      () {
+        final incomplete = _previewRentalProperties([
+          _rentalPropertyValues({
+            'Occupancy *': 'Occupied',
+            'Location *': '',
+            'Tenant / Company Name': '',
+            'Contract No.': '',
+            'Lease Start': '',
+            'Lease End': '',
+            'Monthly Rent AED': '',
+            'Payment Frequency': 'Annual',
+            'Annual Rent AED': '27825',
+          }),
+        ]);
+        expect(incomplete.canConfirm, isTrue);
+        expect(incomplete.errorCount, 0);
+        expect(incomplete.warningCount, greaterThan(0));
+        final payload = incomplete.properties.single.payload;
+        expect(payload['annual_rent'], 27825);
+        expect(payload['monthly_rent'], isNull);
+        expect(payload['location'], isNull);
+        expect(payload['contract_number'], isNull);
+        expect(payload['lease_start'], isNull);
+        expect(payload['lease_end'], isNull);
+        expect(payload['billing_start'], isNull);
+        expect(payload['occupancy_state'], 'occupied');
+        final wrongColumn = _previewRentalProperties([
+          _rentalPropertyValues({
+            'Payment Frequency': 'Annual',
+            'Monthly Rent AED': '27825',
+          }),
+        ]);
+        expect(wrongColumn.canConfirm, isFalse);
+        expect(
+          wrongColumn.issues.map((issue) => issue.message),
+          contains(
+            'Keep only the amount for the selected Payment Frequency. Annual rent uses Annual Rent AED.',
+          ),
+        );
+        final monthly = _previewRentalProperties([
+          _rentalPropertyValues({
+            'Monthly Rent AED': '1000',
+            'Billing Start': '2026-11-01',
+          }),
+        ]);
+        expect(monthly.canConfirm, isTrue);
+        expect(monthly.properties.single.payload['monthly_rent'], 1000);
+        expect(monthly.properties.single.payload['annual_rent'], isNull);
+        expect(
+          monthly.properties.single.payload['billing_start'],
+          '2026-11-01',
+        );
+      },
+    );
+
+    test(
+      'legacy updates omit blank optional cells instead of clearing completed facts',
+      () {
+        final preview = _previewRentalProperties([
+          _rentalPropertyValues({
+            'Import Action *': 'Update',
+            'Unit Code *': 'RU-004',
+            'Location *': '',
+            'Tenant / Company Name': '',
+            'Contract No.': '',
+            'Lease Start': '',
+            'Lease End': '',
+            'Monthly Rent AED': '',
+            'Payment Frequency': '',
+            'Grace Period Days': '',
+            'Notes': '',
+          }),
+        ]);
+        expect(preview.canConfirm, isTrue);
+        final payload = preview.properties.single.payload;
+        for (final key in [
+          'location',
+          'tenant_name',
+          'contract_number',
+          'lease_start',
+          'lease_end',
+          'monthly_rent',
+          'annual_rent',
+          'billing_start',
+          'grace_period_days',
+          'lease_notes',
+        ]) {
+          expect(payload.containsKey(key), isFalse, reason: key);
+        }
+        expect(payload['payment_frequency'], 'monthly');
+        expect(payload['property_id'], 'property-4');
       },
     );
 
@@ -658,7 +819,7 @@ void main() {
             'Lease End': '2028-12-31',
           }),
         ]);
-        expect(preview.issues, isEmpty);
+        expect(preview.errorCount, 0);
         expect(preview.canConfirm, isTrue);
         final payload = preview.properties.single.payload;
         expect(payload['monthly_rent'], 1234.5);
@@ -1145,6 +1306,196 @@ void main() {
   }
 
   testWidgets(
+    'archive retains its reason and exact request across timeout and offline recovery',
+    (tester) async {
+      await _setViewport(tester, const Size(1366, 768));
+      final repository = _RentalArchiveFixtureRepository()
+        ..pendingArchive = Completer<void>()
+        ..loseNextResponse = true;
+      final router = GoRouter(
+        initialLocation: '/rentals/property-4',
+        routes: [
+          GoRoute(
+            path: '/rentals',
+            builder: (_, _) => const YorksV1RentalDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/rentals/:id',
+            builder: (_, _) =>
+                const YorksV1RentalPropertyScreen(propertyId: 'property-4'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1RentalRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.light,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(SecondaryButton, 'Archive'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Archive property'));
+      await tester.pumpAndSettle();
+      expect(repository.archiveKeys, isEmpty);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Archive reason'),
+        'Owner closed this property',
+      );
+      await tester.tap(find.widgetWithText(PrimaryButton, 'Archive property'));
+      await tester.pump();
+      expect(repository.archiveKeys, hasLength(1));
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (widget) => widget is IconButton && widget.tooltip == 'Close',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      repository.pendingArchive!.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm archive'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Archive reason'),
+            )
+            .enabled,
+        isFalse,
+      );
+      repository.archiveFailure = const YorksV1DomainException(
+        YorksV1DomainErrorCode.offline,
+      );
+      await tester.tap(find.text('Confirm archive'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm archive'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Archive reason'),
+            )
+            .enabled,
+        isFalse,
+      );
+      repository.archiveFailure = null;
+      await tester.tap(find.text('Confirm archive'));
+      await tester.pumpAndSettle();
+      expect(find.text('Archive Rental Property'), findsNothing);
+      expect(repository.archiveKeys, hasLength(3));
+      expect(repository.archiveKeys.toSet(), hasLength(1));
+      expect(repository.archiveReasons.toSet(), {'Owner closed this property'});
+      expect(repository.committedArchives, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final size in [const Size(1366, 768), const Size(360, 800)]) {
+    testWidgets('unfinished rental recovery is explicit and fits $size', (
+      tester,
+    ) async {
+      await _setViewport(tester, size);
+      SharedPreferences.setMockInitialValues({
+        'yorks.rental.pending.owner.v1_record_rent_payment.period':
+            '{"key":"00000000-0000-4000-8000-000000000001","fingerprint":"old-input-hash"}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final repository = _RentalRecoveryFixtureRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1RentalRepositoryProvider.overrideWithValue(repository),
+            yorksV1RentalCommandActorProvider.overrideWithValue('owner'),
+            sharedPreferencesProvider.overrideWithValue(prefs),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            home: const YorksV1RentalDashboardScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Unfinished rental action'), findsOneWidget);
+      expect(repository.settledKeys, isEmpty);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile(
+          'goldens/r38_4/rental_pending_recovery_${size.width.toInt()}.png',
+        ),
+      );
+      await tester.tap(find.textContaining('Review unfinished action'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('No recorded payment is reversed'),
+        findsOneWidget,
+      );
+      expect(repository.settledKeys, isEmpty);
+      await tester.tap(find.text('Resolve this action'));
+      await tester.pumpAndSettle();
+      expect(repository.settledKeys, ['00000000-0000-4000-8000-000000000001']);
+      expect(find.text('Unfinished rental action'), findsNothing);
+      expect(repository.importCalls, isEmpty);
+      expect(repository.saveKeys, isEmpty);
+      expect(prefs.getKeys(), isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('an in-flight import cannot close from its header or footer', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(1366, 768));
+    final repository = _RentalFixtureRepository()
+      ..pendingImport = Completer<void>();
+    await _openRentalImport(
+      tester,
+      repository,
+      _workbook({
+        YorksV1RentalWorkbookCodec.propertySheet: [
+          YorksV1RentalWorkbookCodec.propertyHeaders,
+          _propertyRow(action: 'Create', unitCode: 'IMPORT-1'),
+        ],
+        YorksV1RentalWorkbookCodec.paymentSheet: [
+          YorksV1RentalWorkbookCodec.paymentHeaders,
+        ],
+        YorksV1RentalWorkbookCodec.chequeSheet: [
+          YorksV1RentalWorkbookCodec.chequeHeaders,
+        ],
+      }),
+    );
+    await tester.tap(find.text('Confirm Import (1)'));
+    await tester.pump();
+    expect(repository.importCalls, hasLength(1));
+    final close = find.byWidgetPredicate(
+      (widget) => widget is IconButton && widget.tooltip == 'Close',
+    );
+    expect(tester.widget<IconButton>(close).onPressed, isNull);
+    expect(
+      tester
+          .widget<SecondaryButton>(
+            find.widgetWithText(SecondaryButton, 'Choose another file'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('Preview Rental Import'), findsOneWidget);
+    repository.pendingImport!.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Preview Rental Import'), findsNothing);
+    expect(repository.importCalls, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'empty rental home explains the first step without a false ratio',
     (tester) async {
       await _setViewport(tester, const Size(360, 800));
@@ -1341,17 +1692,26 @@ YorksV1RentalImportPreview _previewRentalTracker(
 );
 
 List<String> _rentalPropertyValues(Map<String, String> overrides) {
-  final row = _propertyRow(action: 'Create', unitCode: 'NEW-1');
+  final headers = [
+    ...YorksV1RentalWorkbookCodec.propertyHeaders,
+    ...YorksV1RentalWorkbookCodec.propertyOptionalHeaders,
+  ];
+  final row = [
+    ..._propertyRow(action: 'Create', unitCode: 'NEW-1'),
+    for (final _ in YorksV1RentalWorkbookCodec.propertyOptionalHeaders) '',
+  ];
   for (final entry in overrides.entries) {
-    row[YorksV1RentalWorkbookCodec.propertyHeaders.indexOf(entry.key)] =
-        entry.value;
+    row[headers.indexOf(entry.key)] = entry.value;
   }
   return row;
 }
 
 YorksV1RentalImportPreview _previewRentalProperties(
   List<List<String>> rows, {
-  List<String> headers = YorksV1RentalWorkbookCodec.propertyHeaders,
+  List<String> headers = const [
+    ...YorksV1RentalWorkbookCodec.propertyHeaders,
+    ...YorksV1RentalWorkbookCodec.propertyOptionalHeaders,
+  ],
 }) => const YorksV1RentalWorkbookCodec().preview(
   selected: YorksV1RentalSelectedWorkbook(
     fileName: 'rentals.xlsx',
@@ -1742,6 +2102,7 @@ class _RentalFixtureRepository implements YorksV1RentalRepository {
   final saveInputs = <YorksV1RentalPropertyInput>[];
   Object? saveFailure;
   Completer<String>? pendingSave;
+  Completer<void>? pendingImport;
 
   @override
   Future<YorksV1RentalPortfolio> getPortfolio() async => rentalPortfolioFixture;
@@ -1807,6 +2168,48 @@ class _RentalFixtureRepository implements YorksV1RentalRepository {
     required String idempotencyKey,
   }) async {
     importCalls.add({...payload, 'idempotency_key': idempotencyKey});
+    if (pendingImport != null) await pendingImport!.future;
+  }
+}
+
+class _RentalArchiveFixtureRepository extends _RentalFixtureRepository {
+  Completer<void>? pendingArchive;
+  Object? archiveFailure;
+  bool loseNextResponse = false;
+  final archiveKeys = <String>[];
+  final archiveReasons = <String>[];
+  final committedArchives = <String>{};
+  @override
+  Future<void> archiveProperty({
+    required String propertyId,
+    required int expectedVersion,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    archiveKeys.add(idempotencyKey);
+    archiveReasons.add(reason);
+    if (pendingArchive != null) await pendingArchive!.future;
+    if (archiveFailure != null) throw archiveFailure!;
+    committedArchives.add(idempotencyKey);
+    if (loseNextResponse) {
+      loseNextResponse = false;
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+    }
+  }
+}
+
+class _RentalRecoveryFixtureRepository extends _RentalFixtureRepository
+    implements YorksV1RentalCommandRecoveryRepository {
+  final settledKeys = <String>[];
+  @override
+  Future<YorksV1RentalIntentResolution> settleCommandIntent({
+    required String commandName,
+    required String idempotencyKey,
+  }) async {
+    settledKeys.add(idempotencyKey);
+    return YorksV1RentalIntentResolution.abandoned;
   }
 }
 

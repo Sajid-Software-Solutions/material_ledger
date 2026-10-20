@@ -66,6 +66,15 @@ abstract interface class YorksV1RentalCommandOutcomeRepository {
   });
 }
 
+enum YorksV1RentalIntentResolution { confirmed, abandoned }
+
+abstract interface class YorksV1RentalCommandRecoveryRepository {
+  Future<YorksV1RentalIntentResolution> settleCommandIntent({
+    required String commandName,
+    required String idempotencyKey,
+  });
+}
+
 String yorksV1RentalPaymentMethodWire(String value) {
   final normalized = value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
   return switch (normalized) {
@@ -88,7 +97,10 @@ Map<String, Object?> yorksV1RentalChequePayloadWire(
 }
 
 class YorksV1SupabaseRentalRepository
-    implements YorksV1RentalRepository, YorksV1RentalCommandOutcomeRepository {
+    implements
+        YorksV1RentalRepository,
+        YorksV1RentalCommandOutcomeRepository,
+        YorksV1RentalCommandRecoveryRepository {
   const YorksV1SupabaseRentalRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -263,6 +275,29 @@ class YorksV1SupabaseRentalRepository
       ),
     );
     return response['state'] == 'confirmed';
+  }
+
+  @override
+  Future<YorksV1RentalIntentResolution> settleCommandIntent({
+    required String commandName,
+    required String idempotencyKey,
+  }) async {
+    final response = _object(
+      await _invoke(
+        functionName: 'v1_settle_rental_command_intent',
+        parameters: {
+          'p_command_name': commandName,
+          'p_idempotency_key': idempotencyKey,
+        },
+      ),
+    );
+    return switch (response['state']) {
+      'confirmed' => YorksV1RentalIntentResolution.confirmed,
+      'abandoned' => YorksV1RentalIntentResolution.abandoned,
+      _ => throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+      ),
+    };
   }
 
   Future<Object?> _invoke({

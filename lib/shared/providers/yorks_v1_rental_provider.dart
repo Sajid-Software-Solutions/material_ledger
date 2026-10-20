@@ -110,6 +110,95 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
   static const _uuid = Uuid();
   final Map<String, _RentalCommandIntent> _pendingIntents = {};
 
+  List<YorksV1RentalPendingCommand> get pendingCommands {
+    final actor = _ref.read(yorksV1RentalCommandActorProvider);
+    if (actor == null) return const [];
+    final prefs = _ref.read(sharedPreferencesProvider);
+    final prefix = 'yorks.rental.pending.$actor.';
+    final slots = {
+      ...prefs.getKeys(),
+      ..._pendingIntents.keys,
+    }.where((slot) => slot.startsWith(prefix));
+    final commands = <YorksV1RentalPendingCommand>[];
+    for (final slot in slots) {
+      final parts = slot.substring(prefix.length).split('.');
+      if (parts.length != 2 ||
+          !const {
+            'v1_save_rental_property',
+            'v1_record_rent_payment',
+            'v1_save_rental_cheque',
+            'v1_transition_rental_cheque',
+            'v1_archive_rental_property',
+            'v1_import_rental_workbook',
+          }.contains(parts.first)) {
+        continue;
+      }
+      try {
+        final stored = prefs.getString(slot);
+        final decoded = stored == null ? null : jsonDecode(stored);
+        final key = decoded is Map
+            ? decoded['key']
+            : _pendingIntents[slot]?.key;
+        if (key is! String || key.isEmpty) continue;
+        commands.add(
+          YorksV1RentalPendingCommand(actor, parts[0], parts[1], key),
+        );
+      } on FormatException {
+        /* Invalid local metadata is never submitted as a command. */
+      }
+    }
+    return commands;
+  }
+
+  Future<YorksV1RentalIntentResolution?> settlePendingCommand(
+    YorksV1RentalPendingCommand pending,
+  ) async {
+    if (state.isLoading) return null;
+    state = const AsyncValue.loading();
+    try {
+      if (!pendingCommands.any(
+        (command) =>
+            command.actor == pending.actor &&
+            command.commandName == pending.commandName &&
+            command.entity == pending.entity &&
+            command.idempotencyKey == pending.idempotencyKey,
+      )) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.conflict);
+      }
+      final repository = _ref.read(yorksV1RentalRepositoryProvider);
+      if (repository is! YorksV1RentalCommandRecoveryRepository) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        );
+      }
+      final resolution =
+          await (repository as YorksV1RentalCommandRecoveryRepository)
+              .settleCommandIntent(
+                commandName: pending.commandName,
+                idempotencyKey: pending.idempotencyKey,
+              );
+      if (_ref.read(yorksV1RentalCommandActorProvider) != pending.actor) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized);
+      }
+      await _confirmedIntent(
+        _RentalCommandIntent(
+          pending.slot,
+          pending.idempotencyKey,
+          '',
+          true,
+          true,
+        ),
+      );
+      _ref.invalidate(yorksV1RentalPortfolioProvider);
+      _ref.invalidate(yorksV1RentalPropertyProvider);
+      if (mounted) state = const AsyncValue.data(null);
+      return resolution;
+    } catch (error, stack) {
+      if (mounted) state = AsyncValue.error(error, stack);
+      return null;
+    }
+  }
+
   Object? _canonical(Object? value) {
     if (value is Map) {
       final keys = value.keys.map((key) => key.toString()).toList()..sort();
@@ -123,8 +212,9 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
     YorksV1RentalRepository repository,
     String command,
     String entity,
-    Map<String, Object?> payload,
-  ) async {
+    Map<String, Object?> payload, {
+    String? preferredKey,
+  }) async {
     final actor = _ref.read(yorksV1RentalCommandActorProvider);
     final fingerprint = sha256
         .convert(utf8.encode(jsonEncode(_canonical(payload))))
@@ -149,21 +239,14 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
       );
     }
     if (previous != null && previous.fingerprint != fingerprint) {
-      if (repository is YorksV1RentalCommandOutcomeRepository &&
-          await (repository as YorksV1RentalCommandOutcomeRepository)
-              .wasCommandConfirmed(
-                commandName: command,
-                idempotencyKey: previous.key,
-              )) {
-        await _confirmedIntent(previous);
-        previous = null;
-      } else {
-        throw const YorksV1DomainException(YorksV1DomainErrorCode.conflict);
-      }
+      // Changed input is not permission to create an additional transaction
+      // after a lost response. Explicit recovery must settle the old request,
+      // refresh its result and stop before the user submits a new action.
+      throw const YorksV1DomainException(YorksV1DomainErrorCode.conflict);
     }
     final intent = _RentalCommandIntent(
       slot,
-      previous?.key ?? _uuid.v4(),
+      previous?.key ?? preferredKey ?? _uuid.v4(),
       fingerprint,
       actor != null,
       previous != null,
@@ -195,34 +278,49 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
         error.code == YorksV1DomainErrorCode.unexpectedResponse) {
       return false;
     }
-    // Losing access/connectivity on a retry does not prove the earlier attempt
-    // failed. Keep its fence until the original actor can confirm the outcome.
-    if (intent.wasExisting &&
-        (error.code == YorksV1DomainErrorCode.offline ||
-            error.code == YorksV1DomainErrorCode.unauthorized ||
-            error.code == YorksV1DomainErrorCode.unauthenticated ||
-            error.code == YorksV1DomainErrorCode.featureDisabled)) {
-      return false;
-    }
+    // A rejected retry (including a lock timeout/conflict) does not establish
+    // that the earlier request failed. Only explicit server settlement can
+    // safely release an already uncertain command.
+    if (intent.wasExisting) return false;
     return error.code != YorksV1DomainErrorCode.serverRejected ||
         error.serverCode != null;
   }
 
-  Future<void> _withIntent(
+  Future<T> _withIntent<T>(
     YorksV1RentalRepository repository,
     String command,
     String entity,
     Map<String, Object?> payload,
-    Future<void> Function(String key) operation,
-  ) async {
-    final intent = await _commandIntent(repository, command, entity, payload);
+    Future<T> Function(String key) operation, {
+    String? preferredKey,
+  }) async {
+    final actor = _ref.read(yorksV1RentalCommandActorProvider);
+    final intent = await _commandIntent(
+      repository,
+      command,
+      entity,
+      payload,
+      preferredKey: preferredKey,
+    );
+    late T result;
     try {
-      await operation(intent.key);
+      if (_ref.read(yorksV1RentalCommandActorProvider) != actor) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized);
+      }
+      result = await operation(intent.key);
+      if (_ref.read(yorksV1RentalCommandActorProvider) != actor) {
+        // The result belongs to the actor that started the request. Preserve
+        // its reference for that actor's later review, even if it committed.
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        );
+      }
     } catch (error) {
       if (_definitiveFailure(error, intent)) await _confirmedIntent(intent);
       rethrow;
     }
     await _confirmedIntent(intent);
+    return result;
   }
 
   Future<String?> saveProperty(
@@ -233,18 +331,24 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
     if (state.isLoading) return null;
     state = const AsyncValue.loading();
     try {
-      final propertyId = await _ref
-          .read(yorksV1RentalRepositoryProvider)
-          .saveProperty(
-            input,
-            expectedVersion: expectedVersion,
-            idempotencyKey: idempotencyKey,
-          );
+      final repository = _ref.read(yorksV1RentalRepositoryProvider);
+      final propertyId = await _withIntent(
+        repository,
+        'v1_save_rental_property',
+        input.propertyId ?? 'new',
+        {'payload': input.toRpcPayload(), 'version': expectedVersion},
+        (key) => repository.saveProperty(
+          input,
+          expectedVersion: expectedVersion,
+          idempotencyKey: key,
+        ),
+        preferredKey: idempotencyKey,
+      );
       _invalidate(propertyId);
-      state = const AsyncValue.data(null);
+      if (mounted) state = const AsyncValue.data(null);
       return propertyId;
     } catch (error, stack) {
-      state = AsyncValue.error(error, stack);
+      if (mounted) state = AsyncValue.error(error, stack);
       return null;
     }
   }
@@ -356,17 +460,22 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
     if (state.isLoading || !preview.canConfirm) return false;
     state = const AsyncValue.loading();
     try {
-      await _ref
-          .read(yorksV1RentalRepositoryProvider)
-          .importWorkbook(
-            payload: preview.toRpcPayload(),
-            idempotencyKey: preview.commandId,
-          );
+      final repository = _ref.read(yorksV1RentalRepositoryProvider);
+      final payload = preview.toRpcPayload();
+      await _withIntent(
+        repository,
+        'v1_import_rental_workbook',
+        'workbook',
+        payload,
+        (key) =>
+            repository.importWorkbook(payload: payload, idempotencyKey: key),
+        preferredKey: preview.commandId,
+      );
       _ref.invalidate(yorksV1RentalPortfolioProvider);
-      state = const AsyncValue.data(null);
+      if (mounted) state = const AsyncValue.data(null);
       return true;
     } catch (error, stack) {
-      state = AsyncValue.error(error, stack);
+      if (mounted) state = AsyncValue.error(error, stack);
       return false;
     }
   }
@@ -380,10 +489,10 @@ class YorksV1RentalCommandController extends StateNotifier<AsyncValue<void>> {
     try {
       await operation(_ref.read(yorksV1RentalRepositoryProvider));
       _invalidate(propertyId);
-      state = const AsyncValue.data(null);
+      if (mounted) state = const AsyncValue.data(null);
       return true;
     } catch (error, stack) {
-      state = AsyncValue.error(error, stack);
+      if (mounted) state = AsyncValue.error(error, stack);
       return false;
     }
   }
@@ -407,4 +516,18 @@ class _RentalCommandIntent {
   final String fingerprint;
   final bool persistent;
   final bool wasExisting;
+}
+
+class YorksV1RentalPendingCommand {
+  const YorksV1RentalPendingCommand(
+    this.actor,
+    this.commandName,
+    this.entity,
+    this.idempotencyKey,
+  );
+  final String actor;
+  final String commandName;
+  final String entity;
+  final String idempotencyKey;
+  String get slot => 'yorks.rental.pending.$actor.$commandName.$entity';
 }

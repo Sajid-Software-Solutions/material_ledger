@@ -17,6 +17,197 @@ abstract final class RentalWorkspaceStrings {
   }
 
   static const _copy = {
+    'unfinishedAction': {
+      'en': 'Unfinished rental action',
+      'ar': 'إجراء تأجير غير مكتمل',
+      'ur': 'کرایے کا نامکمل اقدام',
+      'hi': 'अधूरी किराया कार्रवाई',
+    },
+    'unfinishedActionHelp': {
+      'en':
+          'A previous request has no confirmed result on this device. Review it before recording another action.',
+      'ar': 'لم يتأكد طلب سابق على هذا الجهاز. راجعه قبل تسجيل إجراء آخر.',
+      'ur':
+          'اس آلے پر پچھلی درخواست کا نتیجہ تصدیق شدہ نہیں ہے۔ نیا اقدام درج کرنے سے پہلے اسے دیکھیں۔',
+      'hi':
+          'इस उपकरण पर पिछले अनुरोध का परिणाम पुष्ट नहीं है। दूसरी कार्रवाई दर्ज करने से पहले इसकी समीक्षा करें।',
+    },
+    'reviewUnfinishedAction': {
+      'en': 'Review unfinished action',
+      'ar': 'مراجعة الإجراء غير المكتمل',
+      'ur': 'نامکمل اقدام کا جائزہ لیں',
+      'hi': 'अधूरी कार्रवाई की समीक्षा करें',
+    },
+    'resolveAction': {
+      'en': 'Resolve this action',
+      'ar': 'حسم هذا الإجراء',
+      'ur': 'اس اقدام کو حل کریں',
+      'hi': 'इस कार्रवाई का समाधान करें',
+    },
+    'resolveActionHelp': {
+      'en':
+          'The server will keep an action that already completed. If it never completed, it will cancel that attempt and prevent a delayed request from applying. No recorded payment is reversed, and no new action is submitted. Review the refreshed records before starting again.',
+      'ar':
+          'سيحتفظ الخادم بالإجراء الذي اكتمل. وإذا لم يكتمل، فسيلغي المحاولة ويمنع تطبيق أي طلب متأخر. لن تُعكس أي دفعة مسجلة ولن يُرسل إجراء جديد. راجع السجلات المحدثة قبل البدء مجددًا.',
+      'ur':
+          'سرور مکمل شدہ اقدام محفوظ رکھے گا۔ نامکمل کوشش منسوخ ہوگی اور تاخیر سے آنے والی درخواست لاگو نہیں ہوگی۔ کوئی درج ادائیگی واپس نہیں ہوگی اور نیا اقدام نہیں بھیجا جائے گا۔ دوبارہ شروع کرنے سے پہلے تازہ ریکارڈ دیکھیں۔',
+      'hi':
+          'सर्वर पूरी हो चुकी कार्रवाई को सुरक्षित रखेगा। अधूरा प्रयास रद्द होगा और देर से आया अनुरोध लागू नहीं होगा। दर्ज भुगतान वापस नहीं होगा और नई कार्रवाई नहीं भेजी जाएगी। फिर शुरू करने से पहले ताज़ा रिकॉर्ड देखें।',
+    },
+    'resolvedConfirmed': {
+      'en':
+          'The previous action completed and is kept. Review the refreshed records before recording anything else.',
+      'ar':
+          'اكتمل الإجراء السابق وتم الاحتفاظ به. راجع السجلات المحدثة قبل تسجيل أي إجراء آخر.',
+      'ur':
+          'پچھلا اقدام مکمل اور محفوظ ہے۔ کچھ اور درج کرنے سے پہلے تازہ ریکارڈ دیکھیں۔',
+      'hi':
+          'पिछली कार्रवाई पूरी हुई और सुरक्षित है। कुछ और दर्ज करने से पहले ताज़ा रिकॉर्ड देखें।',
+    },
+    'resolvedAbandoned': {
+      'en':
+          'The previous attempt was cancelled safely. Review the refreshed records, then start a new action if needed.',
+      'ar':
+          'أُلغيت المحاولة السابقة بأمان. راجع السجلات المحدثة ثم ابدأ إجراءً جديدًا عند الحاجة.',
+      'ur':
+          'پچھلی کوشش محفوظ طور پر منسوخ ہوئی۔ تازہ ریکارڈ دیکھیں، پھر ضرورت پر نیا اقدام شروع کریں۔',
+      'hi':
+          'पिछला प्रयास सुरक्षित रूप से रद्द हुआ। ताज़ा रिकॉर्ड देखें, फिर आवश्यकता होने पर नई कार्रवाई शुरू करें।',
+    },
+    'resolveFailed': {
+      'en':
+          'The previous action could not be resolved. Its protection remains. Try again when connected.',
+      'ar':
+          'تعذر حسم الإجراء السابق. الحماية ما زالت قائمة. أعد المحاولة عند الاتصال.',
+      'ur':
+          'پچھلا اقدام حل نہیں ہوا۔ حفاظت برقرار ہے۔ رابطہ بحال ہونے پر دوبارہ کوشش کریں۔',
+      'hi':
+          'पिछली कार्रवाई का समाधान नहीं हुआ। उसकी सुरक्षा बनी हुई है। कनेक्शन होने पर फिर प्रयास करें।',
+    },
+    'pending_v1_save_rental_property': {
+      'en': 'Property save',
+      'ar': 'حفظ العقار',
+      'ur': 'جائیداد محفوظ کرنا',
+      'hi': 'संपत्ति सहेजना',
+    },
+    'pending_v1_record_rent_payment': {
+      'en': 'Rent payment',
+      'ar': 'دفعة الإيجار',
+      'ur': 'کرایے کی ادائیگی',
+      'hi': 'किराया भुगतान',
+    },
+    'pending_v1_save_rental_cheque': {
+      'en': 'Cheque save',
+      'ar': 'حفظ الشيك',
+      'ur': 'چیک محفوظ کرنا',
+      'hi': 'चेक सहेजना',
+    },
+    'pending_v1_transition_rental_cheque': {
+      'en': 'Cheque status',
+      'ar': 'حالة الشيك',
+      'ur': 'چیک کی حالت',
+      'hi': 'चेक की स्थिति',
+    },
+    'pending_v1_archive_rental_property': {
+      'en': 'Property archive',
+      'ar': 'أرشفة العقار',
+      'ur': 'جائیداد کا محفوظ ریکارڈ',
+      'hi': 'संपत्ति संग्रह',
+    },
+    'pending_v1_import_rental_workbook': {
+      'en': 'Workbook import',
+      'ar': 'استيراد المصنف',
+      'ur': 'ورک بک درآمد',
+      'hi': 'कार्यपुस्तिका आयात',
+    },
+    'archiveProperty': {
+      'en': 'Archive property',
+      'ar': 'أرشفة العقار',
+      'ur': 'جائیداد محفوظ کریں',
+      'hi': 'संपत्ति संग्रहित करें',
+    },
+    'confirmArchive': {
+      'en': 'Confirm archive',
+      'ar': 'تأكيد الأرشفة',
+      'ur': 'محفوظ کرنے کی تصدیق کریں',
+      'hi': 'संग्रह की पुष्टि करें',
+    },
+    'archiveReasonRequired': {
+      'en': 'Enter a clear archive reason of at least 8 characters.',
+      'ar': 'أدخل سببًا واضحًا للأرشفة لا يقل عن 8 أحرف.',
+      'ur': 'محفوظ کرنے کی واضح وجہ کم از کم 8 حروف میں درج کریں۔',
+      'hi': 'कम से कम 8 अक्षरों में संग्रह का स्पष्ट कारण दर्ज करें।',
+    },
+    'propertyArchived': {
+      'en': 'Rental property archived.',
+      'ar': 'تمت أرشفة العقار المؤجر.',
+      'ur': 'کرایے کی جائیداد محفوظ ہو گئی۔',
+      'hi': 'किराये की संपत्ति संग्रहित हुई।',
+    },
+    'archiveUnconfirmed': {
+      'en':
+          'Archival could not be confirmed. Your reason is kept here. Confirm archive safely retries the same request.',
+      'ar':
+          'تعذر تأكيد الأرشفة. السبب محفوظ هنا. تأكيد الأرشفة يعيد الطلب نفسه بأمان.',
+      'ur':
+          'محفوظ کرنے کی تصدیق نہیں ہوئی۔ وجہ یہاں محفوظ ہے۔ تصدیق اسی درخواست کی محفوظ دوبارہ کوشش کرتی ہے۔',
+      'hi':
+          'संग्रह की पुष्टि नहीं हुई। कारण यहाँ सुरक्षित है। पुष्टि उसी अनुरोध को सुरक्षित दोहराती है।',
+    },
+    'archiveRejected': {
+      'en':
+          'Archival was rejected. Your reason is kept here. Check outstanding obligations and reload the property before trying again.',
+      'ar':
+          'تم رفض الأرشفة. السبب محفوظ هنا. تحقق من الالتزامات القائمة وأعد تحميل العقار قبل المحاولة مجددًا.',
+      'ur':
+          'محفوظ کرنا مسترد ہوا۔ وجہ یہاں محفوظ ہے۔ بقایا ذمہ داریاں دیکھیں اور دوبارہ کوشش سے پہلے جائیداد لوڈ کریں۔',
+      'hi':
+          'संग्रह अस्वीकार हुआ। कारण यहाँ सुरक्षित है। बकाया दायित्व जाँचें और फिर प्रयास से पहले संपत्ति दोबारा लोड करें।',
+    },
+    'addCheque': {
+      'en': 'Add cheque',
+      'ar': 'إضافة شيك',
+      'ur': 'چیک شامل کریں',
+      'hi': 'चेक जोड़ें',
+    },
+    'confirmCheque': {
+      'en': 'Confirm cheque',
+      'ar': 'تأكيد الشيك',
+      'ur': 'چیک کی تصدیق کریں',
+      'hi': 'चेक की पुष्टि करें',
+    },
+    'chequeRequired': {
+      'en': 'Cheque number, bank and a finite positive amount are required.',
+      'ar': 'رقم الشيك والبنك ومبلغ موجب صالح مطلوبة.',
+      'ur': 'چیک نمبر، بینک اور درست مثبت رقم درکار ہے۔',
+      'hi': 'चेक नंबर, बैंक और मान्य धनात्मक राशि आवश्यक हैं।',
+    },
+    'chequeRecorded': {
+      'en': 'Cheque recorded.',
+      'ar': 'تم تسجيل الشيك.',
+      'ur': 'چیک درج ہو گیا۔',
+      'hi': 'चेक दर्ज हुआ।',
+    },
+    'chequeSaveUnconfirmed': {
+      'en':
+          'The cheque could not be confirmed. Your entries are kept here. Confirm cheque safely retries the same request.',
+      'ar':
+          'تعذر تأكيد الشيك. بياناتك محفوظة هنا. تأكيد الشيك يعيد الطلب نفسه بأمان.',
+      'ur':
+          'چیک کی تصدیق نہیں ہو سکی۔ معلومات یہاں محفوظ ہیں۔ تصدیق اسی درخواست کی محفوظ دوبارہ کوشش کرتی ہے۔',
+      'hi':
+          'चेक की पुष्टि नहीं हुई। विवरण यहाँ सुरक्षित हैं। पुष्टि उसी अनुरोध को सुरक्षित दोहराती है।',
+    },
+    'chequeSaveRejected': {
+      'en':
+          'The cheque was rejected. Your entries are kept here. Check the details before trying again.',
+      'ar':
+          'تم رفض الشيك. بياناتك محفوظة هنا. تحقق من التفاصيل قبل المحاولة مجددًا.',
+      'ur':
+          'چیک مسترد ہوا۔ معلومات یہاں محفوظ ہیں۔ دوبارہ کوشش سے پہلے تفصیلات دیکھیں۔',
+      'hi':
+          'चेक अस्वीकार हुआ। विवरण यहाँ सुरक्षित हैं। फिर प्रयास करने से पहले विवरण जाँचें।',
+    },
     'chequeActions': {
       'en': 'Cheque actions',
       'ar': 'إجراءات الشيك',

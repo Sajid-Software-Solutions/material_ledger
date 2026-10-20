@@ -1,0 +1,19 @@
+{
+  "project_id": "czykuksmlwswjsgotrpo",
+  "inspection": "read-only before review DDL",
+  "properties": 52,
+  "leases": 52,
+  "annual_rent": 710238,
+  "periods": 0,
+  "receipts": 0,
+  "cheques": 0,
+  "tracker_rows": 52,
+  "distinct_full_source_rows": 52,
+  "nonfinite_leases": 0,
+  "nonfinite_periods": 0,
+  "nonfinite_receipts": 0,
+  "nonfinite_cheques": 0,
+  "exact11_valid_fingerprints": 52,
+  "exact11_unique_fingerprints": 52,
+  "exact11_ambiguous_fingerprints": 0
+}

@@ -30,7 +30,10 @@ def scalar(sql):
 def main():
     if scalar("select operator_paused from public.v1_push_transport_control where id") != "t":
         raise RuntimeError("Pause the disposable local push transport before running this test")
-    enabled = scalar("select enabled from public.v1_rental_notification_control where id")
+    control = scalar("select to_jsonb(c) from public.v1_rental_notification_control c where id")
+    # Restore the full scheduler checkpoint as well as enablement. The fixture
+    # must not mark an otherwise uninitialized local producer as initialized.
+    control_literal = control.replace("'", "''")
     baseline = set(query("select notification_id from public.v1_rental_notification_events").splitlines())
     property_id, lease_id = str(uuid.uuid4()), str(uuid.uuid4())
     admin = scalar("select auth_user_id from public.v1_profiles where public.v1_permission_exact_role(auth_user_id)='admin' order by auth_user_id limit 1")
@@ -71,7 +74,14 @@ def main():
         query(f"""begin; {cleanup}
           delete from public.v1_rental_leases where id='{lease_id}';
           delete from public.v1_rental_properties where id='{property_id}';
-          update public.v1_rental_notification_control set enabled={'true' if enabled == 't' else 'false'} where id;
+          update public.v1_rental_notification_control c
+          set (enabled,external_push_enabled,last_success_at,last_business_date,
+               last_emitted_count,initial_evaluation_complete)=(
+            select r.enabled,r.external_push_enabled,r.last_success_at,r.last_business_date,
+              r.last_emitted_count,r.initial_evaluation_complete
+            from jsonb_populate_record(null::public.v1_rental_notification_control,
+              '{control_literal}'::jsonb) r
+          ) where c.id;
           commit;""")
 
 

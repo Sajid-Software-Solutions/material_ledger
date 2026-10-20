@@ -46,7 +46,7 @@ select is((select count(*)::int from public.v1_rental_notification_events where 
 select ok(not exists(select 1 from public.v1_rental_notification_events where external_push_eligible and event_code<>'rental_completeness_review'),'Initial lease/cheque/debt cohort stays inbox-only');
 select is((select count(*)::int from public.v1_rental_notification_events e join public.v1_notification_push_outbox o on o.notification_id=e.notification_id),1,'Initial global enqueue creates only the one legitimate completeness push job');
 rollback to rental_initial_digest;
-update public.v1_rental_notification_control set enabled=true,external_push_enabled=true,last_success_at=statement_timestamp()-interval '1 day' where id;
+update public.v1_rental_notification_control set enabled=true,external_push_enabled=true,initial_evaluation_complete=true,last_success_at=statement_timestamp()-interval '1 day' where id;
 select ok((public.v1_run_rental_notifications()->>'emitted')::int between 1 and 100,'Enabled run is bounded to 100 current events');
 select is(public.v1_run_rental_notifications()->>'emitted','0','Identical retry does not duplicate a milestone or daily digest');
 select ok(not exists(select 1 from public.v1_rental_notification_events e where public.v1_permission_exact_role(e.recipient_auth_user_id)<>'admin'),'All emitted recipients are exact active Admins');

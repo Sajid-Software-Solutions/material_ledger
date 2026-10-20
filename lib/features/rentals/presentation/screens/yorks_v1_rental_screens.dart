@@ -21,6 +21,7 @@ import '../../../../shared/providers/yorks_v1_document_file_service_provider.dar
 import '../../../../shared/providers/yorks_v1_documents_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart';
 import '../../../../shared/providers/yorks_v1_rental_provider.dart';
+import '../../../../shared/repositories/yorks_v1_rental_repository.dart';
 
 const _pageInset = 24.0;
 const _compactAt = 720.0;
@@ -119,6 +120,7 @@ class _YorksV1RentalDashboardScreenState
             return ListView(
               padding: padding,
               children: [
+                const _RentalPendingActionsPanel(),
                 _RentalPageHeader(
                   compact: compact,
                   onRefresh: busy || portfolio.isLoading
@@ -280,6 +282,85 @@ class _YorksV1RentalDashboardScreenState
 enum _RentalSection { overview, properties, payments, cheques, expiry }
 
 enum _RentalFilter { all, occupied, due, overdue, expiring, vacant, archived }
+
+class _RentalPendingActionsPanel extends ConsumerWidget {
+  const _RentalPendingActionsPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(yorksV1RentalCommandProvider);
+    final controller = ref.read(yorksV1RentalCommandProvider.notifier);
+    final pending = controller.pendingCommands;
+    if (pending.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _Panel(
+        title: RentalWorkspaceStrings.text(context, 'unfinishedAction'),
+        subtitle: RentalWorkspaceStrings.text(context, 'unfinishedActionHelp'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final command in pending)
+                OutlinedButton(
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _review(context, ref, command),
+                  child: Text(
+                    '${RentalWorkspaceStrings.text(context, 'reviewUnfinishedAction')} · ${RentalWorkspaceStrings.text(context, 'pending_${command.commandName}')}',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _review(
+    BuildContext context,
+    WidgetRef ref,
+    YorksV1RentalPendingCommand pending,
+  ) async {
+    final resolve = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          RentalWorkspaceStrings.text(context, 'reviewUnfinishedAction'),
+        ),
+        content: Text(
+          RentalWorkspaceStrings.text(context, 'resolveActionHelp'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(RentalWorkspaceStrings.text(context, 'cancelAction')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(RentalWorkspaceStrings.text(context, 'resolveAction')),
+          ),
+        ],
+      ),
+    );
+    if (resolve != true || !context.mounted) return;
+    final resolution = await ref
+        .read(yorksV1RentalCommandProvider.notifier)
+        .settlePendingCommand(pending);
+    if (!context.mounted) return;
+    _showResult(
+      context,
+      resolution != null,
+      RentalWorkspaceStrings.text(context, switch (resolution) {
+        YorksV1RentalIntentResolution.confirmed => 'resolvedConfirmed',
+        YorksV1RentalIntentResolution.abandoned => 'resolvedAbandoned',
+        null => 'resolveFailed',
+      }),
+    );
+  }
+}
 
 class _RentalPageHeader extends StatelessWidget {
   const _RentalPageHeader({
@@ -1648,18 +1729,21 @@ class _YorksV1RentalPropertyScreenState
           onRetry: () =>
               ref.invalidate(yorksV1RentalPropertyProvider(widget.propertyId)),
         ),
-        data: (data) => _PropertyDetailBody(
-          detail: data,
-          section: _section,
-          onSection: (value) => setState(() => _section = value),
-          onEdit: () => _edit(context, data),
-          onArchive: data.property.isArchived
-              ? null
-              : () => _archive(context, data),
-          onPayment: () => _recordPayment(context, data),
-          onCheque: () => _addCheque(context, data),
-          onTransitionCheque: (cheque, status) =>
-              _transition(context, data, cheque, status),
+        data: (data) => AbsorbPointer(
+          absorbing: ref.watch(yorksV1RentalCommandProvider).isLoading,
+          child: _PropertyDetailBody(
+            detail: data,
+            section: _section,
+            onSection: (value) => setState(() => _section = value),
+            onEdit: () => _edit(context, data),
+            onArchive: data.property.isArchived
+                ? null
+                : () => _archive(context, data),
+            onPayment: () => _recordPayment(context, data),
+            onCheque: () => _addCheque(context, data),
+            onTransitionCheque: (cheque, status) =>
+                _transition(context, data, cheque, status),
+          ),
         ),
       ),
     );
@@ -1741,24 +1825,26 @@ class _YorksV1RentalPropertyScreenState
       );
       return;
     }
-    final input = await showDialog<_ChequeInput>(
+    final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ChequeDialog(detail: detail),
+      builder: (_) => _ChequeDialog(
+        detail: detail,
+        onSave: (input) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .saveCheque(
+              propertyId: detail.property.id,
+              payload: input.payload,
+              expectedVersion: null,
+            ),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
     );
-    if (input == null || !context.mounted) return;
-    final ok = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .saveCheque(
-          propertyId: detail.property.id,
-          payload: input.payload,
-          expectedVersion: null,
-        );
-    if (context.mounted) {
+    if (context.mounted && ok == true) {
       _showResult(
         context,
-        ok,
-        ok ? 'Cheque recorded.' : 'Cheque was not recorded.',
+        true,
+        RentalWorkspaceStrings.text(context, 'chequeRecorded'),
       );
     }
   }
@@ -1826,24 +1912,24 @@ class _YorksV1RentalPropertyScreenState
     BuildContext context,
     YorksV1RentalPropertyDetail detail,
   ) async {
-    final reason = await showDialog<String>(
+    final archived = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ArchivePropertyDialog(property: detail.property),
+      builder: (_) => _ArchivePropertyDialog(
+        property: detail.property,
+        onConfirm: (reason) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .archiveProperty(property: detail.property, reason: reason),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
     );
-    if (reason == null || !context.mounted) return;
-    final archived = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .archiveProperty(property: detail.property, reason: reason);
-    if (!context.mounted) return;
+    if (!context.mounted || archived != true) return;
     _showResult(
       context,
-      archived,
-      archived
-          ? 'Rental property archived.'
-          : 'The property could not be archived while obligations remain.',
+      true,
+      RentalWorkspaceStrings.text(context, 'propertyArchived'),
     );
-    if (archived) context.go(RoutePaths.rentals);
+    context.go(RoutePaths.rentals);
   }
 }
 
@@ -1888,6 +1974,7 @@ class _PropertyDetailBody extends StatelessWidget {
               ? const EdgeInsets.fromLTRB(14, 18, 14, 112)
               : const EdgeInsets.fromLTRB(24, 22, 24, 44),
           children: [
+            const _RentalPendingActionsPanel(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2945,6 +3032,7 @@ class _RentalImportPreviewDialogState
           child: Column(
             children: [
               _DialogHeader(
+                canClose: !_busy,
                 title: 'Preview Rental Import',
                 subtitle:
                     '${preview.fileName} · Nothing changes until Confirm Import',
@@ -3511,6 +3599,7 @@ class _ChequeReasonDialogState extends State<_ChequeReasonDialog> {
     setState(() {
       _busy = false;
       _unconfirmed =
+          _unconfirmed ||
           code == null ||
           code == YorksV1DomainErrorCode.backendUnavailable ||
           code == YorksV1DomainErrorCode.unexpectedResponse;
@@ -3520,8 +3609,14 @@ class _ChequeReasonDialogState extends State<_ChequeReasonDialog> {
 }
 
 class _ArchivePropertyDialog extends StatefulWidget {
-  const _ArchivePropertyDialog({required this.property});
+  const _ArchivePropertyDialog({
+    required this.property,
+    required this.onConfirm,
+    required this.saveError,
+  });
   final YorksV1RentalProperty property;
+  final Future<bool> Function(String) onConfirm;
+  final Object? Function() saveError;
 
   @override
   State<_ArchivePropertyDialog> createState() => _ArchivePropertyDialogState();
@@ -3529,6 +3624,9 @@ class _ArchivePropertyDialog extends StatefulWidget {
 
 class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
   final _reason = TextEditingController();
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
 
   @override
   void dispose() {
@@ -3540,6 +3638,7 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
   Widget build(BuildContext context) => _SimpleDialog(
     title: 'Archive Rental Property',
     subtitle: '${widget.property.unitCode} · ${widget.property.propertyName}',
+    busy: _busy,
     body: Column(
       children: [
         const _RentalTrustBanner(
@@ -3551,6 +3650,7 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _reason,
+          enabled: !_busy && !_unconfirmed,
           minLines: 3,
           maxLines: 4,
           decoration: const InputDecoration(
@@ -3560,17 +3660,64 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
           ),
           onChanged: (_) => setState(() {}),
         ),
+        if (_errorKey != null) ...[
+          const SizedBox(height: 12),
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, _errorKey!),
+            tone: AppColors.warning,
+          ),
+        ],
       ],
     ),
-    primaryLabel: 'Archive property',
-    onPrimary: _reason.text.trim().length < 8
-        ? () => _showResult(
-            context,
-            false,
-            'Enter a clear archive reason of at least 8 characters.',
-          )
-        : () => Navigator.pop(context, _reason.text.trim()),
+    primaryLabel: RentalWorkspaceStrings.text(
+      context,
+      _busy
+          ? 'saving'
+          : _unconfirmed
+          ? 'confirmArchive'
+          : 'archiveProperty',
+    ),
+    onPrimary: _busy ? null : _save,
   );
+
+  Future<void> _save() async {
+    if (_busy) return;
+    if (_reason.text.trim().length < 8) {
+      _showResult(
+        context,
+        false,
+        RentalWorkspaceStrings.text(context, 'archiveReasonRequired'),
+      );
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    var confirmed = false;
+    Object? failure;
+    try {
+      confirmed = await widget.onConfirm(_reason.text.trim());
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'archiveUnconfirmed' : 'archiveRejected';
+    });
+  }
 }
 
 class _PropertyEditorDialog extends StatefulWidget {
@@ -4065,16 +4212,10 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
     final code = failure is YorksV1DomainException ? failure.code : null;
     setState(() {
       _unconfirmed =
+          _unconfirmed ||
           code == null ||
           code == YorksV1DomainErrorCode.backendUnavailable ||
-          code == YorksV1DomainErrorCode.unexpectedResponse ||
-          (_unconfirmed &&
-              {
-                YorksV1DomainErrorCode.offline,
-                YorksV1DomainErrorCode.unauthorized,
-                YorksV1DomainErrorCode.unauthenticated,
-                YorksV1DomainErrorCode.featureDisabled,
-              }.contains(code));
+          code == YorksV1DomainErrorCode.unexpectedResponse;
       _errorKey = _unconfirmed
           ? 'unconfirmed'
           : code == YorksV1DomainErrorCode.conflict
@@ -4290,16 +4431,10 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     setState(() {
       _busy = false;
       _unconfirmed =
+          _unconfirmed ||
           code == null ||
           code == YorksV1DomainErrorCode.backendUnavailable ||
-          code == YorksV1DomainErrorCode.unexpectedResponse ||
-          (_unconfirmed &&
-              {
-                YorksV1DomainErrorCode.offline,
-                YorksV1DomainErrorCode.unauthorized,
-                YorksV1DomainErrorCode.unauthenticated,
-                YorksV1DomainErrorCode.featureDisabled,
-              }.contains(code));
+          code == YorksV1DomainErrorCode.unexpectedResponse;
       _errorKey = _unconfirmed ? 'paymentUnconfirmed' : 'paymentRejected';
       if (!_unconfirmed) _pendingInput = null;
     });
@@ -4312,13 +4447,23 @@ class _ChequeInput {
 }
 
 class _ChequeDialog extends StatefulWidget {
-  const _ChequeDialog({required this.detail});
+  const _ChequeDialog({
+    required this.detail,
+    required this.onSave,
+    required this.saveError,
+  });
   final YorksV1RentalPropertyDetail detail;
+  final Future<bool> Function(_ChequeInput) onSave;
+  final Object? Function() saveError;
   @override
   State<_ChequeDialog> createState() => _ChequeDialogState();
 }
 
 class _ChequeDialogState extends State<_ChequeDialog> {
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
+  _ChequeInput? _pendingInput;
   final number = TextEditingController();
   final bank = TextEditingController();
   final amount = TextEditingController();
@@ -4339,63 +4484,123 @@ class _ChequeDialogState extends State<_ChequeDialog> {
     title: 'Add CDC / PDC Cheque',
     subtitle:
         '${widget.detail.property.unitCode} · ${widget.detail.property.propertyName}',
+    busy: _busy,
     body: Column(
       children: [
-        _TextInput(label: 'Cheque No.', controller: number),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: type,
-          decoration: const InputDecoration(labelText: 'Type'),
-          items: const [
-            DropdownMenuItem(value: 'PDC', child: Text('PDC')),
-            DropdownMenuItem(value: 'CDC', child: Text('CDC')),
-          ],
-          onChanged: (v) => setState(() => type = v ?? type),
+        if (_errorKey != null) ...[
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, _errorKey!),
+            tone: AppColors.warning,
+          ),
+          const SizedBox(height: 12),
+        ],
+        AbsorbPointer(
+          absorbing: _busy || _unconfirmed,
+          child: ExcludeFocus(
+            excluding: _busy || _unconfirmed,
+            child: Column(
+              children: [
+                _TextInput(label: 'Cheque No.', controller: number),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: type,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'PDC', child: Text('PDC')),
+                    DropdownMenuItem(value: 'CDC', child: Text('CDC')),
+                  ],
+                  onChanged: (v) => setState(() => type = v ?? type),
+                ),
+                const SizedBox(height: 12),
+                _TextInput(label: 'Bank', controller: bank),
+                const SizedBox(height: 12),
+                _DateInput(
+                  label: 'Cheque Date',
+                  value: date,
+                  onChanged: (v) => setState(() => date = v),
+                ),
+                const SizedBox(height: 12),
+                _TextInput(
+                  label: 'Amount (AED)',
+                  controller: amount,
+                  number: true,
+                ),
+                const SizedBox(height: 12),
+                _TextInput(label: 'Note', controller: note, lines: 2),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Bank', controller: bank),
-        const SizedBox(height: 12),
-        _DateInput(
-          label: 'Cheque Date',
-          value: date,
-          onChanged: (v) => setState(() => date = v),
-        ),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Amount (AED)', controller: amount, number: true),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Note', controller: note, lines: 2),
       ],
     ),
-    primaryLabel: 'Add cheque',
-    onPrimary: () {
-      final value = double.tryParse(amount.text);
-      if (number.text.trim().isEmpty ||
-          bank.text.trim().isEmpty ||
-          value == null ||
-          value <= 0) {
-        _showResult(
-          context,
-          false,
-          'Cheque number, bank and a positive amount are required.',
-        );
-        return;
-      }
-      Navigator.pop(
-        context,
-        _ChequeInput({
-          'property_id': widget.detail.property.id,
-          'lease_id': widget.detail.property.leaseId,
-          'cheque_number': number.text.trim(),
-          'cheque_type': type,
-          'bank_name': bank.text.trim(),
-          'cheque_date': date.toIso8601String().split('T').first,
-          'amount': value,
-          'status': 'scheduled',
-          'note': note.text.trim(),
-        }),
-      );
-    },
+    primaryLabel: RentalWorkspaceStrings.text(
+      context,
+      _busy
+          ? 'saving'
+          : _unconfirmed
+          ? 'confirmCheque'
+          : 'addCheque',
+    ),
+    onPrimary: _busy ? null : _save,
   );
+
+  Future<void> _save() async {
+    if (_busy) return;
+    final value = double.tryParse(amount.text);
+    if (!_unconfirmed &&
+        (number.text.trim().isEmpty ||
+            bank.text.trim().isEmpty ||
+            value == null ||
+            !value.isFinite ||
+            value <= 0)) {
+      _showResult(
+        context,
+        false,
+        RentalWorkspaceStrings.text(context, 'chequeRequired'),
+      );
+      return;
+    }
+    _pendingInput ??= _ChequeInput({
+      'property_id': widget.detail.property.id,
+      'lease_id': widget.detail.property.leaseId,
+      'cheque_number': number.text.trim(),
+      'cheque_type': type,
+      'bank_name': bank.text.trim(),
+      'cheque_date': date.toIso8601String().split('T').first,
+      'amount': value!,
+      'status': 'scheduled',
+      'note': note.text.trim(),
+    });
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    var confirmed = false;
+    Object? failure;
+    try {
+      confirmed = await widget.onSave(_pendingInput!);
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'chequeSaveUnconfirmed' : 'chequeSaveRejected';
+      if (!_unconfirmed) _pendingInput = null;
+    });
+  }
 }
 
 class _DialogHeader extends StatelessWidget {
