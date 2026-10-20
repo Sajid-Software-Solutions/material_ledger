@@ -256,6 +256,9 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       location,
       current?.path,
     );
+    final rentalDetailFallback =
+        location.startsWith('${RoutePaths.rentals}/') &&
+        current?.path == RoutePaths.rentals;
 
     Future<void> navigateBack() async {
       final procurementGuard = ref
@@ -308,11 +311,11 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
         canPop:
             featureOwnsBackNavigation ||
             canPopNatively ||
-            !canUseWorkspaceHistory,
+            !(canUseWorkspaceHistory || rentalDetailFallback),
         onPopInvokedWithResult: (didPop, _) {
           if (featureOwnsBackNavigation ||
               didPop ||
-              !canUseWorkspaceHistory ||
+              !(canUseWorkspaceHistory || rentalDetailFallback) ||
               location.startsWith('${RoutePaths.yorksV1Calculators}/')) {
             return;
           }
@@ -375,11 +378,13 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                             breadcrumbs: breadcrumbs,
                             language: language,
                             location: location,
-                            showBack: yorksCanNavigateBack(
-                              context,
-                              ref,
-                              currentLocation,
-                            ),
+                            showBack:
+                                rentalDetailFallback ||
+                                yorksCanNavigateBack(
+                                  context,
+                                  ref,
+                                  currentLocation,
+                                ),
                             unreadNotifications: unread,
                             teamChatEnabled: teamChatEnabled,
                             unreadChat: chatUnread,
@@ -563,6 +568,8 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       final path = destination.path;
       if (path == null) continue;
       if (location == path ||
+          (path == RoutePaths.rentals &&
+              location.startsWith('${RoutePaths.rentals}/')) ||
           (path == RoutePaths.yorksV1Inventory &&
               location.startsWith('${RoutePaths.yorksV1Inventory}/')) ||
           (path == RoutePaths.yorksV1Calculators &&

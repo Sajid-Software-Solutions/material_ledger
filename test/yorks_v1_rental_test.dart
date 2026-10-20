@@ -968,10 +968,10 @@ void main() {
       expect(_sourceRentalPortfolio.properties, hasLength(52));
       expect(_sourceRentalPortfolio.summary.annualRentRoll, 710238);
       expect(_sourceRentalPortfolio.summary.monthlyRentRoll, 0);
-      expect(find.text('Complete property details'), findsOneWidget);
+      expect(find.text('Action required'), findsOneWidget);
       expect(find.text('Annual rent roll'), findsOneWidget);
       expect(find.text('AED 710,238.00'), findsOneWidget);
-      expect(find.text('Review missing details'), findsOneWidget);
+      expect(find.text('View all 52 properties'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await expectLater(
         find.byType(MaterialApp),
@@ -1034,7 +1034,7 @@ void main() {
       (tester) async {
         await _setViewport(tester, evidence.size);
         await _openSourceRentalDetail(tester, _SourceRentalFixtureRepository());
-        expect(find.text('Complete property details'), findsOneWidget);
+        expect(find.text('Action required'), findsOneWidget);
         expect(find.text('Opening balance unconfirmed'), findsOneWidget);
         expect(find.text('Unknown'), findsWidgets);
         for (final label in ['Current period paid', 'Total outstanding']) {

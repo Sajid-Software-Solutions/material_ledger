@@ -17,6 +17,195 @@ abstract final class RentalWorkspaceStrings {
   }
 
   static const _copy = {
+    "actionTitle": {
+      "en": "Action required",
+      "ar": "الإجراءات المطلوبة",
+      "ur": "مطلوبہ اقدامات",
+      "hi": "आवश्यक कार्रवाई",
+    },
+    "actionHelp": {
+      "en":
+          "Review the reason, then choose the next step. Optional missing details can be added later.",
+      "ar":
+          "راجع السبب ثم اختر الخطوة التالية. يمكن إضافة البيانات الاختيارية الناقصة لاحقاً.",
+      "ur":
+          "وجہ دیکھیں، پھر اگلا قدم منتخب کریں۔ اختیاری نامکمل تفصیلات بعد میں شامل کر سکتے ہیں۔",
+      "hi":
+          "कारण देखें, फिर अगला कदम चुनें। वैकल्पिक जानकारी बाद में जोड़ सकते हैं।",
+    },
+    "actionEmpty": {
+      "en": "No actions needed right now",
+      "ar": "لا توجد إجراءات مطلوبة حالياً",
+      "ur": "فی الحال کوئی اقدام درکار نہیں",
+      "hi": "अभी कोई कार्रवाई आवश्यक नहीं",
+    },
+    "actionResolved": {
+      "en":
+          "This item no longer needs attention. The latest property details are shown below.",
+      "ar": "لم يعد هذا البند بحاجة إلى إجراء. تظهر أحدث بيانات العقار أدناه.",
+      "ur": "اس معاملے پر اب اقدام درکار نہیں۔ تازہ تفصیلات نیچے ہیں۔",
+      "hi": "इस मद पर अब कार्रवाई आवश्यक नहीं है। नवीनतम विवरण नीचे हैं।",
+    },
+    "action_rent": {
+      "en": "Rent balance to review",
+      "ar": "رصيد إيجار للمراجعة",
+      "ur": "کرایے کا بیلنس دیکھیں",
+      "hi": "किराए का शेष देखें",
+    },
+    "action_rent_help": {
+      "en":
+          "{amount} remains on the tracked rent schedule. Check the periods and record a receipt only when payment is received.",
+      "ar":
+          "يتبقى {amount} في جدول الإيجار. راجع الفترات وسجّل إيصالاً فقط عند استلام الدفع.",
+      "ur":
+          "کرایہ شیڈول میں {amount} باقی ہے۔ مدت دیکھیں اور ادائیگی ملنے پر ہی رسید درج کریں۔",
+      "hi":
+          "किराया अनुसूची में {amount} बाकी है। अवधि जाँचें और भुगतान मिलने पर ही रसीद दर्ज करें।",
+    },
+    "action_rent_cta": {
+      "en": "Review rent schedule",
+      "ar": "مراجعة جدول الإيجار",
+      "ur": "کرایہ شیڈول دیکھیں",
+      "hi": "किराया अनुसूची देखें",
+    },
+    "action_cheque": {
+      "en": "Cheque needs review",
+      "ar": "شيك يحتاج إلى مراجعة",
+      "ur": "چیک کا جائزہ درکار ہے",
+      "hi": "चेक की समीक्षा आवश्यक है",
+    },
+    "action_cheque_help": {
+      "en":
+          "Check the cheque date and status. Update its status only after confirming the bank outcome.",
+      "ar":
+          "تحقق من تاريخ الشيك وحالته. حدّث الحالة بعد تأكيد نتيجة البنك فقط.",
+      "ur": "چیک کی تاریخ اور حالت دیکھیں۔ بینک کی تصدیق کے بعد ہی حالت بدلیں۔",
+      "hi":
+          "चेक की तारीख और स्थिति देखें। बैंक की पुष्टि के बाद ही स्थिति बदलें।",
+    },
+    "action_cheque_cta": {
+      "en": "Review cheques",
+      "ar": "مراجعة الشيكات",
+      "ur": "چیک دیکھیں",
+      "hi": "चेक देखें",
+    },
+    "action_expiredLease": {
+      "en": "Lease expired",
+      "ar": "انتهى العقد",
+      "ur": "معاہدہ ختم ہو چکا ہے",
+      "hi": "पट्टा समाप्त हो गया",
+    },
+    "action_expiredLease_help": {
+      "en":
+          "The recorded lease ended on {date}. Confirm renewal or vacancy, then update the lease details.",
+      "ar":
+          "انتهى العقد المسجّل في {date}. أكد التجديد أو الشغور ثم حدّث بيانات العقد.",
+      "ur":
+          "درج معاہدہ {date} کو ختم ہوا۔ تجدید یا خالی ہونے کی تصدیق کے بعد تفصیلات بدلیں۔",
+      "hi":
+          "दर्ज पट्टा {date} को समाप्त हुआ। नवीनीकरण या रिक्तता की पुष्टि कर विवरण बदलें।",
+    },
+    "action_lease": {
+      "en": "Lease ending soon",
+      "ar": "العقد ينتهي قريباً",
+      "ur": "معاہدہ جلد ختم ہوگا",
+      "hi": "पट्टा जल्द समाप्त होगा",
+    },
+    "action_lease_help": {
+      "en":
+          "The lease ends on {date}. Confirm the next tenancy arrangement and update the record when agreed.",
+      "ar":
+          "ينتهي العقد في {date}. أكد ترتيبات الإيجار القادمة وحدّث السجل عند الاتفاق.",
+      "ur":
+          "معاہدہ {date} کو ختم ہوگا۔ اگلے انتظام کی تصدیق کریں اور اتفاق کے بعد ریکارڈ بدلیں۔",
+      "hi":
+          "पट्टा {date} को समाप्त होगा। अगले किराए की व्यवस्था की पुष्टि कर सहमति होने पर रिकॉर्ड बदलें।",
+    },
+    "action_lease_cta": {
+      "en": "Review lease details",
+      "ar": "مراجعة بيانات العقد",
+      "ur": "معاہدے کی تفصیلات دیکھیں",
+      "hi": "पट्टे का विवरण देखें",
+    },
+    "action_billing": {
+      "en": "Confirm opening balance",
+      "ar": "تأكيد الرصيد الافتتاحي",
+      "ur": "ابتدائی بیلنس کی تصدیق کریں",
+      "hi": "शुरुआती शेष की पुष्टि करें",
+    },
+    "action_billing_help": {
+      "en":
+          "Confirm the opening balance and first rent date before tracking payments. Past rent has not been assumed unpaid.",
+      "ar":
+          "أكد الرصيد الافتتاحي وأول تاريخ إيجار قبل متابعة الدفعات. لم يُفترض أن الإيجار السابق غير مدفوع.",
+      "ur":
+          "ادائیگیاں ٹریک کرنے سے پہلے ابتدائی بیلنس اور پہلی تاریخ کی تصدیق کریں۔ پچھلا کرایہ غیر ادا شدہ فرض نہیں کیا گیا۔",
+      "hi":
+          "भुगतान ट्रैक करने से पहले शुरुआती शेष और पहली तारीख की पुष्टि करें। पिछला किराया अवैतनिक नहीं माना गया है।",
+    },
+    "action_billing_cta": {
+      "en": "Review billing setup",
+      "ar": "مراجعة إعداد الإيجار",
+      "ur": "بلنگ کی تفصیلات دیکھیں",
+      "hi": "बिलिंग सेटअप देखें",
+    },
+    "action_details": {
+      "en": "Add missing details",
+      "ar": "إضافة البيانات الناقصة",
+      "ur": "نامکمل تفصیلات شامل کریں",
+      "hi": "अधूरी जानकारी जोड़ें",
+    },
+    "action_details_help": {
+      "en":
+          "Missing: {fields}. Add these when available; the property is already saved.",
+      "ar":
+          "البيانات الناقصة: {fields}. أضفها عند توفرها؛ العقار محفوظ بالفعل.",
+      "ur": "نامکمل: {fields}۔ دستیاب ہونے پر شامل کریں؛ جائیداد محفوظ ہے۔",
+      "hi":
+          "अधूरा: {fields}। उपलब्ध होने पर जोड़ें; संपत्ति पहले से सहेजी गई है।",
+    },
+    "action_details_cta": {
+      "en": "Complete details",
+      "ar": "استكمال البيانات",
+      "ur": "تفصیلات مکمل کریں",
+      "hi": "विवरण पूरा करें",
+    },
+    "viewAllActions": {
+      "en": "View all {count} properties",
+      "ar": "عرض جميع العقارات ({count})",
+      "ur": "تمام {count} جائیدادیں دیکھیں",
+      "hi": "सभी {count} संपत्तियाँ देखें",
+    },
+    "showFewerActions": {
+      "en": "Show fewer",
+      "ar": "عرض أقل",
+      "ur": "کم دکھائیں",
+      "hi": "कम दिखाएँ",
+    },
+    "additionalActions": {
+      "en": "{count} more to review",
+      "ar": "{count} أخرى للمراجعة",
+      "ur": "مزید {count} جائزے",
+      "hi": "समीक्षा के लिए {count} और",
+    },
+    "registerHelp": {
+      "en": "Open a property to review its tenant, rent and next steps.",
+      "ar": "افتح العقار لمراجعة المستأجر والإيجار والخطوات التالية.",
+      "ur": "کرایہ دار، کرایہ اور اگلے اقدامات دیکھنے کے لیے جائیداد کھولیں۔",
+      "hi": "किरायेदार, किराया और अगले कदम देखने के लिए संपत्ति खोलें।",
+    },
+    "viewRegister": {
+      "en": "View property register",
+      "ar": "عرض سجل العقارات",
+      "ur": "جائیداد رجسٹر دیکھیں",
+      "hi": "संपत्ति रजिस्टर देखें",
+    },
+    "backRentals": {
+      "en": "Back to rental properties",
+      "ar": "العودة إلى العقارات",
+      "ur": "جائیدادوں پر واپس",
+      "hi": "किराये की संपत्तियों पर वापस",
+    },
     'unfinishedAction': {
       'en': 'Unfinished rental action',
       'ar': 'إجراء تأجير غير مكتمل',

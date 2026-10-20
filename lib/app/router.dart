@@ -2436,13 +2436,15 @@ GoRouter createAppRouter({
         ),
       ),
 
-      // ─── Rentals / People details (full-screen) ───────────
+      // Rentals retain the same office chrome and native Back stack as other
+      // Yorks record routes. People keeps its existing full-screen behavior.
       GoRoute(
         path: RoutePaths.rentalUnit,
-        pageBuilder: (context, state) => _slide(
+        pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
           _DeferredRentalWorkspaceScreen(
             propertyId: state.pathParameters['id'] ?? '',
+            action: state.uri.queryParameters['action'],
           ),
         ),
       ),
@@ -2510,8 +2512,9 @@ GoRouter createAppRouter({
 
 /// Loads the protected rental workspace only when its guarded route is opened.
 class _DeferredRentalWorkspaceScreen extends StatefulWidget {
-  const _DeferredRentalWorkspaceScreen({this.propertyId});
+  const _DeferredRentalWorkspaceScreen({this.propertyId, this.action});
   final String? propertyId;
+  final String? action;
 
   @override
   State<_DeferredRentalWorkspaceScreen> createState() =>
@@ -2539,6 +2542,7 @@ class _DeferredRentalWorkspaceScreenState
             ? rental_workspace.YorksV1RentalDashboardScreen()
             : rental_workspace.YorksV1RentalPropertyScreen(
                 propertyId: widget.propertyId!,
+                initialAction: widget.action,
               );
       }
       if (snapshot.hasError) {
