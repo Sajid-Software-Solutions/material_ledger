@@ -40,7 +40,45 @@ collapsed groups, retained draft text, Cancel, billing/lease targets and Arabic
 at 1.3 text scale. New visual baselines include desktop and 360px action filters,
 contact-field review, phone billing review and Arabic phone review.
 
-Full gate and production results are appended after verification.
+## Completed gates and live release
+
+- `flutter pub get`, changed-file formatting, full `flutter analyze` and
+  `git diff --check` passed. The final full Flutter suite passed **2,882 tests**
+  with four existing skips. The final actual-router suite passed its
+  **14 navigation/review scenarios**.
+- CI web and APK builds passed. The APK uses ephemeral CI signing and is not
+  an Android distribution artifact.
+- An isolated database reset and the full pgTAP suite passed **4,876 assertions
+  across 143 files**. The audit project was stopped with its backup retained;
+  the primary local database was untouched.
+- Production was built from clean implementation commit
+  `adb3576f3d6a9c19645b5567155dcb982c3b4466`. The main bundle measured
+  9,965,866 bytes, with 2,872,753 gzip bytes reported by the startup gate.
+  Its SHA-256 is
+  `ae10a76f4a66fec627980d1b15beb35a9495ca94b275be4f41dca3a5efca0472`.
+  The artifact retained the existing production backend configuration and
+  passed the reviewed main-bundle credential and environment checks.
+- Staged deployment `dpl_B96grAdqY4GbnnG72eJj1c8xBDLv` passed all **34 route
+  and asset hash checks** before promotion. The canonical site passed the
+  same checks and resolves to that exact READY production deployment:
+  <https://yorks-r35.vercel.app>.
+- Live signed-in Chrome verification selected Missing details (52), opened
+  `OFFICE-AC1-2`, and confirmed the selected missing-detail reason appeared
+  first. Complete details opened the editor at Site location. Go to field
+  moved to Contact number, with the field visible, focused and highlighted.
+  Cancel closed the editor without saving. The workspace header Back returned
+  to the overview with Missing details (52) still selected.
+- Desktop, 360px/mobile, Arabic at 1.3 text scale, billing/lease targets,
+  collapsed groups, retained draft edits and empty-filter reset are covered
+  by the automated journey and visual checks. Physical mobile-device and new
+  push-delivery acceptance were outside this presentation change.
+
+The [release record](evidence/rental-action-filters-20261020/release.json),
+[artifact measurements](evidence/rental-action-filters-20261020/artifact.json),
+[candidate hashes](evidence/rental-action-filters-20261020/verify-candidate.jsonl)
+and [canonical hashes](evidence/rental-action-filters-20261020/verify-canonical.jsonl)
+retain the release evidence. The primary checkout and rental business records
+were not changed.
 
 ## Rollback
 
