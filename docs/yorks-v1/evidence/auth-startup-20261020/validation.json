@@ -1,0 +1,15 @@
+{
+  "runtimeCommit": "5652860bb3dc5e86a0e32678a8cb1b9828f60f0d",
+  "baselineCommit": "adb3576f3d6a9c19645b5567155dcb982c3b4466",
+  "flutterTestsPassed": 2889,
+  "flutterTestsSkipped": 4,
+  "newRegressionsPassed": 7,
+  "analyzer": "passed",
+  "format": "passed",
+  "ciWeb": "passed",
+  "ciApk": "passed; 114.2MB, ephemeral CI signing only",
+  "databaseAssertionsPassed": 4876,
+  "databaseTestFiles": 143,
+  "databaseReset": "isolated local project yorks_auth_gate_20261020",
+  "productionDatabaseChanges": false
+}

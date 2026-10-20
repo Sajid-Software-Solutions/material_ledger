@@ -72,3 +72,41 @@ store release. Rollback promotes the previous production deployment
 
 The final database, Android build and production release results are recorded
 in the accompanying release evidence when complete.
+
+
+## Production verification
+
+The fix is live at <https://yorks-r35.vercel.app> from clean runtime commit
+`5652860bb3dc5e86a0e32678a8cb1b9828f60f0d`, deployment
+`dpl_E2Yedn4SoTnHZxgrshspvvBUcLaB`. Both the staged candidate and public
+site passed all 31 artifact/hash and route checks. The public hostname resolves
+to that exact READY production deployment.
+
+The isolated database reset and 4,876 assertions across 143 files passed.
+The CI APK build passed (114.2 MB, ephemeral signing only). Production web
+passed its startup budget (9,966,454 bytes; gzip 2,872,958) and artifact credential,
+backend, deferred-file and source-identity checks. A first production build
+aborted during local disk exhaustion; removing only this task's generated
+ignored Android/test outputs allowed a successful clean rebuild. Local Docker
+was restored and the pre-existing primary services verified healthy. The
+isolated test environment was stopped with its backup retained.
+
+Live verification restored the existing signed-in session and opened Projects.
+The browser's actual main-bundle response hash matched the deployed artifact.
+A second reload naturally delayed Auth by about 7.3 seconds without an early
+project-list request. A direct `#/yorks/projects` reload at 360x800 showed Auth
+and profile HTTP 200 responses before the project GET, which returned HTTP 200
+and rendered the project cards normally. No browser console errors were observed.
+The Vercel error query returned zero records over its available 30-minute window;
+this static-site observation does not replace client or database evidence.
+No production account was revoked, no credentials changed and no business
+records were edited for these checks. Stale/rejected credentials and delayed
+password sign-in are proved by the automated regressions.
+
+Evidence: [release](evidence/auth-startup-20261020/release.json),
+[validation](evidence/auth-startup-20261020/validation.json),
+[artifact](evidence/auth-startup-20261020/artifact.json),
+[candidate checks](evidence/auth-startup-20261020/candidate-checks.jsonl),
+[public checks](evidence/auth-startup-20261020/public-checks.jsonl),
+[sanitized network ordering](evidence/auth-startup-20261020/live-network.json)
+and [mobile deep-link ordering](evidence/auth-startup-20261020/live-mobile-network.json).
