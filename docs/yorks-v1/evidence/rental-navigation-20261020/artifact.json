@@ -1,0 +1,17 @@
+{
+  "commit": "e39c01697751990f81c3e99a5cd1cf9f5e4978b5",
+  "target": "yorks-r35.vercel.app",
+  "project": {
+    "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+    "orgId": "team_EsIrL8Cazj49Pzj2tN6wB2SJ",
+    "projectName": "yorks-r35"
+  },
+  "mainBytes": 9965418,
+  "mainSha256": "57422b0ad8d93b65333816242e3d43fbc8dad93129a36678edd598532250979f",
+  "deferredParts": 15,
+  "credentialsCheck": "passed",
+  "cleanBuild": true,
+  "pythonGzipBytes": 2842083,
+  "startupGateDartGzipBytes": 2872492,
+  "credentialScanScope": "main.dart.js; rejects secret-key values, private key material, and service-role JWT payloads"
+}

@@ -47,12 +47,50 @@ Visual evidence is under `test/goldens/r38_4/rental_action_shell_*` and
 and editor/recovery baselines. Full gate and release results are recorded below
 after verification.
 
+## Completed gates and live release
+
+- `flutter pub get`, changed-file format check, full `flutter analyze` and
+  `git diff --check` passed. The final full Flutter suite passed **2,882 tests**
+  with four existing skips. The 52 focused rental tests and 15 cheque-action
+  tests also passed.
+- CI web and APK builds passed. The APK uses the requested ephemeral CI
+  signing lane; it is not an Android distribution artifact.
+- A reset of the isolated audit database and its full pgTAP suite passed
+  **4,876 assertions across 143 files**. The audit project was stopped with its
+  backup retained; the primary local database was untouched.
+- Production was built from clean implementation commit
+  `e39c01697751990f81c3e99a5cd1cf9f5e4978b5`. The unchanged startup gate measured
+  `main.dart.js` at 9,965,418 raw / 2,872,492 gzip bytes. Its SHA-256 is
+  `57422b0ad8d93b65333816242e3d43fbc8dad93129a36678edd598532250979f`.
+  The bundle targets the existing production backend and contains no staging/
+  CI backend or credential detected by the reviewed main-bundle checks.
+- Staged production deployment `dpl_JCnBZWcMEKVy633C1gFNyCqXzry6` passed all
+  **34 route/asset hash checks** before promotion. The canonical site passed the
+  same checks and resolves to that exact deployment:
+  <https://yorks-r35.vercel.app>.
+- Live Chrome verification opened the expired-lease action for `OFFICE-AC1-5`,
+  confirmed its precise reason and next-step buttons, and visually confirmed
+  the retained sidebar/header and Rentals selection. Complete details opened
+  the existing editor; Cancel made no business changes. The workspace header
+  Back returned to the rental overview and its original action item.
+  The register still showed the 52 completion items and AED 710,238 annual
+  rent. Desktop, 360px/mobile, Arabic/text scaling, Forward/system Back and
+  direct-link fallback are covered by the automated route/visual checks.
+  No physical mobile-device or new push-delivery acceptance is claimed.
+
+The [release record](evidence/rental-navigation-20261020/release.json),
+[artifact measurements](evidence/rental-navigation-20261020/artifact.json),
+[candidate hashes](evidence/rental-navigation-20261020/verify-candidate.jsonl)
+and [canonical hashes](evidence/rental-navigation-20261020/verify-canonical.jsonl)
+retain the verification evidence.
+
 ## Preservation and rollback
 
 No repository/RPC, database migration, backend role, financial rule or business
 record changes are required. All 52 imported records and original-source
 metadata remain in place. Rollback is promotion of the previous retained web
-artifact; no database reversal or notification replay is needed.
+artifact `dpl_ABmQsPZ2TefLjD9PWYiZLKewSRP1`; no database reversal or
+notification replay is needed.
 
 ## Further usability opportunities
 

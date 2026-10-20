@@ -1,0 +1,56 @@
+{
+  "verifiedAtUtc": "2026-10-20T13:22:44.992400+00:00",
+  "implementationCommit": "e39c01697751990f81c3e99a5cd1cf9f5e4978b5",
+  "canonicalUrl": "https://yorks-r35.vercel.app",
+  "deploymentId": "dpl_JCnBZWcMEKVy633C1gFNyCqXzry6",
+  "deploymentUrl": "https://yorks-r35-av3ujcqs1-sajid-alis-projects-0ec775a2.vercel.app",
+  "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+  "teamId": "team_EsIrL8Cazj49Pzj2tN6wB2SJ",
+  "state": "READY",
+  "target": "production",
+  "canonicalDeploymentIdentityVerified": true,
+  "rollbackDeploymentId": "dpl_ABmQsPZ2TefLjD9PWYiZLKewSRP1",
+  "checks": {
+    "flutterPubGet": "passed",
+    "dartFormat": "passed",
+    "flutterAnalyze": "passed",
+    "flutterTests": {
+      "passed": 2882,
+      "skipped": 4,
+      "failed": 0
+    },
+    "database": {
+      "isolatedReset": "passed",
+      "files": 143,
+      "assertions": 4876,
+      "result": "PASS",
+      "stoppedWithBackup": true
+    },
+    "ciWebBuild": "passed",
+    "ciApkBuild": "passed with ephemeral CI signing; not a distribution artifact",
+    "productionWebBuild": "passed",
+    "candidateRouteAssetHashes": 34,
+    "canonicalRouteAssetHashes": 34,
+    "liveChrome": [
+      "action reason and named next steps visible",
+      "property detail retains header and sidebar with Rentals selected",
+      "Complete details opens editor; Cancel without save",
+      "workspace header Back returns to overview and original action",
+      "52 completion items and AED 710238 annual rent remain visible"
+    ],
+    "automatedResponsiveEvidence": [
+      "desktop 1366px",
+      "mobile 360px",
+      "Arabic 1.3 text scale",
+      "Back and Forward",
+      "system Back",
+      "direct-link fallback",
+      "rent and cheque section selection"
+    ],
+    "notClaimed": [
+      "physical mobile-device acceptance",
+      "new external push delivery"
+    ]
+  },
+  "dataMutation": "none; presentation and navigation only"
+}
