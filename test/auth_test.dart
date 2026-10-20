@@ -40,7 +40,7 @@ void main() {
     },
   );
 
-  test('restored mobile session survives a temporary Auth outage', () async {
+  test('verified mobile session survives a temporary Auth outage', () async {
     var responseStatus = HttpStatus.serviceUnavailable;
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final serverSubscription = server.listen((request) async {
@@ -90,6 +90,9 @@ void main() {
     );
     addTearDown(container.dispose);
     final controller = container.read(authControllerProvider);
+    // An already verified session is retained during a background outage.
+    // A cold-start persisted ID is no longer sufficient to open the shell.
+    await container.read(authSessionProvider.notifier).setUser('app-user');
 
     await controller.restoreSupabaseSession();
     expect(container.read(authSessionProvider), 'app-user');
