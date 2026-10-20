@@ -147,6 +147,15 @@ integrity passed verification. Its SHA-256 is
 `e590233411acce42a26007eea6dbe402a921bb204818f10dbb4cb7bc98c704af`.
 Neither supplied workbook was overwritten.
 
+The coordinating release subsequently imported the exact application-codec
+payload through the production import RPC under the authorized Owner actor.
+Live reconciliation matched all 52 records and 572 source cells, annual rent
+AED 710,238 and zero generated periods, receipts or actual cheques. Same-key
+replay retained one import audit and 52 records. The Mac was locked, so the
+production browser file-picker path was not exercised. See the [release
+record](RENTAL_TRUST_AUDIT_2026-10-20.md) for deployed identities and remaining
+physical-browser/OS acceptance limits.
+
 No downstream record, receipt, cheque, document, reservation or audit history
 is deleted by the intake. Rollback must retain imported records and source
 metadata and use the existing controlled archive/correction paths.

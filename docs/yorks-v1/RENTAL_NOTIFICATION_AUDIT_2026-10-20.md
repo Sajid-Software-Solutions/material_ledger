@@ -1,13 +1,22 @@
 # Rental notification audit — 20 October 2026
 
-Status: **candidate implemented and focused local checks passed; staging and
-real rental delivery acceptance not passed**.
+Status: **released by the coordinating audit after full gates and staging;
+production provider acceptance verified; physical OS acceptance incomplete**.
 
-This note records the initial notification audit and the subsequently
-authorized local candidate. It does not establish a production workbook
-import, a deployed rental reminder service, or end-to-end OS delivery. The
-candidate changes described below are local; no production data, function,
-schedule or deployment was changed by this notification subtask.
+The coordinating release imported and reconciled all 52 records, deployed
+`send-push` version 16 and activated hourly rental evaluation. The first cohort
+is 69 inbox entries: three count-52 completion digests and 66 lease milestones.
+Only the digests entered the push outbox. FCM accepted the Owner digest on four
+devices and another Admin digest on one device; the third Admin has no device.
+There are no duplicate milestones, unexpected initial milestone outbox jobs,
+pending retries or new dead letters. Same-day retry emitted zero. The Mac is
+locked, so actual OS receipt/click, protected destination rendering and server
+acknowledgement remain unverified in this run. See the [coordinating release
+record](RENTAL_TRUST_AUDIT_2026-10-20.md) and [production evidence](evidence/rental-audit-20261020/production-import-notifications.json).
+
+The source diagnosis and candidate/rehearsal sections below retain their
+original pre-release context. The final release record above supersedes their
+earlier statements that production mutation or activation had not occurred.
 
 ## Source and authority
 
@@ -350,19 +359,23 @@ initial digest-only external delivery; and inactive hourly polling. These are
 now concrete candidate behaviors, rather than unresolved implementation
 alternatives. No tenant contact channel or broader role access is introduced.
 
-The operator SQL is prepared, **not executed in production**:
+The operator SQL was reviewed before release. The coordinating release executed
+steps 1 and 2 on the approved production target; step 3 remains a containment
+option. Production OS acceptance could not run because the Mac was locked;
+activation used verified source/inbox counts, server policy and real provider
+acceptance, with that limitation explicitly retained:
 
 1. [Initial source inbox and one completeness digest per Admin](evidence/rental-audit-20261020/rental-initial-inbox-operator.sql)
    verifies disabled controls and shared push health, rejects an initial cohort
    larger than 100 recipient milestones, then evaluates the imported source
    once. Cron remains inactive and the producer returns to disabled while the
    legitimate digest can finish external delivery. Verify actual Admin inbox
-   counts, source routes, provider acceptance, OS receipt/click and server
-   acknowledgement before continuing. The rehearsed source's 23 obligations
+   counts, source routes and provider acceptance. OS receipt/click and server
+   acknowledgement are separate physical acceptance evidence. The rehearsed source's 23 obligations
    fit within 100 for the reported three production Admins (69 inbox records,
    at most three fresh digest OS jobs), subject to a fresh recipient/candidate
-   count immediately before execution. This arithmetic is not production
-   execution evidence.
+   count immediately before execution. The actual production result now
+   matches these counts in the linked evidence.
 2. [Enable future rental evaluation](evidence/rental-audit-20261020/rental-enable-future-schedule-operator.sql)
    is a separate release action. It checks current health, inactive cron,
    recorded initial evaluation and a drained current cohort before enabling

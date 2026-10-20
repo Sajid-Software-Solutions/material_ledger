@@ -1,0 +1,204 @@
+{
+  "as_of_utc": "2026-10-20T11:50:20.059674+00:00",
+  "host": "https://yorks-r35.vercel.app",
+  "project_id": "czykuksmlwswjsgotrpo",
+  "implementation_commit": "2c844c08bb06112c2db288f19da2955b82265b6c",
+  "deployment_id": "dpl_AAZBeSPhGcR6Rj8Cjssk3Ckq5F3u",
+  "import_method": "Authorized operator invocation of the production import RPC under the existing Owner Admin actor, with the exact application-codec payload from the supplied workbook. Browser file selection was unavailable because the Mac was locked.",
+  "import_command": "d5ad4340-38a2-4e24-a718-44ca2e1bbde8",
+  "reconciliation": {
+    "leases": 52,
+    "cheques": 0,
+    "periods": 0,
+    "receipts": 0,
+    "incomplete": 52,
+    "properties": 52,
+    "annual_total": 710238,
+    "source_cells": 572,
+    "annual_values": 39,
+    "import_audits": 1,
+    "monthly_values": 0,
+    "code_mismatches": 0,
+    "candidate_events": 23,
+    "expected_matched": 52,
+    "annual_mismatches": 0,
+    "source_mismatches": 0,
+    "opening_unconfirmed": 52,
+    "frequency_mismatches": 0
+  },
+  "owner_projection": {
+    "summary": {
+      "occupied": 46,
+      "outstanding": 0,
+      "annual_rent_roll": 710238,
+      "cheque_attention": 0,
+      "total_properties": 52,
+      "monthly_rent_roll": 0,
+      "security_deposits": 0,
+      "expiring_within_90": 19,
+      "collected_this_month": 0
+    },
+    "properties": 52,
+    "business_date": "2026-10-20",
+    "billing_setup_pending": 52,
+    "completion_recommendations": 52
+  },
+  "notifications": {
+    "cohort": [
+      {
+        "event_code": "rental_completeness_review",
+        "inbox_rows": 3,
+        "outbox_jobs": 3,
+        "maximum_count": 52,
+        "minimum_count": 52,
+        "push_eligible": 3
+      },
+      {
+        "event_code": "rental_lease_expired",
+        "inbox_rows": 9,
+        "outbox_jobs": 0,
+        "maximum_count": 1,
+        "minimum_count": 1,
+        "push_eligible": 0
+      },
+      {
+        "event_code": "rental_lease_notice_due",
+        "inbox_rows": 57,
+        "outbox_jobs": 0,
+        "maximum_count": 1,
+        "minimum_count": 1,
+        "push_eligible": 0
+      }
+    ],
+    "health": {
+      "asOf": "2026-10-20T11:50:20.059674+00:00",
+      "sent1h": 2,
+      "sent24h": 91,
+      "retrying": 0,
+      "retries1h": 0,
+      "attempts1h": 3,
+      "retries24h": 0,
+      "attempts24h": 126,
+      "noDevices1h": 1,
+      "oldestRetry": null,
+      "activeTokens": 71,
+      "deadLetter1h": 0,
+      "lastWorkerAt": "2026-10-20T11:50:00.122569+00:00",
+      "noDevices24h": 123,
+      "pendingCount": 0,
+      "deadLetter24h": 0,
+      "operatorPaused": false,
+      "deadLetterTotal": 1714,
+      "lastGlobalError": null,
+      "notifications1h": 69,
+      "oldestPendingAt": null,
+      "usersWithTokens": 13,
+      "circuitOpenUntil": null,
+      "errorsByCategory": {
+        "NOTIFICATION_NO_LONGER_RELEVANT": 88
+      },
+      "notifications24h": 280,
+      "successPercent24h": 72.2,
+      "latestSuccessfulPush": "2026-10-20T11:47:03.804993+00:00",
+      "eligibleWebInstallations": 16,
+      "highestActiveAttemptCount": 0,
+      "highestHistoricalAttemptCount": 607
+    },
+    "control": {
+      "id": true,
+      "enabled": true,
+      "last_success_at": "2026-10-20T11:50:15.143234+00:00",
+      "last_business_date": "2026-10-20",
+      "last_emitted_count": 0,
+      "external_push_enabled": true
+    },
+    "digests": [
+      {
+        "status": "sent",
+        "seen_at": null,
+        "item_count": 52,
+        "attempt_count": 1,
+        "dispatch_count": 1,
+        "last_error_code": null,
+        "notification_id": "046f17fa-d424-4eb9-9c8c-c824036f6fce",
+        "sent_device_count": 4,
+        "preference_allows_push": true,
+        "provider_accepted_devices": 4
+      },
+      {
+        "status": "sent",
+        "seen_at": null,
+        "item_count": 52,
+        "attempt_count": 1,
+        "dispatch_count": 1,
+        "last_error_code": null,
+        "notification_id": "0c7c1709-26e2-46dc-aa1e-aea3d5c0b7b2",
+        "sent_device_count": 1,
+        "preference_allows_push": true,
+        "provider_accepted_devices": 1
+      },
+      {
+        "status": "no_devices",
+        "seen_at": null,
+        "item_count": 52,
+        "attempt_count": 1,
+        "dispatch_count": 1,
+        "last_error_code": null,
+        "notification_id": "c94d6427-fc5b-4c1e-a90a-2ba0cb7b2d07",
+        "sent_device_count": 0,
+        "preference_allows_push": true,
+        "provider_accepted_devices": 0
+      }
+    ],
+    "forbidden_initial_outbox": 0
+  },
+  "notification_retry": {
+    "same_day_retry": {
+      "emitted": 0,
+      "enabled": true,
+      "timezone": "Asia/Dubai",
+      "business_date": "2026-10-20",
+      "external_push_enabled": true,
+      "external_push_candidates": 0
+    }
+  },
+  "final_state": {
+    "cron": [
+      {
+        "active": true,
+        "schedule": "0 * * * *",
+        "last_run_status": null
+      }
+    ],
+    "control": {
+      "id": true,
+      "enabled": true,
+      "last_success_at": "2026-10-20T11:50:15.143234+00:00",
+      "last_business_date": "2026-10-20",
+      "last_emitted_count": 0,
+      "external_push_enabled": true
+    },
+    "owner_digest": {
+      "seen": false,
+      "status": "sent",
+      "devices": 4,
+      "notification_id": "046f17fa-d424-4eb9-9c8c-c824036f6fce"
+    },
+    "duplicate_groups": 0,
+    "forbidden_initial_outbox": 0
+  },
+  "limits": [
+    "Production browser file selection, rendered register and actual OS receipt/click/seen acknowledgement not witnessed: Mac locked.",
+    "One active Admin has no registered push device; in-app reminder exists.",
+    "First hourly cron tick not yet observed at this snapshot.",
+    "No extended all-device soak."
+  ],
+  "enabled_producer_check": {
+    "emitted": 0,
+    "enabled": true,
+    "timezone": "Asia/Dubai",
+    "business_date": "2026-10-20",
+    "external_push_enabled": true,
+    "external_push_candidates": 0
+  }
+}

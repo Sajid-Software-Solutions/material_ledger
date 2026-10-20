@@ -1,4 +1,5 @@
--- OPERATOR ONLY. Not executed in production by this audit.
+-- OPERATOR ONLY. Executed once by the coordinating production release on
+-- 2026-10-20 after the authorized 52-row source import; do not rerun as setup.
 -- First verify the explicitly approved project/host and reviewed migration
 -- ledger/artifact. Run only after migrations, source import and staging pass.
 -- First evaluation retains milestones in-app, with only the legitimate daily

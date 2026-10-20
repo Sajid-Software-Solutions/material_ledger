@@ -1,4 +1,6 @@
--- OPERATOR ONLY. Not executed in production by this audit.
+-- OPERATOR ONLY. Executed by the coordinating production release on 2026-10-20
+-- after source/inbox reconciliation and actual FCM provider acceptance.
+-- Physical OS/click acceptance remained unavailable because the Mac was locked.
 -- Run as a separate, reviewed release action after initial inbox acceptance.
 -- Verify approved project/host, candidate artifact, migration ledger, actual
 -- Admin inbox count/routes and current shared-push health before executing.

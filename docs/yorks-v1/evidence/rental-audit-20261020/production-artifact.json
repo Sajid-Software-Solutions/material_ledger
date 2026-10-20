@@ -1,0 +1,11 @@
+{
+  "release_commit": "2c844c08bb06112c2db288f19da2955b82265b6c",
+  "production_ref_verified": true,
+  "no_staging_ci_ref": true,
+  "no_service_role_jwt": true,
+  "files": 68,
+  "main_sha256": "e0a26e777f1bc727204e235ad3a5f85e9930c4885a9418571861abdf0512dc67",
+  "main_bytes": 9962172,
+  "calculator_workspace": true,
+  "project_setup": true
+}

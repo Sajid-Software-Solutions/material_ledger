@@ -143,6 +143,14 @@ coordinating release task; this backend report does not substitute for them.
 
 ## Rollback and operating limits
 
+The coordinating release subsequently applied the reviewed migrations in
+production and imported the source. A separate read-only review matched all
+22 reviewed deployed function bodies and five shared role guards; all seven
+rental tables retain RLS with no client direct CRUD. After import, 52 records
+and all 572 source cells reconciled, annual rent remains AED 710,238, and no
+periods/receipts/actual cheques were invented. See the [release record](RENTAL_TRUST_AUDIT_2026-10-20.md)
+for exact migration/deployment identities and provider/physical-device limits.
+
 Before release, take the normal backup and preserve the source workbook hash,
 command ID, committed row count and matching build identity. Rollback hides or
 stops the new intake/UI and notification producer while preserving all new

@@ -1,0 +1,67 @@
+[
+  {
+    "name": "v1_canonical_role_from_exact_role",
+    "body_hash": "300f518b75d57d3723c20eacbd86ad9e",
+    "security_definer": false,
+    "configuration": [
+      "search_path=\"\""
+    ],
+    "matches_reviewed_source": true,
+    "local_source": {
+      "body_hash": "300f518b75d57d3723c20eacbd86ad9e",
+      "source": "20260825155246_yorks_r39_accounts_t01_foundation.sql"
+    }
+  },
+  {
+    "name": "v1_current_actor_is_active",
+    "body_hash": "0940276eef552bbc74e4155b56ce9521",
+    "security_definer": true,
+    "configuration": [
+      "search_path=\"\""
+    ],
+    "matches_reviewed_source": true,
+    "local_source": {
+      "body_hash": "0940276eef552bbc74e4155b56ce9521",
+      "source": "20260807010000_yorks_v1_global_engineers_dispatch_documents.sql"
+    }
+  },
+  {
+    "name": "v1_current_exact_role",
+    "body_hash": "453fd59d79fd7eed27cb40250a83d2a5",
+    "security_definer": true,
+    "configuration": [
+      "search_path=\"\""
+    ],
+    "matches_reviewed_source": true,
+    "local_source": {
+      "body_hash": "453fd59d79fd7eed27cb40250a83d2a5",
+      "source": "20260807010000_yorks_v1_global_engineers_dispatch_documents.sql"
+    }
+  },
+  {
+    "name": "v1_current_role",
+    "body_hash": "bbdfcf0fa27a32ff9ab4fc7c8cdd538b",
+    "security_definer": true,
+    "configuration": [
+      "search_path=\"\""
+    ],
+    "matches_reviewed_source": true,
+    "local_source": {
+      "body_hash": "bbdfcf0fa27a32ff9ab4fc7c8cdd538b",
+      "source": "20260807010000_yorks_v1_global_engineers_dispatch_documents.sql"
+    }
+  },
+  {
+    "name": "v1_permission_exact_role",
+    "body_hash": "e9b5a7df3524e96f1b7688a3b390c635",
+    "security_definer": true,
+    "configuration": [
+      "search_path=\"\""
+    ],
+    "matches_reviewed_source": true,
+    "local_source": {
+      "body_hash": "e9b5a7df3524e96f1b7688a3b390c635",
+      "source": "20260824075503_scoped_capability_management.sql"
+    }
+  }
+]

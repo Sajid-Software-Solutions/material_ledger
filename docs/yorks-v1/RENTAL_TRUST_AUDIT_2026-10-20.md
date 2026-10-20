@@ -1,7 +1,9 @@
 # Rental Properties audit and source intake — 20 October 2026
 
-Status: implementation and acceptance checks in progress. This document does
-not record a production import or release until the evidence below is updated.
+Status: implementation and automated acceptance passed; production schema, push
+handler and verified web release deployed. All 52 source properties are imported
+and reconciled. Rental reminders are active, with real provider acceptance.
+Production browser and physical OS acceptance remain incomplete: the Mac is locked.
 
 ## Approved outcome
 
@@ -74,8 +76,7 @@ The transfer ceiling is not raised.
 
 ## Verification
 
-Acceptance records will be appended after final gates. Local evidence already
-includes a complete 52-row server rehearsal and same-key replay with zero
+Local evidence includes a complete 52-row server rehearsal and same-key replay with zero
 periods, receipts or cheques and the original annual total unchanged.
 
 The final pre-release gate passed:
@@ -121,7 +122,70 @@ relations. Use a reviewed forward correction for database defects.
 
 ## Release evidence
 
-Pending final gate, staging validation, exact migration/Edge deployment,
-immutable web candidate verification, canonical promotion, live UI import and
-post-import reconciliation. Local fixture tests alone do not establish real OS
-delivery, every device/browser state, or an extended production soak.
+Production migration versions are `20261020114049`, `20261020114054` and
+`20261020114058`, respectively. The production `send-push` Function is version
+16; all five deployed files equal the reviewed source and retain the existing
+webhook authentication. Its bundle SHA-256 is
+`c4bd461168e4d0b92f62310f990d89feb384df5d09d604ce6baf4a29c75da826`.
+
+The clean implementation commit is
+`2c844c08bb06112c2db288f19da2955b82265b6c`. Production configuration preserves
+Accounts, Workforce, Analytics, Company Requests, Project Setup, Calculator
+Workspace, FCM and PostHog. The production main bundle is 9,962,172 bytes /
+2,871,425 gzip bytes, below the unchanged startup ceiling. Its SHA-256 is
+`e0a26e777f1bc727204e235ad3a5f85e9930c4885a9418571861abdf0512dc67`.
+
+Deployment `dpl_AAZBeSPhGcR6Rj8Cjssk3Ckq5F3u` was verified before promotion:
+<https://yorks-r35-4aly5ytvn-sajid-alis-projects-0ec775a2.vercel.app>.
+All 34 route/asset checks passed for both the immutable deployment and
+<https://yorks-r35.vercel.app>. The canonical domain resolves to that deployment.
+The prior deployment remains available as
+`dpl_6kHrXZ3yHFrJA41vLhcimN9xFWdZ` for web rollback.
+
+Production security advisors retain the four previous advisory categories and
+no ERROR-level findings. Added findings are expected: two service-only rental
+notification tables with RLS and no client policy, and two authenticated RPCs
+with explicit active-Admin/actor checks. Anonymous execution has not expanded.
+All seven rental tables have RLS enabled and no anonymous/authenticated direct
+table CRUD grants. Shared push health has no pending/retry jobs, pause, circuit
+or global error; its worker is current. Historical dead letters remain intact.
+
+The Mac was locked and native browser control could not proceed. The exact
+application-codec workbook payload was instead imported through the audited
+production `v1_import_rental_workbook` command under the existing Owner Admin
+actor, with the owner's explicit live-import authorization. No direct domain
+table inserts or generated payment facts were used. The command ID is
+`d5ad4340-38a2-4e24-a718-44ca2e1bbde8`; the import audit is retained once.
+An exact same-key replay returned the original result with no new rows/audit.
+
+Live reconciliation confirms 52 properties, 52 leases, 39 annual amounts
+totalling AED 710,238, zero monthly amounts and all 572 original source cells
+matching. Codes, amounts, frequency and immutable source metadata have zero
+mismatches. Periods, receipts, actual cheques and cash security deposits remain
+zero. The Owner's protected application projection returns all 52 records,
+46 occupied, 19 expiring within 90 days, and 52 completion/billing-setup warnings.
+Zero recorded charges is not proof of a settled balance: each opening remains
+unconfirmed until an Admin explicitly sets billing tracking.
+
+The initial notification evaluation generated 69 inbox entries for the three
+active Admins: three count-52 completion digests, nine expired-lease entries
+and 57 notice entries. Only the three digests entered the push outbox; all 66
+initial lease milestones are permanently inbox-only. Actual first-attempt FCM
+acceptance is recorded for the Owner's four devices and one other Admin device.
+The third Admin has no registered device; that digest has terminal `no_devices`
+delivery and remains in the protected inbox. There are no pending/retry jobs,
+new dead letters, circuit/global errors or duplicate milestones. Same-day
+evaluation emitted zero new entries and zero external candidates.
+
+After health and drained-cohort checks, the rental producer, external delivery
+and hourly cron (`0 * * * *`) were enabled. Existing suppressed milestones were
+not replayed. The first scheduled hourly tick had not yet occurred at the
+recorded snapshot. The [release evidence](evidence/rental-audit-20261020/production-import-notifications.json)
+contains the actual counts, provider outcomes, protected projection and limits;
+the candidate/canonical asset manifests and artifact hash are saved alongside it.
+
+The production file-picker interaction, rendered post-import register, actual
+OS receipt/click and server `seen_at` acknowledgement were not witnessed because
+the Mac remains locked. Desktop/360px UI evidence and full automatic tests
+passed; provider acceptance is a separate verified result. Every device/browser
+state and an extended production soak remain outside this acceptance record.
