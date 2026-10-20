@@ -17,6 +17,67 @@ abstract final class RentalWorkspaceStrings {
   }
 
   static const _copy = {
+    "actionFilter": {
+      "en": "Show actions",
+      "ar": "عرض الإجراءات",
+      "ur": "اقدامات دکھائیں",
+      "hi": "कार्रवाई दिखाएँ",
+    },
+    "actionFilter_all": {
+      "en": "All actions",
+      "ar": "كل الإجراءات",
+      "ur": "تمام اقدامات",
+      "hi": "सभी कार्रवाइयाँ",
+    },
+    "actionFilter_rent": {
+      "en": "Rent",
+      "ar": "الإيجار",
+      "ur": "کرایہ",
+      "hi": "किराया",
+    },
+    "actionFilter_cheques": {
+      "en": "Cheques",
+      "ar": "الشيكات",
+      "ur": "چیک",
+      "hi": "चेक",
+    },
+    "actionFilter_leases": {
+      "en": "Leases",
+      "ar": "العقود",
+      "ur": "معاہدے",
+      "hi": "पट्टे",
+    },
+    "actionFilter_billing": {
+      "en": "Billing setup",
+      "ar": "إعداد الفوترة",
+      "ur": "بلنگ کی ترتیب",
+      "hi": "बिलिंग सेटअप",
+    },
+    "actionFilter_details": {
+      "en": "Missing details",
+      "ar": "البيانات الناقصة",
+      "ur": "نامکمل تفصیلات",
+      "hi": "अधूरी जानकारी",
+    },
+    "actionFilterEmpty": {
+      "en": "No properties need this action right now.",
+      "ar": "لا توجد عقارات تحتاج إلى هذا الإجراء حالياً.",
+      "ur": "فی الحال کسی پراپرٹی کو اس اقدام کی ضرورت نہیں۔",
+      "hi": "अभी किसी संपत्ति को इस कार्रवाई की आवश्यकता नहीं है।",
+    },
+    "actionFilterReset": {
+      "en": "Show all actions",
+      "ar": "عرض كل الإجراءات",
+      "ur": "تمام اقدامات دکھائیں",
+      "hi": "सभी कार्रवाइयाँ दिखाएँ",
+    },
+    "reviewField": {
+      "en": "Go to field",
+      "ar": "الانتقال إلى الحقل",
+      "ur": "فیلڈ پر جائیں",
+      "hi": "फ़ील्ड पर जाएँ",
+    },
+
     "actionTitle": {
       "en": "Action required",
       "ar": "الإجراءات المطلوبة",

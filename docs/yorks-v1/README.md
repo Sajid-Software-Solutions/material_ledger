@@ -90,6 +90,7 @@ explicit V7-to-V1 conflict resolution.
 | [`R38_4_RENTAL_PROPERTIES.md`](R38_4_RENTAL_PROPERTIES.md) | Admin-only rental property, lease, rent, cheque, import/export and controlled-document implementation |
 | [`RENTAL_TRUST_AUDIT_2026-10-20.md`](RENTAL_TRUST_AUDIT_2026-10-20.md) | Owner-approved incomplete property intake, annual/monthly rent, completion recommendations, record integrity and rental notification acceptance |
 | [`RENTAL_NAVIGATION_UX_2026-10-20.md`](RENTAL_NAVIGATION_UX_2026-10-20.md) | Rental action guidance, persistent shell, scoped Back fallback and responsive verification |
+| [`RENTAL_ACTION_FILTERS_UX_2026-10-20.md`](RENTAL_ACTION_FILTERS_UX_2026-10-20.md) | Action-type filters, retained review context and focused field shortcuts in the rental editor |
 | [`RENTAL_CODE_REVIEW_2026-10-20.md`](RENTAL_CODE_REVIEW_2026-10-20.md) | Independent follow-up review, financial/import recovery fixes, notification closure and verified live source data |
 | [`R38_5_TEAM_CHAT_IMPLEMENTATION.md`](R38_5_TEAM_CHAT_IMPLEMENTATION.md) | R38.5 contextual Team Chat architecture, permissions, Storage, notification, responsive UI and rollback contract |
 | [`R38_9_INVENTORY_SUPPLIER_FOLDERS.md`](R38_9_INVENTORY_SUPPLIER_FOLDERS.md) | R38.9 supplier folders, Unknown Supplier, five-stage import, receipt provenance and migration safety contract |

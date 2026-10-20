@@ -283,6 +283,216 @@ void main() {
     );
   });
 
+  for (final size in [const Size(1366, 768), const Size(360, 800)]) {
+    rentalScenario(
+      'action filters count overlapping issues and retain context $size',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final financial = {
+          ..._property(),
+          'billing_setup_pending': false,
+          'outstanding': 200,
+          'cheque_attention': true,
+        };
+        final portfolio = YorksV1RentalPortfolio.fromJson({
+          'properties': [
+            financial,
+            {
+              ..._property(id: 'office-2'),
+              'unit_code': 'OFFICE-2',
+              'lease_end': null,
+              'missing_fields': [],
+            },
+          ],
+          'summary': {'total_properties': 2},
+        });
+        final router = _router('/rentals');
+        addTearDown(router.dispose);
+        await _mount(
+          tester,
+          router,
+          size,
+          portfolio: portfolio,
+          detail: YorksV1RentalPropertyDetail.fromJson({'property': financial}),
+        );
+        await _chooseFilter(tester, 'all', 'Rent (1)');
+        expect(find.text('Rent balance to review'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('rental-attention-office-2')),
+          findsNothing,
+        );
+        await _chooseFilter(tester, 'rent', 'Cheques (1)');
+        expect(find.text('Cheque needs review'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('rental-attention-office-1')),
+        );
+        await _settle(tester);
+        expect(find.byType(YorksV1RentalPropertyScreen), findsOneWidget);
+        final back = size.width > 720
+            ? find.byKey(const ValueKey('yorks-workspace-back'))
+            : find.byTooltip('Back');
+        await tester.tap(back.first);
+        await _settle(tester);
+        expect(
+          find.byKey(const ValueKey('rental-action-filter-cheques')),
+          findsOneWidget,
+        );
+        await _chooseFilter(tester, 'cheques', 'Billing setup (1)');
+        expect(
+          find.byKey(const ValueKey('rental-attention-office-1')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('rental-attention-office-2')),
+          findsOneWidget,
+        );
+        await _chooseFilter(tester, 'billing', 'Missing details (1)');
+        expect(find.text('Add missing details'), findsOneWidget);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/r38_4/rental_action_filter_${size.width.toInt()}.png',
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    rentalScenario(
+      'missing-field shortcuts reveal collapsed groups and preserve edits $size',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final router = _router('/rentals/office-1?action=details');
+        addTearDown(router.dispose);
+        await _mount(
+          tester,
+          router,
+          size,
+          detail: YorksV1RentalPropertyDetail.fromJson({
+            'property': {
+              ..._property(),
+              'occupancy_state': 'vacant',
+              'lease_id': null,
+            },
+          }),
+        );
+        final action = find.byKey(const ValueKey('rental-action-details'));
+        await tester.ensureVisible(action);
+        await tester.tap(action);
+        await _settle(tester);
+        expect(
+          find.widgetWithText(TextFormField, 'Location').hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.testTextInput.isVisible, isFalse);
+        final location = find.widgetWithText(TextFormField, 'Location');
+        await tester.enterText(location, 'Draft location');
+        tester.testTextInput.hide();
+        await tester.tap(
+          find.byKey(const ValueKey('rental-review-target-location')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Contact number').last);
+        await _settle(tester);
+        expect(
+          find.widgetWithText(TextFormField, 'Contact Number').hitTestable(),
+          findsOneWidget,
+        );
+        expect(find.text('Draft location'), findsOneWidget);
+        expect(tester.testTextInput.isVisible, isFalse);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/r38_4/rental_review_contact_${size.width.toInt()}.png',
+          ),
+        );
+        await tester.tap(find.text('Cancel'));
+        await _settle(tester);
+        expect(find.byType(Dialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  rentalScenario(
+    'empty filter can reset and billing/lease actions reveal their fields',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final router = _router('/rentals');
+      addTearDown(router.dispose);
+      await _mount(tester, router, const Size(360, 800));
+      await _chooseFilter(tester, 'all', 'Cheques (0)');
+      expect(
+        find.text('No properties need this action right now.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Show all actions'));
+      await _settle(tester);
+      await tester.tap(find.byKey(const ValueKey('rental-attention-office-1')));
+      await _settle(tester);
+      for (final entry in [
+        ('billing', 'billingStart', 'First rent date to track'),
+        ('expiredLease', 'leaseEnd', 'Lease End'),
+      ]) {
+        final action = find.byKey(ValueKey('rental-action-${entry.$1}'));
+        await tester.ensureVisible(action);
+        await tester.pumpAndSettle();
+        await tester.tap(action);
+        await _settle(tester);
+        expect(
+          find.byKey(ValueKey('rental-review-target-${entry.$2}')),
+          findsOneWidget,
+        );
+        expect(
+          find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget is InputDecorator &&
+                    widget.decoration.labelText == entry.$3,
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
+        if (entry.$1 == 'billing') {
+          await expectLater(
+            find.byType(MaterialApp),
+            matchesGoldenFile('goldens/r38_4/rental_review_billing_360.png'),
+          );
+        }
+        await tester.tap(find.text('Cancel'));
+        await _settle(tester);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  rentalScenario(
+    'Arabic phone field review remains usable at larger text size',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'selected_language': 'ar'});
+      final router = _router('/rentals/office-1?action=details');
+      addTearDown(router.dispose);
+      await _mount(
+        tester,
+        router,
+        const Size(360, 800),
+        locale: const Locale('ar'),
+        textScale: 1.3,
+      );
+      final action = find.byKey(const ValueKey('rental-action-details'));
+      await tester.ensureVisible(action);
+      await tester.pumpAndSettle();
+      await tester.tap(action);
+      await _settle(tester);
+      expect(find.text('موقع العقار'), findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/r38_4/rental_review_ar_360.png'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   // The production deferred loader is shared for the app lifetime. Exercise
   // the route journeys in one test zone, matching that lifetime.
   testWidgets('rental route journeys at desktop and phone widths', (
@@ -319,6 +529,7 @@ Future<void> _mount(
   GoRouter router,
   Size size, {
   YorksV1RentalPropertyDetail? detail,
+  YorksV1RentalPortfolio? portfolio,
   Locale locale = const Locale('en'),
   double textScale = 1,
 }) async {
@@ -335,7 +546,9 @@ Future<void> _mount(
         yorksV1FeatureFlagsProvider.overrideWithValue(
           const YorksV1FeatureFlags(foundation: true, projects: true),
         ),
-        yorksV1RentalPortfolioProvider.overrideWith((ref) async => _portfolio),
+        yorksV1RentalPortfolioProvider.overrideWith(
+          (ref) async => portfolio ?? _portfolio,
+        ),
         yorksV1RentalPropertyProvider(
           'office-1',
         ).overrideWith((ref) async => detail ?? _detail),
@@ -378,4 +591,17 @@ Future<void> _settle(WidgetTester tester) async {
   });
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pumpAndSettle();
+}
+
+Future<void> _chooseFilter(
+  WidgetTester tester,
+  String current,
+  String label,
+) async {
+  final field = find.byKey(ValueKey('rental-action-filter-$current'));
+  await tester.ensureVisible(field);
+  await tester.tap(field);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await _settle(tester);
 }

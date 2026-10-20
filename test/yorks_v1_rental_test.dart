@@ -1002,9 +1002,7 @@ void main() {
         await tester.pumpAndSettle();
         if (evidence.size.width < 720) {
           await tester.tap(
-            find.byWidgetPredicate(
-              (widget) => widget is DropdownButtonFormField,
-            ),
+            find.byKey(const ValueKey('rental-section-selector')),
           );
           await tester.pumpAndSettle();
         }
@@ -1242,9 +1240,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       if (evidence.size.width < 720) {
-        await tester.tap(
-          find.byWidgetPredicate((widget) => widget is DropdownButtonFormField),
-        );
+        await tester.tap(find.byKey(const ValueKey('rental-section-selector')));
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('Property register'));
