@@ -13,6 +13,7 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/core/widgets/yorks_panel_toggle_icon.dart';
 import 'package:material_ledger/features/materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
+import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request_document.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request_history.dart';
@@ -99,6 +100,614 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     _preferences = await SharedPreferences.getInstance();
   });
+
+  for (final width in [360.0, 1366.0]) {
+    testWidgets(
+      'typing survives delayed background recovery lookup at $width',
+      (tester) async {
+        await _setViewport(tester, Size(width, 800));
+        final titleKey = ValueKey(
+          width == 360 ? 'mobile-mr-title' : 'mr-title',
+        );
+        final repository = _DelayedBackgroundRecoveryRepository();
+        await _pumpDraft(tester, repositoryOverride: repository);
+        await tester.enterText(find.byKey(titleKey), 'Before lookup');
+        await tester.pump(const Duration(milliseconds: 1300));
+        expect(repository.requestStarted.isCompleted, isTrue);
+        expect(find.byKey(titleKey), findsOneWidget);
+
+        await tester.enterText(find.byKey(titleKey), 'Typed during lookup');
+        await tester.pump(const Duration(milliseconds: 1600));
+        expect(repository.syncCalls, 1);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(YorksV1MaterialRequestDraftScreen)),
+        );
+        const key = YorksV1MaterialRequestDraftKey(
+          ownerAuthUserId: 'mobile-mr-user',
+          draftId: _draftId,
+        );
+        final controller = container.read(
+          yorksV1MaterialRequestDraftControllerProvider(key).notifier,
+        );
+        expect(controller.currentDraft.title, 'Typed during lookup');
+        final store = container.read(
+          yorksV1MaterialRequestDraftStoreProvider('mobile-mr-user'),
+        );
+        expect(store.readAll().single.title, 'Typed during lookup');
+
+        repository.requestReady.complete();
+        await tester.pumpAndSettle();
+        expect(find.text('Typed during lookup'), findsOneWidget);
+        expect(find.text('Continue with recovered changes'), findsOneWidget);
+        expect(store.readAll().single.title, 'Typed during lookup');
+        expect(repository.syncCalls, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final width in [820.0, 1366.0]) {
+    for (final field in ['quantity', 'size']) {
+      testWidgets('focused $field survives delayed recovery at $width', (
+        tester,
+      ) async {
+        await _setViewport(tester, Size(width, 900));
+        final repository = _DelayedBackgroundRecoveryRepository();
+        await _pumpDraft(tester, repositoryOverride: repository);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(YorksV1MaterialRequestDraftScreen)),
+        );
+        const key = YorksV1MaterialRequestDraftKey(
+          ownerAuthUserId: 'mobile-mr-user',
+          draftId: _draftId,
+        );
+        final controller = container.read(
+          yorksV1MaterialRequestDraftControllerProvider(key).notifier,
+        );
+        await controller.setScope('scope-common');
+        await controller.addCustomLine();
+        await tester.pump(const Duration(milliseconds: 1300));
+        expect(repository.requestStarted.isCompleted, isTrue);
+        final line = controller.currentDraft.lines.single;
+        final cell = find.byKey(ValueKey('${line.id}-$field'));
+        await tester.ensureVisible(cell);
+        await tester.enterText(cell, field == 'quantity' ? '37' : '12x24');
+        final input = tester.widget<EditableText>(
+          find.descendant(of: cell, matching: find.byType(EditableText)),
+        );
+        expect(input.focusNode.hasFocus, isTrue);
+        expect(
+          field == 'quantity'
+              ? controller.currentDraft.lines.single.quantity
+              : controller.currentDraft.lines.single.size,
+          isNot(field == 'quantity' ? '37' : '12x24'),
+        );
+        repository.requestReady.complete();
+        await tester.pumpAndSettle();
+        final recovered = controller.currentDraft.lines.single;
+        expect(
+          field == 'quantity' ? recovered.quantity : recovered.size,
+          field == 'quantity' ? '37' : '12x24',
+        );
+        final stored = container
+            .read(yorksV1MaterialRequestDraftStoreProvider('mobile-mr-user'))
+            .readAll()
+            .single
+            .lines
+            .single;
+        expect(
+          field == 'quantity' ? stored.quantity : stored.size,
+          field == 'quantity' ? '37' : '12x24',
+        );
+        expect(find.text('Continue with recovered changes'), findsOneWidget);
+        expect(repository.syncCalls, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  for (final editing in [false, true]) {
+    for (final fails in [false, true]) {
+      for (final quantity in ['37', '']) {
+        testWidgets(
+          'mobile unsaved material survives recovery edit=$editing error=$fails quantity=$quantity',
+          (tester) async {
+            await _setViewport(tester, const Size(360, 800));
+            final repository = _DelayedBackgroundRecoveryRepository()
+              ..failLookup = fails;
+            await _pumpDraft(tester, repositoryOverride: repository);
+            final container = ProviderScope.containerOf(
+              tester.element(find.byType(YorksV1MaterialRequestDraftScreen)),
+            );
+            const key = YorksV1MaterialRequestDraftKey(
+              ownerAuthUserId: 'mobile-mr-user',
+              draftId: _draftId,
+            );
+            final controller = container.read(
+              yorksV1MaterialRequestDraftControllerProvider(key).notifier,
+            );
+            await controller.setScope('scope-common');
+            if (editing) {
+              await controller.addCustomLine();
+              await controller.updateLine(
+                controller.currentDraft.lines.single.id,
+                (line) => line.copyWith(
+                  description: 'Existing material',
+                  quantity: '2',
+                  unit: 'Nos',
+                  size: 'Old size',
+                ),
+              );
+            }
+            await tester.pumpAndSettle();
+            await _continueToMaterials(tester);
+            if (editing) {
+              await tester.tap(find.text('Existing material'));
+            } else {
+              await tester.tap(
+                find.byKey(const ValueKey('mobile-mr-add-custom')),
+              );
+            }
+            await tester.pumpAndSettle();
+            await tester.pump(const Duration(milliseconds: 1300));
+            expect(repository.requestStarted.isCompleted, isTrue);
+            final originalId = controller.currentDraft.lines.firstOrNull?.id;
+            final quantityField = find.byKey(
+              const ValueKey('mobile-custom-quantity'),
+            );
+            final sizeField = find.byKey(const ValueKey('mobile-custom-size'));
+            await tester.ensureVisible(quantityField);
+            await tester.enterText(quantityField, quantity);
+            await tester.ensureVisible(sizeField);
+            await tester.enterText(sizeField, '12x');
+            expect(
+              tester
+                  .widget<EditableText>(
+                    find.descendant(
+                      of: sizeField,
+                      matching: find.byType(EditableText),
+                    ),
+                  )
+                  .focusNode
+                  .hasFocus,
+              isTrue,
+            );
+            // Neither Add nor Update has been pressed. Add is incomplete because
+            // its required description/unit remain blank; Edit can clear quantity.
+            expect(controller.currentDraft.lines.length, editing ? 1 : 0);
+            repository.requestReady.complete();
+            await tester.pumpAndSettle();
+            void expectPreserved() {
+              final line = controller.currentDraft.lines.single;
+              expect(line.quantity, quantity);
+              expect(line.size, '12x');
+              if (editing) expect(line.id, originalId);
+              if (!editing || quantity.isEmpty) {
+                expect(line.hasValidOperationalValues, isFalse);
+              }
+              final stored = container
+                  .read(
+                    yorksV1MaterialRequestDraftStoreProvider('mobile-mr-user'),
+                  )
+                  .readAll()
+                  .single
+                  .lines
+                  .single;
+              expect(stored.quantity, quantity);
+              expect(stored.size, '12x');
+            }
+
+            expectPreserved();
+            if (fails) {
+              expect(
+                find.text('Continue with recovered changes'),
+                findsNothing,
+              );
+              repository.failLookup = false;
+              await controller.retryRecoveryReview();
+              await tester.pumpAndSettle();
+            }
+            expect(
+              find.text('Continue with recovered changes'),
+              findsOneWidget,
+            );
+            expectPreserved();
+            await controller.keepRecoveredChanges();
+            await tester.pumpAndSettle();
+            expectPreserved();
+            await _continueToMaterials(tester);
+            await tester.tap(
+              find.byKey(
+                ValueKey(
+                  '${controller.currentDraft.lines.single.id}-mobile-edit',
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<TextFormField>(quantityField).controller!.text,
+              quantity,
+            );
+            expect(
+              tester.widget<TextFormField>(sizeField).controller!.text,
+              '12x',
+            );
+            expect(repository.syncCalls, 1);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
+  for (final editing in [false, true]) {
+    for (final revoke in [false, true]) {
+      testWidgets(
+        'mobile authority refresh preserves pending input edit=$editing revoke=$revoke',
+        (tester) async {
+          await _setViewport(tester, const Size(360, 800));
+          final repository = _DelayedBackgroundRecoveryRepository();
+          final permissions = YorksV1TestPermissionController(
+            yorksV1TrustedFeaturePermissionState(projectIds: [_projectId]),
+          );
+          await _pumpDraft(
+            tester,
+            repositoryOverride: repository,
+            permissionController: permissions,
+          );
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(YorksV1MaterialRequestDraftScreen)),
+          );
+          const key = YorksV1MaterialRequestDraftKey(
+            ownerAuthUserId: 'mobile-mr-user',
+            draftId: _draftId,
+          );
+          final controller = container.read(
+            yorksV1MaterialRequestDraftControllerProvider(key).notifier,
+          );
+          await controller.setScope('scope-common');
+          if (editing) {
+            await controller.addCustomLine();
+            await controller.updateLine(
+              controller.currentDraft.lines.single.id,
+              (line) => line.copyWith(
+                description: 'Existing material',
+                quantity: '2',
+                unit: 'Nos',
+              ),
+            );
+          }
+          await tester.pumpAndSettle();
+          await _continueToMaterials(tester);
+          await tester.tap(
+            editing
+                ? find.text('Existing material')
+                : find.byKey(const ValueKey('mobile-mr-add-custom')),
+          );
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 1300));
+          expect(repository.requestStarted.isCompleted, isTrue);
+          final quantity = find.byKey(const ValueKey('mobile-custom-quantity'));
+          final size = find.byKey(const ValueKey('mobile-custom-size'));
+          await tester.ensureVisible(quantity);
+          await tester.enterText(quantity, '');
+          await tester.ensureVisible(size);
+          await tester.enterText(size, '12x');
+          final originalId = controller.currentDraft.lines.firstOrNull?.id;
+          permissions.replace(
+            yorksV1TrustedFeaturePermissionState(
+              projectIds: revoke ? ['other-project'] : [_projectId],
+            ),
+          );
+          // Invalidation is synchronous: no protected server projection survives.
+          expect(
+            container
+                .read(yorksV1MaterialRequestDraftControllerProvider(key))
+                .recoveryRequest,
+            isNull,
+          );
+          expect(controller.currentDraft.lines.single.quantity, '');
+          expect(controller.currentDraft.lines.single.size, '12x');
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('mobile-mr-custom-material')),
+            findsNothing,
+          );
+          final stored = container
+              .read(yorksV1MaterialRequestDraftStoreProvider('mobile-mr-user'))
+              .readAll()
+              .single
+              .lines
+              .single;
+          expect(stored.quantity, '');
+          expect(stored.size, '12x');
+          repository.requestReady.complete();
+          await tester.pumpAndSettle();
+          if (revoke) {
+            expect(
+              container
+                  .read(yorksV1MaterialRequestDraftControllerProvider(key))
+                  .recoveryRequest,
+              isNull,
+            );
+            expect(find.text('Continue with recovered changes'), findsNothing);
+            await controller.setTitle('Rejected while revoked');
+            expect(
+              controller.currentDraft.title,
+              isNot('Rejected while revoked'),
+            );
+            repository.requestReady = Completer<void>();
+            permissions.replace(
+              yorksV1TrustedFeaturePermissionState(projectIds: [_projectId]),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              container
+                  .read(yorksV1MaterialRequestDraftControllerProvider(key))
+                  .recoveryRequest,
+              isNull,
+            );
+            expect(find.text('Continue with recovered changes'), findsNothing);
+            repository.requestReady.complete();
+            await tester.pumpAndSettle();
+          }
+          expect(find.text('Continue with recovered changes'), findsOneWidget);
+          expect(controller.currentDraft.lines, hasLength(1));
+          if (editing) {
+            expect(controller.currentDraft.lines.single.id, originalId);
+          }
+          // A subsequent revocation must clear the populated projection immediately.
+          permissions.replace(
+            yorksV1TrustedFeaturePermissionState(projectIds: ['other-project']),
+          );
+          expect(
+            container
+                .read(yorksV1MaterialRequestDraftControllerProvider(key))
+                .recoveryRequest,
+            isNull,
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Continue with recovered changes'), findsNothing);
+          permissions.replace(
+            yorksV1TrustedFeaturePermissionState(projectIds: [_projectId]),
+          );
+          await tester.pumpAndSettle();
+          await controller.keepRecoveredChanges();
+          await tester.pumpAndSettle();
+          await _continueToMaterials(tester);
+          await tester.tap(
+            find.byKey(
+              ValueKey(
+                '${controller.currentDraft.lines.single.id}-mobile-edit',
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.widget<TextFormField>(quantity).controller!.text, '');
+          expect(tester.widget<TextFormField>(size).controller!.text, '12x');
+          expect(repository.syncCalls, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final revoke in [false, true]) {
+    testWidgets(
+      'fresh-device recovery accepts baseline and protects input; revoke=$revoke',
+      (tester) async {
+        await _setViewport(tester, const Size(1366, 800));
+        final lines = List.generate(
+          27,
+          (index) => YorksV1MaterialRequestLine(
+            id: 'recovered-$index',
+            displayOrder: index + 1,
+            source: YorksV1MaterialRequestLineSource.custom,
+            description: 'Recovered material $index',
+            quantity: '1',
+            unit: 'Nos',
+          ),
+        );
+        final remote = YorksV1MaterialRequestDraft(
+          id: _draftId,
+          ownerAuthUserId: 'mobile-mr-user',
+          submissionIdempotencyKey: 'recovery-key',
+          projectId: revoke ? null : _projectId,
+          scopeId: 'scope-common',
+          title: 'Recovered request',
+          lines: lines,
+          updatedAt: DateTime.utc(2026, 10, 7),
+          privateSyncVersion: 3,
+        );
+        final saved = YorksV1MaterialRequest(
+          id: _draftId,
+          projectId: _projectId,
+          projectReference: 'YRA-322',
+          projectName: 'Project',
+          scopeId: 'scope-common',
+          scopeName: 'Common',
+          state: YorksV1MaterialRequestState.draft,
+          recordVersion: 4,
+          timing: remote.timing,
+          title: remote.title,
+          lines: lines.take(26).toList(),
+          createdAt: remote.updatedAt,
+          updatedAt: remote.updatedAt,
+        );
+        final repository = _RecoveryReviewRepository(
+          request: saved,
+          remote: YorksV1PrivateMaterialRequestDraftRecord(
+            draftId: _draftId,
+            syncVersion: 3,
+            savedRequestVersion: 4,
+            draft: remote,
+            clientUpdatedAt: remote.updatedAt,
+            serverUpdatedAt: remote.updatedAt,
+          ),
+        );
+        final permissions = YorksV1TestPermissionController(
+          yorksV1TrustedFeaturePermissionState(
+            projectIds: [_projectId, 'other-project'],
+          ),
+        );
+        await _pumpDraft(
+          tester,
+          repositoryOverride: repository,
+          permissionController: permissions,
+          initialProjectId: null,
+          entryMode: YorksV1MaterialRequestDraftEntryMode.resumePrivateDraft,
+        );
+        final context = tester.element(
+          find.byType(YorksV1MaterialRequestDraftScreen),
+        );
+        final container = ProviderScope.containerOf(context);
+        const key = YorksV1MaterialRequestDraftKey(
+          ownerAuthUserId: 'mobile-mr-user',
+          draftId: _draftId,
+        );
+        final controller = container.read(
+          yorksV1MaterialRequestDraftControllerProvider(key).notifier,
+        );
+        expect(controller.currentDraft.lines, hasLength(27));
+        expect(controller.acceptedDraft.lines, hasLength(27));
+        if (revoke) {
+          expect(
+            permissions.state.allows(
+              YorksV1CapabilityKeys.materialRequestsView,
+              projectId: 'other-project',
+            ),
+            isTrue,
+          );
+          permissions.replace(
+            yorksV1TrustedFeaturePermissionState(projectIds: ['other-project']),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const Key('yorks-v1-project-read-denied')),
+            findsOneWidget,
+          );
+          expect(find.text('Recovered request'), findsNothing);
+          expect(find.text('Continue with recovered changes'), findsNothing);
+          expect(
+            permissions.state.allows(
+              YorksV1CapabilityKeys.materialRequestsView,
+              projectId: 'other-project',
+            ),
+            isTrue,
+          );
+
+          expect(
+            container
+                .read(yorksV1MaterialRequestDraftControllerProvider(key))
+                .recoveryRequest,
+            isNull,
+          );
+          permissions.replace(
+            yorksV1TrustedFeaturePermissionState(
+              projectIds: [_projectId, 'other-project'],
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Continue with recovered changes'), findsOneWidget);
+        } else {
+          await tester.ensureVisible(
+            find.text('Continue with recovered changes'),
+          );
+          await tester.tap(find.text('Continue with recovered changes'));
+          await tester.pumpAndSettle();
+          expect(controller.acceptedDraft.serverRecordVersion, 4);
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          expect(find.text('Save this material request?'), findsNothing);
+          await tester.enterText(
+            find.byKey(const ValueKey('mr-title')),
+            'Temporary edit',
+          );
+          await tester.pumpAndSettle();
+          await tester.binding.handlePopRoute();
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('mr-draft-discard-and-leave')),
+          );
+          await tester.pumpAndSettle();
+          expect(controller.currentDraft.title, 'Recovered request');
+        }
+        final store = container.read(
+          yorksV1MaterialRequestDraftStoreProvider('mobile-mr-user'),
+        );
+        expect(store.readAll().single.lines, hasLength(27));
+        expect(repository.deletes, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final width in [360.0, 1366.0]) {
+    testWidgets('saved recovery review preserves differing input at $width', (
+      tester,
+    ) async {
+      await _setViewport(tester, Size(width, 800));
+      const owner = 'mobile-mr-user';
+      final store = YorksV1MaterialRequestDraftStore(
+        preferences: _preferences,
+        key: 'yorks_v1_material_request_drafts_v1_$owner',
+      );
+      await store.writeAll([
+        YorksV1MaterialRequestDraft(
+          id: _draftId,
+          ownerAuthUserId: owner,
+          submissionIdempotencyKey: 'recovery-key',
+          title: 'Additional workshop materials',
+          projectId: _projectId,
+          scopeId: 'scope-common',
+          updatedAt: DateTime.utc(2026, 10, 7),
+          lines: const [
+            YorksV1MaterialRequestLine(
+              id: 'extra',
+              displayOrder: 1,
+              source: YorksV1MaterialRequestLineSource.custom,
+              description: 'Extra recovered duct section',
+              quantity: '2',
+              unit: 'Nos',
+            ),
+          ],
+        ),
+      ]);
+      await tester.pumpWidget(
+        _scope(
+          overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(owner),
+            yorksV1CurrentRoleProvider.overrideWithValue(
+              YorksV1Role.projectEngineer,
+            ),
+            yorksV1MaterialRequestRepositoryProvider.overrideWithValue(
+              _RecoveryReviewRepository(),
+            ),
+            yorksV1RuntimeConfigurationProvider.overrideWith(
+              (ref) async => _runtimeConfiguration(),
+            ),
+          ],
+          child: const YorksV1MaterialRequestDraftScreen(
+            draftId: _draftId,
+            entryMode: YorksV1MaterialRequestDraftEntryMode.resumePrivateDraft,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Extra recovered duct section'), findsWidgets);
+      expect(find.text('Continue with recovered changes'), findsOneWidget);
+      expect(find.text('Open existing request'), findsOneWidget);
+      expect(store.readAll().single.lines.single.id, 'extra');
+      expect(store.readAll().single.serverRecordVersion, 0);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile(
+          'goldens/r35/mr_recovery_review_${width.toInt()}.png',
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'arranging request edit shows Save without a second submission on desktop',
@@ -3368,6 +3977,8 @@ Widget _scope({
 
 Future<_MaterialRequestRepositoryFixture> _pumpDraft(
   WidgetTester tester, {
+  _MaterialRequestRepositoryFixture? repositoryOverride,
+  YorksV1TestPermissionController? permissionController,
   YorksV1BoqRepository? boqRepository,
   String? boqGroupId,
   YorksV1RuntimeConfiguration? runtimeConfiguration,
@@ -3379,14 +3990,18 @@ Future<_MaterialRequestRepositoryFixture> _pumpDraft(
   YorksV1CurrentPermissionSnapshotState? permissionState,
 }) async {
   final projects = projectOptions ?? _draftProjects.take(1).toList();
-  final repository = _MaterialRequestRepositoryFixture(
-    serverRequest: serverRequest,
-  );
+  final repository =
+      repositoryOverride ??
+      _MaterialRequestRepositoryFixture(serverRequest: serverRequest);
   await tester.pumpWidget(
     _scope(
       overrides: [
         yorksV1AuthUserIdProvider.overrideWithValue('mobile-mr-user'),
         yorksV1CurrentRoleProvider.overrideWithValue(role),
+        if (permissionController != null)
+          yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+            (ref) => permissionController,
+          ),
         if (permissionState != null)
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(permissionState),
@@ -3760,6 +4375,72 @@ YorksV1RuntimeConfiguration _runtimeConfiguration({
   requireExternalSourceReadiness: false,
   pushEnabled: true,
 );
+
+class _DelayedBackgroundRecoveryRepository
+    extends _MaterialRequestRepositoryFixture
+    implements YorksV1MaterialRequestPhase2Repository {
+  _DelayedBackgroundRecoveryRepository() : super(serverRequest: _draftRequest);
+  final requestStarted = Completer<void>();
+  var requestReady = Completer<void>();
+  int syncCalls = 0;
+  bool failLookup = false;
+
+  @override
+  Future<YorksV1MaterialRequest> getRequest(String requestId) async {
+    if (!requestStarted.isCompleted) requestStarted.complete();
+    await requestReady.future;
+    if (failLookup) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+    }
+    return super.getRequest(requestId);
+  }
+
+  @override
+  Future<YorksV1PrivateMaterialRequestDraftRecord> syncPrivateDraft(
+    YorksV1SyncPrivateMaterialRequestDraftInput input,
+  ) async {
+    syncCalls++;
+    throw const YorksV1DomainException(
+      YorksV1DomainErrorCode.invalidTransition,
+      serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecoveryReviewRepository extends _MaterialRequestRepositoryFixture
+    implements YorksV1MaterialRequestPhase2Repository {
+  _RecoveryReviewRepository({YorksV1MaterialRequest? request, this.remote})
+    : super(serverRequest: request ?? _draftRequest);
+  final YorksV1PrivateMaterialRequestDraftRecord? remote;
+  int deletes = 0;
+  @override
+  Future<void> deletePrivateDraft({
+    required String draftId,
+    required int expectedSyncVersion,
+    required String idempotencyKey,
+  }) async {
+    deletes++;
+  }
+
+  @override
+  Future<YorksV1PrivateMaterialRequestDraftRecord?> getPrivateDraft({
+    required String draftId,
+    required String ownerAuthUserId,
+    required String submissionIdempotencyKey,
+  }) async =>
+      remote ??
+      (throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidTransition,
+        serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+      ));
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class _DraftDeletionRepositoryFixture extends _MaterialRequestRepositoryFixture
     implements YorksV1MaterialRequestPhase2Repository {

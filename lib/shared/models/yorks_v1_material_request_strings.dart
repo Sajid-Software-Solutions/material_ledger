@@ -7,6 +7,108 @@ import 'yorks_v1_project_strings.dart';
 /// Centralized bilingual-capable presentation copy for the Yorks V1 Material
 /// Request slice. Domain and database layers use stable codes, never this copy.
 abstract final class YorksV1MaterialRequestStrings {
+  static const recoveryAddedLine = TranslatableString(
+    en: 'Added line',
+    ar: 'بند مضاف',
+    ur: 'شامل کردہ سطر',
+    hi: 'जोड़ी गई पंक्ति',
+  );
+  static const recoveryRemovedLine = TranslatableString(
+    en: 'Removed line',
+    ar: 'بند محذوف',
+    ur: 'ہٹائی گئی سطر',
+    hi: 'हटाई गई पंक्ति',
+  );
+  static const recoveryCustomSource = TranslatableString(
+    en: 'Custom item',
+    ar: 'صنف مخصص',
+    ur: 'کسٹم آئٹم',
+    hi: 'कस्टम आइटम',
+  );
+  static const recoveryYes = TranslatableString(
+    en: 'Yes',
+    ar: 'نعم',
+    ur: 'ہاں',
+    hi: 'हाँ',
+  );
+  static const recoveryNo = TranslatableString(
+    en: 'No',
+    ar: 'لا',
+    ur: 'نہیں',
+    hi: 'नहीं',
+  );
+  static const recoveryChanges = TranslatableString(
+    en: 'Changes to review',
+    ar: 'التغييرات للمراجعة',
+    ur: 'جائزے کے لیے تبدیلیاں',
+    hi: 'समीक्षा के लिए बदलाव',
+  );
+  static const savedValue = TranslatableString(
+    en: 'Saved value',
+    ar: 'القيمة المحفوظة',
+    ur: 'محفوظ قدر',
+    hi: 'सहेजा गया मान',
+  );
+  static const recoveryCleared = TranslatableString(
+    en: 'Not set / cleared',
+    ar: 'غير محدد / تم مسحه',
+    ur: 'خالی / صاف کیا گیا',
+    hi: 'सेट नहीं / हटाया गया',
+  );
+  static const lineOrder = TranslatableString(
+    en: 'Line order',
+    ar: 'ترتيب البنود',
+    ur: 'سطروں کی ترتیب',
+    hi: 'पंक्ति क्रम',
+  );
+  static const lineSource = TranslatableString(
+    en: 'Line source',
+    ar: 'مصدر البند',
+    ur: 'سطر کا ماخذ',
+    hi: 'पंक्ति स्रोत',
+  );
+  static const sourceGroup = TranslatableString(
+    en: 'Source BOQ folder',
+    ar: 'مجلد جدول الكميات المصدر',
+    ur: 'ماخذ BOQ فولڈر',
+    hi: 'स्रोत BOQ फ़ोल्डर',
+  );
+  static const sourceRow = TranslatableString(
+    en: 'Source BOQ row',
+    ar: 'صف جدول الكميات المصدر',
+    ur: 'ماخذ BOQ سطر',
+    hi: 'स्रोत BOQ पंक्ति',
+  );
+  static const suggestedQuantity = TranslatableString(
+    en: 'Quantity is suggested',
+    ar: 'الكمية مقترحة',
+    ur: 'مقدار تجویز کردہ ہے',
+    hi: 'मात्रा सुझाई गई है',
+  );
+  static const recoveryReview = TranslatableString(
+    en: 'This request already exists. Review your recovered input before continuing.',
+    ar: 'هذا الطلب موجود بالفعل. راجع بيانات الاسترداد قبل المتابعة.',
+    ur: 'یہ درخواست پہلے سے موجود ہے۔ جاری رکھنے سے پہلے بازیافت شدہ معلومات دیکھیں۔',
+    hi: 'यह अनुरोध पहले से मौजूद है। आगे बढ़ने से पहले पुनर्प्राप्त जानकारी देखें।',
+  );
+  static const recoveredInput = TranslatableString(
+    en: 'Recovered input',
+    ar: 'البيانات المستردة',
+    ur: 'بازیافت شدہ معلومات',
+    hi: 'पुनर्प्राप्त जानकारी',
+  );
+  static const openExistingRequest = TranslatableString(
+    en: 'Open existing request',
+    ar: 'فتح الطلب الحالي',
+    ur: 'موجودہ درخواست کھولیں',
+    hi: 'मौजूदा अनुरोध खोलें',
+  );
+  static const keepRecoveredChanges = TranslatableString(
+    en: 'Continue with recovered changes',
+    ar: 'المتابعة بالتغييرات المستردة',
+    ur: 'بازیافت شدہ تبدیلیوں کے ساتھ جاری رکھیں',
+    hi: 'पुनर्प्राप्त बदलावों के साथ जारी रखें',
+  );
   static const draftDeletedElsewhere = TranslatableString(
     en: 'This draft was deleted. Return to Material Requests to start a new request.',
     ar: 'تم حذف هذه المسودة. ارجع إلى طلبات المواد لبدء طلب جديد.',
@@ -596,16 +698,16 @@ abstract final class YorksV1MaterialRequestStrings {
     hi: 'ड्राफ़्ट हटाएं',
   );
   static const deleteDraftBody = TranslatableString(
-    en: 'This unfinished material request will be permanently removed from your private drafts.',
-    ar: 'ستتم إزالة طلب المواد غير المكتمل نهائيًا من مسوداتك الخاصة.',
-    ur: 'یہ نامکمل میٹیریل ریکویسٹ آپ کے نجی ڈرافٹس سے مستقل طور پر حذف ہو جائے گی۔',
-    hi: 'यह अधूरा सामग्री अनुरोध आपके निजी ड्राफ़्ट से स्थायी रूप से हटा दिया जाएगा।',
+    en: 'Remove this recovery copy from your private drafts. Any saved or submitted request and its history will remain available.',
+    ar: 'ستتم إزالة نسخة الاسترداد من مسوداتك الخاصة. سيبقى أي طلب محفوظ أو مرسل وسجله متاحًا.',
+    ur: 'یہ بازیافت کی کاپی آپ کے نجی ڈرافٹس سے ہٹا دی جائے گی۔ محفوظ یا جمع شدہ درخواست اور اس کی تاریخ برقرار رہے گی۔',
+    hi: 'यह पुनर्प्राप्त कॉपी आपके निजी ड्राफ़्ट से हट जाएगी। सहेजा या भेजा गया अनुरोध और उसका इतिहास उपलब्ध रहेगा।',
   );
   static const draftDeleted = TranslatableString(
-    en: 'Draft deleted',
-    ar: 'تم حذف المسودة',
-    ur: 'ڈرافٹ حذف ہو گیا',
-    hi: 'ड्राफ़्ट हटा दिया गया',
+    en: 'Recovery copy removed',
+    ar: 'تمت إزالة نسخة الاسترداد',
+    ur: 'بازیافت کی کاپی ہٹا دی گئی',
+    hi: 'पुनर्प्राप्त कॉपी हटा दी गई',
   );
   static const draftDeleteFailed = TranslatableString(
     en: 'The draft could not be deleted. Please try again.',

@@ -21,9 +21,11 @@ void main() {
   late _Analytics analytics;
   late YorksV1MaterialRequestDraftController controller;
   var currentOwner = true;
+  var projectAllowed = true;
 
   setUp(() {
     currentOwner = true;
+    projectAllowed = true;
     store = _Store([_draft(), _draft(id: 'other')]);
     repository = _Repository();
     analytics = _Analytics();
@@ -34,6 +36,7 @@ void main() {
       repository: repository,
       analytics: analytics,
       isCurrentOwner: () => currentOwner,
+      canReadRecoveryProject: (_) => projectAllowed,
       privateSyncDebounce: Duration.zero,
     );
   });
@@ -53,6 +56,199 @@ void main() {
       expect(analytics.properties.toString(), isNot(contains('owner')));
       await controller.setTitle('Cannot revive');
       expect(store.readAll().map((d) => d.id), ['other']);
+    },
+  );
+
+  test(
+    'already-saved preflight removes only recovery without a failed retry',
+    () async {
+      repository.getError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidTransition,
+        serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+      );
+      await controller.discardLocal(requireServerConfirmation: true);
+      expect(repository.deletes, [0]);
+      expect(store.readAll().map((d) => d.id), ['other']);
+      expect(analytics.events.last, AnalyticsEvent.materialRequestDraftDeleted);
+    },
+  );
+
+  for (final progressed in [false, true]) {
+    test(
+      'existing request review preserves recovered input, progressed=$progressed',
+      () async {
+        repository.request = YorksV1MaterialRequest.fromRpcJson({
+          'id': 'draft',
+          'project_id': 'project',
+          'scope_id': 'scope',
+          'project_ref': 'TEST',
+          'project_name': 'Project',
+          'scope_name': 'Common',
+          'state': progressed ? 'closed' : 'draft',
+          'record_version': 4,
+          'created_at': '2026-01-01T00:00:00Z',
+          'updated_at': '2026-01-02T00:00:00Z',
+          'timing': 'normal',
+          'lines': <Object>[],
+        });
+        repository.getError = const YorksV1DomainException(
+          YorksV1DomainErrorCode.invalidTransition,
+          serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+        );
+        await controller.hydratePrivateDraft();
+        expect(controller.state.recoveryRequest, repository.request);
+        expect(controller.currentDraft.title, 'Private title');
+        expect(await controller.saveDraft(), isFalse);
+        expect(await controller.submit(), isNull);
+        await controller.keepRecoveredChanges();
+        expect(controller.currentDraft.serverRecordVersion, progressed ? 0 : 4);
+        expect(controller.currentDraft.title, 'Private title');
+        expect(store.readAll().length, 2);
+      },
+    );
+  }
+
+  test(
+    'background saved-request lookup retains edits made during its wait',
+    () async {
+      repository.request = YorksV1MaterialRequest.fromRpcJson({
+        'id': 'draft',
+        'project_id': 'project',
+        'scope_id': 'scope',
+        'project_ref': 'TEST',
+        'project_name': 'Project',
+        'scope_name': 'Common',
+        'state': 'draft',
+        'record_version': 4,
+        'timing': 'normal',
+        'created_at': '2026-01-01T00:00:00Z',
+        'updated_at': '2026-01-02T00:00:00Z',
+        'lines': <Object>[],
+      });
+      repository.syncError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidTransition,
+        serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+      );
+      repository.requestBlock = Completer<void>();
+      addTearDown(() {
+        if (!repository.requestBlock!.isCompleted) {
+          repository.requestBlock!.complete();
+        }
+      });
+      await controller.setTitle('Before lookup');
+      await repository.requestStarted.future;
+      expect(await controller.saveDraft(), isFalse);
+      expect(await controller.submit(), isNull);
+      await controller.setTitle('Typed during lookup');
+      expect(controller.currentDraft.title, 'Typed during lookup');
+      expect(
+        store.readAll().firstWhere((draft) => draft.id == 'draft').title,
+        'Typed during lookup',
+      );
+      repository.requestBlock!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.state.recoveryRequest, repository.request);
+      expect(controller.currentDraft.title, 'Typed during lookup');
+    },
+  );
+
+  test(
+    'revocation clears comparison and late protected reads cannot restore it',
+    () async {
+      repository.request = YorksV1MaterialRequest.fromRpcJson({
+        'id': 'draft',
+        'project_id': 'project',
+        'scope_id': 'scope',
+        'project_ref': 'TEST',
+        'project_name': 'Project',
+        'scope_name': 'Common',
+        'state': 'draft',
+        'record_version': 4,
+        'timing': 'normal',
+        'created_at': '2026-01-01T00:00:00Z',
+        'updated_at': '2026-01-02T00:00:00Z',
+        'lines': <Object>[],
+      });
+      repository.getError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidTransition,
+        serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+      );
+      repository.requestBlock = Completer<void>();
+      final hydration = controller.hydratePrivateDraft();
+      await repository.requestStarted.future;
+      projectAllowed = false;
+      controller.invalidateRecoveryAuthority();
+      await controller.setTitle('Must not edit after revocation');
+      expect(controller.currentDraft.title, 'Private title');
+      repository.requestBlock!.complete();
+      await hydration;
+      expect(controller.state.recoveryRequest, isNull);
+      expect(controller.lastErrorCode, YorksV1DomainErrorCode.unauthorized);
+      expect(controller.currentDraft.title, 'Private title');
+      await controller.keepRecoveredChanges();
+      expect(controller.currentDraft.serverRecordVersion, 0);
+      expect(repository.deletes, isEmpty);
+    },
+  );
+
+  for (final ownerChanged in [false, true]) {
+    test(
+      'authority invalidation flushes only current owner input; changed=$ownerChanged',
+      () async {
+        repository.getError = const YorksV1DomainException(
+          YorksV1DomainErrorCode.invalidTransition,
+          serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+        );
+        repository.requestError = const YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        );
+        repository.requestBlock = Completer<void>();
+        final hydration = controller.hydratePrivateDraft();
+        await repository.requestStarted.future;
+        var flushes = 0;
+        controller.addPendingEditorFlusher(() {
+          flushes++;
+          unawaited(controller.setTitle('Buffered local input'));
+        });
+        currentOwner = !ownerChanged;
+        projectAllowed = false;
+        controller.invalidateRecoveryAuthority();
+        expect(flushes, ownerChanged ? 0 : 1);
+        expect(
+          controller.currentDraft.title,
+          ownerChanged ? 'Private title' : 'Buffered local input',
+        );
+        expect(controller.state.recoveryRequest, isNull);
+        expect(controller.lastErrorCode, YorksV1DomainErrorCode.unauthorized);
+        await controller.setTitle('Must stay locked');
+        repository.requestBlock!.complete();
+        await hydration;
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          store.readAll().first.title,
+          ownerChanged ? 'Private title' : 'Buffered local input',
+        );
+        expect(controller.lastErrorCode, YorksV1DomainErrorCode.unauthorized);
+        expect(controller.state.recoveryRequest, isNull);
+        expect(flushes, ownerChanged ? 0 : 1);
+      },
+    );
+  }
+
+  test(
+    'request read denial preserves recovery and reports a failed verification',
+    () async {
+      repository.getError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidTransition,
+        serverMessage: 'V1_PRIVATE_DRAFT_ALREADY_SAVED',
+      );
+      repository.requestError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.unauthorized,
+      );
+      await controller.hydratePrivateDraft();
+      expect(controller.state.errorCode, YorksV1DomainErrorCode.unauthorized);
+      expect(controller.state.recoveryRequest, isNull);
+      expect(store.readAll().length, 2);
     },
   );
 
@@ -377,6 +573,19 @@ class _Repository extends Fake
     implements
         YorksV1MaterialRequestRepository,
         YorksV1MaterialRequestPhase2Repository {
+  YorksV1MaterialRequest? request;
+  Object? requestError;
+  Object? syncError;
+  Completer<void>? requestBlock;
+  final requestStarted = Completer<void>();
+  @override
+  Future<YorksV1MaterialRequest> getRequest(String requestId) async {
+    if (!requestStarted.isCompleted) requestStarted.complete();
+    await requestBlock?.future;
+    if (requestError != null) throw requestError!;
+    return request!;
+  }
+
   YorksV1PrivateMaterialRequestDraftRecord? remote;
   Completer<void>? getBlock, deleteBlock, syncBlock;
   final getStarted = Completer<void>();
@@ -419,6 +628,7 @@ class _Repository extends Fake
   ) async {
     if (!syncStarted.isCompleted) syncStarted.complete();
     await syncBlock?.future;
+    if (syncError != null) throw syncError!;
     return remote = _record(input.draft, (remote?.syncVersion ?? 0) + 1);
   }
 }

@@ -14,7 +14,7 @@ import hmac
 import urllib.error
 import urllib.request
 
-CONTAINER = 'supabase_db_yorks_draft_lifecycle_20260927'
+CONTAINER = 'supabase_db_yorks_draft_lifecycle_20261007'
 ACTOR = '10000000-0000-4000-8000-000000000001'
 CLAIMS = json.dumps({'sub': ACTOR, 'role': 'authenticated',
                      'app_metadata': {'role': 'project_engineer',
@@ -65,11 +65,14 @@ def race(first, second, project, scope):
         process.wait(timeout=15)
         result = competing.result(timeout=15)
     assert process.returncode == 0, process.stderr.read()
-    assert result.returncode != 0, result.stdout
-    expected_error = ('V1_PRIVATE_DRAFT_DELETED' if first == 'delete' else
-                      'V1_PRIVATE_DRAFT_VERSION_CONFLICT' if first == 'sync' else
-                      'V1_PRIVATE_DRAFT_ALREADY_SAVED')
-    assert expected_error in result.stderr, result.stderr
+    if first == 'save' and second == 'delete':
+        assert result.returncode == 0, result.stderr
+    else:
+        assert result.returncode != 0, result.stdout
+        expected_error = ('V1_PRIVATE_DRAFT_DELETED' if first == 'delete' else
+                          'V1_PRIVATE_DRAFT_VERSION_CONFLICT' if first == 'sync' else
+                          'V1_PRIVATE_DRAFT_ALREADY_SAVED')
+        assert expected_error in result.stderr, result.stderr
     facts = run(f"select (select count(*) from public.v1_material_request_private_draft_retirements where draft_id='{draft}'),"
                 f"(select count(*) from public.v1_material_request_private_drafts where draft_id='{draft}'),"
                 f"(select count(*) from public.v1_material_requests where id='{draft}');")
