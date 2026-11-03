@@ -150,3 +150,32 @@ suite passed 2,540 tests with 4 retained skips, including existing desktop and
 gzip 2,847,857). CI APK build passed (111.9 MB, ephemeral signing only).
 No database or production deployment changes. Live permission-refresh/device
 acceptance remains separate from this local regression evidence.
+
+
+## Production deployment — 7 October 2026
+
+The fixes described above are now deployed to https://yorks-r35.vercel.app
+from runtime source `abfb850ac8b836cf3736c53cbae9f8354bd55e72`.
+The earlier “PR only” labels describe validation at the time of those changes.
+Deployment `dpl_H7NVZT2YFXoT4nSxwkyc9JpCsSmX` is READY in production:
+https://yorks-r35-hxr2tlfes-sajid-alis-projects-0ec775a2.vercel.app.
+
+The clean source was built with the production R35 configuration and uploaded
+as an isolated 60-file web artifact. The production candidate passed all 26
+artifact/hash and route checks before promotion; the public domain passed the
+same 26 checks afterwards. The main bundle SHA-256 is
+`75351fd990f606b77aad6e5bfe81988627cf80cd29af94c85d5e0202ee306991`.
+The bundle contains the clean source revision and production backend, with no
+CI backend or service-role JWT. No database changes were made.
+
+A fresh post-promotion browser reload verified signed-in startup, the Material
+Requests register, My Material Requests, opening an existing saved Shamsi draft,
+and returning with Back. No edits, Save, Submit or Delete actions were performed.
+The browser error log was empty; the deployment error scan returned no entries.
+The delayed recovery and permission revocation races remain covered by the
+2,540-test local suite, not by a live production reenactment.
+
+Rollback remains available to the prior deployment
+`dpl_HhCHpT2robsQTTMagZzarPwAgbTK` (runtime source `835b569`).
+PR53 remains open. This documentation update does not change the deployed runtime.
+The previously noted pending device-copy cleanup is not part of this deployment.
