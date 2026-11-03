@@ -496,6 +496,15 @@ class YorksV1LogisticsDocumentService {
     ],
   );
 
+  /// Shared controlled-document fonts (Noto Sans with Arabic fallback) for
+  /// other operational exports, so every Yorks PDF uses one letterhead.
+  static Future<pw.ThemeData> controlledDocumentTheme() => _buildTheme();
+
+  static Future<pw.MemoryImage> controlledDocumentLogo() => _loadLogo();
+
+  static pw.Widget controlledDocumentCompanyHeader(pw.MemoryImage? logo) =>
+      _companyHeader(logo);
+
   static Future<pw.MemoryImage>? _logoFuture;
   static Future<pw.ThemeData>? _themeFuture;
 

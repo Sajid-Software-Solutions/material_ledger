@@ -10,6 +10,7 @@ import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_logistics.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_material_request.dart';
+import '../models/yorks_v1_project_material_summary.dart';
 import '../sync/connectivity_service.dart';
 import '../services/analytics_service.dart';
 import 'yorks_v1_material_request_repository.dart';
@@ -122,6 +123,15 @@ abstract interface class YorksV1ProjectMaterialReturnRepository {
   );
 }
 
+/// Optional read-only project Material Summary boundary. Separate from
+/// [YorksV1LogisticsRepository] so deterministic test repositories that only
+/// cover stock and dispatch stay unchanged.
+abstract interface class YorksV1ProjectMaterialSummaryRepository {
+  Future<YorksV1ProjectMaterialSummary> getProjectMaterialSummary(
+    YorksV1MaterialSummaryQuery query,
+  );
+}
+
 /// Optional read-only smart-category boundary. Keeping this separate preserves
 /// compatibility with deterministic test repositories while production uses
 /// the server-ranked, role-checked projection.
@@ -145,6 +155,7 @@ class YorksV1SupabaseLogisticsRepository
     implements
         YorksV1LogisticsRepository,
         YorksV1ProjectMaterialReturnRepository,
+        YorksV1ProjectMaterialSummaryRepository,
         YorksV1InventoryCategorySuggestionRepository,
         YorksV1InventoryItemMetadataRepository,
         YorksV1InventoryHistoryRepository,
@@ -454,6 +465,17 @@ class YorksV1SupabaseLogisticsRepository
             Map<String, dynamic>.from(row),
           ),
     ];
+  }
+
+  @override
+  Future<YorksV1ProjectMaterialSummary> getProjectMaterialSummary(
+    YorksV1MaterialSummaryQuery query,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_project_material_summary',
+      parameters: query.toRpcParameters(),
+    );
+    return YorksV1ProjectMaterialSummary.fromRpcJson(response);
   }
 
   @override

@@ -8,6 +8,7 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_logistics.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_material_request.dart';
+import '../models/yorks_v1_project_material_summary.dart';
 import '../repositories/yorks_v1_logistics_repository.dart';
 import 'yorks_v1_logistics_repository_provider.dart';
 import 'yorks_v1_material_request_provider.dart';
@@ -86,6 +87,30 @@ final yorksV1ProjectMaterialMovementsProvider = FutureProvider.autoDispose
       return ref
           .watch(yorksV1LogisticsRepositoryProvider)
           .getProjectMaterialMovements(projectId);
+    });
+
+/// Read-only project Material Summary for one filter combination. Realtime
+/// workflow revisions refresh it, so new requests and dispatches appear
+/// without a manual reload.
+final yorksV1ProjectMaterialSummaryProvider = FutureProvider.autoDispose
+    .family<YorksV1ProjectMaterialSummary, YorksV1MaterialSummaryQuery>((
+      ref,
+      query,
+    ) {
+      ref.listen<int>(yorksV1MaterialRequestRealtimeRevisionProvider, (
+        previous,
+        next,
+      ) {
+        if (previous != null && previous != next) ref.invalidateSelf();
+      });
+      final repository = ref.watch(yorksV1LogisticsRepositoryProvider);
+      if (repository is! YorksV1ProjectMaterialSummaryRepository) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.featureDisabled,
+        );
+      }
+      return (repository as YorksV1ProjectMaterialSummaryRepository)
+          .getProjectMaterialSummary(query);
     });
 
 final yorksV1ReturnsDocumentsWorkspaceProvider = FutureProvider.autoDispose
