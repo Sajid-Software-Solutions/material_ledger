@@ -18,6 +18,7 @@ import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_document.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
+import '../../../../shared/models/yorks_v1_material_return_composer_strings.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_quantity.dart';
 import '../../../../shared/models/yorks_v1_shell_strings.dart';
@@ -3076,8 +3077,15 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
         return;
       }
       if (mounted) {
+        final belowReturns = (error.serverMessage ?? '').toUpperCase().contains(
+          'V1_RECEIPT_BELOW_ACTIVE_RETURNS',
+        );
         _showFailure(
-          YorksV1MaterialRequestStrings.commandFailure(error.code).primary,
+          belowReturns
+              ? YorksV1MaterialReturnComposerStrings.receiptBelowReturns.primary
+              : YorksV1MaterialRequestStrings.commandFailure(
+                  error.code,
+                ).primary,
         );
       }
     } catch (_) {

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_logistics.dart';
+import '../models/yorks_v1_material_return_candidates.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_material_request.dart';
 import '../models/yorks_v1_project_material_summary.dart';
@@ -222,6 +223,29 @@ final yorksV1MaterialReturnCreationWorkspaceProvider = FutureProvider
         projectId: key.projectId,
         returnId: key.returnId,
       );
+    });
+
+/// Grouped, searchable delivered material for the return composer. Keyed by
+/// project, draft, search text and optional building.
+final yorksV1MaterialReturnItemCandidatesProvider = FutureProvider.autoDispose
+    .family<
+      YorksV1MaterialReturnItemCandidates,
+      YorksV1MaterialReturnCandidatesQuery
+    >((ref, query) {
+      ref.listen<int>(yorksV1MaterialRequestRealtimeRevisionProvider, (
+        previous,
+        next,
+      ) {
+        if (previous != null && previous != next) ref.invalidateSelf();
+      });
+      final repository = ref.watch(yorksV1LogisticsRepositoryProvider);
+      if (repository is! YorksV1MaterialReturnItemCandidatesRepository) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.featureDisabled,
+        );
+      }
+      return (repository as YorksV1MaterialReturnItemCandidatesRepository)
+          .getMaterialReturnItemCandidates(query);
     });
 
 YorksV1ProjectMaterialReturnRepository _projectReturnRepository(Ref ref) {

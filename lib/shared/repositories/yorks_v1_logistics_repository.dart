@@ -8,6 +8,7 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/analytics_event.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_logistics.dart';
+import '../models/yorks_v1_material_return_candidates.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_material_request.dart';
 import '../models/yorks_v1_project_material_summary.dart';
@@ -123,6 +124,14 @@ abstract interface class YorksV1ProjectMaterialReturnRepository {
   );
 }
 
+/// Optional read boundary for the grouped, searchable return composer. Kept
+/// separate so existing deterministic test repositories keep compiling.
+abstract interface class YorksV1MaterialReturnItemCandidatesRepository {
+  Future<YorksV1MaterialReturnItemCandidates> getMaterialReturnItemCandidates(
+    YorksV1MaterialReturnCandidatesQuery query,
+  );
+}
+
 /// Optional read-only project Material Summary boundary. Separate from
 /// [YorksV1LogisticsRepository] so deterministic test repositories that only
 /// cover stock and dispatch stay unchanged.
@@ -156,6 +165,7 @@ class YorksV1SupabaseLogisticsRepository
         YorksV1LogisticsRepository,
         YorksV1ProjectMaterialReturnRepository,
         YorksV1ProjectMaterialSummaryRepository,
+        YorksV1MaterialReturnItemCandidatesRepository,
         YorksV1InventoryCategorySuggestionRepository,
         YorksV1InventoryItemMetadataRepository,
         YorksV1InventoryHistoryRepository,
@@ -465,6 +475,18 @@ class YorksV1SupabaseLogisticsRepository
             Map<String, dynamic>.from(row),
           ),
     ];
+  }
+
+  @override
+  Future<YorksV1MaterialReturnItemCandidates> getMaterialReturnItemCandidates(
+    YorksV1MaterialReturnCandidatesQuery query,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_material_return_item_candidates',
+      parameters: query.toRpcParameters(),
+      requiresReturnsDocuments: true,
+    );
+    return YorksV1MaterialReturnItemCandidates.fromRpcJson(response);
   }
 
   @override
@@ -993,7 +1015,9 @@ class YorksV1SupabaseLogisticsRepository
         YorksV1DomainErrorCode.insufficientStock,
       final value
           when value.contains('V1_DISPATCH_APPROVED_CAP_EXCEEDED') ||
-              value.contains('V1_DISPATCH_LINE_NOT_APPROVED') =>
+              value.contains('V1_DISPATCH_LINE_NOT_APPROVED') ||
+              value.contains('V1_MATERIAL_RETURN_ELIGIBLE_QTY_EXCEEDED') ||
+              value.contains('V1_RECEIPT_BELOW_ACTIVE_RETURNS') =>
         YorksV1DomainErrorCode.quantityCapExceeded,
       final value
           when value.contains('V1_DELIVERY_ORDER_REFERENCE_IMMUTABLE') =>
@@ -1015,7 +1039,12 @@ class YorksV1SupabaseLogisticsRepository
         _ => YorksV1DomainErrorCode.serverRejected,
       },
     };
-    return YorksV1DomainException(code, serverCode: error.code, cause: error);
+    return YorksV1DomainException(
+      code,
+      serverCode: error.code,
+      serverMessage: error.message,
+      cause: error,
+    );
   }
 }
 

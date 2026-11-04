@@ -8,6 +8,7 @@ import '../models/yorks_v1_boq.dart';
 import '../models/yorks_v1_company_document_strings.dart';
 import '../models/yorks_v1_logistics.dart';
 import '../models/yorks_v1_logistics_strings.dart';
+import '../models/yorks_v1_material_return_candidates.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_project_strings.dart';
 import '../models/yorks_v1_quantity.dart';
@@ -84,6 +85,8 @@ class YorksV1LogisticsDocumentService {
     headings: const [
       'No.',
       'Item Description',
+      'Size',
+      'Model / Equipment tag',
       'Brand / Origin',
       'Qty.',
       'Unit',
@@ -95,6 +98,8 @@ class YorksV1LogisticsDocumentService {
         [
           line.displayOrder.toString(),
           line.description,
+          line.size ?? '',
+          [line.model, line.equipmentTag].whereType<String>().join(' · '),
           line.brandOrigin ?? '',
           yorksV1DisplayQuantity(line.returnQuantity),
           line.unit,
@@ -103,6 +108,9 @@ class YorksV1LogisticsDocumentService {
               : [
                   line.sourceRequestNumber,
                   line.sourceDispatchNumber,
+                  if (line.basisKind ==
+                      YorksV1ReturnBasisKind.dispatchedUnconfirmed)
+                    'Not yet confirmed by site',
                 ].whereType<String>().join(' · '),
           line.lineNote ?? '',
         ],
@@ -273,6 +281,12 @@ class YorksV1LogisticsDocumentService {
                   line.displayOrder.toString(),
                   [
                     line.description,
+                    if (line.size != null) 'Size: ${line.size}',
+                    if (line.model != null || line.equipmentTag != null)
+                      [
+                        line.model,
+                        line.equipmentTag,
+                      ].whereType<String>().join(' · '),
                     if (line.brandOrigin != null) line.brandOrigin!,
                     if (line.sourceRequestNumber != null)
                       'Source: ${line.sourceRequestNumber}'

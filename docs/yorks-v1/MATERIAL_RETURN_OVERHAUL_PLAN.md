@@ -1,6 +1,6 @@
 # Material Return overhaul — plan (4 November 2026)
 
-Status: proposed on `feature/material-return-overhaul`. Not implemented.
+Status: server and composer implemented on `feature/material-return-overhaul` (4 November 2026). Not deployed. See *Implementation* below.
 
 ## Problems found (production data, 3 November 2026)
 
@@ -65,3 +65,46 @@ Status: proposed on `feature/material-return-overhaul`. Not implemented.
 pgTAP for eligibility (received vs unconfirmed), allocation, receipt guard, idempotency,
 competing writers and role access; Flutter tests for the composer, grid locks, picker,
 mobile editor and exports; desktop/360 px/Arabic visual evidence.
+
+## Implementation (4 November 2026)
+
+### Server — `20261104090000_material_return_delivered_eligibility.sql` (additive)
+- Return lines gain `technical_attributes` (size, model, equipment tag; same shape as
+  Material Request lines, each ≤ 120 characters) and `basis_kind`
+  (`received` | `dispatched_unconfirmed`). Existing lines are backfilled as `received`
+  with the size/model/tag of their request line.
+- Delivered lines anchor on `dispatch_line_id`; `receipt_review_line_id` is filled when a
+  confirmed review exists. One delivery can appear once per return (partial unique index).
+- `v1_material_return_item_candidates(project, return?, search?, scope?)`: delivered
+  material grouped by description + size + unit across all buildings, with codes, brands,
+  models, tags, returnable and unconfirmed quantities and the deliveries newest first.
+  Search: substring on material, size, model, tag, brand, code, MR and delivery numbers,
+  plus trigram similarity ≥ 0.5 on the description; LIKE wildcards are literal.
+- Save draft accepts `dispatch_line_id` (or the old `receipt_review_line_id`), copies
+  size/model/tag from the request line for delivered lines, accepts them on custom lines,
+  rejects duplicates and quantities above basis − active returns. Material delivered to
+  one building can now be returned from another building of the same project.
+- Submit locks every source dispatch line in id order, re-reads the basis (a receipt
+  confirmed since the draft wins) and records the eligible quantity.
+- Receipt guard: a trigger on `v1_receipt_review_lines` takes the same dispatch-line lock
+  and raises `V1_RECEIPT_BELOW_ACTIVE_RETURNS` when good quantity would fall below active
+  returns. Legacy writers get `basis_kind` and request-line metadata from a trigger.
+- The released creation workspace keeps its shape; committed quantities now count every
+  active line on the same delivery.
+
+### Client
+- `YorksV1MaterialReturnComposer`: search-first picker (instant local filter, debounced
+  server trigram search merged after it), "All buildings / Only this building" filter,
+  lazily built result list, per-material quantity with live "available" hint and
+  over-quantity error, newest-first allocation preview, and custom lines in the Material
+  Request line editor (`YorksV1MaterialItemsEditor` + MR description autocomplete).
+- Detail screen, Excel and PDF show size, model / equipment tag and "Not yet confirmed by
+  site" for unconfirmed deliveries. The receipt sheet explains the receipt guard.
+
+### Verification
+- Local Postgres 16 harness with every migration applied (Supabase auth/storage/cron/net
+  stubs): new pgTAP file 46/46; batch8 returns 79/79 (one assertion changed to the new
+  cross-building rule); full database suite unchanged against the pre-change baseline.
+- Flutter: format, analyze clean; candidates/allocation/controller unit tests, composer
+  widget tests (desktop, 360 px, Arabic, retry, server spelling search, building filter),
+  document export test.
