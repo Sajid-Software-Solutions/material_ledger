@@ -9900,6 +9900,189 @@ class _RequestLinesEditor extends ConsumerWidget {
 
 /// Uses the same Project MR cells, validation and row actions for Company MRs.
 /// Only catalogue search and the draft command adapter differ.
+/// Per-line presentation rules for composers that reuse the Material Request
+/// grid (the Material Return composer). The default keeps every Material
+/// Request behaviour unchanged.
+class YorksV1MaterialLinePolicy {
+  const YorksV1MaterialLinePolicy({
+    this.lockDetails = false,
+    this.allowSimilar = true,
+    this.quantityHint,
+    this.quantityError,
+  });
+
+  /// Size, model/tag, brand/origin and unit are read-only (they come from a
+  /// recorded delivery); only quantity stays editable.
+  final bool lockDetails;
+  final bool allowSimilar;
+
+  /// Short helper under the quantity, e.g. "of 13 available".
+  final String? quantityHint;
+
+  /// Extra quantity rule from the host, e.g. "Only 13 can be returned".
+  final String? quantityError;
+
+  static const standard = YorksV1MaterialLinePolicy();
+}
+
+YorksV1MaterialLinePolicy _policyFor(
+  YorksV1MaterialLinePolicy Function(YorksV1MaterialRequestLine)? policy,
+  YorksV1MaterialRequestLine line,
+) => policy?.call(line) ?? YorksV1MaterialLinePolicy.standard;
+
+bool _lineInvalid(
+  YorksV1MaterialRequestLine line,
+  YorksV1MaterialLinePolicy policy,
+) => !line.hasValidOperationalValues || policy.quantityError != null;
+
+String? _quantityErrorFor(
+  YorksV1MaterialRequestLine line,
+  YorksV1MaterialLinePolicy policy,
+) => line.hasValidQuantity
+    ? policy.quantityError
+    : YorksV1MaterialRequestStrings.quantityRequired.primary;
+
+/// Material Request form chrome shared with other composers so their screens
+/// read exactly like a Material Request: card, labelled field, header action
+/// and header metadata.
+class YorksV1MaterialFormCard extends StatelessWidget {
+  const YorksV1MaterialFormCard({
+    super.key,
+    required this.title,
+    required this.child,
+    this.sectionNumber,
+    this.description,
+    this.actions = const [],
+  });
+
+  final String title;
+  final int? sectionNumber;
+  final String? description;
+  final List<Widget> actions;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => _R35RequestCard(
+    title: title,
+    sectionNumber: sectionNumber,
+    description: description,
+    actions: actions,
+    child: child,
+  );
+}
+
+class YorksV1MaterialFormField extends StatelessWidget {
+  const YorksV1MaterialFormField({
+    super.key,
+    required this.label,
+    required this.child,
+  });
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      _RequestFieldBlock(label: label, child: child);
+}
+
+class YorksV1MaterialFormAction extends StatelessWidget {
+  const YorksV1MaterialFormAction({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.primary = false,
+    this.tooltip,
+  });
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final bool primary;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) => _R35RequestAction(
+    label: label,
+    icon: icon,
+    primary: primary,
+    tooltip: tooltip,
+    onPressed: onPressed,
+  );
+}
+
+class YorksV1MaterialFormMeta extends StatelessWidget {
+  const YorksV1MaterialFormMeta({
+    super.key,
+    required this.icon,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) =>
+      _IndustrialMeta(icon: icon, value: value);
+}
+
+/// The Material Request "rows need attention" banner; Review scrolls to the
+/// first highlighted row of a [YorksV1MaterialItemsEditor].
+class YorksV1MaterialRowsAttentionBanner extends StatelessWidget {
+  const YorksV1MaterialRowsAttentionBanner({
+    super.key,
+    required this.message,
+    required this.firstLineId,
+    required this.reviewLabel,
+  });
+
+  final String message;
+  final String firstLineId;
+  final String reviewLabel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(AppSpacing.sm),
+    decoration: BoxDecoration(
+      color: AppColors.errorContainer,
+      border: Border.all(color: AppColors.error),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+    ),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.error_outline_rounded,
+          size: 19,
+          color: AppColors.error,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            message,
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.error,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            final target = _materialRequestLineKey(firstLineId).currentContext;
+            if (target == null) return;
+            await Scrollable.ensureVisible(
+              target,
+              duration: const Duration(milliseconds: 220),
+              alignment: 0.2,
+            );
+          },
+          child: Text(reviewLabel),
+        ),
+      ],
+    ),
+  );
+}
+
 class YorksV1MaterialItemsEditor extends StatelessWidget {
   const YorksV1MaterialItemsEditor({
     super.key,
@@ -9907,12 +10090,15 @@ class YorksV1MaterialItemsEditor extends StatelessWidget {
     required this.controller,
     required this.descriptionBuilder,
     this.enabled = true,
+    this.linePolicy,
   });
   final List<YorksV1MaterialRequestLine> lines;
   final YorksV1MaterialLineEditor controller;
   final Widget Function(YorksV1MaterialRequestLine, bool compact)
   descriptionBuilder;
   final bool enabled;
+  final YorksV1MaterialLinePolicy Function(YorksV1MaterialRequestLine)?
+  linePolicy;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -9924,6 +10110,7 @@ class YorksV1MaterialItemsEditor extends StatelessWidget {
           projectId: null,
           scopeId: null,
           descriptionBuilder: (line) => descriptionBuilder(line, false),
+          linePolicy: linePolicy,
         );
       }
       return Column(
@@ -9936,6 +10123,7 @@ class YorksV1MaterialItemsEditor extends StatelessWidget {
                 enabled: enabled,
                 onSearchInventory: null,
                 descriptionField: descriptionBuilder(line, true),
+                policy: _policyFor(linePolicy, line),
               )
             else
               _FocusedLineEditor(
@@ -9944,6 +10132,7 @@ class YorksV1MaterialItemsEditor extends StatelessWidget {
                 enabled: enabled,
                 onSearchInventory: null,
                 descriptionField: descriptionBuilder(line, true),
+                policy: _policyFor(linePolicy, line),
               ),
             const SizedBox(height: AppSpacing.md),
           ],
@@ -9961,9 +10150,12 @@ class _DesktopLinesTable extends StatelessWidget {
     required this.projectId,
     required this.scopeId,
     this.descriptionBuilder,
+    this.linePolicy,
   });
 
   final Widget Function(YorksV1MaterialRequestLine)? descriptionBuilder;
+  final YorksV1MaterialLinePolicy Function(YorksV1MaterialRequestLine)?
+  linePolicy;
   final List<YorksV1MaterialRequestLine> lines;
   final YorksV1MaterialLineEditor controller;
   final bool enabled;
@@ -10042,13 +10234,13 @@ class _DesktopLinesTable extends StatelessWidget {
       ),
     ];
     for (final line in lines) {
-      final invalid = !line.hasValidOperationalValues;
+      final policy = _policyFor(linePolicy, line);
+      final detailsEnabled = enabled && !policy.lockDetails;
+      final invalid = _lineInvalid(line, policy);
       final descriptionError = line.hasDescription
           ? null
           : YorksV1MaterialRequestStrings.itemDescriptionRequired.primary;
-      final quantityError = line.hasValidQuantity
-          ? null
-          : YorksV1MaterialRequestStrings.quantityRequired.primary;
+      final quantityError = _quantityErrorFor(line, policy);
       final unitError = line.hasControlledUnit
           ? null
           : YorksV1MaterialRequestStrings.unitRequired.primary;
@@ -10092,7 +10284,7 @@ class _DesktopLinesTable extends StatelessWidget {
               child: _LineTextField(
                 fieldKey: ValueKey('${line.id}-size'),
                 initialValue: line.size ?? '',
-                enabled: enabled,
+                enabled: detailsEnabled,
                 hintText: YorksV1MaterialRequestStrings.size.primary,
                 onChanged: (value) => controller.updateLine(
                   line.id,
@@ -10106,7 +10298,7 @@ class _DesktopLinesTable extends StatelessWidget {
               child: _LineTextField(
                 fieldKey: ValueKey('${line.id}-planning-model-tag'),
                 initialValue: line.model ?? line.planningModelTag ?? '',
-                enabled: enabled,
+                enabled: detailsEnabled,
                 hintText:
                     YorksV1MaterialRequestStrings.planningModelTag.primary,
                 onChanged: (value) => controller.updateLine(
@@ -10121,7 +10313,7 @@ class _DesktopLinesTable extends StatelessWidget {
               child: _LineTextField(
                 fieldKey: ValueKey('${line.id}-brand-origin'),
                 initialValue: line.brandOrigin ?? '',
-                enabled: enabled,
+                enabled: detailsEnabled,
                 onChanged: (value) => controller.updateLine(
                   line.id,
                   (current) => current.copyWith(
@@ -10134,17 +10326,20 @@ class _DesktopLinesTable extends StatelessWidget {
               child: _MrValidatedCell(
                 markerKey: ValueKey('${line.id}-quantity-error'),
                 errorMessage: quantityError,
-                child: _LineTextField(
-                  fieldKey: ValueKey('${line.id}-quantity'),
-                  initialValue: yorksV1DisplayQuantity(line.quantity),
-                  enabled: enabled,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textAlign: TextAlign.end,
-                  onChanged: (value) => controller.updateLine(
-                    line.id,
-                    (current) => current.copyWith(quantity: value),
+                child: _QuantityWithHint(
+                  hint: policy.quantityHint,
+                  child: _LineTextField(
+                    fieldKey: ValueKey('${line.id}-quantity'),
+                    initialValue: yorksV1DisplayQuantity(line.quantity),
+                    enabled: enabled,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textAlign: TextAlign.end,
+                    onChanged: (value) => controller.updateLine(
+                      line.id,
+                      (current) => current.copyWith(quantity: value),
+                    ),
                   ),
                 ),
               ),
@@ -10156,7 +10351,7 @@ class _DesktopLinesTable extends StatelessWidget {
                 child: _LineUnitDropdown(
                   fieldKey: ValueKey('${line.id}-unit'),
                   initialValue: line.unit,
-                  enabled: enabled,
+                  enabled: detailsEnabled,
                   onChanged: (value) => controller.updateLine(
                     line.id,
                     (current) => current.copyWith(unit: value),
@@ -10170,7 +10365,7 @@ class _DesktopLinesTable extends StatelessWidget {
                 children: [
                   _MrSimilarButton(
                     buttonKey: ValueKey('${line.id}-desktop-similar'),
-                    enabled: enabled,
+                    enabled: enabled && policy.allowSimilar,
                     onPressed: () =>
                         controller.addSimilarLine(afterLineId: line.id),
                   ),
@@ -10227,6 +10422,31 @@ class _DesktopLinesTable extends StatelessWidget {
       ),
     );
   }
+}
+
+class _QuantityWithHint extends StatelessWidget {
+  const _QuantityWithHint({required this.child, required this.hint});
+
+  final Widget child;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) => hint == null
+      ? child
+      : Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            child,
+            const SizedBox(height: 2),
+            Text(
+              hint!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.labelSmall.copyWith(color: AppColors.muted),
+            ),
+          ],
+        );
 }
 
 class _MrTableCell extends StatelessWidget {
@@ -10574,7 +10794,10 @@ class _TabletLineEditor extends StatelessWidget {
     required this.enabled,
     required this.onSearchInventory,
     this.descriptionField,
+    this.policy = YorksV1MaterialLinePolicy.standard,
   });
+
+  final YorksV1MaterialLinePolicy policy;
 
   final YorksV1MaterialRequestLine line;
   final YorksV1MaterialLineEditor controller;
@@ -10584,7 +10807,8 @@ class _TabletLineEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invalid = !line.hasValidOperationalValues;
+    final invalid = _lineInvalid(line, policy);
+    final detailsEnabled = enabled && !policy.lockDetails;
     return Container(
       key: _materialRequestLineKey(line.id),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -10639,20 +10863,21 @@ class _TabletLineEditor extends StatelessWidget {
                 width: 92,
                 child: _MrValidatedCell(
                   markerKey: ValueKey('${line.id}-tablet-quantity-error'),
-                  errorMessage: line.hasValidQuantity
-                      ? null
-                      : YorksV1MaterialRequestStrings.quantityRequired.primary,
-                  child: _LineLabeledField(
-                    fieldKey: ValueKey('${line.id}-quantity'),
-                    label: YorksV1MaterialRequestStrings.quantity.primary,
-                    initialValue: yorksV1DisplayQuantity(line.quantity),
-                    enabled: enabled,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    onChanged: (value) => controller.updateLine(
-                      line.id,
-                      (current) => current.copyWith(quantity: value),
+                  errorMessage: _quantityErrorFor(line, policy),
+                  child: _QuantityWithHint(
+                    hint: policy.quantityHint,
+                    child: _LineLabeledField(
+                      fieldKey: ValueKey('${line.id}-quantity'),
+                      label: YorksV1MaterialRequestStrings.quantity.primary,
+                      initialValue: yorksV1DisplayQuantity(line.quantity),
+                      enabled: enabled,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (value) => controller.updateLine(
+                        line.id,
+                        (current) => current.copyWith(quantity: value),
+                      ),
                     ),
                   ),
                 ),
@@ -10669,7 +10894,7 @@ class _TabletLineEditor extends StatelessWidget {
                     fieldKey: ValueKey('${line.id}-unit'),
                     label: YorksV1MaterialRequestStrings.unit.primary,
                     initialValue: line.unit,
-                    enabled: enabled,
+                    enabled: detailsEnabled,
                     onChanged: (value) => controller.updateLine(
                       line.id,
                       (current) => current.copyWith(unit: value),
@@ -10688,7 +10913,7 @@ class _TabletLineEditor extends StatelessWidget {
                   fieldKey: ValueKey('${line.id}-size'),
                   label: YorksV1MaterialRequestStrings.size.primary,
                   initialValue: line.size ?? '',
-                  enabled: enabled,
+                  enabled: detailsEnabled,
                   onChanged: (value) => controller.updateLine(
                     line.id,
                     (current) => current.copyWith(
@@ -10703,7 +10928,7 @@ class _TabletLineEditor extends StatelessWidget {
                   fieldKey: ValueKey('${line.id}-planning-model-tag'),
                   label: YorksV1MaterialRequestStrings.planningModelTag.primary,
                   initialValue: line.model ?? line.planningModelTag ?? '',
-                  enabled: enabled,
+                  enabled: detailsEnabled,
                   onChanged: (value) => controller.updateLine(
                     line.id,
                     (current) => current.copyWith(
@@ -10718,7 +10943,7 @@ class _TabletLineEditor extends StatelessWidget {
                   fieldKey: ValueKey('${line.id}-brand-origin'),
                   label: YorksV1MaterialRequestStrings.brandOrigin.primary,
                   initialValue: line.brandOrigin ?? '',
-                  enabled: enabled,
+                  enabled: detailsEnabled,
                   onChanged: (value) => controller.updateLine(
                     line.id,
                     (current) => current.copyWith(
@@ -10730,7 +10955,7 @@ class _TabletLineEditor extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               _MrSimilarButton(
                 buttonKey: ValueKey('${line.id}-tablet-similar'),
-                enabled: enabled,
+                enabled: enabled && policy.allowSimilar,
                 onPressed: () =>
                     controller.addSimilarLine(afterLineId: line.id),
               ),
@@ -10770,7 +10995,10 @@ class _FocusedLineEditor extends StatelessWidget {
     required this.enabled,
     required this.onSearchInventory,
     this.descriptionField,
+    this.policy = YorksV1MaterialLinePolicy.standard,
   });
+
+  final YorksV1MaterialLinePolicy policy;
 
   final YorksV1MaterialRequestLine line;
   final YorksV1MaterialLineEditor controller;
@@ -10780,7 +11008,8 @@ class _FocusedLineEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invalid = !line.hasValidOperationalValues;
+    final invalid = _lineInvalid(line, policy);
+    final detailsEnabled = enabled && !policy.lockDetails;
     return Container(
       key: _materialRequestLineKey(line.id),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -10801,7 +11030,7 @@ class _FocusedLineEditor extends StatelessWidget {
               const Spacer(),
               _MrSimilarButton(
                 buttonKey: ValueKey('${line.id}-focused-similar'),
-                enabled: enabled,
+                enabled: enabled && policy.allowSimilar,
                 onPressed: () =>
                     controller.addSimilarLine(afterLineId: line.id),
               ),
@@ -10853,7 +11082,7 @@ class _FocusedLineEditor extends StatelessWidget {
             fieldKey: ValueKey('${line.id}-brand-origin'),
             label: YorksV1MaterialRequestStrings.brandOrigin.primary,
             initialValue: line.brandOrigin ?? '',
-            enabled: enabled,
+            enabled: detailsEnabled,
             onChanged: (value) => controller.updateLine(
               line.id,
               (current) => current.copyWith(
@@ -10866,7 +11095,7 @@ class _FocusedLineEditor extends StatelessWidget {
             fieldKey: ValueKey('${line.id}-size'),
             label: YorksV1MaterialRequestStrings.size.primary,
             initialValue: line.size ?? '',
-            enabled: enabled,
+            enabled: detailsEnabled,
             onChanged: (value) => controller.updateLine(
               line.id,
               (current) =>
@@ -10878,7 +11107,7 @@ class _FocusedLineEditor extends StatelessWidget {
             fieldKey: ValueKey('${line.id}-planning-model-tag'),
             label: YorksV1MaterialRequestStrings.planningModelTag.primary,
             initialValue: line.model ?? line.planningModelTag ?? '',
-            enabled: enabled,
+            enabled: detailsEnabled,
             onChanged: (value) => controller.updateLine(
               line.id,
               (current) =>
@@ -10891,20 +11120,21 @@ class _FocusedLineEditor extends StatelessWidget {
               Expanded(
                 child: _MrValidatedCell(
                   markerKey: ValueKey('${line.id}-focused-quantity-error'),
-                  errorMessage: line.hasValidQuantity
-                      ? null
-                      : YorksV1MaterialRequestStrings.quantityRequired.primary,
-                  child: _LineLabeledField(
-                    fieldKey: ValueKey('${line.id}-quantity'),
-                    label: YorksV1MaterialRequestStrings.quantity.primary,
-                    initialValue: yorksV1DisplayQuantity(line.quantity),
-                    enabled: enabled,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    onChanged: (value) => controller.updateLine(
-                      line.id,
-                      (current) => current.copyWith(quantity: value),
+                  errorMessage: _quantityErrorFor(line, policy),
+                  child: _QuantityWithHint(
+                    hint: policy.quantityHint,
+                    child: _LineLabeledField(
+                      fieldKey: ValueKey('${line.id}-quantity'),
+                      label: YorksV1MaterialRequestStrings.quantity.primary,
+                      initialValue: yorksV1DisplayQuantity(line.quantity),
+                      enabled: enabled,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (value) => controller.updateLine(
+                        line.id,
+                        (current) => current.copyWith(quantity: value),
+                      ),
                     ),
                   ),
                 ),
@@ -10920,7 +11150,7 @@ class _FocusedLineEditor extends StatelessWidget {
                     fieldKey: ValueKey('${line.id}-unit'),
                     label: YorksV1MaterialRequestStrings.unit.primary,
                     initialValue: line.unit,
-                    enabled: enabled,
+                    enabled: detailsEnabled,
                     onChanged: (value) => controller.updateLine(
                       line.id,
                       (current) => current.copyWith(unit: value),

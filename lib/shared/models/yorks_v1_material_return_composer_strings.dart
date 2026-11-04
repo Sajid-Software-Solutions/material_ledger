@@ -2,6 +2,152 @@ import 'app_strings.dart';
 
 /// Copy for the grouped Material Return composer (4 November 2026).
 abstract final class YorksV1MaterialReturnComposerStrings {
+  static const eyebrow = TranslatableString(
+    en: 'Material returns',
+    ar: 'مرتجعات المواد',
+    ur: 'میٹریل واپسی',
+    hi: 'सामग्री वापसी',
+  );
+  static const editReturn = TranslatableString(
+    en: 'Edit Material Return',
+    ar: 'تعديل مرتجع المواد',
+    ur: 'میٹریل ریٹرن میں ترمیم',
+    hi: 'सामग्री वापसी संपादित करें',
+  );
+  static TranslatableString stageOfFour(int stage) => TranslatableString(
+    en: 'Stage $stage of 4',
+    ar: 'المرحلة $stage من 4',
+    ur: 'مرحلہ $stage از 4',
+    hi: 'चरण $stage / 4',
+  );
+  static const pageDescription = TranslatableString(
+    en: 'Choose the building the material is leaving from. Add material delivered to this project, or a custom item.',
+    ar: 'اختر المبنى الذي ستخرج منه المواد. أضف مواد تم توريدها لهذا المشروع أو مادة مخصصة.',
+    ur: 'وہ عمارت منتخب کریں جہاں سے میٹریل جا رہا ہے۔ اس پروجیکٹ کو بھیجا گیا میٹریل یا کسٹم آئٹم شامل کریں۔',
+    hi: 'वह इमारत चुनें जहाँ से सामग्री जा रही है। इस परियोजना को भेजी गई सामग्री या कस्टम वस्तु जोड़ें।',
+  );
+  static const returnInformation = TranslatableString(
+    en: 'Return Information',
+    ar: 'معلومات المرتجع',
+    ur: 'واپسی کی معلومات',
+    hi: 'वापसी की जानकारी',
+  );
+  static const returnInformationDescription = TranslatableString(
+    en: 'This information is shown to Engineering and the warehouse and printed on the Material Return.',
+    ar: 'تظهر هذه المعلومات للهندسة والمستودع وتُطبع على مرتجع المواد.',
+    ur: 'یہ معلومات انجینئرنگ اور گودام کو دکھائی جاتی ہیں اور میٹریل ریٹرن پر پرنٹ ہوتی ہیں۔',
+    hi: 'यह जानकारी इंजीनियरिंग और गोदाम को दिखाई जाती है और सामग्री वापसी पर छपती है।',
+  );
+  static const returnFrom = TranslatableString(
+    en: 'Returning from',
+    ar: 'الإرجاع من',
+    ur: 'واپسی کہاں سے',
+    hi: 'कहाँ से वापसी',
+  );
+  static const materialItems = TranslatableString(
+    en: 'Material Items',
+    ar: 'بنود المواد',
+    ur: 'میٹریل آئٹمز',
+    hi: 'सामग्री वस्तुएँ',
+  );
+  static const materialItemsDescription = TranslatableString(
+    en: 'Search material delivered to this project, or add a custom item. Delivered quantities are taken from the newest delivery first.',
+    ar: 'ابحث في المواد الموردة لهذا المشروع أو أضف مادة مخصصة. تؤخذ الكميات الموردة من أحدث توريد أولاً.',
+    ur: 'اس پروجیکٹ کو بھیجا گیا میٹریل تلاش کریں یا کسٹم آئٹم شامل کریں۔ مقدار پہلے تازہ ترین ڈیلیوری سے لی جاتی ہے۔',
+    hi: 'इस परियोजना को भेजी गई सामग्री खोजें या कस्टम वस्तु जोड़ें। मात्रा पहले सबसे नई डिलीवरी से ली जाती है।',
+  );
+  static const addFromDeliveries = TranslatableString(
+    en: 'Add from Deliveries',
+    ar: 'إضافة من التوريدات',
+    ur: 'ڈیلیوریوں سے شامل کریں',
+    hi: 'डिलीवरी से जोड़ें',
+  );
+  static const addCustomItem = TranslatableString(
+    en: 'Add Custom Item',
+    ar: 'إضافة مادة مخصصة',
+    ur: 'کسٹم آئٹم شامل کریں',
+    hi: 'कस्टम वस्तु जोड़ें',
+  );
+  static const addSelected = TranslatableString(
+    en: 'Add selected items',
+    ar: 'إضافة المواد المحددة',
+    ur: 'منتخب آئٹمز شامل کریں',
+    hi: 'चयनित वस्तुएँ जोड़ें',
+  );
+  static TranslatableString selectedItems(int count) => TranslatableString(
+    en: count == 1 ? '1 item selected' : '$count items selected',
+    ar: 'تم تحديد $count',
+    ur: '$count آئٹمز منتخب',
+    hi: '$count वस्तुएँ चयनित',
+  );
+  static const addDeliveredTitle = TranslatableString(
+    en: 'Add delivered material',
+    ar: 'إضافة مواد موردة',
+    ur: 'بھیجا گیا میٹریل شامل کریں',
+    hi: 'भेजी गई सामग्री जोड़ें',
+  );
+  static const cancel = TranslatableString(
+    en: 'Cancel',
+    ar: 'إلغاء',
+    ur: 'منسوخ',
+    hi: 'रद्द करें',
+  );
+  static const assignedOnSubmit = TranslatableString(
+    en: 'Assigned on submit',
+    ar: 'يُخصص عند الإرسال',
+    ur: 'جمع کرانے پر تفویض',
+    hi: 'जमा करने पर निर्धारित',
+  );
+  static TranslatableString itemCount(int count) => TranslatableString(
+    en: count == 1 ? '1 item' : '$count items',
+    ar: '$count بنود',
+    ur: '$count آئٹمز',
+    hi: '$count वस्तुएँ',
+  );
+  static const noItemsYet = TranslatableString(
+    en: 'No items yet. Search delivered material above, use Add from Deliveries, or add a custom item.',
+    ar: 'لا توجد بنود بعد. ابحث في المواد الموردة أعلاه أو استخدم الإضافة من التوريدات أو أضف مادة مخصصة.',
+    ur: 'ابھی کوئی آئٹم نہیں۔ اوپر بھیجا گیا میٹریل تلاش کریں، ڈیلیوریوں سے شامل کریں یا کسٹم آئٹم شامل کریں۔',
+    hi: 'अभी कोई वस्तु नहीं। ऊपर भेजी गई सामग्री खोजें, डिलीवरी से जोड़ें, या कस्टम वस्तु जोड़ें।',
+  );
+  static TranslatableString rowsNeedAttention(int count) => TranslatableString(
+    en: count == 1
+        ? '1 material row needs attention. The first incomplete row is highlighted below.'
+        : '$count material rows need attention. The first incomplete row is highlighted below.',
+    ar: '$count من بنود المواد تحتاج إلى مراجعة. البند الأول مميز أدناه.',
+    ur: '$count میٹریل لائنوں پر توجہ درکار ہے۔ پہلی نامکمل لائن نیچے نمایاں ہے۔',
+    hi: '$count सामग्री पंक्तियों पर ध्यान चाहिए। पहली अधूरी पंक्ति नीचे हाइलाइट है।',
+  );
+  static const review = TranslatableString(
+    en: 'Review',
+    ar: 'مراجعة',
+    ur: 'جائزہ',
+    hi: 'समीक्षा',
+  );
+  static TranslatableString ofAvailable(String quantity) => TranslatableString(
+    en: 'of $quantity available',
+    ar: 'من $quantity متاحة',
+    ur: '$quantity میں سے دستیاب',
+    hi: '$quantity में से उपलब्ध',
+  );
+  static const alreadyAdded = TranslatableString(
+    en: 'Already in this return',
+    ar: 'موجودة في هذا المرتجع',
+    ur: 'اس واپسی میں پہلے سے',
+    hi: 'इस वापसी में पहले से',
+  );
+  static const fromDelivery = TranslatableString(
+    en: 'From delivery',
+    ar: 'من التوريد',
+    ur: 'ڈیلیوری سے',
+    hi: 'डिलीवरी से',
+  );
+  static const customItem = TranslatableString(
+    en: 'Custom item',
+    ar: 'مادة مخصصة',
+    ur: 'کسٹم آئٹم',
+    hi: 'कस्टम वस्तु',
+  );
   static const materialToReturn = TranslatableString(
     en: 'Material to return',
     ar: 'المواد المراد إرجاعها',

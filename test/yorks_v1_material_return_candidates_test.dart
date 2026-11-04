@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/materials/presentation/widgets/yorks_v1_material_return_composer.dart';
+import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_return_candidates.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_return_workflow.dart';
@@ -168,14 +169,40 @@ void main() {
   });
 
   group('composer controller', () {
-    test('turns one material into newest-first delivery lines', () {
+    test(
+      'a delivered material becomes one locked Material Request line',
+      () async {
+        final controller = YorksV1ReturnComposerController();
+        addTearDown(controller.dispose);
+        expect(controller.addItem(pipe), isTrue);
+        expect(controller.addItem(pipe), isFalse, reason: 'listed once');
+        final line = controller.lines.single;
+        expect(line.description, 'Copper Pipe');
+        expect(line.size, '15mm');
+        expect(line.model, 'Type L, CH-01');
+        expect(line.unit, 'Mtr');
+        expect(controller.isDelivered(line.id), isTrue);
+
+        // Only quantity can change on a delivered line.
+        await controller.updateLine(
+          line.id,
+          (current) => current.copyWith(size: '22mm', quantity: '6'),
+        );
+        expect(controller.lines.single.size, '15mm');
+        expect(controller.lines.single.quantity, '6');
+      },
+    );
+
+    test('turns one material into newest-first delivery lines', () async {
       final controller = YorksV1ReturnComposerController();
       addTearDown(controller.dispose);
       controller
         ..addItem(pipe)
         ..resolve(candidates);
-      controller.selections.single.quantity.text = '6';
-      controller.selections.single.note.text = 'Surplus';
+      await controller.updateLine(
+        controller.lines.single.id,
+        (line) => line.copyWith(quantity: '6'),
+      );
       final built = controller.buildLines();
       expect(built.hasIssues, isFalse);
       expect(built.lines.map((line) => line.toRpcJson()), [
@@ -187,7 +214,7 @@ void main() {
           'brand_origin': null,
           'unit': null,
           'return_qty': '5',
-          'note': 'Surplus',
+          'note': null,
         },
         {
           'origin_kind': 'delivered',
@@ -197,32 +224,40 @@ void main() {
           'brand_origin': null,
           'unit': null,
           'return_qty': '1',
-          'note': 'Surplus',
+          'note': null,
         },
       ]);
     });
 
-    test('flags quantities above what can be returned', () {
+    test('over-quantity is a grid error and blocks saving', () async {
       final controller = YorksV1ReturnComposerController();
       addTearDown(controller.dispose);
       controller
         ..addItem(pipe)
         ..resolve(candidates);
-      final selection = controller.selections.single;
+      final id = controller.lines.single.id;
       expect(
-        controller.issueFor(selection),
+        controller.issueFor(id),
         YorksV1ReturnSelectionIssue.quantityRequired,
       );
-      selection.quantity.text = '14';
+      expect(controller.invalidLineIds(), [id]);
+      await controller.updateLine(id, (line) => line.copyWith(quantity: '14'));
       expect(
-        controller.issueFor(selection),
+        controller.issueFor(id),
         YorksV1ReturnSelectionIssue.exceedsAvailable,
       );
+      final policy = controller.policyFor(
+        controller.lines.single,
+        AppLanguage.english,
+      );
+      expect(policy.lockDetails, isTrue);
+      expect(policy.allowSimilar, isFalse);
+      expect(policy.quantityHint, 'of 13 available');
+      expect(policy.quantityError, 'Only 13 can be returned');
       expect(controller.buildLines().hasIssues, isTrue);
-      expect(controller.showIssues, isTrue);
     });
 
-    test('hydrates saved lines back into one material per key', () {
+    test('hydrates saved lines back into one line per material', () {
       final controller = YorksV1ReturnComposerController();
       addTearDown(controller.dispose);
       controller.hydrate(const [
@@ -261,13 +296,18 @@ void main() {
           returnQuantity: '12',
         ),
       ]);
-      expect(controller.selections.single.key, pipe.key);
-      expect(controller.selections.single.quantity.text, '6');
-      expect(controller.selections.single.note.text, 'Surplus');
-      expect(controller.customLines.single.model, 'C-15');
-      expect(controller.isResolved, isFalse);
+      expect(controller.lines, hasLength(2));
+      final delivered = controller.lines.first;
+      expect(controller.deliveredRef(delivered.id)?.key, pipe.key);
+      expect(delivered.quantity, '6');
+      expect(controller.lines.last.model, 'C-15');
+      expect(controller.lines.map((line) => line.displayOrder), [1, 2]);
       controller.resolve(candidates);
-      expect(controller.selections.single.item?.returnableQuantity, '13');
+      expect(
+        controller.deliveredRef(delivered.id)?.item?.returnableQuantity,
+        '13',
+      );
+      expect(controller.buildLines().lines.first.note, 'Surplus');
     });
 
     test('a material that is no longer returnable is reported', () {
@@ -286,7 +326,7 @@ void main() {
       ]);
       controller.resolve(candidates);
       expect(
-        controller.issueFor(controller.selections.single),
+        controller.issueFor(controller.lines.single.id),
         YorksV1ReturnSelectionIssue.unavailable,
       );
     });
@@ -298,7 +338,7 @@ void main() {
         addTearDown(controller.dispose);
         await controller.addCustomLine();
         await controller.addCustomLine();
-        final first = controller.customLines.first.id;
+        final first = controller.lines.first.id;
         await controller.updateLine(
           first,
           (line) => line.copyWith(
@@ -324,8 +364,10 @@ void main() {
           'return_qty': '12',
           'note': null,
         });
+        await controller.addSimilarLine(afterLineId: first);
+        expect(controller.lines[1].size, '15mm');
         await controller.updateLine(
-          controller.customLines.last.id,
+          controller.lines.last.id,
           (line) => line.copyWith(description: 'Ladder'),
         );
         expect(controller.buildLines().customIncomplete, isTrue);
