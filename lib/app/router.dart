@@ -19,7 +19,8 @@ import '../features/admin/presentation/screens/admin_requests_screen.dart';
 import '../features/admin/presentation/screens/data_sync_screen.dart';
 import '../features/admin/presentation/screens/more_hub_screen.dart';
 import '../features/admin/presentation/screens/material_masters_screen.dart';
-import '../features/admin/presentation/screens/user_management_screen.dart';
+import '../features/admin/presentation/screens/user_management_screen.dart'
+    deferred as user_management;
 import '../features/admin/presentation/screens/yorks_v1_user_access_screen.dart';
 import '../features/admin/presentation/screens/yorks_v1_configuration_screen.dart';
 import '../features/accounts/presentation/screens/yorks_accounts_screens.dart';
@@ -2382,7 +2383,7 @@ GoRouter createAppRouter({
       GoRoute(
         path: RoutePaths.users,
         pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const UserManagementScreen()),
+            _yorksV1Slide(state.pageKey, const _DeferredUserManagementScreen()),
       ),
       GoRoute(
         path: RoutePaths.yorksV1UserAccess,
@@ -2578,29 +2579,107 @@ class _DeferredEngineerProfileScreen extends StatefulWidget {
 
 class _DeferredEngineerProfileScreenState
     extends State<_DeferredEngineerProfileScreen> {
-  static Future<void>? _sharedLoad;
-  late Future<void> _load;
+  // Same contract as User Management: only the completed state is shared.
+  static bool _loaded = false;
+  Future<void>? _load;
+
+  static Future<void> _startLoad() =>
+      engineer_profile.loadLibrary().then((_) => _loaded = true);
 
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= engineer_profile.loadLibrary();
+    if (!_loaded) _load = _startLoad();
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = engineer_profile.loadLibrary();
+      _load = _startLoad();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loaded) return engineer_profile.EngineerProfileScreen();
     return FutureBuilder<void>(
       future: _load,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
           return engineer_profile.EngineerProfileScreen();
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: MaterialLocalizations.of(
+                context,
+              ).refreshIndicatorSemanticLabel,
+              onPressed: _retry,
+            ),
+          );
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+}
+
+/// Loads User Management only when an administrator opens it, keeping the
+/// directory, project-team and edit-user code out of the first web download.
+/// Loads the on-demand libraries that router tests open (User Management and
+/// Profile) ahead of time.
+///
+/// Widget tests run on a fake clock that does not reliably deliver the VM's
+/// deferred-load completion, so router tests call this from `setUpAll` (real
+/// time). Afterwards both routes build their screens synchronously, with no
+/// pending future. Production code never needs it.
+@visibleForTesting
+Future<void> debugPreloadDeferredRoutes() async {
+  await _DeferredUserManagementScreenState._startLoad();
+  await _DeferredEngineerProfileScreenState._startLoad();
+}
+
+class _DeferredUserManagementScreen extends StatefulWidget {
+  const _DeferredUserManagementScreen();
+
+  @override
+  State<_DeferredUserManagementScreen> createState() =>
+      _DeferredUserManagementScreenState();
+}
+
+class _DeferredUserManagementScreenState
+    extends State<_DeferredUserManagementScreen> {
+  // Only the completed state is shared. Each mount owns its own pending load,
+  // so a load abandoned by one navigation (or one test zone) can never leave
+  // a later visit waiting on a future that will not complete.
+  static bool _loaded = false;
+  Future<void>? _load;
+
+  static Future<void> _startLoad() =>
+      user_management.loadLibrary().then((_) => _loaded = true);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_loaded) _load = _startLoad();
+  }
+
+  void _retry() {
+    setState(() {
+      _load = _startLoad();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loaded) return user_management.UserManagementScreen();
+    return FutureBuilder<void>(
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return user_management.UserManagementScreen();
         }
         if (snapshot.hasError) {
           return Center(
