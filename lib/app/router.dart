@@ -63,7 +63,8 @@ import '../features/materials/presentation/screens/yorks_v1_logistics_screen.dar
 import '../features/materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../features/materials/presentation/screens/yorks_v1_company_material_request_screen.dart'
     deferred as company_material_request;
-import '../features/materials/presentation/screens/yorks_v1_material_returns_screen.dart';
+import '../features/materials/presentation/screens/yorks_v1_material_returns_screen.dart'
+    deferred as material_returns;
 import '../features/materials/presentation/screens/yorks_v1_returns_documents_screen.dart';
 import '../features/onboarding/presentation/screens/language_selection_screen.dart';
 import '../features/onboarding/presentation/screens/splash_screen.dart';
@@ -2191,13 +2192,14 @@ GoRouter createAppRouter({
       GoRoute(
         path: RoutePaths.yorksV1Returns,
         pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const YorksV1MaterialReturnsScreen()),
+            _yorksV1Slide(state.pageKey, const _DeferredMaterialReturnScreen()),
       ),
       GoRoute(
         path: RoutePaths.yorksV1MaterialReturnNew,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1MaterialReturnEditorScreen(
+          _DeferredMaterialReturnScreen(
+            editor: true,
             initialProjectId: state.uri.queryParameters['project_id'],
             returnId: state.uri.queryParameters['return_id'],
           ),
@@ -2207,7 +2209,7 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1MaterialReturn,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1MaterialReturnDetailScreen(
+          _DeferredMaterialReturnScreen(
             returnId: state.pathParameters['returnId'] ?? '',
           ),
         ),
@@ -2599,6 +2601,81 @@ class _DeferredEngineerProfileScreenState
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
           return engineer_profile.EngineerProfileScreen();
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: MaterialLocalizations.of(
+                context,
+              ).refreshIndicatorSemanticLabel,
+              onPressed: _retry,
+            ),
+          );
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+}
+
+/// Loads the Material Return centre, editor and detail only after a returns
+/// route is opened. Routes, permissions and server checks are unchanged; this
+/// keeps the return workflow out of the initial web download.
+class _DeferredMaterialReturnScreen extends StatefulWidget {
+  const _DeferredMaterialReturnScreen({
+    this.editor = false,
+    this.initialProjectId,
+    this.returnId,
+  });
+
+  /// True for the new/edit form; otherwise [returnId] opens the detail
+  /// screen and a null [returnId] opens the centre.
+  final bool editor;
+  final String? initialProjectId;
+  final String? returnId;
+
+  @override
+  State<_DeferredMaterialReturnScreen> createState() =>
+      _DeferredMaterialReturnScreenState();
+}
+
+class _DeferredMaterialReturnScreenState
+    extends State<_DeferredMaterialReturnScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= material_returns.loadLibrary();
+  }
+
+  void _retry() {
+    setState(() {
+      _load = _sharedLoad = material_returns.loadLibrary();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          if (widget.editor) {
+            return material_returns.YorksV1MaterialReturnEditorScreen(
+              initialProjectId: widget.initialProjectId,
+              returnId: widget.returnId,
+            );
+          }
+          if (widget.returnId != null) {
+            return material_returns.YorksV1MaterialReturnDetailScreen(
+              returnId: widget.returnId!,
+            );
+          }
+          return material_returns.YorksV1MaterialReturnsScreen();
         }
         if (snapshot.hasError) {
           return Center(
