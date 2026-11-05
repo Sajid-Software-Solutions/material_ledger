@@ -618,54 +618,84 @@ class _CellRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    final nameAndPercent = Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                cell.buildingName,
+                style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+              ),
+              if (cell.isItemsMode)
                 Text(
-                  cell.buildingName,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.ink,
+                  accountsV2Text(language, 'v2_mode_items'),
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.muted,
                   ),
                 ),
-                if (cell.isItemsMode)
-                  Text(
-                    accountsV2Text(language, 'v2_mode_items'),
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
+            ],
+          ),
+        ),
+        SizedBox(
+          width: 68,
+          child: Text(
+            format.percent(cell.confirmedPercent),
+            textAlign: TextAlign.end,
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          ),
+        ),
+      ],
+    );
+    final moneyCols = <Widget>[
+      if (canValues) ...[
+        _MoneyCol(
+          label: accountsV2Text(language, 'v2_col_eligible'),
+          value: format.money(cell.eligible),
+        ),
+        _MoneyCol(
+          label: accountsV2Text(language, 'v2_col_claimed'),
+          value: format.money(cell.claimed),
+        ),
+        _MoneyCol(
+          label: accountsV2Text(language, 'v2_col_available'),
+          value: format.money(cell.available),
+          danger: cell.overClaimed,
+        ),
+      ],
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Fixed money columns need ~430px; stack them below on a narrow tab.
+          final narrow = constraints.maxWidth < 440;
+          if (!narrow) {
+            return Row(
+              children: [
+                Expanded(child: nameAndPercent),
+                ...moneyCols,
               ],
-            ),
-          ),
-          SizedBox(
-            width: 68,
-            child: Text(
-              format.percent(cell.confirmedPercent),
-              textAlign: TextAlign.end,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
-            ),
-          ),
-          if (canValues) ...[
-            _MoneyCol(
-              label: accountsV2Text(language, 'v2_col_eligible'),
-              value: format.money(cell.eligible),
-            ),
-            _MoneyCol(
-              label: accountsV2Text(language, 'v2_col_claimed'),
-              value: format.money(cell.claimed),
-            ),
-            _MoneyCol(
-              label: accountsV2Text(language, 'v2_col_available'),
-              value: format.money(cell.available),
-              danger: cell.overClaimed,
-            ),
-          ],
-        ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              nameAndPercent,
+              if (moneyCols.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                  child: Wrap(
+                    spacing: AppSpacing.lg,
+                    runSpacing: AppSpacing.xs,
+                    children: moneyCols,
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

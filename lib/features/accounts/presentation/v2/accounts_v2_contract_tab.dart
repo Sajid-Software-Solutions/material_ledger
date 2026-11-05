@@ -351,7 +351,17 @@ class _StagesCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xxs),
-                        _ModeChip(isItems: s.isItemsMode, language: language),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: _ModeChip(
+                              isItems: s.isItemsMode,
+                              language: language,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
