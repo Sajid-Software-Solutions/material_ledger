@@ -17,15 +17,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);
 
-YorksAccountsReceivablesCapabilities _caps({bool values = true}) =>
-    YorksAccountsReceivablesCapabilities(
-      canViewValues: values,
-      prepareClientClaim: false,
-      manageClientInvoices: false,
-      recordClientCertification: false,
-      recordClientPayment: false,
-      managePdc: false,
-    );
+YorksAccountsReceivablesCapabilities _caps({
+  bool values = true,
+  bool cert = false,
+  bool pay = false,
+}) => YorksAccountsReceivablesCapabilities(
+  canViewValues: values,
+  prepareClientClaim: false,
+  manageClientInvoices: false,
+  recordClientCertification: cert,
+  recordClientPayment: pay,
+  managePdc: false,
+);
 
 const _cmds = YorksAccountsReceivablesCommands(
   createClaimDraft: false,
@@ -65,13 +68,15 @@ YorksAccountsClientInvoiceSummary _invoice() =>
 
 YorksAccountsInvoicesProjection _projection({
   bool values = true,
+  bool cert = false,
+  bool pay = false,
   List<YorksAccountsClientInvoiceSummary>? invoices,
 }) => YorksAccountsInvoicesProjection(
   schemaVersion: 1,
   projectId: 'p1',
   invoices: invoices ?? [_invoice()],
   nextCursor: null,
-  capabilities: _caps(values: values),
+  capabilities: _caps(values: values, cert: cert, pay: pay),
   commands: _cmds,
 );
 
@@ -154,6 +159,98 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_inv_empty')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2InvoicesTab actions', () {
+    testWidgets('records a payment through onPay', (tester) async {
+      _wideSurface(tester);
+      YorksAccountsPaymentInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(cert: true, pay: true),
+            language: en,
+            onCertify: (i) async => null,
+            onPay: (i) async {
+              captured = i;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
+      await tester.ensureVisible(find.text(t('v2_inv_record_payment')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_inv_record_payment')));
+      await tester.pumpAndSettle();
+      // Reference is the third text field (amount, date, reference, note).
+      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.invoiceId, 'i1');
+      expect(captured!.paymentMethod, 'bank_transfer');
+      expect(captured!.paymentReference, 'PAY-1');
+      expect(find.text(t('v2_pay_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('records certification through onCertify', (tester) async {
+      _wideSurface(tester);
+      YorksAccountsCertificationInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(cert: true, pay: true),
+            language: en,
+            onCertify: (i) async {
+              captured = i;
+              return null;
+            },
+            onPay: (i) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text(t('v2_inv_certify')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_inv_certify')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(2), 'CERT-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.invoiceId, 'i1');
+      expect(captured!.certificationReference, 'CERT-1');
+      expect(find.text(t('v2_cert_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no action buttons without the capabilities', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(),
+            language: en,
+            onCertify: (i) async => null,
+            onPay: (i) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_inv_record_payment')), findsNothing);
+      expect(find.text(t('v2_inv_certify')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

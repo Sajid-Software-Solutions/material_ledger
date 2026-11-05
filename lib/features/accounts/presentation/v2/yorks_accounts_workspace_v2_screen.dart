@@ -383,6 +383,8 @@ class _InvoicesBody extends ConsumerWidget {
           child: AccountsV2InvoicesTab(
             projection: projection!,
             language: language,
+            onCertify: controller.certify,
+            onPay: controller.pay,
           ),
         ),
       ],

@@ -3638,6 +3638,116 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'انوائس حوالہ (اختیاری)',
       'hi': 'इनवॉइस संदर्भ (वैकल्पिक)',
     },
+
+    // ─── Invoice certify / pay ─────────────────────────────────────────────
+    'v2_inv_actions': {
+      'en': 'Actions',
+      'ar': 'إجراءات',
+      'ur': 'اعمال',
+      'hi': 'क्रियाएँ',
+    },
+    'v2_inv_certify': {
+      'en': 'Certify',
+      'ar': 'اعتماد',
+      'ur': 'سرٹیفائی',
+      'hi': 'प्रमाणित',
+    },
+    'v2_inv_record_payment': {
+      'en': 'Record payment',
+      'ar': 'تسجيل دفعة',
+      'ur': 'ادائیگی درج کریں',
+      'hi': 'भुगतान दर्ज करें',
+    },
+    'v2_cert_title': {
+      'en': 'Record certification',
+      'ar': 'تسجيل الاعتماد',
+      'ur': 'سرٹیفیکیشن درج کریں',
+      'hi': 'प्रमाणन दर्ज करें',
+    },
+    'v2_cert_amount': {
+      'en': 'Certified amount (excl. VAT)',
+      'ar': 'المبلغ المعتمد (بدون الضريبة)',
+      'ur': 'سرٹیفائیڈ رقم (بدون VAT)',
+      'hi': 'प्रमाणित राशि (VAT रहित)',
+    },
+    'v2_cert_date': {
+      'en': 'Certification date',
+      'ar': 'تاريخ الاعتماد',
+      'ur': 'سرٹیفیکیشن کی تاریخ',
+      'hi': 'प्रमाणन तारीख',
+    },
+    'v2_cert_reference': {
+      'en': 'Certification reference',
+      'ar': 'مرجع الاعتماد',
+      'ur': 'سرٹیفیکیشن حوالہ',
+      'hi': 'प्रमाणन संदर्भ',
+    },
+    'v2_cert_difference_reason': {
+      'en': 'Reason for the difference',
+      'ar': 'سبب الفرق',
+      'ur': 'فرق کی وجہ',
+      'hi': 'अंतर का कारण',
+    },
+    'v2_cert_saved': {
+      'en': 'Certification recorded',
+      'ar': 'تم تسجيل الاعتماد',
+      'ur': 'سرٹیفیکیشن درج ہو گیا',
+      'hi': 'प्रमाणन दर्ज हुआ',
+    },
+    'v2_pay_title': {
+      'en': 'Record payment',
+      'ar': 'تسجيل دفعة',
+      'ur': 'ادائیگی درج کریں',
+      'hi': 'भुगतान दर्ज करें',
+    },
+    'v2_pay_amount': {
+      'en': 'Amount (incl. VAT)',
+      'ar': 'المبلغ (شامل الضريبة)',
+      'ur': 'رقم (بشمول VAT)',
+      'hi': 'राशि (VAT सहित)',
+    },
+    'v2_pay_date': {
+      'en': 'Received date',
+      'ar': 'تاريخ الاستلام',
+      'ur': 'وصولی کی تاریخ',
+      'hi': 'प्राप्ति तारीख',
+    },
+    'v2_pay_method': {
+      'en': 'Method',
+      'ar': 'الطريقة',
+      'ur': 'طریقہ',
+      'hi': 'तरीका',
+    },
+    'v2_pay_method_bank': {
+      'en': 'Bank transfer',
+      'ar': 'تحويل بنكي',
+      'ur': 'بینک ٹرانسفر',
+      'hi': 'बैंक ट्रांसफर',
+    },
+    'v2_pay_method_cash': {
+      'en': 'Cash',
+      'ar': 'نقداً',
+      'ur': 'نقد',
+      'hi': 'नकद',
+    },
+    'v2_pay_reference': {
+      'en': 'Reference',
+      'ar': 'المرجع',
+      'ur': 'حوالہ',
+      'hi': 'संदर्भ',
+    },
+    'v2_pay_reason_opt': {
+      'en': 'Note (optional)',
+      'ar': 'ملاحظة (اختياري)',
+      'ur': 'نوٹ (اختیاری)',
+      'hi': 'नोट (वैकल्पिक)',
+    },
+    'v2_pay_saved': {
+      'en': 'Payment recorded',
+      'ar': 'تم تسجيل الدفعة',
+      'ur': 'ادائیگی درج ہو گئی',
+      'hi': 'भुगतान दर्ज हुआ',
+    },
   };
 
   static String text(AppLanguage language, String key) {

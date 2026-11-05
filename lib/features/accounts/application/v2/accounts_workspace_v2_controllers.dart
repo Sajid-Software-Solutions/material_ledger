@@ -18,6 +18,7 @@ import '../../data/accounts_receivables_repository.dart';
 import '../../data/accounts_records_repository.dart';
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
+import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
 import '../../domain/accounts_supplier_models.dart';
@@ -349,6 +350,33 @@ final class YorksAccountsInvoicesController
         error,
         stackTrace,
       ).copyWithPrevious(state);
+    }
+  }
+
+  /// Records client certification for an invoice. No optimistic success: the
+  /// tracker is re-fetched on the server's confirmation. Returns null on
+  /// success or an error message (a version conflict resolves on reload).
+  Future<String?> certify(YorksAccountsCertificationInput input) async {
+    try {
+      await _repository.recordCertification(
+        input,
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  /// Records a client payment (bank transfer or cash) against an invoice.
+  Future<String?> pay(YorksAccountsPaymentInput input) async {
+    try {
+      await _repository.recordPayment(input, idempotencyKey: const Uuid().v4());
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
     }
   }
 }

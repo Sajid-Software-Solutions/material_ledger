@@ -16,18 +16,31 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
+import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import 'accounts_v2_common.dart';
+
+/// Records client certification; returns null on success or an error message.
+typedef YorksCertifyAction =
+    Future<String?> Function(YorksAccountsCertificationInput input);
+
+/// Records a client payment; returns null on success or an error message.
+typedef YorksPayAction =
+    Future<String?> Function(YorksAccountsPaymentInput input);
 
 class AccountsV2InvoicesTab extends StatelessWidget {
   const AccountsV2InvoicesTab({
     super.key,
     required this.projection,
     required this.language,
+    this.onCertify,
+    this.onPay,
   });
 
   final YorksAccountsInvoicesProjection projection;
   final AppLanguage language;
+  final YorksCertifyAction? onCertify;
+  final YorksPayAction? onPay;
 
   bool get _canValues => projection.capabilities.canViewValues;
 
@@ -67,10 +80,17 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     }
     children.add(
       _TrackerCard(
+        projectId: projection.projectId,
         invoices: projection.invoices,
         canValues: _canValues,
+        canCertify:
+            projection.capabilities.recordClientCertification &&
+            onCertify != null,
+        canPay: projection.capabilities.recordClientPayment && onPay != null,
         language: language,
         format: format,
+        onCertify: onCertify,
+        onPay: onPay,
       ),
     );
 
@@ -188,18 +208,91 @@ class _Kpi extends StatelessWidget {
 
 class _TrackerCard extends StatelessWidget {
   const _TrackerCard({
+    required this.projectId,
     required this.invoices,
     required this.canValues,
+    required this.canCertify,
+    required this.canPay,
     required this.language,
     required this.format,
+    this.onCertify,
+    this.onPay,
   });
 
+  final String projectId;
   final List<YorksAccountsClientInvoiceSummary> invoices;
   final bool canValues;
+  final bool canCertify;
+  final bool canPay;
   final AppLanguage language;
   final AccountsV2Format format;
+  final YorksCertifyAction? onCertify;
+  final YorksPayAction? onPay;
+
+  bool get _showActions => canCertify || canPay;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  bool _canCertify(YorksAccountsClientInvoiceSummary inv) =>
+      canCertify &&
+      const {
+        YorksAccountsInvoiceStatus.submitted,
+        YorksAccountsInvoiceStatus.underCertification,
+        YorksAccountsInvoiceStatus.partiallyCertified,
+        YorksAccountsInvoiceStatus.certified,
+      }.contains(inv.status);
+
+  bool _canPay(YorksAccountsClientInvoiceSummary inv) =>
+      canPay &&
+      const {
+        YorksAccountsInvoiceStatus.certified,
+        YorksAccountsInvoiceStatus.partiallyCertified,
+        YorksAccountsInvoiceStatus.partiallyPaid,
+      }.contains(inv.status);
+
+  Future<void> _report(
+    BuildContext context,
+    String? error,
+    String okKey,
+  ) async {
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+      ),
+    );
+  }
+
+  Future<void> _certify(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final input = await showDialog<YorksAccountsCertificationInput>(
+      context: context,
+      builder: (_) => _CertifyDialog(
+        projectId: projectId,
+        invoice: inv,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onCertify!(input);
+    if (context.mounted) await _report(context, error, 'v2_cert_saved');
+  }
+
+  Future<void> _pay(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final input = await showDialog<YorksAccountsPaymentInput>(
+      context: context,
+      builder: (_) =>
+          _PayDialog(projectId: projectId, invoice: inv, language: language),
+    );
+    if (input == null) return;
+    final error = await onPay!(input);
+    if (context.mounted) await _report(context, error, 'v2_pay_saved');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -217,6 +310,7 @@ class _TrackerCard extends StatelessWidget {
         DataColumn(label: Text(_t('v2_inv_col_balance')), numeric: true),
       ],
       DataColumn(label: Text(_t('v2_inv_col_status'))),
+      if (_showActions) DataColumn(label: Text(_t('v2_inv_actions'))),
     ];
 
     return AccountsV2Card(
@@ -284,6 +378,24 @@ class _TrackerCard extends StatelessWidget {
                       DataCell(
                         _StatusChip(status: inv.status, language: language),
                       ),
+                      if (_showActions)
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_canCertify(inv))
+                                TextButton(
+                                  onPressed: () => _certify(context, inv),
+                                  child: Text(_t('v2_inv_certify')),
+                                ),
+                              if (_canPay(inv))
+                                TextButton(
+                                  onPressed: () => _pay(context, inv),
+                                  child: Text(_t('v2_inv_record_payment')),
+                                ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
               ],
@@ -400,6 +512,284 @@ class _Empty extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Certify / pay dialogs ───────────────────────────────────────────────────
+
+String _todayIso() {
+  final d = DateTime.now();
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)}';
+}
+
+class _CertifyDialog extends StatefulWidget {
+  const _CertifyDialog({
+    required this.projectId,
+    required this.invoice,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsClientInvoiceSummary invoice;
+  final AppLanguage language;
+
+  @override
+  State<_CertifyDialog> createState() => _CertifyDialogState();
+}
+
+class _CertifyDialogState extends State<_CertifyDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _date;
+  final _reference = TextEditingController();
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = TextEditingController(
+      text: widget.invoice.claimedExVat.canonicalText,
+    );
+    _date = TextEditingController(text: _todayIso());
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsCertificationInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    final reason = _reason.text.trim();
+    return YorksAccountsCertificationInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoice.invoiceId,
+      expectedVersion: widget.invoice.recordVersion,
+      certifiedExVat: amount,
+      certificationDate: date,
+      certificationReference: _reference.text.trim(),
+      differenceReason: reason.isEmpty ? null : reason,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid =
+        input != null &&
+        input.isValidAgainstClaimed(widget.invoice.claimedExVat);
+    return AlertDialog(
+      title: Text(_t('v2_cert_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DialogField(
+            label: _t('v2_cert_amount'),
+            controller: _amount,
+            numeric: true,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_cert_date'),
+            controller: _date,
+            hint: 'YYYY-MM-DD',
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_cert_reference'),
+            controller: _reference,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_cert_difference_reason'),
+            controller: _reason,
+            onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _PayDialog extends StatefulWidget {
+  const _PayDialog({
+    required this.projectId,
+    required this.invoice,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsClientInvoiceSummary invoice;
+  final AppLanguage language;
+
+  @override
+  State<_PayDialog> createState() => _PayDialogState();
+}
+
+class _PayDialogState extends State<_PayDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _date;
+  final _reference = TextEditingController();
+  final _reason = TextEditingController();
+  String _method = 'bank_transfer';
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = TextEditingController(
+      text: widget.invoice.stillDue.canonicalText,
+    );
+    _date = TextEditingController(text: _todayIso());
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPaymentInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    final reason = _reason.text.trim();
+    return YorksAccountsPaymentInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoice.invoiceId,
+      expectedVersion: widget.invoice.recordVersion,
+      paymentDate: date,
+      amount: amount,
+      paymentMethod: _method,
+      paymentReference: _reference.text.trim(),
+      reason: reason.isEmpty ? null : reason,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pay_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DialogField(
+            label: _t('v2_pay_amount'),
+            controller: _amount,
+            numeric: true,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_date'),
+            controller: _date,
+            hint: 'YYYY-MM-DD',
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<String>(
+            initialValue: _method,
+            decoration: InputDecoration(
+              labelText: _t('v2_pay_method'),
+              border: const OutlineInputBorder(),
+            ),
+            items: [
+              DropdownMenuItem(
+                value: 'bank_transfer',
+                child: Text(_t('v2_pay_method_bank')),
+              ),
+              DropdownMenuItem(
+                value: 'cash',
+                child: Text(_t('v2_pay_method_cash')),
+              ),
+            ],
+            onChanged: (v) => setState(() => _method = v ?? 'bank_transfer'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reference'),
+            controller: _reference,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reason_opt'),
+            controller: _reason,
+            onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogField extends StatelessWidget {
+  const _DialogField({
+    required this.label,
+    required this.controller,
+    this.numeric = false,
+    this.hint,
+    this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool numeric;
+  final String? hint;
+  final VoidCallback? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: numeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      onChanged: onChanged == null ? null : (_) => onChanged!(),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        isDense: true,
       ),
     );
   }
