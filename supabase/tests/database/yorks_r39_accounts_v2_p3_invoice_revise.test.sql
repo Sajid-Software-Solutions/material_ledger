@@ -60,6 +60,15 @@ insert into v1_r39_p3r select 'revise', public.v1_revise_client_invoice('39a1000
 reset role;
 select is((select payload->>'status' from v1_r39_p3r where result_key='revise'),'draft','Revise creates a successor draft claim');
 
+-- Regression: a workbench save must not delete the in-flight revise successor draft.
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
+select public.v1_save_claim_workbench('39a10000-0000-4000-8000-000000000001','CLM-WB-REG',date '2026-09-05',date '2026-09-25','[]'::jsonb,array[]::uuid[],'Workbench during revision','39f90000-0000-4000-8000-00000000006c');
+reset role;
+select ok(exists(select 1 from public.v1_accounts_client_claims
+  where id=(select (payload->>'successor_claim_id')::uuid from v1_r39_p3r where result_key='revise')),
+  'A workbench save does not delete the in-flight revise successor draft');
+
 -- Submit and issue the successor -> R.1, predecessor superseded. The successor
 -- claim was created by the admin reviser, so admin submits and issues it.
 set local role authenticated;

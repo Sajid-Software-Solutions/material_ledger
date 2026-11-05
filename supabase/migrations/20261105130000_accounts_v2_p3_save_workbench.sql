@@ -177,8 +177,11 @@ begin
     end if;
   end loop;
 
-  -- Rebuild the single open draft claim from current availability.
-  delete from public.v1_accounts_client_claims where project_id = p_project_id and status = 'draft';
+  -- Rebuild the single open workbench draft from current availability. A revise
+  -- successor draft (supersedes_claim_id set) is a different, in-flight claim and
+  -- must never be deleted here.
+  delete from public.v1_accounts_client_claims
+  where project_id = p_project_id and status = 'draft' and supersedes_claim_id is null;
 
   select coalesce(jsonb_agg(jsonb_build_object(
       'progress_entry_id', line.id,
