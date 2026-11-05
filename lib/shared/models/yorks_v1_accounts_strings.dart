@@ -3231,6 +3231,144 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'جائزہ درکار',
       'hi': 'समीक्षा आवश्यक',
     },
+
+    // ─── Invoices & payments tab ───────────────────────────────────────────
+    'v2_inv_kpi_invoiced': {
+      'en': 'Invoiced (incl. VAT)',
+      'ar': 'مفوتر (شامل الضريبة)',
+      'ur': 'انوائس شدہ (بشمول VAT)',
+      'hi': 'इनवॉइस (VAT सहित)',
+    },
+    'v2_inv_kpi_certified': {
+      'en': 'Certified',
+      'ar': 'معتمد',
+      'ur': 'سرٹیفائیڈ',
+      'hi': 'प्रमाणित',
+    },
+    'v2_inv_kpi_cheques': {
+      'en': 'Cheques in hand',
+      'ar': 'شيكات في اليد',
+      'ur': 'ہاتھ میں چیکس',
+      'hi': 'हाथ में चेक',
+    },
+    'v2_inv_kpi_due': {
+      'en': 'Still due',
+      'ar': 'المستحق',
+      'ur': 'باقی واجب',
+      'hi': 'बकाया',
+    },
+    'v2_inv_empty': {
+      'en':
+          'No invoices yet. Issue one from a checked claim in Progress & claims.',
+      'ar':
+          'لا توجد فواتير بعد. أصدر فاتورة من مطالبة مدققة في التقدم والمطالبات.',
+      'ur':
+          'ابھی کوئی انوائس نہیں۔ پیشرفت اور کلیمز میں چیک شدہ کلیم سے انوائس جاری کریں۔',
+      'hi':
+          'अभी कोई इनवॉइस नहीं। प्रगति और क्लेम में जाँचे गए क्लेम से इनवॉइस जारी करें।',
+    },
+    'v2_inv_col_invoice': {
+      'en': 'Invoice',
+      'ar': 'الفاتورة',
+      'ur': 'انوائس',
+      'hi': 'इनवॉइस',
+    },
+    'v2_inv_col_submitted': {
+      'en': 'Submitted',
+      'ar': 'مُقدَّمة',
+      'ur': 'جمع شدہ',
+      'hi': 'सबमिट',
+    },
+    'v2_inv_col_excl': {
+      'en': 'Excl VAT',
+      'ar': 'بدون ضريبة',
+      'ur': 'بدون VAT',
+      'hi': 'VAT रहित',
+    },
+    'v2_inv_col_incl': {
+      'en': 'Incl VAT',
+      'ar': 'شامل الضريبة',
+      'ur': 'بشمول VAT',
+      'hi': 'VAT सहित',
+    },
+    'v2_inv_col_due': {
+      'en': 'Due',
+      'ar': 'الاستحقاق',
+      'ur': 'واجب الادا',
+      'hi': 'देय',
+    },
+    'v2_inv_col_balance': {
+      'en': 'Balance',
+      'ar': 'الرصيد',
+      'ur': 'بیلنس',
+      'hi': 'शेष',
+    },
+    'v2_inv_col_status': {
+      'en': 'Status',
+      'ar': 'الحالة',
+      'ur': 'اسٹیٹس',
+      'hi': 'स्थिति',
+    },
+    'v2_inv_status_draft': {
+      'en': 'Draft',
+      'ar': 'مسودة',
+      'ur': 'ڈرافٹ',
+      'hi': 'ड्राफ्ट',
+    },
+    'v2_inv_status_submitted': {
+      'en': 'Submitted',
+      'ar': 'مُقدَّمة',
+      'ur': 'جمع شدہ',
+      'hi': 'सबमिट',
+    },
+    'v2_inv_status_under_certification': {
+      'en': 'Under certification',
+      'ar': 'قيد الاعتماد',
+      'ur': 'سرٹیفیکیشن کے تحت',
+      'hi': 'प्रमाणन में',
+    },
+    'v2_inv_status_partially_certified': {
+      'en': 'Part certified',
+      'ar': 'معتمد جزئياً',
+      'ur': 'جزوی سرٹیفائیڈ',
+      'hi': 'आंशिक प्रमाणित',
+    },
+    'v2_inv_status_certified': {
+      'en': 'Certified',
+      'ar': 'معتمد',
+      'ur': 'سرٹیفائیڈ',
+      'hi': 'प्रमाणित',
+    },
+    'v2_inv_status_partially_paid': {
+      'en': 'Part paid',
+      'ar': 'مدفوع جزئياً',
+      'ur': 'جزوی ادا',
+      'hi': 'आंशिक भुगतान',
+    },
+    'v2_inv_status_paid': {
+      'en': 'Paid',
+      'ar': 'مدفوع',
+      'ur': 'ادا شدہ',
+      'hi': 'भुगतान',
+    },
+    'v2_inv_status_returned': {
+      'en': 'Returned',
+      'ar': 'مُعادة',
+      'ur': 'واپس',
+      'hi': 'वापस',
+    },
+    'v2_inv_status_cancelled': {
+      'en': 'Cancelled',
+      'ar': 'ملغاة',
+      'ur': 'منسوخ',
+      'hi': 'रद्द',
+    },
+    'v2_inv_overdue': {
+      'en': 'Overdue',
+      'ar': 'متأخرة',
+      'ur': 'واجب الادا',
+      'hi': 'अतिदेय',
+    },
   };
 
   static String text(AppLanguage language, String key) {

@@ -13,11 +13,14 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
+import '../../data/accounts_receivables_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
+import '../../domain/accounts_receivables_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_providers.dart';
+import '../accounts_receivables_providers.dart';
 
 /// Repository for the V2 RPCs. Null when Supabase is not configured, so the
 /// release build stays fail-closed rather than rendering an empty workspace.
@@ -217,6 +220,62 @@ final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsWorkbenchController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads and refreshes the client invoice tracker behind the Invoices &
+/// payments tab. It reuses the existing receivables repository (the invoice
+/// list already carries ex/incl VAT, certified, paid, balance and PDC exposure
+/// per invoice), so the tab needs no new read.
+final class YorksAccountsInvoicesController
+    extends StateNotifier<AsyncValue<YorksAccountsInvoicesProjection>> {
+  YorksAccountsInvoicesController({
+    required YorksAccountsReceivablesRepository repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsReceivablesRepository _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsInvoicesProjection>.loading();
+    await _fetch();
+  }
+
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    try {
+      final projection = await _repository.listInvoices(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsInvoicesProjection>.data(projection);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsInvoicesProjection>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+}
+
+final yorksAccountsInvoicesControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsInvoicesController,
+      AsyncValue<YorksAccountsInvoicesProjection>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsInvoicesController(
+        repository: ref.watch(yorksAccountsReceivablesRepositoryProvider),
         projectId: projectId,
       );
     });
