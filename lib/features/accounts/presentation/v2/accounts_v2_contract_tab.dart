@@ -17,21 +17,48 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
+import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import 'accounts_v2_common.dart';
 
-class AccountsV2ContractTab extends StatelessWidget {
+class AccountsV2ContractTab extends StatefulWidget {
   const AccountsV2ContractTab({
     super.key,
     required this.setup,
     required this.language,
+    this.canEdit = false,
+    this.onSave,
   });
 
   final YorksAccountsCommercialSetupRead setup;
   final AppLanguage language;
 
+  /// Whether the actor may configure commercials (configure_project_commercials).
+  final bool canEdit;
+
+  /// Saves the edited setup; returns null on success or an error message.
+  final Future<String?> Function(YorksAccountsCommercialSetup setup)? onSave;
+
+  @override
+  State<AccountsV2ContractTab> createState() => _AccountsV2ContractTabState();
+}
+
+class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
+  bool _editing = false;
+
+  bool get _hasItemsStage => widget.setup.stages.any((s) => s.isItemsMode);
+  bool get _canEdit =>
+      widget.canEdit &&
+      widget.onSave != null &&
+      widget.setup.hasCommercialValues &&
+      !_hasItemsStage;
+  bool get _itemsBlocked =>
+      widget.canEdit && widget.setup.hasCommercialValues && _hasItemsStage;
+
   @override
   Widget build(BuildContext context) {
+    final setup = widget.setup;
+    final language = widget.language;
     final format = AccountsV2Format(currencyCode: setup.currencyCode ?? 'AED');
 
     if (!setup.hasCommercialValues) {
@@ -41,7 +68,29 @@ class AccountsV2ContractTab extends StatelessWidget {
       );
     }
 
+    if (_editing) {
+      return _ContractEditor(
+        setup: setup,
+        language: language,
+        onCancel: () => setState(() => _editing = false),
+        onSave: (form) async {
+          final error = await widget.onSave!(form);
+          if (mounted && error == null) setState(() => _editing = false);
+          return error;
+        },
+      );
+    }
+
     final main = <Widget>[
+      if (_canEdit || _itemsBlocked) ...[
+        _EditBar(
+          language: language,
+          canEdit: _canEdit,
+          itemsBlocked: _itemsBlocked,
+          onEdit: () => setState(() => _editing = true),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+      ],
       _ContractHeaderCard(setup: setup, language: language, format: format),
       const SizedBox(height: AppSpacing.lg),
       _BuildingsCard(setup: setup, language: language, format: format),
@@ -716,6 +765,369 @@ class _CommercialHidden extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Edit bar ────────────────────────────────────────────────────────────────
+
+class _EditBar extends StatelessWidget {
+  const _EditBar({
+    required this.language,
+    required this.canEdit,
+    required this.itemsBlocked,
+    required this.onEdit,
+  });
+
+  final AppLanguage language;
+  final bool canEdit;
+  final bool itemsBlocked;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (itemsBlocked) {
+      return AccountsV2Card(
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, size: 18, color: AppColors.muted),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                accountsV2Text(language, 'v2_edit_items_blocked'),
+                style: AppTypography.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FilledButton.icon(
+        onPressed: onEdit,
+        icon: const Icon(Icons.edit_outlined, size: 16),
+        label: Text(accountsV2Text(language, 'v2_edit')),
+      ),
+    );
+  }
+}
+
+// ─── Editor (percent-mode) ───────────────────────────────────────────────────
+
+class _ContractEditor extends StatefulWidget {
+  const _ContractEditor({
+    required this.setup,
+    required this.language,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final YorksAccountsCommercialSetupRead setup;
+  final AppLanguage language;
+  final VoidCallback onCancel;
+  final Future<String?> Function(YorksAccountsCommercialSetup setup) onSave;
+
+  @override
+  State<_ContractEditor> createState() => _ContractEditorState();
+}
+
+class _ContractEditorState extends State<_ContractEditor> {
+  late final TextEditingController _contract;
+  late final TextEditingController _vat;
+  late final TextEditingController _terms;
+  late final TextEditingController _reminder;
+  final Map<String, TextEditingController> _building = {};
+  final Map<String, TextEditingController> _stage = {};
+  bool _saving = false;
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.setup;
+    _contract = TextEditingController(
+      text: s.contractValue?.canonicalText ?? '',
+    );
+    _vat = TextEditingController(text: s.vatRatePercent?.canonicalText ?? '');
+    _terms = TextEditingController(text: s.paymentTermsDays?.toString() ?? '');
+    _reminder = TextEditingController(
+      text: s.reminderLeadDays?.toString() ?? '',
+    );
+    for (final b in s.buildings) {
+      _building[b.projectScopeId] = TextEditingController(
+        text: b.allocationPercent.canonicalText,
+      );
+    }
+    for (final st in s.stages) {
+      _stage[st.stageKey] = TextEditingController(
+        text: st.allocationPercent.canonicalText,
+      );
+    }
+    for (final c in _liveControllers) {
+      c.addListener(_onChanged);
+    }
+  }
+
+  Iterable<TextEditingController> get _liveControllers => [
+    _contract,
+    _vat,
+    ..._building.values,
+    ..._stage.values,
+  ];
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in [
+      _contract,
+      _vat,
+      _terms,
+      _reminder,
+      ..._building.values,
+      ..._stage.values,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  YorksAccountsDecimal _dec(TextEditingController c) =>
+      YorksAccountsDecimal.tryParse(c.text.trim()) ?? YorksAccountsDecimal.zero;
+
+  YorksAccountsCommercialSetup _model() {
+    final s = widget.setup;
+    return YorksAccountsCommercialSetup(
+      contractValue: _dec(_contract),
+      currencyCode: s.currencyCode ?? 'AED',
+      vatRatePercent: _dec(_vat),
+      paymentTermsDays: int.tryParse(_terms.text.trim()),
+      reminderLeadDays: int.tryParse(_reminder.text.trim()),
+      buildings: [
+        for (final b in s.buildings)
+          YorksAccountsSetupBuilding(
+            buildingScopeId: b.projectScopeId,
+            allocationPercent: _dec(_building[b.projectScopeId]!),
+          ),
+      ],
+      stages: [
+        for (final st in s.stages)
+          YorksAccountsSetupStage(
+            stageKey: st.stageKey,
+            stageLabel: st.stageName,
+            allocationPercent: _dec(_stage[st.stageKey]!),
+            position: st.displayOrder,
+            measurementMode: 'percent',
+            items: const [],
+          ),
+      ],
+    );
+  }
+
+  Future<void> _save() async {
+    final model = _model();
+    if (!model.isValid) return;
+    setState(() => _saving = true);
+    final error = await widget.onSave(model);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(error == null ? _t('v2_saved') : _t('v2_save_failed')),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.setup;
+    final model = _model();
+    final hundred = YorksAccountsDecimal.hundred;
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      children: [
+        AccountsV2Card(
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(_t('v2_edit_note'), style: AppTypography.bodySmall),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(_t('v2_contract_summary_title')),
+              const SizedBox(height: AppSpacing.md),
+              _EditField(
+                label: _t('v2_contract_value'),
+                controller: _contract,
+                numeric: true,
+              ),
+              _EditField(
+                label: _t('v2_vat_label'),
+                controller: _vat,
+                numeric: true,
+              ),
+              _EditField(
+                label: _t('v2_payment_terms_label'),
+                controller: _terms,
+                numeric: true,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(
+                _t('v2_buildings_title'),
+                trailing: _PercentBadge(
+                  percent: model.buildingTotal,
+                  ok: model.buildingTotal == hundred,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (final b in s.buildings)
+                _EditField(
+                  label: b.name,
+                  controller: _building[b.projectScopeId]!,
+                  numeric: true,
+                  suffix: '%',
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(
+                _t('v2_stages_title'),
+                trailing: _PercentBadge(
+                  percent: model.stageTotal,
+                  ok: model.stageTotal == hundred,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (final st in s.stages)
+                _EditField(
+                  label: st.stageName,
+                  controller: _stage[st.stageKey]!,
+                  numeric: true,
+                  suffix: '%',
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(_t('v2_setup_check_title')),
+              const SizedBox(height: AppSpacing.sm),
+              for (final check in model.validate())
+                _CheckRow(
+                  label: _t(_checkLabelKey(check.key)),
+                  ok: check.ok,
+                  detail: check.detail,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Row(
+          children: [
+            FilledButton(
+              onPressed: (_saving || !model.isValid) ? null : _save,
+              child: Text(_saving ? _t('v2_saving') : _t('v2_save')),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: _saving ? null : widget.onCancel,
+              child: Text(_t('v2_cancel')),
+            ),
+            if (_saving) ...[
+              const SizedBox(width: AppSpacing.md),
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  static String _checkLabelKey(String key) => switch (key) {
+    'contract_value' => 'v2_check_contract',
+    'buildings_total' => 'v2_check_buildings',
+    'stages_total' => 'v2_check_stages',
+    _ => key,
+  };
+}
+
+class _EditField extends StatelessWidget {
+  const _EditField({
+    required this.label,
+    required this.controller,
+    this.numeric = false,
+    this.suffix,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool numeric;
+  final String? suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppTypography.bodyMedium)),
+          SizedBox(
+            width: 160,
+            child: TextField(
+              controller: controller,
+              keyboardType: numeric
+                  ? const TextInputType.numberWithOptions(decimal: true)
+                  : TextInputType.text,
+              textAlign: TextAlign.end,
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: suffix,
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.sm,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

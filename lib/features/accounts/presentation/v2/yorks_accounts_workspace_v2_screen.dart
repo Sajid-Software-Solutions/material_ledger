@@ -273,12 +273,21 @@ class _ContractBody extends ConsumerWidget {
     if (state.hasError && setup == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
+    final data = setup!;
     return Column(
       children: [
         if (state.hasError)
           _ErrorBanner(language: language, onRetry: controller.load),
         Expanded(
-          child: AccountsV2ContractTab(setup: setup!, language: language),
+          child: AccountsV2ContractTab(
+            setup: data,
+            language: language,
+            canEdit: data.canConfigure,
+            onSave: (form) => controller.saveSetup(
+              setup: form,
+              expectedProfileVersion: data.profileVersion,
+            ),
+          ),
         ),
       ],
     );

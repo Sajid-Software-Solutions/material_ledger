@@ -11,6 +11,7 @@
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../data/accounts_receivables_repository.dart';
@@ -22,6 +23,7 @@ import '../../domain/accounts_records_models.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_providers.dart';
 import '../accounts_receivables_providers.dart';
@@ -148,6 +150,33 @@ final class YorksAccountsContractController
         error,
         stackTrace,
       ).copyWithPrevious(state);
+    }
+  }
+
+  /// Saves the edited commercial setup. There is no optimistic success: the
+  /// server is authoritative, and on success we re-fetch the confirmed values.
+  /// Returns null on success or an error message (including a version conflict,
+  /// which the caller resolves by reloading). The idempotency key makes a retry
+  /// of the same save a no-op on the server.
+  Future<String?> saveSetup({
+    required YorksAccountsCommercialSetup setup,
+    int? expectedProfileVersion,
+    String? note,
+  }) async {
+    final repository = _repository;
+    if (repository == null) return 'accounts_backend_unavailable';
+    try {
+      await repository.saveCommercialSetup(
+        projectId: _projectId,
+        expectedProfileVersion: expectedProfileVersion,
+        setup: setup.toSetupJson(),
+        note: note,
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
     }
   }
 }

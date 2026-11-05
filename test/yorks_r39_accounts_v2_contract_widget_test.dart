@@ -6,6 +6,8 @@ import 'package:material_ledger/features/accounts/application/v2/accounts_worksp
 import 'package:material_ledger/features/accounts/data/accounts_repository.dart'
     show YorksAccountsRpcClient;
 import 'package:material_ledger/features/accounts/data/v2/accounts_workspace_repository.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
+import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_contract_tab.dart';
@@ -99,6 +101,56 @@ Map<String, dynamic> _setupJson({bool commercial = true}) {
   };
 }
 
+/// A valid 100%/100% all-percent setup (no items-mode stages), so the editor
+/// Save is enabled.
+Map<String, dynamic> _percentSetupJson() {
+  final json = _setupJson();
+  json['stages'] = [
+    {
+      'stage_key': 'design',
+      'stage_name': 'Design',
+      'display_order': 1,
+      'measurement_mode': 'percent',
+      'allocation_percent': '10.0000',
+      'value': '100000.00',
+    },
+    {
+      'stage_key': 'material_supply',
+      'stage_name': 'Material Supply',
+      'display_order': 2,
+      'measurement_mode': 'percent',
+      'allocation_percent': '50.0000',
+      'value': '500000.00',
+    },
+    {
+      'stage_key': 'installation',
+      'stage_name': 'Installation',
+      'display_order': 3,
+      'measurement_mode': 'percent',
+      'allocation_percent': '30.0000',
+      'value': '300000.00',
+    },
+    {
+      'stage_key': 'commissioning_handover',
+      'stage_name': 'Commissioning and Handover',
+      'display_order': 4,
+      'measurement_mode': 'percent',
+      'allocation_percent': '5.0000',
+      'value': '50000.00',
+    },
+    {
+      'stage_key': 'energizing',
+      'stage_name': 'Energizing',
+      'display_order': 5,
+      'measurement_mode': 'percent',
+      'allocation_percent': '5.0000',
+      'value': '50000.00',
+    },
+  ];
+  json['items'] = <dynamic>[];
+  return json;
+}
+
 final class _FakeRpc implements YorksAccountsRpcClient {
   _FakeRpc(this.response);
   final Map<String, dynamic> response;
@@ -167,6 +219,71 @@ void main() {
       expect(find.text(t('v2_commercial_hidden')), findsOneWidget);
       expect(find.text('AED 1,000,000.00'), findsNothing);
       expect(find.text(t('v2_setup_check_title')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2ContractTab editing', () {
+    testWidgets('percent-mode contract saves through onSave', (tester) async {
+      _wideSurface(tester);
+      final setup = YorksAccountsCommercialSetupRead.fromJson(
+        _percentSetupJson(),
+      );
+      YorksAccountsCommercialSetup? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ContractTab(
+            setup: setup,
+            language: en,
+            canEdit: true,
+            onSave: (m) async {
+              captured = m;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_edit')), findsOneWidget);
+      await tester.tap(find.text(t('v2_edit')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_edit_note')), findsOneWidget);
+      await tester.tap(find.text(t('v2_save')));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.contractValue, YorksAccountsDecimal.parse('1000000.00'));
+      expect(captured!.buildingTotal, YorksAccountsDecimal.hundred);
+      expect(captured!.stageTotal, YorksAccountsDecimal.hundred);
+      expect(
+        captured!.stages.every((s) => s.measurementMode == 'percent'),
+        isTrue,
+      );
+      expect(find.text(t('v2_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('items-mode contract shows the editing-blocked note', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final setup = YorksAccountsCommercialSetupRead.fromJson(_setupJson());
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ContractTab(
+            setup: setup,
+            language: en,
+            canEdit: true,
+            onSave: (m) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_edit_items_blocked')), findsOneWidget);
+      expect(find.text(t('v2_edit')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
