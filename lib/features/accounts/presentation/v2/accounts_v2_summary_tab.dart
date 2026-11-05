@@ -907,9 +907,9 @@ class _HeatCell extends StatelessWidget {
             border: Border.all(color: AppColors.line),
           ),
           child: Text(
-            cell == null
-                ? '—'
-                : format.percentOfRatio(alpha, fractionDigits: 0),
+            // Label shows the real invoiced percent (which can exceed 100% on
+            // an over-claim); only the fill uses the clamped alpha.
+            cell == null ? '—' : '${percentValue.toStringAsFixed(0)}%',
             style: AppTypography.labelLarge.copyWith(
               color: cell == null ? AppColors.muted : textColor,
               fontFeatures: const [FontFeature.tabularFigures()],

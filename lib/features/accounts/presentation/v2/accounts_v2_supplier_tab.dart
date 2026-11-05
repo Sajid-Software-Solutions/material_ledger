@@ -465,19 +465,13 @@ class _SupplierPayDialogState extends State<_SupplierPayDialog> {
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
-  static String _todayIso() {
-    final d = DateTime.now();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)}';
-  }
-
   @override
   void initState() {
     super.initState();
     _amount = TextEditingController(
       text: widget.bill.outstandingAmount.canonicalText,
     );
-    _date = TextEditingController(text: _todayIso());
+    _date = TextEditingController(text: accountsV2TodayIso());
   }
 
   @override

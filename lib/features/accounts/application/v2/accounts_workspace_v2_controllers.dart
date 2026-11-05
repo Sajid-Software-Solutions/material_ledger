@@ -160,9 +160,10 @@ final class YorksAccountsContractController
 
   /// Saves the edited commercial setup. There is no optimistic success: the
   /// server is authoritative, and on success we re-fetch the confirmed values.
-  /// Returns null on success or an error message (including a version conflict,
-  /// which the caller resolves by reloading). The idempotency key makes a retry
-  /// of the same save a no-op on the server.
+  /// Returns null on success or an error message. Concurrency is guarded by the
+  /// expected profile version (a stale save is rejected); each attempt carries a
+  /// fresh idempotency key, so an automatic retry is not yet a persisted replay
+  /// (a follow-up can thread YorksV1CriticalCommandKeyStore like the V1 flow).
   Future<String?> saveSetup({
     required YorksAccountsCommercialSetup setup,
     int? expectedProfileVersion,
@@ -181,6 +182,9 @@ final class YorksAccountsContractController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -270,6 +274,9 @@ final class YorksAccountsWorkbenchController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -295,6 +302,9 @@ final class YorksAccountsWorkbenchController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -327,6 +337,9 @@ final class YorksAccountsWorkbenchController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -356,6 +369,9 @@ final class YorksAccountsWorkbenchController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -434,6 +450,9 @@ final class YorksAccountsInvoicesController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -445,6 +464,9 @@ final class YorksAccountsInvoicesController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }
@@ -529,6 +551,9 @@ final class YorksAccountsSupplierBillsController
       await load();
       return null;
     } catch (error) {
+      // Re-fetch so a version conflict (or any failure) leaves the current
+      // server state on screen rather than the stale pre-command projection.
+      await refresh();
       return error.toString();
     }
   }

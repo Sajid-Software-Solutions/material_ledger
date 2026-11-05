@@ -1037,16 +1037,10 @@ class _ProgressEditorState extends State<_ProgressEditor> {
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
-  static String _todayIso() {
-    final d = DateTime.now();
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${d.year}-${two(d.month)}-${two(d.day)}';
-  }
-
   @override
   void initState() {
     super.initState();
-    final today = _todayIso();
+    final today = accountsV2TodayIso();
     _start = TextEditingController(text: today);
     _end = TextEditingController(text: today);
     for (final c in widget.cells) {
@@ -1107,6 +1101,10 @@ class _ProgressEditorState extends State<_ProgressEditor> {
 
   Future<void> _save() async {
     final entries = _entries();
+    // Capture the messenger before the await: on success the parent leaves edit
+    // mode and disposes this editor, so a post-await `mounted` guard would
+    // swallow the confirmation toast.
+    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _saving = true);
     final error = await widget.onSave(
       periodStart: _start.text.trim(),
@@ -1115,9 +1113,8 @@ class _ProgressEditorState extends State<_ProgressEditor> {
       evidenceDocumentIds: _evidence.toList(growable: false),
       reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
     );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    if (mounted) setState(() => _saving = false);
+    messenger?.showSnackBar(
       SnackBar(
         content: Text(
           error == null ? _t('v2_progress_saved') : _t('v2_action_failed'),

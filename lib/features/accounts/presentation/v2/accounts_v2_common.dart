@@ -20,6 +20,13 @@ import '../../domain/accounts_decimal.dart';
 String accountsV2Text(AppLanguage language, String key) =>
     YorksV1AccountsStrings.text(language, key);
 
+/// Today as a `YYYY-MM-DD` string, the format the accounts date inputs use.
+String accountsV2TodayIso() {
+  final d = DateTime.now();
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)}';
+}
+
 /// The six job-shaped tabs, in prototype order.
 enum YorksAccountsWorkspaceV2Tab {
   summary('v2_tab_summary', Icons.dashboard_outlined),

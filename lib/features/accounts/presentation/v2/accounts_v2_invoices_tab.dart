@@ -548,12 +548,6 @@ class _Empty extends StatelessWidget {
 
 // ─── Certify / pay dialogs ───────────────────────────────────────────────────
 
-String _todayIso() {
-  final d = DateTime.now();
-  String two(int v) => v.toString().padLeft(2, '0');
-  return '${d.year}-${two(d.month)}-${two(d.day)}';
-}
-
 class _CertifyDialog extends StatefulWidget {
   const _CertifyDialog({
     required this.projectId,
@@ -583,7 +577,7 @@ class _CertifyDialogState extends State<_CertifyDialog> {
     _amount = TextEditingController(
       text: widget.invoice.claimedExVat.canonicalText,
     );
-    _date = TextEditingController(text: _todayIso());
+    _date = TextEditingController(text: accountsV2TodayIso());
   }
 
   @override
@@ -693,7 +687,7 @@ class _PayDialogState extends State<_PayDialog> {
     _amount = TextEditingController(
       text: widget.invoice.stillDue.canonicalText,
     );
-    _date = TextEditingController(text: _todayIso());
+    _date = TextEditingController(text: accountsV2TodayIso());
   }
 
   @override

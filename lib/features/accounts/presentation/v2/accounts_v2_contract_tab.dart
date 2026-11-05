@@ -942,16 +942,18 @@ class _ContractEditorState extends State<_ContractEditor> {
   Future<void> _save() async {
     final model = _model();
     if (!model.isValid) return;
+    // Capture the messenger before the await: on success the parent flips out
+    // of edit mode and disposes this editor, so a post-await `mounted` guard
+    // would swallow the confirmation toast.
+    final messenger = ScaffoldMessenger.maybeOf(context);
     setState(() => _saving = true);
     final error = await widget.onSave(model);
-    if (!mounted) return;
-    setState(() => _saving = false);
-    final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.showSnackBar(
       SnackBar(
         content: Text(error == null ? _t('v2_saved') : _t('v2_save_failed')),
       ),
     );
+    if (mounted) setState(() => _saving = false);
   }
 
   @override
