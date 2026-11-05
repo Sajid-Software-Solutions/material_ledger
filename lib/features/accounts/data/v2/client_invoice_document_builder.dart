@@ -55,6 +55,8 @@ abstract final class YorksClientInvoiceDocumentBuilder {
           _amountInWordsLine(doc.amounts.totalInclVat, currency),
           pw.SizedBox(height: 18),
           _bankBlock(doc),
+          // Summary matrix + per-building breakdown (absent on legacy snapshots).
+          ..._summaryPages(doc, currency),
         ],
       ),
     );
@@ -304,6 +306,194 @@ abstract final class YorksClientInvoiceDocumentBuilder {
         _metaColumn(rows),
       ],
     );
+  }
+
+  // ─── Summary + per-building pages (schema_version 2) ─────────────────────
+
+  static const _navy = 0xFF0D2F57;
+
+  static List<pw.Widget> _summaryPages(
+    YorksClientInvoiceDocumentModel doc,
+    String currency,
+  ) {
+    final summary = doc.summary;
+    if (summary == null || doc.buildings.isEmpty) return const [];
+    return [
+      pw.NewPage(),
+      _sectionTitle('Main summary — all buildings'),
+      pw.SizedBox(height: 8),
+      _summaryMatrix(summary),
+      pw.SizedBox(height: 18),
+      _sectionTitle('Summary by building (excl. VAT)'),
+      pw.SizedBox(height: 8),
+      _byBuildingTable(doc.buildings),
+      pw.NewPage(),
+      _sectionTitle('Breakdown per building'),
+      pw.SizedBox(height: 8),
+      ..._buildingBreakdowns(doc.buildings),
+    ];
+  }
+
+  static pw.Widget _sectionTitle(String text) => pw.Text(
+    text.toUpperCase(),
+    style: pw.TextStyle(
+      fontWeight: pw.FontWeight.bold,
+      fontSize: 12,
+      color: PdfColor.fromInt(_navy),
+    ),
+  );
+
+  static pw.Widget _table({
+    required List<String> headers,
+    required List<List<String>> rows,
+    List<bool>? numeric,
+  }) {
+    final cols = headers.length;
+    final nmap = numeric ?? List<bool>.filled(cols, false);
+    return pw.TableHelper.fromTextArray(
+      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        fontSize: 8.5,
+        color: PdfColors.white,
+      ),
+      headerDecoration: pw.BoxDecoration(color: PdfColor.fromInt(_navy)),
+      cellStyle: const pw.TextStyle(fontSize: 8.5),
+      cellAlignments: {
+        for (var i = 0; i < cols; i++)
+          i: nmap[i] ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+      },
+      headers: headers,
+      data: rows,
+    );
+  }
+
+  static String _pctOf(YorksAccountsDecimal pct) =>
+      '${pct.displayText(maximumFractionDigits: 2)}%';
+
+  static pw.Widget _summaryMatrix(YorksClientInvoiceSummary s) {
+    return _table(
+      headers: const [
+        'Description',
+        'Contract %',
+        'Contract',
+        'Till previous',
+        'This invoice',
+        'Total completion',
+      ],
+      numeric: const [false, true, true, true, true, true],
+      rows: [
+        for (final st in s.stages)
+          [
+            st.stageLabel ?? st.stageKey,
+            _pctOf(st.contractPercent),
+            _money(st.contractAmount),
+            _money(st.previousAmount),
+            _money(st.thisAmount),
+            _money(st.totalAmount),
+          ],
+        [
+          'Sub total',
+          '',
+          _money(s.contractTotal),
+          _money(s.previousTotal),
+          _money(s.thisTotal),
+          _money(s.totalTotal),
+        ],
+      ],
+    );
+  }
+
+  static pw.Widget _byBuildingTable(
+    List<YorksClientInvoiceBuilding> buildings,
+  ) {
+    return _table(
+      headers: const [
+        'Building',
+        'Share',
+        'Building value',
+        'Till previous',
+        'This invoice',
+        'Total',
+        'Done',
+      ],
+      numeric: const [false, true, true, true, true, true, true],
+      rows: [
+        for (final b in buildings)
+          [
+            b.name,
+            _pctOf(b.sharePercent),
+            _money(b.buildingValue),
+            _money(b.previousAmount),
+            _money(b.thisAmount),
+            _money(b.totalAmount),
+            '${b.donePercent.toStringAsFixed(1)}%',
+          ],
+      ],
+    );
+  }
+
+  static List<pw.Widget> _buildingBreakdowns(
+    List<YorksClientInvoiceBuilding> buildings,
+  ) {
+    final widgets = <pw.Widget>[];
+    for (final b in buildings) {
+      widgets
+        ..add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 6, bottom: 4),
+            child: pw.Text(
+              '${b.name} · ${_pctOf(b.sharePercent)} of contract',
+              style: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 9.5,
+                color: PdfColor.fromInt(_navy),
+              ),
+            ),
+          ),
+        )
+        ..add(
+          _table(
+            headers: const [
+              'Stage',
+              'Stage value',
+              'Till previous',
+              'This invoice',
+              'Total',
+              'Done',
+            ],
+            numeric: const [false, true, true, true, true, true],
+            rows: [
+              for (final st in b.stages)
+                [
+                  st.stageLabel ?? st.stageKey,
+                  _money(st.stageValue),
+                  _money(st.previousAmount),
+                  _money(st.thisAmount),
+                  _money(st.totalAmount),
+                  _stageDone(st),
+                ],
+              [
+                'Total ${b.name}',
+                _money(b.buildingValue),
+                _money(b.previousAmount),
+                _money(b.thisAmount),
+                _money(b.totalAmount),
+                '${b.donePercent.toStringAsFixed(1)}%',
+              ],
+            ],
+          ),
+        )
+        ..add(pw.SizedBox(height: 12));
+    }
+    return widgets;
+  }
+
+  static String _stageDone(YorksClientInvoiceBuildingStage st) {
+    final value = double.tryParse(st.stageValue.canonicalText) ?? 0;
+    if (value <= 0) return '0.0%';
+    final total = double.tryParse(st.totalAmount.canonicalText) ?? 0;
+    return '${(total / value * 100).toStringAsFixed(1)}%';
   }
 
   static pw.Widget _footer(

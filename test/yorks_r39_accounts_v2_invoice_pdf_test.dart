@@ -53,6 +53,73 @@ Map<String, dynamic> _docJson() => {
       'amount': '500000.00',
     },
   ],
+  'contract_value': '2000000.00',
+  'summary': {
+    'contract_total': '2000000.00',
+    'previous_total': '0.00',
+    'this_total': '1000000.00',
+    'total_total': '1000000.00',
+    'stages': [
+      {
+        'stage_key': 'material_supply',
+        'stage_label': 'Material Supply',
+        'contract_percent': '50',
+        'contract_amount': '1000000.00',
+        'previous_amount': '0.00',
+        'this_amount': '1000000.00',
+        'total_amount': '1000000.00',
+      },
+      {
+        'stage_key': 'installation',
+        'stage_label': 'Installation',
+        'contract_percent': '50',
+        'contract_amount': '1000000.00',
+        'previous_amount': '0.00',
+        'this_amount': '0.00',
+        'total_amount': '0.00',
+      },
+    ],
+  },
+  'buildings': [
+    {
+      'building_scope_id': 'b01',
+      'name': 'Block A',
+      'share_percent': '50',
+      'building_value': '1000000.00',
+      'previous_amount': '0.00',
+      'this_amount': '500000.00',
+      'total_amount': '500000.00',
+      'stages': [
+        {
+          'stage_key': 'material_supply',
+          'stage_label': 'Material Supply',
+          'stage_value': '500000.00',
+          'previous_amount': '0.00',
+          'this_amount': '500000.00',
+          'total_amount': '500000.00',
+        },
+      ],
+    },
+    {
+      'building_scope_id': 'b02',
+      'name': 'Block B',
+      'share_percent': '50',
+      'building_value': '1000000.00',
+      'previous_amount': '0.00',
+      'this_amount': '500000.00',
+      'total_amount': '500000.00',
+      'stages': [
+        {
+          'stage_key': 'material_supply',
+          'stage_label': 'Material Supply',
+          'stage_value': '500000.00',
+          'previous_amount': '0.00',
+          'this_amount': '500000.00',
+          'total_amount': '500000.00',
+        },
+      ],
+    },
+  ],
 };
 
 void main() {
@@ -66,4 +133,35 @@ void main() {
     // PDF magic header.
     expect(String.fromCharCodes(bytes.take(4)), '%PDF');
   });
+
+  test('parses the summary matrix and per-building breakdown', () {
+    final model = YorksClientInvoiceDocumentModel.fromJson(_docJson());
+
+    expect(model.summary, isNotNull);
+    expect(model.summary!.stages, hasLength(2));
+    expect(model.summary!.thisTotal.canonicalText, '1000000');
+    expect(model.buildings, hasLength(2));
+    final a = model.buildings.firstWhere((b) => b.name == 'Block A');
+    expect(a.buildingValue.canonicalText, '1000000');
+    expect(a.thisAmount.canonicalText, '500000');
+    expect(a.stages, hasLength(1));
+    // Done% is a presentation-only double (500,000 / 1,000,000 = 50%).
+    expect(a.donePercent, closeTo(50.0, 0.001));
+  });
+
+  test(
+    'legacy snapshot without summary still builds a single-page PDF',
+    () async {
+      final legacy = Map<String, dynamic>.from(_docJson())
+        ..remove('summary')
+        ..remove('buildings')
+        ..remove('contract_value');
+      final model = YorksClientInvoiceDocumentModel.fromJson(legacy);
+
+      expect(model.summary, isNull);
+      expect(model.buildings, isEmpty);
+      final bytes = await YorksClientInvoiceDocumentBuilder.build(model);
+      expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+    },
+  );
 }

@@ -24,7 +24,10 @@ final class YorksClientInvoiceLine {
       buildingName: json['building_name'] as String,
       stageKey: json['stage_key'] as String,
       stageLabel: json['stage_label'] as String?,
-      amount: YorksAccountsDecimal.fromRpcValue(json['amount'], key: 'line.amount'),
+      amount: YorksAccountsDecimal.fromRpcValue(
+        json['amount'],
+        key: 'line.amount',
+      ),
     );
   }
 
@@ -46,12 +49,19 @@ final class YorksClientInvoiceAmounts {
 
   factory YorksClientInvoiceAmounts.fromJson(Map<String, dynamic> json) {
     return YorksClientInvoiceAmounts(
-      exVat: YorksAccountsDecimal.fromRpcValue(json['ex_vat'], key: 'amounts.ex_vat'),
+      exVat: YorksAccountsDecimal.fromRpcValue(
+        json['ex_vat'],
+        key: 'amounts.ex_vat',
+      ),
       vatRatePercent: YorksAccountsDecimal.fromRpcValue(
-        json['vat_rate_percent'], key: 'amounts.vat_rate_percent'),
+        json['vat_rate_percent'],
+        key: 'amounts.vat_rate_percent',
+      ),
       vat: YorksAccountsDecimal.fromRpcValue(json['vat'], key: 'amounts.vat'),
       totalInclVat: YorksAccountsDecimal.fromRpcValue(
-        json['total_incl_vat'], key: 'amounts.total_incl_vat'),
+        json['total_incl_vat'],
+        key: 'amounts.total_incl_vat',
+      ),
     );
   }
 
@@ -59,6 +69,162 @@ final class YorksClientInvoiceAmounts {
   final YorksAccountsDecimal vatRatePercent;
   final YorksAccountsDecimal vat;
   final YorksAccountsDecimal totalInclVat;
+}
+
+/// One stage row of the Main Summary matrix (aggregated across all buildings).
+final class YorksClientInvoiceSummaryStage {
+  const YorksClientInvoiceSummaryStage({
+    required this.stageKey,
+    required this.stageLabel,
+    required this.contractPercent,
+    required this.contractAmount,
+    required this.previousAmount,
+    required this.thisAmount,
+    required this.totalAmount,
+  });
+
+  factory YorksClientInvoiceSummaryStage.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'summary.$k');
+    return YorksClientInvoiceSummaryStage(
+      stageKey: json['stage_key'] as String,
+      stageLabel: json['stage_label'] as String?,
+      contractPercent: d('contract_percent'),
+      contractAmount: d('contract_amount'),
+      previousAmount: d('previous_amount'),
+      thisAmount: d('this_amount'),
+      totalAmount: d('total_amount'),
+    );
+  }
+
+  final String stageKey;
+  final String? stageLabel;
+  final YorksAccountsDecimal contractPercent;
+  final YorksAccountsDecimal contractAmount;
+  final YorksAccountsDecimal previousAmount;
+  final YorksAccountsDecimal thisAmount;
+  final YorksAccountsDecimal totalAmount;
+}
+
+/// The Main Summary matrix: contract / till-previous / this-month / total.
+final class YorksClientInvoiceSummary {
+  const YorksClientInvoiceSummary({
+    required this.contractTotal,
+    required this.previousTotal,
+    required this.thisTotal,
+    required this.totalTotal,
+    required this.stages,
+  });
+
+  factory YorksClientInvoiceSummary.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'summary.$k');
+    return YorksClientInvoiceSummary(
+      contractTotal: d('contract_total'),
+      previousTotal: d('previous_total'),
+      thisTotal: d('this_total'),
+      totalTotal: d('total_total'),
+      stages: ((json['stages'] as List?) ?? const <dynamic>[])
+          .map(
+            (e) => YorksClientInvoiceSummaryStage.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  final YorksAccountsDecimal contractTotal;
+  final YorksAccountsDecimal previousTotal;
+  final YorksAccountsDecimal thisTotal;
+  final YorksAccountsDecimal totalTotal;
+  final List<YorksClientInvoiceSummaryStage> stages;
+}
+
+/// One stage row within a building's breakdown.
+final class YorksClientInvoiceBuildingStage {
+  const YorksClientInvoiceBuildingStage({
+    required this.stageKey,
+    required this.stageLabel,
+    required this.stageValue,
+    required this.previousAmount,
+    required this.thisAmount,
+    required this.totalAmount,
+  });
+
+  factory YorksClientInvoiceBuildingStage.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'building.$k');
+    return YorksClientInvoiceBuildingStage(
+      stageKey: json['stage_key'] as String,
+      stageLabel: json['stage_label'] as String?,
+      stageValue: d('stage_value'),
+      previousAmount: d('previous_amount'),
+      thisAmount: d('this_amount'),
+      totalAmount: d('total_amount'),
+    );
+  }
+
+  final String stageKey;
+  final String? stageLabel;
+  final YorksAccountsDecimal stageValue;
+  final YorksAccountsDecimal previousAmount;
+  final YorksAccountsDecimal thisAmount;
+  final YorksAccountsDecimal totalAmount;
+}
+
+/// One building's breakdown (share, value and its stage rows).
+final class YorksClientInvoiceBuilding {
+  const YorksClientInvoiceBuilding({
+    required this.buildingScopeId,
+    required this.name,
+    required this.sharePercent,
+    required this.buildingValue,
+    required this.previousAmount,
+    required this.thisAmount,
+    required this.totalAmount,
+    required this.stages,
+  });
+
+  factory YorksClientInvoiceBuilding.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'building.$k');
+    return YorksClientInvoiceBuilding(
+      buildingScopeId: json['building_scope_id'] as String,
+      name: json['name'] as String? ?? '',
+      sharePercent: d('share_percent'),
+      buildingValue: d('building_value'),
+      previousAmount: d('previous_amount'),
+      thisAmount: d('this_amount'),
+      totalAmount: d('total_amount'),
+      stages: ((json['stages'] as List?) ?? const <dynamic>[])
+          .map(
+            (e) => YorksClientInvoiceBuildingStage.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  final String buildingScopeId;
+  final String name;
+  final YorksAccountsDecimal sharePercent;
+  final YorksAccountsDecimal buildingValue;
+  final YorksAccountsDecimal previousAmount;
+  final YorksAccountsDecimal thisAmount;
+  final YorksAccountsDecimal totalAmount;
+  final List<YorksClientInvoiceBuildingStage> stages;
+
+  /// Completion % of the building to date (total ÷ value × 100) as a
+  /// presentation-only double, 0 when the building has no value. Money stays
+  /// exact (decimal strings); a percentage is display-only.
+  double get donePercent {
+    final value = double.tryParse(buildingValue.canonicalText) ?? 0;
+    if (value <= 0) return 0;
+    final total = double.tryParse(totalAmount.canonicalText) ?? 0;
+    return total / value * 100;
+  }
 }
 
 /// The frozen (or previewed) invoice print model.
@@ -76,12 +242,16 @@ final class YorksClientInvoiceDocumentModel {
     required this.settings,
     required this.amounts,
     required this.lines,
+    required this.contractValue,
+    required this.summary,
+    required this.buildings,
   });
 
   factory YorksClientInvoiceDocumentModel.fromJson(Map<String, dynamic> json) {
     Map<String, dynamic> obj(String key) => json[key] is Map
         ? Map<String, dynamic>.from(json[key] as Map)
         : const <String, dynamic>{};
+    final summaryJson = json['summary'];
     return YorksClientInvoiceDocumentModel(
       invoiceReference: json['invoice_reference'] as String,
       invoiceDate: json['invoice_date'] as String?,
@@ -95,7 +265,30 @@ final class YorksClientInvoiceDocumentModel {
       settings: obj('settings'),
       amounts: YorksClientInvoiceAmounts.fromJson(obj('amounts')),
       lines: ((json['lines'] as List?) ?? const <dynamic>[])
-          .map((e) => YorksClientInvoiceLine.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => YorksClientInvoiceLine.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false),
+      contractValue: json['contract_value'] is String
+          ? YorksAccountsDecimal.fromRpcValue(
+              json['contract_value'],
+              key: 'contract_value',
+            )
+          : null,
+      // summary / buildings are absent on legacy (schema_version 1) snapshots.
+      summary: summaryJson is Map
+          ? YorksClientInvoiceSummary.fromJson(
+              Map<String, dynamic>.from(summaryJson),
+            )
+          : null,
+      buildings: ((json['buildings'] as List?) ?? const <dynamic>[])
+          .map(
+            (e) => YorksClientInvoiceBuilding.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(growable: false),
     );
   }
@@ -114,6 +307,16 @@ final class YorksClientInvoiceDocumentModel {
   final Map<String, dynamic> settings;
   final YorksClientInvoiceAmounts amounts;
   final List<YorksClientInvoiceLine> lines;
+
+  /// The full contract value (for the summary header). Null on legacy snapshots.
+  final YorksAccountsDecimal? contractValue;
+
+  /// Main Summary matrix. Null on legacy (schema_version 1) snapshots, in which
+  /// case the builder renders only the tax-invoice page.
+  final YorksClientInvoiceSummary? summary;
+
+  /// Per-building breakdown. Empty on legacy snapshots.
+  final List<YorksClientInvoiceBuilding> buildings;
 }
 
 /// Envelope from get (frozen) or preview (live).
@@ -135,7 +338,8 @@ final class YorksClientInvoiceDocument {
       controlledDocumentId: json['controlled_document_id'] as String?,
       isPreview: json['preview'] == true,
       document: YorksClientInvoiceDocumentModel.fromJson(
-        Map<String, dynamic>.from(json['document'] as Map)),
+        Map<String, dynamic>.from(json['document'] as Map),
+      ),
     );
   }
 
