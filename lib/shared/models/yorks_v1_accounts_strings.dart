@@ -2984,6 +2984,165 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'CSV ایکسپورٹ',
       'hi': 'CSV निर्यात',
     },
+
+    // ─── Contract tab ──────────────────────────────────────────────────────
+    'v2_contract_summary_title': {
+      'en': 'Contract',
+      'ar': 'العقد',
+      'ur': 'کنٹریکٹ',
+      'hi': 'कॉन्ट्रैक्ट',
+    },
+    'v2_contract_value': {
+      'en': 'Contract value (excl. VAT)',
+      'ar': 'قيمة العقد (بدون الضريبة)',
+      'ur': 'کنٹریکٹ ویلیو (بدون VAT)',
+      'hi': 'कॉन्ट्रैक्ट मूल्य (VAT रहित)',
+    },
+    'v2_vat_label': {
+      'en': 'VAT',
+      'ar': 'ضريبة القيمة المضافة',
+      'ur': 'VAT',
+      'hi': 'VAT',
+    },
+    'v2_payment_terms_label': {
+      'en': 'Payment terms',
+      'ar': 'شروط الدفع',
+      'ur': 'ادائیگی کی شرائط',
+      'hi': 'भुगतान शर्तें',
+    },
+    'v2_days_suffix': {'en': 'days', 'ar': 'يوماً', 'ur': 'دن', 'hi': 'दिन'},
+    'v2_reminder_label': {
+      'en': 'Reminder lead',
+      'ar': 'مهلة التذكير',
+      'ur': 'یاددہانی کا وقت',
+      'hi': 'रिमाइंडर लीड',
+    },
+    'v2_next_invoice_label': {
+      'en': 'Next invoice no.',
+      'ar': 'رقم الفاتورة التالية',
+      'ur': 'اگلا انوائس نمبر',
+      'hi': 'अगला इनवॉइस नं.',
+    },
+    'v2_buildings_title': {
+      'en': 'Buildings / areas',
+      'ar': 'المباني / المناطق',
+      'ur': 'عمارتیں / علاقے',
+      'hi': 'बिल्डिंग / क्षेत्र',
+    },
+    'v2_stages_title': {
+      'en': 'Billing stages',
+      'ar': 'مراحل الفوترة',
+      'ur': 'بلنگ اسٹیجز',
+      'hi': 'बिलिंग स्टेज',
+    },
+    'v2_items_title': {
+      'en': 'Item breakdown',
+      'ar': 'تفصيل البنود',
+      'ur': 'آئٹم تفصیل',
+      'hi': 'आइटम विवरण',
+    },
+    'v2_share_label': {
+      'en': 'Share',
+      'ar': 'الحصة',
+      'ur': 'حصہ',
+      'hi': 'हिस्सा',
+    },
+    'v2_value_label': {
+      'en': 'Value',
+      'ar': 'القيمة',
+      'ur': 'ویلیو',
+      'hi': 'मूल्य',
+    },
+    'v2_total_label': {
+      'en': 'Total',
+      'ar': 'الإجمالي',
+      'ur': 'کل',
+      'hi': 'कुल',
+    },
+    'v2_qty_label': {
+      'en': 'Qty',
+      'ar': 'الكمية',
+      'ur': 'مقدار',
+      'hi': 'मात्रा',
+    },
+    'v2_unit_label': {'en': 'Unit', 'ar': 'الوحدة', 'ur': 'یونٹ', 'hi': 'इकाई'},
+    'v2_weight_label': {
+      'en': 'Weight %',
+      'ar': 'الوزن %',
+      'ur': 'وزن %',
+      'hi': 'भार %',
+    },
+    'v2_item_label': {'en': 'Item', 'ar': 'البند', 'ur': 'آئٹم', 'hi': 'आइटम'},
+    'v2_mode_percent': {
+      'en': '% complete (lump sum)',
+      'ar': '٪ الإنجاز (مبلغ مقطوع)',
+      'ur': '٪ مکمل (یکمشت)',
+      'hi': '% पूर्ण (एकमुश्त)',
+    },
+    'v2_mode_items': {
+      'en': 'Item quantities',
+      'ar': 'كميات البنود',
+      'ur': 'آئٹم مقداریں',
+      'hi': 'आइटम मात्रा',
+    },
+    'v2_setup_check_title': {
+      'en': 'Setup check',
+      'ar': 'فحص الإعداد',
+      'ur': 'سیٹ اپ چیک',
+      'hi': 'सेटअप जांच',
+    },
+    'v2_check_contract': {
+      'en': 'Contract value entered',
+      'ar': 'تم إدخال قيمة العقد',
+      'ur': 'کنٹریکٹ ویلیو درج ہے',
+      'hi': 'कॉन्ट्रैक्ट मूल्य दर्ज',
+    },
+    'v2_check_buildings': {
+      'en': 'Buildings total 100%',
+      'ar': 'إجمالي المباني 100٪',
+      'ur': 'عمارتوں کا کل 100٪',
+      'hi': 'बिल्डिंग कुल 100%',
+    },
+    'v2_check_stages': {
+      'en': 'Stages total 100%',
+      'ar': 'إجمالي المراحل 100٪',
+      'ur': 'اسٹیجز کا کل 100٪',
+      'hi': 'स्टेज कुल 100%',
+    },
+    'v2_how_amounts_title': {
+      'en': 'How amounts are worked out',
+      'ar': 'كيف تُحتسب المبالغ',
+      'ur': 'رقم کیسے نکالی جاتی ہے',
+      'hi': 'राशि कैसे निकाली जाती है',
+    },
+    'v2_how_amounts_body': {
+      'en':
+          'Stage value = contract × building % × stage %. Item value = contract × item weight %. Amount claimed = item value × qty claimed ÷ total qty.',
+      'ar':
+          'قيمة المرحلة = العقد × نسبة المبنى × نسبة المرحلة. قيمة البند = العقد × وزن البند. المبلغ المطالب به = قيمة البند × الكمية المطالب بها ÷ إجمالي الكمية.',
+      'ur':
+          'اسٹیج ویلیو = کنٹریکٹ × عمارت ٪ × اسٹیج ٪۔ آئٹم ویلیو = کنٹریکٹ × آئٹم وزن ٪۔ کلیم رقم = آئٹم ویلیو × کلیم مقدار ÷ کل مقدار۔',
+      'hi':
+          'स्टेज मूल्य = कॉन्ट्रैक्ट × बिल्डिंग % × स्टेज %. आइटम मूल्य = कॉन्ट्रैक्ट × आइटम भार %. दावा राशि = आइटम मूल्य × दावा मात्रा ÷ कुल मात्रा.',
+    },
+    'v2_invoice_numbering_title': {
+      'en': 'Invoice numbering',
+      'ar': 'ترقيم الفواتير',
+      'ur': 'انوائس نمبرنگ',
+      'hi': 'इनवॉइस नंबरिंग',
+    },
+    'v2_scope_line_label': {
+      'en': 'Scope line',
+      'ar': 'سطر النطاق',
+      'ur': 'اسکوپ لائن',
+      'hi': 'स्कोप लाइन',
+    },
+    'v2_attention_name_label': {
+      'en': 'For the attention of',
+      'ar': 'لعناية',
+      'ur': 'برائے توجہ',
+      'hi': 'कृपया ध्यान दें',
+    },
   };
 
   static String text(AppLanguage language, String key) {

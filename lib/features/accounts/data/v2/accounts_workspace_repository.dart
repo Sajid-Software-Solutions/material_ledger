@@ -9,6 +9,7 @@ library;
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
+import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_repository.dart' show YorksAccountsRpcClient;
 
 final class YorksAccountsWorkspaceRepository {
@@ -24,6 +25,16 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId},
     );
     return YorksAccountsWorkspace.fromJson(json);
+  }
+
+  Future<YorksAccountsCommercialSetupRead> getCommercialSetup(
+    String projectId,
+  ) async {
+    final json = await _client.invoke(
+      functionName: 'v1_get_project_commercial_setup',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsCommercialSetupRead.fromJson(json);
   }
 
   Future<YorksAccountsWorkbench> getClaimWorkbench(

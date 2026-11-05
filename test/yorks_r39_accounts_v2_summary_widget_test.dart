@@ -251,12 +251,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('switching to Contract shows the coming-soon placeholder', (
+    testWidgets('switching to a not-yet-built tab shows the placeholder', (
       tester,
     ) async {
       await _pumpScreen(tester);
 
-      await tester.tap(find.text(t('v2_tab_contract')));
+      final historyTab = find.text(t('v2_tab_history'));
+      await tester.ensureVisible(historyTab);
+      await tester.pumpAndSettle();
+      await tester.tap(historyTab);
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_coming_soon_body')), findsOneWidget);
