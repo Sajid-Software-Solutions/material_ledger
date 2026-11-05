@@ -19,15 +19,37 @@ import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import 'accounts_v2_common.dart';
 
+/// Reopens a checked claim to draft; returns null on success or an error.
+typedef YorksReopenClaimAction =
+    Future<String?> Function({
+      required String claimId,
+      required int expectedVersion,
+      required String reason,
+    });
+
+/// Issues the invoice for a checked claim; returns null on success or an error.
+typedef YorksIssueInvoiceAction =
+    Future<String?> Function({
+      required String claimId,
+      required int expectedClaimVersion,
+      required String invoiceDate,
+      required String submissionDate,
+      String? invoiceReference,
+    });
+
 class AccountsV2ClaimsTab extends StatelessWidget {
   const AccountsV2ClaimsTab({
     super.key,
     required this.workbench,
     required this.language,
+    this.onReopen,
+    this.onIssue,
   });
 
   final YorksAccountsWorkbench workbench;
   final AppLanguage language;
+  final YorksReopenClaimAction? onReopen;
+  final YorksIssueInvoiceAction? onIssue;
 
   bool get _canValues =>
       workbench.capabilities['view_project_commercial_values'] == true;
@@ -80,6 +102,8 @@ class AccountsV2ClaimsTab extends StatelessWidget {
       canValues: _canValues,
       language: language,
       format: format,
+      onReopen: onReopen,
+      onIssue: onIssue,
     );
 
     return LayoutBuilder(
@@ -126,14 +150,69 @@ class _ClaimSidePanel extends StatelessWidget {
     required this.canValues,
     required this.language,
     required this.format,
+    this.onReopen,
+    this.onIssue,
   });
 
   final YorksAccountsWorkbench workbench;
   final bool canValues;
   final AppLanguage language;
   final AccountsV2Format format;
+  final YorksReopenClaimAction? onReopen;
+  final YorksIssueInvoiceAction? onIssue;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  Future<void> _report(
+    BuildContext context,
+    String? error,
+    String okKey,
+  ) async {
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+      ),
+    );
+  }
+
+  Future<void> _reopen(
+    BuildContext context,
+    String claimId,
+    int version,
+  ) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReasonDialog(
+        title: _t('v2_claim_back_to_draft'),
+        label: _t('v2_claim_reopen_reason'),
+        language: language,
+      ),
+    );
+    if (reason == null) return;
+    final error = await onReopen!(
+      claimId: claimId,
+      expectedVersion: version,
+      reason: reason,
+    );
+    if (context.mounted) await _report(context, error, 'v2_claim_reopened');
+  }
+
+  Future<void> _issue(BuildContext context, String claimId, int version) async {
+    final result = await showDialog<_IssueResult>(
+      context: context,
+      builder: (_) => _IssueDialog(language: language),
+    );
+    if (result == null) return;
+    final error = await onIssue!(
+      claimId: claimId,
+      expectedClaimVersion: version,
+      invoiceDate: result.invoiceDate,
+      submissionDate: result.submissionDate,
+      invoiceReference: result.reference,
+    );
+    if (context.mounted) await _report(context, error, 'v2_claim_issued');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +240,11 @@ class _ClaimSidePanel extends StatelessWidget {
       claim['claimed_ex_vat'] as String? ?? '',
     );
     final lineCount = (claim['lines'] as List?)?.length ?? 0;
+    final claimId = claim['claim_id'] as String?;
+    final version = (claim['record_version'] as num?)?.toInt() ?? 1;
+    final isChecked = status == 'ready_for_accounts';
+    final showIssue = isChecked && onIssue != null && claimId != null;
+    final showReopen = isChecked && onReopen != null && claimId != null;
 
     return AccountsV2Card(
       child: Column(
@@ -190,6 +274,30 @@ class _ClaimSidePanel extends StatelessWidget {
               value: format.money(gross),
               emphasize: true,
             ),
+          if (showIssue || showReopen) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.line),
+            const SizedBox(height: AppSpacing.md),
+            if (showIssue)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _issue(context, claimId, version),
+                  icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                  label: Text(_t('v2_claim_issue')),
+                ),
+              ),
+            if (showIssue && showReopen) const SizedBox(height: AppSpacing.sm),
+            if (showReopen)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _reopen(context, claimId, version),
+                  icon: const Icon(Icons.undo_outlined, size: 16),
+                  label: Text(_t('v2_claim_back_to_draft')),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -565,6 +673,176 @@ class _Empty extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Command dialogs ─────────────────────────────────────────────────────────
+
+class _ReasonDialog extends StatefulWidget {
+  const _ReasonDialog({
+    required this.title,
+    required this.label,
+    required this.language,
+  });
+
+  final String title;
+  final String label;
+  final AppLanguage language;
+
+  @override
+  State<_ReasonDialog> createState() => _ReasonDialogState();
+}
+
+class _ReasonDialogState extends State<_ReasonDialog> {
+  final _controller = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _controller.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 1,
+        maxLines: 3,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: widget.label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid
+              ? () => Navigator.of(context).pop(_controller.text.trim())
+              : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _IssueResult {
+  const _IssueResult({
+    required this.invoiceDate,
+    required this.submissionDate,
+    this.reference,
+  });
+
+  final String invoiceDate;
+  final String submissionDate;
+  final String? reference;
+}
+
+class _IssueDialog extends StatefulWidget {
+  const _IssueDialog({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  State<_IssueDialog> createState() => _IssueDialogState();
+}
+
+class _IssueDialogState extends State<_IssueDialog> {
+  late final TextEditingController _invoiceDate;
+  late final TextEditingController _submissionDate;
+  final _reference = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  static String _today() {
+    final d = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  static final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  @override
+  void initState() {
+    super.initState();
+    final today = _today();
+    _invoiceDate = TextEditingController(text: today);
+    _submissionDate = TextEditingController(text: today);
+  }
+
+  @override
+  void dispose() {
+    _invoiceDate.dispose();
+    _submissionDate.dispose();
+    _reference.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid =
+        _datePattern.hasMatch(_invoiceDate.text.trim()) &&
+        _datePattern.hasMatch(_submissionDate.text.trim());
+    InputDecoration deco(String label) => InputDecoration(
+      labelText: label,
+      hintText: 'YYYY-MM-DD',
+      border: const OutlineInputBorder(),
+    );
+    return AlertDialog(
+      title: Text(_t('v2_claim_issue')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _invoiceDate,
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_claim_invoice_date')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _submissionDate,
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_claim_submission_date')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reference,
+            decoration: deco(_t('v2_claim_reference_opt')),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid
+              ? () {
+                  final ref = _reference.text.trim();
+                  Navigator.of(context).pop(
+                    _IssueResult(
+                      invoiceDate: _invoiceDate.text.trim(),
+                      submissionDate: _submissionDate.text.trim(),
+                      reference: ref.isEmpty ? null : ref,
+                    ),
+                  );
+                }
+              : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
     );
   }
 }

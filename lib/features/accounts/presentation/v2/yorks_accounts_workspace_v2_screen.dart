@@ -321,7 +321,34 @@ class _ClaimsBody extends ConsumerWidget {
         if (state.hasError)
           _ErrorBanner(language: language, onRetry: controller.load),
         Expanded(
-          child: AccountsV2ClaimsTab(workbench: workbench!, language: language),
+          child: AccountsV2ClaimsTab(
+            workbench: workbench!,
+            language: language,
+            onReopen:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) => controller.reopenClaim(
+                  claimId: claimId,
+                  expectedVersion: expectedVersion,
+                  reason: reason,
+                ),
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) => controller.issueInvoice(
+                  claimId: claimId,
+                  expectedClaimVersion: expectedClaimVersion,
+                  invoiceDate: invoiceDate,
+                  submissionDate: submissionDate,
+                  invoiceReference: invoiceReference,
+                ),
+          ),
         ),
       ],
     );

@@ -3572,6 +3572,72 @@ abstract final class YorksV1AccountsStrings {
       'hi':
           'जारी इनवॉइस अपनी राशि बनाए रखते हैं; बदलाव अगले क्लेम से लागू होते हैं और इतिहास में दर्ज होते हैं।',
     },
+    'v2_confirm': {
+      'en': 'Confirm',
+      'ar': 'تأكيد',
+      'ur': 'تصدیق',
+      'hi': 'पुष्टि',
+    },
+    'v2_action_failed': {
+      'en': 'Action failed. Nothing was changed — please try again.',
+      'ar': 'فشل الإجراء. لم يتغيّر شيء — يرجى المحاولة مرة أخرى.',
+      'ur': 'کارروائی ناکام۔ کچھ تبدیل نہیں ہوا — دوبارہ کوشش کریں۔',
+      'hi': 'कार्रवाई विफल। कुछ नहीं बदला — कृपया पुनः प्रयास करें।',
+    },
+    'v2_reason_required': {
+      'en': 'Enter a reason',
+      'ar': 'أدخل سبباً',
+      'ur': 'وجہ درج کریں',
+      'hi': 'कारण दर्ज करें',
+    },
+    'v2_claim_back_to_draft': {
+      'en': 'Back to draft',
+      'ar': 'إعادة إلى مسودة',
+      'ur': 'ڈرافٹ پر واپس',
+      'hi': 'ड्राफ्ट पर वापस',
+    },
+    'v2_claim_issue': {
+      'en': 'Issue invoice',
+      'ar': 'إصدار الفاتورة',
+      'ur': 'انوائس جاری کریں',
+      'hi': 'इनवॉइस जारी करें',
+    },
+    'v2_claim_reopen_reason': {
+      'en': 'Reason for reopening',
+      'ar': 'سبب إعادة الفتح',
+      'ur': 'دوبارہ کھولنے کی وجہ',
+      'hi': 'पुनः खोलने का कारण',
+    },
+    'v2_claim_issued': {
+      'en': 'Invoice issued',
+      'ar': 'تم إصدار الفاتورة',
+      'ur': 'انوائس جاری ہو گئی',
+      'hi': 'इनवॉइस जारी हुई',
+    },
+    'v2_claim_reopened': {
+      'en': 'Claim reopened to draft',
+      'ar': 'أُعيدت المطالبة إلى مسودة',
+      'ur': 'کلیم ڈرافٹ پر واپس',
+      'hi': 'क्लेम ड्राफ्ट पर वापस',
+    },
+    'v2_claim_invoice_date': {
+      'en': 'Invoice date',
+      'ar': 'تاريخ الفاتورة',
+      'ur': 'انوائس کی تاریخ',
+      'hi': 'इनवॉइस तारीख',
+    },
+    'v2_claim_submission_date': {
+      'en': 'Submission date',
+      'ar': 'تاريخ التقديم',
+      'ur': 'جمع کرانے کی تاریخ',
+      'hi': 'सबमिशन तारीख',
+    },
+    'v2_claim_reference_opt': {
+      'en': 'Invoice reference (optional)',
+      'ar': 'مرجع الفاتورة (اختياري)',
+      'ur': 'انوائس حوالہ (اختیاری)',
+      'hi': 'इनवॉइस संदर्भ (वैकल्पिक)',
+    },
   };
 
   static String text(AppLanguage language, String key) {

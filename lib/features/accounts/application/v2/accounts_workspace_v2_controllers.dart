@@ -241,6 +241,60 @@ final class YorksAccountsWorkbenchController
       ).copyWithPrevious(state);
     }
   }
+
+  /// Reopens a checked claim back to draft. No optimistic success: on the
+  /// server's confirmation the workbench is re-fetched. Returns null on success
+  /// or an error message (a version conflict is resolved by the reload).
+  Future<String?> reopenClaim({
+    required String claimId,
+    required int expectedVersion,
+    required String reason,
+  }) async {
+    final repository = _repository;
+    if (repository == null) return 'accounts_backend_unavailable';
+    try {
+      await repository.reopenClaim(
+        projectId: _projectId,
+        claimId: claimId,
+        expectedVersion: expectedVersion,
+        reason: reason,
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
+  /// Issues the client invoice for a checked claim (allocates the number,
+  /// submits and freezes the document snapshot server-side). Re-fetches on
+  /// confirmation; the idempotency key makes a retry a no-op.
+  Future<String?> issueInvoice({
+    required String claimId,
+    required int expectedClaimVersion,
+    required String invoiceDate,
+    required String submissionDate,
+    String? invoiceReference,
+  }) async {
+    final repository = _repository;
+    if (repository == null) return 'accounts_backend_unavailable';
+    try {
+      await repository.issueInvoice(
+        projectId: _projectId,
+        claimId: claimId,
+        expectedClaimVersion: expectedClaimVersion,
+        invoiceReference: invoiceReference,
+        invoiceDate: invoiceDate,
+        submissionDate: submissionDate,
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
 }
 
 final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider

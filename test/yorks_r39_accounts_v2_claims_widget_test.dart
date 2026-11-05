@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 Map<String, dynamic> _workbenchJson({
   bool commercial = true,
   bool withClaim = true,
+  String claimStatus = 'draft',
 }) {
   Map<String, dynamic> cell({
     required String id,
@@ -92,7 +93,8 @@ Map<String, dynamic> _workbenchJson({
         ? {
             'claim_id': 'c1',
             'claim_reference': 'CLM-01',
-            'status': 'draft',
+            'status': claimStatus,
+            'record_version': 2,
             'claim_period_start': '2026-08-01',
             'claim_period_end': '2026-08-25',
             if (commercial) 'claimed_ex_vat': '50000.00',
@@ -179,6 +181,107 @@ void main() {
 
       expect(find.text(t('v2_claims_no_claim')), findsOneWidget);
       expect(find.text('CLM-01'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2ClaimsTab actions', () {
+    testWidgets('checked claim issues an invoice through onIssue', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(
+        _workbenchJson(claimStatus: 'ready_for_accounts'),
+      );
+      String? issuedId;
+      int? issuedVersion;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async {
+                  issuedId = claimId;
+                  issuedVersion = expectedClaimVersion;
+                  return null;
+                },
+            onReopen:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_claim_issue')), findsOneWidget);
+      expect(find.text(t('v2_claim_back_to_draft')), findsOneWidget);
+
+      await tester.tap(find.text(t('v2_claim_issue')));
+      await tester.pumpAndSettle();
+      // Dialog pre-fills today's dates, so Confirm is enabled.
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(issuedId, 'c1');
+      expect(issuedVersion, 2);
+      expect(find.text(t('v2_claim_issued')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('back to draft requires a reason and calls onReopen', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(
+        _workbenchJson(claimStatus: 'ready_for_accounts'),
+      );
+      String? reopenReason;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async => null,
+            onReopen:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  reopenReason = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t('v2_claim_back_to_draft')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Correction needed');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(reopenReason, 'Correction needed');
+      expect(find.text(t('v2_claim_reopened')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
