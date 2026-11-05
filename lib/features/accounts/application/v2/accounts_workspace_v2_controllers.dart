@@ -517,6 +517,18 @@ final class YorksAccountsInvoicesController
     action: (key) => _repository.recordPayment(input, idempotencyKey: key),
   );
 
+  /// Fetches the full invoice detail (invoice, certifications, payments and
+  /// cheques) for the drawer. Pure read; returns null on failure.
+  Future<YorksAccountsInvoiceDetailProjection?> fetchInvoiceDetail(
+    String invoiceId,
+  ) async {
+    try {
+      return await _repository.getInvoice(_projectId, invoiceId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Fetches the frozen invoice document snapshot and renders the tax-invoice
   /// PDF. Returns the bytes, or null if the backend is unavailable or the
   /// fetch/build fails (the caller shows a failure message). Pure read — it

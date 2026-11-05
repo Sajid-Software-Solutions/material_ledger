@@ -265,6 +265,33 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('tapping the invoice reference requests the detail', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      String? openedId;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(),
+            language: en,
+            onOpenDetail: (id) async {
+              openedId = id;
+              return null; // null -> the tab shows the detail-failed toast
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('YRA322-01'));
+      await tester.pumpAndSettle();
+
+      expect(openedId, 'i1');
+      expect(find.text(t('v2_inv_detail_failed')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('no action buttons without the capabilities', (tester) async {
       _wideSurface(tester);
       await tester.pumpWidget(

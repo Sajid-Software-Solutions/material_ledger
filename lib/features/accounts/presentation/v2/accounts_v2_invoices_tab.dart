@@ -36,6 +36,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onPrintInvoice,
+    this.onOpenDetail,
   });
 
   final YorksAccountsInvoicesProjection projection;
@@ -46,6 +47,12 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   /// Fetches + renders the invoice PDF and opens the print/preview; returns
   /// null on success or an error message.
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
+
+  /// Fetches the full invoice detail for the drawer; null on failure.
+  final Future<YorksAccountsInvoiceDetailProjection?> Function(
+    String invoiceId,
+  )?
+  onOpenDetail;
 
   bool get _canValues => projection.capabilities.canViewValues;
 
@@ -97,6 +104,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onCertify: onCertify,
         onPay: onPay,
         onPrintInvoice: onPrintInvoice,
+        onOpenDetail: onOpenDetail,
       ),
     );
 
@@ -224,6 +232,7 @@ class _TrackerCard extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onPrintInvoice,
+    this.onOpenDetail,
   });
 
   final String projectId;
@@ -236,8 +245,37 @@ class _TrackerCard extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
+  final Future<YorksAccountsInvoiceDetailProjection?> Function(
+    String invoiceId,
+  )?
+  onOpenDetail;
 
   bool get _showActions => canCertify || canPay || onPrintInvoice != null;
+
+  Future<void> _openDetail(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final detail = await onOpenDetail!(inv.invoiceId);
+    if (!context.mounted) return;
+    if (detail == null) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(_t('v2_inv_detail_failed'))),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _InvoiceDetailSheet(
+        detail: detail,
+        language: language,
+        format: format,
+      ),
+    );
+  }
 
   bool _canPrint(YorksAccountsClientInvoiceSummary inv) =>
       onPrintInvoice != null &&
@@ -356,13 +394,26 @@ class _TrackerCard extends StatelessWidget {
                   DataRow(
                     cells: [
                       DataCell(
-                        Text(
-                          inv.invoiceReference,
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.ink,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        onOpenDetail == null
+                            ? Text(
+                                inv.invoiceReference,
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            : InkWell(
+                                onTap: () => _openDetail(context, inv),
+                                child: Text(
+                                  inv.invoiceReference,
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: AppColors.primary,
+                                  ),
+                                ),
+                              ),
                       ),
                       DataCell(Text(inv.submissionDate?.toString() ?? '—')),
                       if (canValues) ...[
@@ -813,6 +864,283 @@ class _DialogField extends StatelessWidget {
         hintText: hint,
         border: const OutlineInputBorder(),
         isDense: true,
+      ),
+    );
+  }
+}
+
+// ─── Invoice detail drawer ───────────────────────────────────────────────────
+
+class _InvoiceDetailSheet extends StatelessWidget {
+  const _InvoiceDetailSheet({
+    required this.detail,
+    required this.language,
+    required this.format,
+  });
+
+  final YorksAccountsInvoiceDetailProjection detail;
+  final AppLanguage language;
+  final AccountsV2Format format;
+
+  String _t(String key) => accountsV2Text(language, key);
+
+  @override
+  Widget build(BuildContext context) {
+    final invoice = detail.invoice;
+    final maxHeight = MediaQuery.of(context).size.height * 0.85;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    invoice.invoiceReference,
+                    style: AppTypography.titleMedium.copyWith(
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+                _StatusChip(status: invoice.status, language: language),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: _MiniKpi(
+                    label: _t('v2_inv_detail_total'),
+                    value: format.money(invoice.totalInclVatSnapshot),
+                  ),
+                ),
+                Expanded(
+                  child: _MiniKpi(
+                    label: _t('v2_inv_detail_received'),
+                    value: format.money(invoice.paidAmount),
+                    accent: AppColors.success,
+                  ),
+                ),
+                Expanded(
+                  child: _MiniKpi(
+                    label: _t('v2_inv_detail_balance'),
+                    value: format.money(invoice.stillDue),
+                    accent: AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _DetailSection(
+              title: _t('v2_inv_certifications'),
+              emptyLabel: _t('v2_inv_none'),
+              rows: [
+                for (final c in detail.certifications)
+                  _DetailRow(
+                    leading: c.certificationReference,
+                    trailing: format.money(c.certifiedExVat),
+                    sub: c.certificationDate.toString(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _DetailSection(
+              title: _t('v2_inv_payments'),
+              emptyLabel: _t('v2_inv_none'),
+              rows: [
+                for (final p in detail.payments)
+                  _DetailRow(
+                    leading: p.paymentReference,
+                    trailing: format.money(p.amount),
+                    sub: '${p.paymentDate} · ${p.paymentMethod}',
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _DetailSection(
+              title: _t('v2_inv_cheques'),
+              emptyLabel: _t('v2_inv_none'),
+              rows: [
+                for (final pdc in detail.pdcs)
+                  _DetailRow(
+                    leading: pdc.chequeNumber,
+                    trailing: format.money(pdc.amount),
+                    sub: [
+                      if (pdc.bankName != null) pdc.bankName!,
+                      pdc.chequeDate.toString(),
+                    ].join(' · '),
+                    chip: _pdcChip(pdc.status),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pdcChip(YorksAccountsPdcStatus status) {
+    final (key, tone) = switch (status) {
+      YorksAccountsPdcStatus.expected => (
+        'v2_pdc_expected',
+        NexusStatusTone.neutral,
+      ),
+      YorksAccountsPdcStatus.received => (
+        'v2_pdc_received',
+        NexusStatusTone.info,
+      ),
+      YorksAccountsPdcStatus.deposited => (
+        'v2_pdc_deposited',
+        NexusStatusTone.info,
+      ),
+      YorksAccountsPdcStatus.cleared => (
+        'v2_pdc_cleared',
+        NexusStatusTone.success,
+      ),
+      YorksAccountsPdcStatus.replaced => (
+        'v2_pdc_replaced',
+        NexusStatusTone.neutral,
+      ),
+      YorksAccountsPdcStatus.returned => (
+        'v2_pdc_returned',
+        NexusStatusTone.warning,
+      ),
+      YorksAccountsPdcStatus.bounced => (
+        'v2_pdc_bounced',
+        NexusStatusTone.danger,
+      ),
+      YorksAccountsPdcStatus.cancelled => (
+        'v2_pdc_cancelled',
+        NexusStatusTone.neutral,
+      ),
+    };
+    return StatusChip(label: accountsV2Text(language, key), tone: tone);
+  }
+}
+
+class _MiniKpi extends StatelessWidget {
+  const _MiniKpi({required this.label, required this.value, this.accent});
+
+  final String label;
+  final String value;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          value,
+          style: AppTypography.titleSmall.copyWith(
+            color: accent ?? AppColors.ink,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({
+    required this.title,
+    required this.emptyLabel,
+    required this.rows,
+  });
+
+  final String title;
+  final String emptyLabel;
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return AccountsV2Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AccountsV2SectionTitle(title),
+          const SizedBox(height: AppSpacing.xs),
+          if (rows.isEmpty)
+            Text(emptyLabel, style: AppTypography.bodySmall)
+          else
+            ...rows,
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.leading,
+    required this.trailing,
+    required this.sub,
+    this.chip,
+  });
+
+  final String leading;
+  final String trailing;
+  final String sub;
+  final Widget? chip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  leading,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+                Text(sub, style: AppTypography.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                trailing,
+                style: AppTypography.titleSmall.copyWith(
+                  color: AppColors.ink,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              if (chip != null) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                chip!,
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

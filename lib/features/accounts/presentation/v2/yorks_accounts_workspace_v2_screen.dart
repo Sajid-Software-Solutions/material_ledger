@@ -430,6 +430,7 @@ class _InvoicesBody extends ConsumerWidget {
               await Printing.layoutPdf(onLayout: (_) async => bytes);
               return null;
             },
+            onOpenDetail: controller.fetchInvoiceDetail,
           ),
         ),
       ],
