@@ -25,17 +25,26 @@ import 'accounts_v2_common.dart';
 typedef YorksSupplierPayAction =
     Future<String?> Function(YorksAccountsSupplierPaymentInput input);
 
+/// Approves a draft supplier bill; returns null on success or an error.
+typedef YorksSupplierApproveAction =
+    Future<String?> Function({
+      required String supplierBillId,
+      required int expectedVersion,
+    });
+
 class AccountsV2SupplierTab extends StatelessWidget {
   const AccountsV2SupplierTab({
     super.key,
     required this.projection,
     required this.language,
     this.onPay,
+    this.onApprove,
   });
 
   final YorksAccountsSupplierBillsProjection projection;
   final AppLanguage language;
   final YorksSupplierPayAction? onPay;
+  final YorksSupplierApproveAction? onApprove;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -87,10 +96,13 @@ class AccountsV2SupplierTab extends StatelessWidget {
           canPay:
               projection.capabilities.approveSupplierBillPayment &&
               onPay != null,
+          canApprove:
+              projection.capabilities.manageSupplierBills && onApprove != null,
           language: language,
           format: format,
           isOverdue: _isOverdue,
           onPay: onPay,
+          onApprove: onApprove,
         ),
       ],
     );
@@ -209,19 +221,25 @@ class _BillsCard extends StatelessWidget {
     required this.projectId,
     required this.bills,
     required this.canPay,
+    required this.canApprove,
     required this.language,
     required this.format,
     required this.isOverdue,
     this.onPay,
+    this.onApprove,
   });
 
   final String projectId;
   final List<YorksAccountsSupplierBill> bills;
   final bool canPay;
+  final bool canApprove;
   final AppLanguage language;
   final AccountsV2Format format;
   final bool Function(YorksAccountsSupplierBill) isOverdue;
   final YorksSupplierPayAction? onPay;
+  final YorksSupplierApproveAction? onApprove;
+
+  bool get _showActions => canPay || canApprove;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -229,6 +247,22 @@ class _BillsCard extends StatelessWidget {
       canPay &&
       bill.status == YorksAccountsSupplierBillStatus.approved &&
       bill.outstandingAmount.isPositive;
+
+  bool _canApprove(YorksAccountsSupplierBill bill) =>
+      canApprove && bill.status == YorksAccountsSupplierBillStatus.draft;
+
+  Future<void> _report(
+    BuildContext context,
+    String? error,
+    String okKey,
+  ) async {
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+      ),
+    );
+  }
 
   Future<void> _pay(
     BuildContext context,
@@ -244,14 +278,35 @@ class _BillsCard extends StatelessWidget {
     );
     if (input == null) return;
     final error = await onPay!(input);
-    if (!context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null ? _t('v2_pay_saved') : _t('v2_action_failed'),
-        ),
+    if (context.mounted) await _report(context, error, 'v2_pay_saved');
+  }
+
+  Future<void> _approve(
+    BuildContext context,
+    YorksAccountsSupplierBill bill,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text(_t('v2_sup_approve_confirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(_t('v2_cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(_t('v2_confirm')),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) return;
+    final error = await onApprove!(
+      supplierBillId: bill.supplierBillId,
+      expectedVersion: bill.recordVersion,
+    );
+    if (context.mounted) await _report(context, error, 'v2_sup_approved_done');
   }
 
   @override
@@ -281,7 +336,7 @@ class _BillsCard extends StatelessWidget {
                   numeric: true,
                 ),
                 DataColumn(label: Text(_t('v2_inv_col_status'))),
-                if (canPay) DataColumn(label: Text(_t('v2_inv_actions'))),
+                if (_showActions) DataColumn(label: Text(_t('v2_inv_actions'))),
               ],
               rows: [
                 for (final bill in bills)
@@ -328,14 +383,23 @@ class _BillsCard extends StatelessWidget {
                           language: language,
                         ),
                       ),
-                      if (canPay)
+                      if (_showActions)
                         DataCell(
-                          _canPay(bill)
-                              ? TextButton(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_canApprove(bill))
+                                TextButton(
+                                  onPressed: () => _approve(context, bill),
+                                  child: Text(_t('v2_sup_approve')),
+                                ),
+                              if (_canPay(bill))
+                                TextButton(
                                   onPressed: () => _pay(context, bill),
                                   child: Text(_t('v2_inv_record_payment')),
-                                )
-                              : const SizedBox.shrink(),
+                                ),
+                            ],
+                          ),
                         ),
                     ],
                   ),

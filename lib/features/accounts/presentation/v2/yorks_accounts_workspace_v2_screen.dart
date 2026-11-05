@@ -468,6 +468,14 @@ class _SupplierBody extends ConsumerWidget {
             projection: projection!,
             language: language,
             onPay: controller.recordPayment,
+            onApprove:
+                ({
+                  required String supplierBillId,
+                  required int expectedVersion,
+                }) => controller.approveBill(
+                  supplierBillId: supplierBillId,
+                  expectedVersion: expectedVersion,
+                ),
           ),
         ),
       ],

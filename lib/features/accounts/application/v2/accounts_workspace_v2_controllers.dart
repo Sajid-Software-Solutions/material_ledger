@@ -543,6 +543,30 @@ final class YorksAccountsSupplierBillsController
     }
   }
 
+  /// Approves a draft supplier bill (draft -> approved), after which payments
+  /// can be recorded. No optimistic success; re-fetches on confirmation.
+  Future<String?> approveBill({
+    required String supplierBillId,
+    required int expectedVersion,
+  }) async {
+    try {
+      await _repository.approveBill(
+        YorksAccountsSupplierBillApprovalInput(
+          projectId: _projectId,
+          supplierBillId: supplierBillId,
+          expectedVersion: expectedVersion,
+          adminExceptionReason: null,
+        ),
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      await refresh();
+      return error.toString();
+    }
+  }
+
   /// Records a payment against an approved supplier bill. No optimistic
   /// success: the bills list is re-fetched on the server's confirmation.
   Future<String?> recordPayment(YorksAccountsSupplierPaymentInput input) async {

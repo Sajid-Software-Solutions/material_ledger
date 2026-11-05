@@ -3431,6 +3431,24 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'کوئی ڈیلیوری نہیں',
       'hi': 'कोई डिलीवरी नहीं',
     },
+    'v2_sup_approve': {
+      'en': 'Approve',
+      'ar': 'اعتماد',
+      'ur': 'منظور کریں',
+      'hi': 'स्वीकृत करें',
+    },
+    'v2_sup_approve_confirm': {
+      'en': 'Approve this supplier bill for payment?',
+      'ar': 'اعتماد فاتورة المورد هذه للدفع؟',
+      'ur': 'اس سپلائر بل کو ادائیگی کے لیے منظور کریں؟',
+      'hi': 'इस सप्लायर बिल को भुगतान के लिए स्वीकृत करें?',
+    },
+    'v2_sup_approved_done': {
+      'en': 'Bill approved',
+      'ar': 'تم اعتماد الفاتورة',
+      'ur': 'بل منظور ہو گیا',
+      'hi': 'बिल स्वीकृत',
+    },
     'v2_sup_pay_pending': {
       'en': 'Pending',
       'ar': 'قيد الانتظار',

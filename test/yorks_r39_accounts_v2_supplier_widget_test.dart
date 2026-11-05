@@ -42,7 +42,10 @@ const _cmds = YorksAccountsSupplierCommands(
   cancelBill: false,
 );
 
-YorksAccountsSupplierBill _bill() => YorksAccountsSupplierBill(
+YorksAccountsSupplierBill _bill({
+  YorksAccountsSupplierBillStatus status =
+      YorksAccountsSupplierBillStatus.approved,
+}) => YorksAccountsSupplierBill(
   supplierBillId: 'sb1',
   projectId: 'p1',
   supplierId: 'sup1',
@@ -62,7 +65,7 @@ YorksAccountsSupplierBill _bill() => YorksAccountsSupplierBill(
   supplierInvoiceDocumentId: null,
   explicitMismatchReason: null,
   matchStatus: YorksAccountsSupplierMatchStatus.matched,
-  status: YorksAccountsSupplierBillStatus.approved,
+  status: status,
   paymentStatus: YorksAccountsSupplierPaymentStatus.partiallyPaid,
   paidAmount: _d('40000.00'),
   outstandingAmount: _d('65000.00'),
@@ -228,6 +231,47 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_inv_record_payment')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2SupplierTab approval', () {
+    testWidgets('approves a draft bill through onApprove', (tester) async {
+      _wideSurface(tester);
+      String? approvedId;
+      int? approvedVersion;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(
+              pay: true,
+              items: [_bill(status: YorksAccountsSupplierBillStatus.draft)],
+            ),
+            language: en,
+            onApprove:
+                ({required supplierBillId, required expectedVersion}) async {
+                  approvedId = supplierBillId;
+                  approvedVersion = expectedVersion;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final btn = find.text(t('v2_sup_approve'));
+      expect(btn, findsOneWidget);
+      await tester.ensureVisible(btn);
+      await tester.pumpAndSettle();
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
+      // Confirmation dialog.
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(approvedId, 'sb1');
+      expect(approvedVersion, 1);
+      expect(find.text(t('v2_sup_approved_done')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
