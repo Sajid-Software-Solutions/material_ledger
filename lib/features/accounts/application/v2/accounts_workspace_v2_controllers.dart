@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
+import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_providers.dart';
 
@@ -153,6 +154,68 @@ final yorksAccountsContractControllerProvider = StateNotifierProvider
       ref.watch(yorksV1CurrentRoleProvider);
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsContractController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads and refreshes the claim workbench behind the Progress & claims tab.
+final class YorksAccountsWorkbenchController
+    extends StateNotifier<AsyncValue<YorksAccountsWorkbench>> {
+  YorksAccountsWorkbenchController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsWorkbench>.loading();
+    await _fetch();
+  }
+
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsWorkbench>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final workbench = await repository.getClaimWorkbench(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsWorkbench>.data(workbench);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsWorkbench>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+}
+
+final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsWorkbenchController,
+      AsyncValue<YorksAccountsWorkbench>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsWorkbenchController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         projectId: projectId,
       );

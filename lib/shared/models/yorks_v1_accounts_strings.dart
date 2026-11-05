@@ -3143,6 +3143,94 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'برائے توجہ',
       'hi': 'कृपया ध्यान दें',
     },
+
+    // ─── Progress & claims tab ─────────────────────────────────────────────
+    'v2_claims_need_baseline': {
+      'en':
+          'Set up the contract (a building and at least one billing stage) before recording progress.',
+      'ar':
+          'قم بإعداد العقد (مبنى ومرحلة فوترة واحدة على الأقل) قبل تسجيل التقدم.',
+      'ur':
+          'پیشرفت ریکارڈ کرنے سے پہلے کنٹریکٹ (ایک عمارت اور کم از کم ایک بلنگ اسٹیج) سیٹ اپ کریں۔',
+      'hi':
+          'प्रगति दर्ज करने से पहले कॉन्ट्रैक्ट (एक बिल्डिंग और कम से कम एक बिलिंग स्टेज) सेटअप करें।',
+    },
+    'v2_claims_no_claim': {
+      'en':
+          'No claim is in progress. Progress you confirm here starts the next claim.',
+      'ar':
+          'لا توجد مطالبة قيد التنفيذ. التقدم الذي تؤكده هنا يبدأ المطالبة التالية.',
+      'ur':
+          'کوئی کلیم جاری نہیں۔ یہاں آپ جو پیشرفت تصدیق کریں گے وہ اگلا کلیم شروع کرے گی۔',
+      'hi':
+          'कोई क्लेम प्रगति में नहीं। यहाँ पुष्ट की गई प्रगति अगला क्लेम शुरू करेगी।',
+    },
+    'v2_claim_title': {
+      'en': 'Claim',
+      'ar': 'المطالبة',
+      'ur': 'کلیم',
+      'hi': 'क्लेम',
+    },
+    'v2_claim_period': {
+      'en': 'Period',
+      'ar': 'الفترة',
+      'ur': 'مدت',
+      'hi': 'अवधि',
+    },
+    'v2_claim_lines': {
+      'en': 'Lines',
+      'ar': 'البنود',
+      'ur': 'لائنیں',
+      'hi': 'लाइनें',
+    },
+    'v2_claim_gross': {
+      'en': 'Gross (excl. VAT)',
+      'ar': 'الإجمالي (بدون الضريبة)',
+      'ur': 'مجموعی (بدون VAT)',
+      'hi': 'सकल (VAT रहित)',
+    },
+    'v2_col_eligible': {
+      'en': 'Eligible',
+      'ar': 'المستحق',
+      'ur': 'اہل',
+      'hi': 'पात्र',
+    },
+    'v2_col_claimed': {
+      'en': 'Claimed',
+      'ar': 'المطالب به',
+      'ur': 'کلیم شدہ',
+      'hi': 'दावा किया',
+    },
+    'v2_col_available': {
+      'en': 'Available',
+      'ar': 'المتاح',
+      'ur': 'دستیاب',
+      'hi': 'उपलब्ध',
+    },
+    'v2_claim_status_draft': {
+      'en': 'Draft',
+      'ar': 'مسودة',
+      'ur': 'ڈرافٹ',
+      'hi': 'ड्राफ्ट',
+    },
+    'v2_claim_status_checked': {
+      'en': 'Checked by PM',
+      'ar': 'مدقق من مدير المشروع',
+      'ur': 'PM سے چیک شدہ',
+      'hi': 'PM द्वारा जाँचा',
+    },
+    'v2_claim_status_invoiced': {
+      'en': 'Invoiced',
+      'ar': 'مفوتر',
+      'ur': 'انوائس شدہ',
+      'hi': 'इनवॉइस किया',
+    },
+    'v2_needs_review': {
+      'en': 'Needs review',
+      'ar': 'يحتاج مراجعة',
+      'ur': 'جائزہ درکار',
+      'hi': 'समीक्षा आवश्यक',
+    },
   };
 
   static String text(AppLanguage language, String key) {

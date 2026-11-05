@@ -21,6 +21,7 @@ import '../../../../shared/models/app_language.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
+import 'accounts_v2_claims_tab.dart';
 import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
 import 'accounts_v2_summary_tab.dart';
@@ -89,6 +90,7 @@ class _YorksAccountsWorkspaceV2ScreenState
       case YorksAccountsWorkspaceV2Tab.contract:
         return _ContractBody(projectId: widget.projectId, language: language);
       case YorksAccountsWorkspaceV2Tab.claims:
+        return _ClaimsBody(projectId: widget.projectId, language: language);
       case YorksAccountsWorkspaceV2Tab.invoices:
       case YorksAccountsWorkspaceV2Tab.supplierBills:
       case YorksAccountsWorkspaceV2Tab.history:
@@ -272,6 +274,40 @@ class _ContractBody extends ConsumerWidget {
           _ErrorBanner(language: language, onRetry: controller.load),
         Expanded(
           child: AccountsV2ContractTab(setup: setup!, language: language),
+        ),
+      ],
+    );
+  }
+}
+
+class _ClaimsBody extends ConsumerWidget {
+  const _ClaimsBody({required this.projectId, required this.language});
+
+  final String projectId;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(
+      yorksAccountsWorkbenchControllerProvider(projectId),
+    );
+    final controller = ref.read(
+      yorksAccountsWorkbenchControllerProvider(projectId).notifier,
+    );
+    final workbench = state.valueOrNull;
+
+    if (state.isLoading && workbench == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.hasError && workbench == null) {
+      return _ErrorState(language: language, onRetry: controller.load);
+    }
+    return Column(
+      children: [
+        if (state.hasError)
+          _ErrorBanner(language: language, onRetry: controller.load),
+        Expanded(
+          child: AccountsV2ClaimsTab(workbench: workbench!, language: language),
         ),
       ],
     );
