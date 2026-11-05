@@ -3369,6 +3369,104 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'واجب الادا',
       'hi': 'अतिदेय',
     },
+
+    // ─── Supplier bills tab ────────────────────────────────────────────────
+    'v2_sup_no_access': {
+      'en': "You don't have access to supplier costs on this project.",
+      'ar': 'ليس لديك صلاحية الاطلاع على تكاليف الموردين لهذا المشروع.',
+      'ur': 'آپ کو اس پراجیکٹ کی سپلائر لاگت تک رسائی نہیں۔',
+      'hi': 'आपके पास इस प्रोजेक्ट की सप्लायर लागत तक पहुँच नहीं है।',
+    },
+    'v2_sup_empty': {
+      'en': 'No supplier bills recorded for this project yet.',
+      'ar': 'لم يتم تسجيل فواتير موردين لهذا المشروع بعد.',
+      'ur': 'اس پراجیکٹ کے لیے ابھی کوئی سپلائر بل ریکارڈ نہیں۔',
+      'hi': 'इस प्रोजेक्ट के लिए अभी कोई सप्लायर बिल दर्ज नहीं।',
+    },
+    'v2_sup_kpi_billed': {
+      'en': 'Supplier bills (incl. VAT)',
+      'ar': 'فواتير الموردين (شامل الضريبة)',
+      'ur': 'سپلائر بلز (بشمول VAT)',
+      'hi': 'सप्लायर बिल (VAT सहित)',
+    },
+    'v2_sup_kpi_paid': {
+      'en': 'Paid',
+      'ar': 'المدفوع',
+      'ur': 'ادا شدہ',
+      'hi': 'भुगतान',
+    },
+    'v2_sup_kpi_unpaid': {
+      'en': 'Unpaid',
+      'ar': 'غير المدفوع',
+      'ur': 'غیر ادا',
+      'hi': 'अदत्त',
+    },
+    'v2_sup_col_bill': {
+      'en': 'Bill',
+      'ar': 'الفاتورة',
+      'ur': 'بل',
+      'hi': 'बिल',
+    },
+    'v2_sup_col_supplier': {
+      'en': 'Supplier',
+      'ar': 'المورد',
+      'ur': 'سپلائر',
+      'hi': 'सप्लायर',
+    },
+    'v2_sup_col_linked': {
+      'en': 'Linked to',
+      'ar': 'مرتبطة بـ',
+      'ur': 'منسلک',
+      'hi': 'संबद्ध',
+    },
+    'v2_sup_col_date': {
+      'en': 'Bill date',
+      'ar': 'تاريخ الفاتورة',
+      'ur': 'بل کی تاریخ',
+      'hi': 'बिल तारीख',
+    },
+    'v2_sup_no_delivery': {
+      'en': 'No delivery',
+      'ar': 'لا يوجد تسليم',
+      'ur': 'کوئی ڈیلیوری نہیں',
+      'hi': 'कोई डिलीवरी नहीं',
+    },
+    'v2_sup_pay_pending': {
+      'en': 'Pending',
+      'ar': 'قيد الانتظار',
+      'ur': 'زیر التوا',
+      'hi': 'लंबित',
+    },
+    'v2_sup_pay_approved': {
+      'en': 'Approved',
+      'ar': 'معتمد',
+      'ur': 'منظور شدہ',
+      'hi': 'स्वीकृत',
+    },
+    'v2_sup_pay_partially_paid': {
+      'en': 'Part paid',
+      'ar': 'مدفوع جزئياً',
+      'ur': 'جزوی ادا',
+      'hi': 'आंशिक भुगतान',
+    },
+    'v2_sup_pay_paid': {
+      'en': 'Paid',
+      'ar': 'مدفوع',
+      'ur': 'ادا شدہ',
+      'hi': 'भुगतान',
+    },
+    'v2_sup_pay_blocked': {
+      'en': 'Blocked',
+      'ar': 'محظور',
+      'ur': 'بلاک',
+      'hi': 'अवरुद्ध',
+    },
+    'v2_sup_pay_cancelled': {
+      'en': 'Cancelled',
+      'ar': 'ملغاة',
+      'ur': 'منسوخ',
+      'hi': 'रद्द',
+    },
   };
 
   static String text(AppLanguage language, String key) {

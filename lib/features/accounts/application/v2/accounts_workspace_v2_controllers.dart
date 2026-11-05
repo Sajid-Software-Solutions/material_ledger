@@ -14,13 +14,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../data/accounts_receivables_repository.dart';
+import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../domain/accounts_receivables_models.dart';
+import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_providers.dart';
 import '../accounts_receivables_providers.dart';
+import '../accounts_supplier_providers.dart';
 
 /// Repository for the V2 RPCs. Null when Supabase is not configured, so the
 /// release build stays fail-closed rather than rendering an empty workspace.
@@ -276,6 +279,60 @@ final yorksAccountsInvoicesControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsInvoicesController(
         repository: ref.watch(yorksAccountsReceivablesRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads and refreshes the supplier bills behind the Supplier bills tab,
+/// reusing the existing supplier repository's v1_list_supplier_bills.
+final class YorksAccountsSupplierBillsController
+    extends StateNotifier<AsyncValue<YorksAccountsSupplierBillsProjection>> {
+  YorksAccountsSupplierBillsController({
+    required YorksAccountsSupplierRepository repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsSupplierRepository _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsSupplierBillsProjection>.loading();
+    await _fetch();
+  }
+
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    try {
+      final projection = await _repository.listBills(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsSupplierBillsProjection>.data(projection);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsSupplierBillsProjection>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+}
+
+final yorksAccountsSupplierBillsControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsSupplierBillsController,
+      AsyncValue<YorksAccountsSupplierBillsProjection>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsSupplierBillsController(
+        repository: ref.watch(yorksAccountsSupplierRepositoryProvider),
         projectId: projectId,
       );
     });
