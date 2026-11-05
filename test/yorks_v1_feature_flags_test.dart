@@ -160,6 +160,56 @@ void main() {
     );
 
     test(
+      'Accounts Workspace V2 stays off by default and fails closed without accounts',
+      () {
+        const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();
+        const accountsOnly = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          arrangement: true,
+          logistics: true,
+          returnsDocuments: true,
+          documents: true,
+          accounts: true,
+        );
+        const v2WithoutAccounts = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          arrangement: true,
+          logistics: true,
+          returnsDocuments: true,
+          documents: true,
+          accountsWorkspaceV2: true,
+        );
+        const v2Enabled = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          arrangement: true,
+          logistics: true,
+          returnsDocuments: true,
+          documents: true,
+          accounts: true,
+          accountsWorkspaceV2: true,
+        );
+
+        // Default off, and enabling V2 never implies the base Accounts chain.
+        expect(defaultEnvironment.accountsWorkspaceV2, false);
+        expect(accountsOnly.accountsWorkspaceV2, false);
+        expect(v2WithoutAccounts.accountsWorkspaceV2, false);
+        expect(v2Enabled.accountsWorkspaceV2, true);
+      },
+    );
+
+    test(
       'Workforce stays off by default and fails closed without documents',
       () {
         const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();
