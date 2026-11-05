@@ -203,14 +203,17 @@ final class YorksAccountsWorkbenchController
     extends StateNotifier<AsyncValue<YorksAccountsWorkbench>> {
   YorksAccountsWorkbenchController({
     required YorksAccountsWorkspaceRepository? repository,
+    required YorksAccountsReceivablesRepository receivablesRepository,
     required String projectId,
   }) : _repository = repository,
+       _receivables = receivablesRepository,
        _projectId = projectId,
        super(const AsyncValue.loading()) {
     load();
   }
 
   final YorksAccountsWorkspaceRepository? _repository;
+  final YorksAccountsReceivablesRepository _receivables;
   final String _projectId;
 
   Future<void> load() async {
@@ -240,6 +243,30 @@ final class YorksAccountsWorkbenchController
         error,
         stackTrace,
       ).copyWithPrevious(state);
+    }
+  }
+
+  /// Submits the open draft claim to accounts (Mark checked: draft ->
+  /// ready_for_accounts). No optimistic success; re-fetches on confirmation.
+  Future<String?> markChecked({
+    required String claimId,
+    required int expectedVersion,
+    required String reason,
+  }) async {
+    try {
+      await _receivables.submitClaimToAccounts(
+        YorksAccountsEntityActionInput(
+          projectId: _projectId,
+          entityId: claimId,
+          expectedVersion: expectedVersion,
+          reason: reason,
+        ),
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
     }
   }
 
@@ -342,6 +369,9 @@ final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsWorkbenchController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        receivablesRepository: ref.watch(
+          yorksAccountsReceivablesRepositoryProvider,
+        ),
         projectId: projectId,
       );
     });

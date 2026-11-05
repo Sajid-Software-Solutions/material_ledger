@@ -3596,6 +3596,24 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ڈرافٹ پر واپس',
       'hi': 'ड्राफ्ट पर वापस',
     },
+    'v2_claim_mark_checked': {
+      'en': 'Mark checked',
+      'ar': 'وضع علامة مدقق',
+      'ur': 'چیک شدہ نشان زد کریں',
+      'hi': 'जाँचा चिह्नित करें',
+    },
+    'v2_claim_mark_reason': {
+      'en': 'Reason / note',
+      'ar': 'السبب / ملاحظة',
+      'ur': 'وجہ / نوٹ',
+      'hi': 'कारण / नोट',
+    },
+    'v2_claim_checked_done': {
+      'en': 'Claim marked as checked',
+      'ar': 'تم وضع علامة مدقق على المطالبة',
+      'ur': 'کلیم چیک شدہ نشان زد',
+      'hi': 'क्लेम जाँचा चिह्नित',
+    },
     'v2_claim_issue': {
       'en': 'Issue invoice',
       'ar': 'إصدار الفاتورة',

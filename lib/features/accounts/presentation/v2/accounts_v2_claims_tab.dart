@@ -59,6 +59,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     required this.language,
     this.onReopen,
     this.onIssue,
+    this.onMarkChecked,
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
@@ -68,6 +69,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   final AppLanguage language;
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
+  final YorksReopenClaimAction? onMarkChecked;
   final YorksSaveWorkbenchAction? onSaveWorkbench;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
@@ -190,6 +192,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       format: format,
       onReopen: onReopen,
       onIssue: onIssue,
+      onMarkChecked: widget.onMarkChecked,
     );
 
     return LayoutBuilder(
@@ -238,6 +241,7 @@ class _ClaimSidePanel extends StatelessWidget {
     required this.format,
     this.onReopen,
     this.onIssue,
+    this.onMarkChecked,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -246,6 +250,7 @@ class _ClaimSidePanel extends StatelessWidget {
   final AccountsV2Format format;
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
+  final YorksReopenClaimAction? onMarkChecked;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -282,6 +287,28 @@ class _ClaimSidePanel extends StatelessWidget {
       reason: reason,
     );
     if (context.mounted) await _report(context, error, 'v2_claim_reopened');
+  }
+
+  Future<void> _markChecked(
+    BuildContext context,
+    String claimId,
+    int version,
+  ) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReasonDialog(
+        title: _t('v2_claim_mark_checked'),
+        label: _t('v2_claim_mark_reason'),
+        language: language,
+      ),
+    );
+    if (reason == null) return;
+    final error = await onMarkChecked!(
+      claimId: claimId,
+      expectedVersion: version,
+      reason: reason,
+    );
+    if (context.mounted) await _report(context, error, 'v2_claim_checked_done');
   }
 
   Future<void> _issue(BuildContext context, String claimId, int version) async {
@@ -331,6 +358,11 @@ class _ClaimSidePanel extends StatelessWidget {
     final isChecked = status == 'ready_for_accounts';
     final showIssue = isChecked && onIssue != null && claimId != null;
     final showReopen = isChecked && onReopen != null && claimId != null;
+    final showMark =
+        status == 'draft' &&
+        onMarkChecked != null &&
+        claimId != null &&
+        lineCount > 0;
 
     return AccountsV2Card(
       child: Column(
@@ -360,10 +392,19 @@ class _ClaimSidePanel extends StatelessWidget {
               value: format.money(gross),
               emphasize: true,
             ),
-          if (showIssue || showReopen) ...[
+          if (showIssue || showReopen || showMark) ...[
             const SizedBox(height: AppSpacing.md),
             const Divider(height: 1, color: AppColors.line),
             const SizedBox(height: AppSpacing.md),
+            if (showMark)
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _markChecked(context, claimId, version),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: Text(_t('v2_claim_mark_checked')),
+                ),
+              ),
             if (showIssue)
               SizedBox(
                 width: double.infinity,

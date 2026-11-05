@@ -352,6 +352,16 @@ class _ClaimsBody extends ConsumerWidget {
                   evidenceDocumentIds: evidenceDocumentIds,
                   reason: reason,
                 ),
+            onMarkChecked:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) => controller.markChecked(
+                  claimId: claimId,
+                  expectedVersion: expectedVersion,
+                  reason: reason,
+                ),
             onReopen:
                 ({
                   required String claimId,

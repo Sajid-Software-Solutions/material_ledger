@@ -374,6 +374,49 @@ void main() {
     });
   });
 
+  group('AccountsV2ClaimsTab mark checked', () {
+    testWidgets('draft claim with lines marks checked via onMarkChecked', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+      String? markReason;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            onMarkChecked:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  markReason = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final markButton = find.text(t('v2_claim_mark_checked'));
+      expect(markButton, findsOneWidget);
+      await tester.ensureVisible(markButton);
+      await tester.pumpAndSettle();
+      await tester.tap(markButton);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Looks good');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(markReason, 'Looks good');
+      expect(find.text(t('v2_claim_checked_done')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('YorksAccountsWorkspaceV2Screen (Progress & claims tab)', () {
     testWidgets('opening on claims loads the workbench from the repository', (
       tester,
