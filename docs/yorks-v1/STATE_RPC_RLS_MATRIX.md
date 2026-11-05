@@ -521,3 +521,47 @@ retry returns the current authorized projection without duplicating evidence.
 This is an approval-only candidate behind the existing default-off Company
 Material Request flag. No company fulfilment state or stock command is
 authorized by T02.
+
+## R39 Accounts Workspace V2 (5 November 2026)
+
+Additive RPCs/projections for the per-project Accounts Workspace V2, behind the
+default-off `YORKS_V1_ACCOUNTS_WORKSPACE_V2` flag (chained under `YORKS_V1_ACCOUNTS`).
+Each follows the T02/T03 pattern (actor/role from Auth, capability check, expected
+version, idempotency key + request hash, deterministic row locks, append-only
+audit in-transaction, decimal strings in JSON). See
+[`R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md`](R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md).
+
+**New status values** (added as a check-constraint superset; no row changes
+state): `v1_accounts_client_invoices.status` gains `superseded`;
+`v1_accounts_client_claims.status` gains `superseded`. Every status reader
+(`due state`, PDC exposure, portfolio, office register, exports, reminders,
+`v1_accounts_notify_from_audit`) treats `superseded` as terminal and
+non-contributing.
+
+**P1 correctness fix (no new state).** `v1_accounts_progress_eligible_amount` and
+`v1_accounts_dimension_claimed_amount` become the single source of eligible and
+already-claimed; the latter sums claimed across **all** baseline revisions by
+stable dimension (`project, scope, stage_key`, optional `excluded_claim_id`).
+Every function that computed eligible/consumed inline is re-created to call them,
+so a cross-revision double-claim after a contract edit is denied and percent-mode
+outputs stay byte-identical except the removed T06 cent drift.
+
+| RPC | Caller | Locks/version | Idempotent | Atomic effects |
+|---|---|---|---|---|
+| `v1_save_project_commercial_setup` | Active scoped `configure_project_commercials` actor | project/profile/current baseline + allocations + progress + stage items in deterministic order; expected profile version | yes | initialize (revision 1) or, if commercial dimensions changed, create an immutable numbered revision with a server-generated diff reason; **carry suggested/confirmed progress + evidence forward by stable keys** (building scope + stage key [+ item key]), cap below-confirmed quantities and flag `needs_review`, report removed dimensions; when only invoice settings changed, save them with no revision; append audit |
+| `v1_get_claim_workbench` | Active scoped `view_project_accounts`; value fields require `view_project_commercial_values` | current baseline + progress + open draft claim | no | one round-trip of every building × stage (× item) with values, dimension-wide previously claimed, confirmed-to-date, draft quantity, typed evidence, site suggestions, blockers (incl. `over_claimed`) and command flags |
+| `v1_save_claim_workbench` | Active scoped `prepare_client_claim` + `view_project_commercial_values`; rows confirmed only with `confirm_billing_progress` (else recorded as suggestions) | project + progress rows + the single open draft claim; expected claim version | yes | confirm changed rows (server recomputes to-date; never trusts client arithmetic), then create/replace the one open draft claim with lines `claimed = available(dimension)`; at most one open draft per project; append audit |
+| `v1_rebuild_client_claim_draft` | Active scoped `prepare_client_claim` | project + stale draft claim; expected version | yes | re-derive draft lines on the current baseline for a stale draft; append audit |
+| `v1_reopen_client_claim` | Active scoped `prepare_client_claim` | project + claim; expected version; only while no invoice exists | yes | `ready_for_accounts → draft` ("Back to draft"); append audit |
+| `v1_issue_client_invoice` | Active scoped `manage_client_invoices`; claim must be `ready_for_accounts` | project + claim + per-project invoice settings sequence; expected claim version | yes | allocate number (`prefix || lpad(seq,2,'0')` or unique override), create + submit invoice with VAT/terms snapshots, freeze `document_snapshot` (incl. letterhead + bank settings), increment sequence, audit, notify |
+| `v1_revise_client_invoice` | Active scoped `manage_client_invoices`; only with no certification, net payment or `expected/received/deposited` PDC | project + invoice + successor claim; expected version | yes | clone a successor draft claim (predecessor cap excluded via `p_excluded_claim_id`); predecessor stays `submitted` until successor issued; issuing the successor marks predecessor claim+invoice `superseded` and sets reference `base_reference || 'R.' || n` |
+| `v1_get_client_invoice_document` / `v1_preview_client_invoice_document` | Active scoped `view_project_accounts` + `view_project_commercial_values` | authorized project + invoice (frozen) or claim (live) | no | the frozen/live print model for `YorksClientInvoiceDocumentBuilder`; client never recomputes money |
+| `v1_get_project_accounts_workspace` | Active scoped `view_project_accounts`; monetary keys require `view_project_commercial_values`; supplier keys require `view_supplier_costs` | authorized project + current baseline/claims/invoices/bills | no | Summary projection: steps, money_flow (ex-VAT), kpis, server-derived `attention[]`, building×stage `heatmap`, and supplier-gated `cash`; monetary/supplier keys **omitted, not zeroed**, without capability |
+| `v1_get_accounts_item_site_evidence` | Active scoped `view_project_accounts` | authorized project + mapped item↔material links | no | advisory delivered good quantity per mapped commercial item with receipt-review/DO references; suggestions only — confirming still goes through `v1_save_claim_workbench` |
+
+New tables (all `v1_accounts_*`, additive): `baseline_stage_items`,
+`billing_item_progress` (+ `_revisions`), `project_invoice_settings`,
+`client_invoice_documents`, item↔material link rows. Company letterhead/bank
+settings use the existing Configuration Centre allowlist. Supplier-bill and
+certification/payment/PDC lifecycles, and the RLS capability matrix (§4), are
+unchanged except for the additive `superseded` terminal state.

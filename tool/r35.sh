@@ -38,6 +38,7 @@ operator_firebase_web_vapid_key="${FIREBASE_WEB_VAPID_KEY:-}"
 operator_calculator_workspace_flag="${YORKS_V1_CALCULATOR_WORKSPACE:-}"
 operator_project_setup_flag="${YORKS_V1_PROJECT_SETUP:-}"
 operator_accounts_flag="${YORKS_V1_ACCOUNTS:-}"
+operator_accounts_workspace_v2_flag="${YORKS_V1_ACCOUNTS_WORKSPACE_V2:-}"
 operator_company_material_requests_flag="${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-}"
 operator_workforce_flag="${YORKS_V1_WORKFORCE:-}"
 operator_analytics_flag="${YORKS_V1_ANALYTICS:-}"
@@ -66,6 +67,9 @@ firebase_web_vapid_key="${operator_firebase_web_vapid_key:-${FIREBASE_WEB_VAPID_
 calculator_workspace_flag="${operator_calculator_workspace_flag:-${YORKS_V1_CALCULATOR_WORKSPACE:-false}}"
 project_setup_flag="${operator_project_setup_flag:-${YORKS_V1_PROJECT_SETUP:-false}}"
 accounts_flag="${operator_accounts_flag:-${YORKS_V1_ACCOUNTS:-false}}"
+# Default off: the V2 Accounts workspace stays hidden until a release explicitly
+# opts in (YORKS_V1_ACCOUNTS_WORKSPACE_V2=true). It also requires YORKS_V1_ACCOUNTS.
+accounts_workspace_v2_flag="${operator_accounts_workspace_v2_flag:-${YORKS_V1_ACCOUNTS_WORKSPACE_V2:-false}}"
 company_material_requests_flag="${operator_company_material_requests_flag:-${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-false}}"
 workforce_flag="${operator_workforce_flag:-${YORKS_V1_WORKFORCE:-false}}"
 analytics_flag="${operator_analytics_flag:-${YORKS_V1_ANALYTICS:-false}}"
@@ -138,6 +142,13 @@ case "$accounts_flag" in
   true|false) ;;
   *)
     echo "YORKS_V1_ACCOUNTS must be true or false." >&2
+    exit 64
+    ;;
+esac
+case "$accounts_workspace_v2_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_ACCOUNTS_WORKSPACE_V2 must be true or false." >&2
     exit 64
     ;;
 esac
@@ -267,6 +278,7 @@ r35_defines=(
   "--dart-define=YORKS_V1_PROJECT_SETUP=${project_setup_flag}"
   "--dart-define=YORKS_V1_CALCULATOR_WORKSPACE=${calculator_workspace_flag}"
   "--dart-define=YORKS_V1_ACCOUNTS=${accounts_flag}"
+  "--dart-define=YORKS_V1_ACCOUNTS_WORKSPACE_V2=${accounts_workspace_v2_flag}"
   "--dart-define=YORKS_V1_COMPANY_MATERIAL_REQUESTS=${company_material_requests_flag}"
   "--dart-define=YORKS_V1_WORKFORCE=${workforce_flag}"
   "--dart-define=YORKS_V1_ANALYTICS=${analytics_flag}"

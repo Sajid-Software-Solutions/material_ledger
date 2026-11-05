@@ -21,6 +21,7 @@ class YorksV1FeatureFlags {
     bool returnsDocuments = false,
     bool documents = false,
     bool accounts = false,
+    bool accountsWorkspaceV2 = false,
     bool workforce = false,
     bool analytics = false,
     bool teamChat = false,
@@ -38,6 +39,7 @@ class YorksV1FeatureFlags {
        _returnsDocuments = returnsDocuments,
        _documents = documents,
        _accounts = accounts,
+       _accountsWorkspaceV2 = accountsWorkspaceV2,
        _workforce = workforce,
        _analytics = analytics,
        _teamChat = teamChat,
@@ -87,6 +89,10 @@ class YorksV1FeatureFlags {
         'YORKS_V1_ACCOUNTS',
         defaultValue: false,
       ),
+      _accountsWorkspaceV2 = const bool.fromEnvironment(
+        'YORKS_V1_ACCOUNTS_WORKSPACE_V2',
+        defaultValue: false,
+      ),
       _workforce = const bool.fromEnvironment(
         'YORKS_V1_WORKFORCE',
         defaultValue: false,
@@ -120,6 +126,7 @@ class YorksV1FeatureFlags {
   final bool _returnsDocuments;
   final bool _documents;
   final bool _accounts;
+  final bool _accountsWorkspaceV2;
   final bool _workforce;
   final bool _analytics;
   final bool _teamChat;
@@ -150,6 +157,13 @@ class YorksV1FeatureFlags {
   /// protected document chain and defaults off until its database, permission
   /// and UI acceptance gates have all passed.
   bool get accounts => documents && _accounts;
+
+  /// The rebuilt six-tab Accounts Workspace V2 experience. It is a phased,
+  /// default-off rollout layered on top of the accepted Accounts chain: when it
+  /// is enabled the per-project Accounts surface renders the new workspace,
+  /// otherwise the existing V1 Accounts screen stays in place. It never relaxes
+  /// any server authority — the new RPCs enforce the same capabilities.
+  bool get accountsWorkspaceV2 => accounts && _accountsWorkspaceV2;
 
   /// Workforce is an independently controlled, default-off rollout. Accepted
   /// routes are exposed only when the release operator explicitly enables it.

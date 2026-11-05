@@ -54,6 +54,8 @@ import '../../../company_overview/domain/company_analytics_models.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
 import '../../../materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../../../accounts/presentation/screens/yorks_accounts_screens.dart';
+import '../../../accounts/presentation/v2/accounts_v2_common.dart';
+import '../../../accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import '../widgets/yorks_v1_project_local_draft_section.dart';
 import '../../../../shared/providers/yorks_v1_project_creation_draft_provider.dart';
 
@@ -5041,7 +5043,7 @@ class _ProjectWorkspaceBody extends StatelessWidget {
                 ),
                 Expanded(
                   child: tab == YorksV1ProjectWorkspaceTab.accounts
-                      ? YorksProjectAccountsScreen(
+                      ? _ProjectAccountsEmbed(
                           projectId: project.id,
                           initialTab: initialAccountsTab,
                         )
@@ -5958,7 +5960,7 @@ class _MobileProjectWorkspace extends StatelessWidget {
           children: [
             tabs,
             Expanded(
-              child: YorksProjectAccountsScreen(
+              child: _ProjectAccountsEmbed(
                 projectId: item.project.id,
                 initialTab: initialAccountsTab,
               ),
@@ -9300,4 +9302,51 @@ class _CopyText extends StatelessWidget {
     style: style ?? AppTypography.bodyMedium,
     textAlign: center ? TextAlign.center : null,
   );
+}
+
+/// Chooses the per-project Accounts surface by the V2 rollout flag.
+///
+/// When `YORKS_V1_ACCOUNTS_WORKSPACE_V2` is on, the rebuilt six-tab workspace
+/// renders; otherwise the existing V1 Accounts screen stays in place. This is
+/// the single flag-guarded swap at the Accounts embed — the rest of the
+/// project workspace is unchanged. The V1 accounts tab (used by notification
+/// deep links) maps to the closest V2 tab.
+class _ProjectAccountsEmbed extends ConsumerWidget {
+  const _ProjectAccountsEmbed({
+    required this.projectId,
+    required this.initialTab,
+  });
+
+  final String projectId;
+  final YorksProjectAccountsTab initialTab;
+
+  static YorksAccountsWorkspaceV2Tab _mapTab(
+    YorksProjectAccountsTab tab,
+  ) => switch (tab) {
+    YorksProjectAccountsTab.overview => YorksAccountsWorkspaceV2Tab.summary,
+    YorksProjectAccountsTab.billing => YorksAccountsWorkspaceV2Tab.claims,
+    YorksProjectAccountsTab.invoices => YorksAccountsWorkspaceV2Tab.invoices,
+    YorksProjectAccountsTab.receiptsPdc => YorksAccountsWorkspaceV2Tab.invoices,
+    YorksProjectAccountsTab.supplierBills =>
+      YorksAccountsWorkspaceV2Tab.supplierBills,
+    YorksProjectAccountsTab.documents => YorksAccountsWorkspaceV2Tab.history,
+    YorksProjectAccountsTab.activity => YorksAccountsWorkspaceV2Tab.history,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final useV2 = ref.watch(
+      yorksV1FeatureFlagsProvider.select((flags) => flags.accountsWorkspaceV2),
+    );
+    if (useV2) {
+      return YorksAccountsWorkspaceV2Screen(
+        projectId: projectId,
+        initialTab: _mapTab(initialTab),
+      );
+    }
+    return YorksProjectAccountsScreen(
+      projectId: projectId,
+      initialTab: initialTab,
+    );
+  }
 }
