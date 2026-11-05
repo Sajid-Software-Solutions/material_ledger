@@ -1807,3 +1807,95 @@ grant project membership, commercial access or operational mutations. See
 behind `YORKS_V1_CALCULATOR_WORKSPACE`, default off. The accepted production web
 artifact enables it after the owner-authorized 6 October 2026 release; see
 [CALCULATOR_PRODUCTION_RELEASE_20261006.md](CALCULATOR_PRODUCTION_RELEASE_20261006.md).
+
+### 32. R39 Accounts Workspace V2 — 5 November 2026
+
+Product-owner approval on 5 November 2026 authorizes a point-to-point rebuild of
+the **per-project** Accounts workspace to the reviewed prototype
+[`designs/accounts-workspace-v2-prototype.html`](designs/accounts-workspace-v2-prototype.html),
+replacing today's seven table-shaped tabs (`overview, billing, invoices,
+receiptsPdc, supplierBills, documents, activity`) with six job-shaped tabs:
+**Summary, Contract, Progress & claims, Invoices & payments, Supplier bills,
+History & files**. The complete integration and implementation contract is
+[`R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md`](R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md).
+
+This changes **Accounts only**. It does not touch Projects, BOQ, Material
+Requests, Procurement, Inventory, Dispatch, Receipt, Delivery Orders, Returns or
+technical membership, except through the read-only projections FR-002/FR-003
+already allow. The Accountant office/portfolio at `/yorks/accounts/*` is **not**
+redesigned. The 15 exact R39 capability keys (§23), the 90/10 term/reminder
+defaults, the 10/50/30/5/5 default-stage template, the 100% building-allocation
+total, the `Common / All Buildings` physical-allocation exclusion, the claim/
+invoice/PDC lifecycle rules (§23) and the supplier three-way-match rules (§23)
+all remain authoritative. Server capabilities and record command flags remain
+the only authorization source (FR-018); the prototype's "Acting as" selector is
+a demo device only.
+
+The rebuild ships behind a new default-off flag **`YORKS_V1_ACCOUNTS_WORKSPACE_V2`**,
+chained under the existing `accounts` flag, one vertical slice per PR on
+`feature/accounts-workspace-v2`. The current V1 screens remain until V2 is proven
+in production, then a cleanup PR removes them. Every migration is additive and
+idempotent; new status values add a check-constraint superset; no existing row
+changes state; item, carry-forward, invoice-document and `superseded` records are
+never deleted — corrections are forward-only with an audited reason.
+
+The following working decisions (D1–D14) are adopted as the baseline. **D2, D6
+and D7 change statements previously frozen in R39 docs and are recorded
+explicitly here.**
+
+- **D1 — Who may edit Contract.** `configure_project_commercials` for Admin,
+  Project Manager and Senior Mechanical Engineer; Project Engineer and Accountant
+  are read-only unless explicitly granted.
+- **D2 — Carry progress forward on contract revision (supersedes "never carry
+  forward").** A commercial-baseline revision carries confirmed and suggested
+  progress forward by stable keys (building scope + stage key [+ item key]).
+  Quantities/percentages are kept; anything that no longer fits is flagged
+  `needs_review` and never silently dropped; removed dimensions are reported. The
+  earlier "re-materialize the grid at 0%" behavior was a migration-safety choice,
+  not a business rule. History on the prior revision stays immutable.
+- **D3 — Item-quantity billing.** Each stage carries a `measurement_mode` of
+  `percent` (e.g. Design, Commissioning & Handover, Energizing) or `items` (e.g.
+  Material Supply, Installation). Item weight is % of total contract per building;
+  item value is server-derived by largest-remainder so item values sum to the
+  stage value to the fil.
+- **D4 — Rounding.** Each building×stage claim line is rounded to fils; invoice
+  gross = Σ lines; VAT is applied to gross. This can differ from Yorks' Excel by
+  fils (Excel rounds only the total); confirm the exact fil treatment with the
+  owner against `INVOICE#02R.1`.
+- **D5 — Evidence for confirmed increases.** A confirmed increase accepts a
+  controlled document **or** a confirmed Receipt Review / Delivery Order of the
+  same project; decreases need a reason only. Evidence is stored as a typed array;
+  the legacy document-UUID column stays populated for older readers. This keeps
+  FR-047's "authorized evidence reference" while removing the mandatory
+  upload-per-row detour.
+- **D6 — VAT default (keeps the snapshot explicit).** A published setting
+  `accounts.default_vat_percent = 5` pre-fills the contract form, but the user
+  still confirms the VAT rate explicitly and it is snapshotted per baseline. R39's
+  prohibition on an *implicit* Accounts VAT default stands; this only stops
+  retyping.
+- **D7 — Invoice revision `R.n`.** An issued invoice may be revised in-system to
+  `base R.n` **only before** certification, payment or an active
+  (`expected`/`received`/`deposited`) PDC. After that, correction is a credit note
+  (out of V2 scope). Revision clones a successor draft claim; issuing it marks the
+  predecessor claim and invoice `superseded`; every status reader treats
+  `superseded` as terminal and non-contributing.
+- **D8 — Invoice numbering.** Per-project prefix + 2-digit sequence (e.g.
+  `YRA322` + `03`), editable before issue, unique per project.
+- **D9 — Letterhead & bank details.** New Admin-only company configuration keys
+  `company.trn`, `company.address`, `company.phone`, `company.fax`,
+  `company.email`, `company.bank_name`, `company.bank_iban`,
+  `company.bank_account_name`, managed through the existing Configuration Centre
+  and snapshotted on each issued invoice so it reprints identically forever.
+- **D10 — Claim ↔ invoice.** One-to-one, already enforced by `unique(claim_id)`.
+- **D11 — Who issues invoices.** Accountant (`manage_client_invoices`); the
+  Project Manager "checks" a claim via the existing
+  `v1_submit_client_claim_to_accounts`. Separation of duties is unchanged.
+- **D12 — YRA-322 history.** YRA32201 and YRA32202R.1 are entered through a
+  controlled source-import migration using the real certification/payment facts
+  Yorks supplies, following the `reconcile_yra322_source_progress_to_current_baseline`
+  precedent; it refuses if any live Accounts transaction already exists.
+- **D13 — Payment terms.** 45 days on YRA-322's commercial baseline; the
+  organization default stays 90 (per-baseline setting already exists).
+- **D14 — Variations.** V2 registers approved variations (which raise the
+  contract value shown on Summary) but does not yet bill them; VO billing is a
+  later decision.
