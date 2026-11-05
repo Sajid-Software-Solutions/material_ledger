@@ -16,18 +16,26 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
+import '../../domain/accounts_receivables_inputs.dart' show YorksAccountsDate;
+import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
 import 'accounts_v2_common.dart';
+
+/// Records a supplier-bill payment; returns null on success or an error.
+typedef YorksSupplierPayAction =
+    Future<String?> Function(YorksAccountsSupplierPaymentInput input);
 
 class AccountsV2SupplierTab extends StatelessWidget {
   const AccountsV2SupplierTab({
     super.key,
     required this.projection,
     required this.language,
+    this.onPay,
   });
 
   final YorksAccountsSupplierBillsProjection projection;
   final AppLanguage language;
+  final YorksSupplierPayAction? onPay;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -74,10 +82,15 @@ class AccountsV2SupplierTab extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.lg),
         _BillsCard(
+          projectId: projection.projectId,
           bills: projection.items,
+          canPay:
+              projection.capabilities.approveSupplierBillPayment &&
+              onPay != null,
           language: language,
           format: format,
           isOverdue: _isOverdue,
+          onPay: onPay,
         ),
       ],
     );
@@ -193,18 +206,53 @@ class _Kpi extends StatelessWidget {
 
 class _BillsCard extends StatelessWidget {
   const _BillsCard({
+    required this.projectId,
     required this.bills,
+    required this.canPay,
     required this.language,
     required this.format,
     required this.isOverdue,
+    this.onPay,
   });
 
+  final String projectId;
   final List<YorksAccountsSupplierBill> bills;
+  final bool canPay;
   final AppLanguage language;
   final AccountsV2Format format;
   final bool Function(YorksAccountsSupplierBill) isOverdue;
+  final YorksSupplierPayAction? onPay;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  bool _canPay(YorksAccountsSupplierBill bill) =>
+      canPay &&
+      bill.status == YorksAccountsSupplierBillStatus.approved &&
+      bill.outstandingAmount.isPositive;
+
+  Future<void> _pay(
+    BuildContext context,
+    YorksAccountsSupplierBill bill,
+  ) async {
+    final input = await showDialog<YorksAccountsSupplierPaymentInput>(
+      context: context,
+      builder: (_) => _SupplierPayDialog(
+        projectId: projectId,
+        bill: bill,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onPay!(input);
+    if (!context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_pay_saved') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +281,7 @@ class _BillsCard extends StatelessWidget {
                   numeric: true,
                 ),
                 DataColumn(label: Text(_t('v2_inv_col_status'))),
+                if (canPay) DataColumn(label: Text(_t('v2_inv_actions'))),
               ],
               rows: [
                 for (final bill in bills)
@@ -279,6 +328,15 @@ class _BillsCard extends StatelessWidget {
                           language: language,
                         ),
                       ),
+                      if (canPay)
+                        DataCell(
+                          _canPay(bill)
+                              ? TextButton(
+                                  onPressed: () => _pay(context, bill),
+                                  child: Text(_t('v2_inv_record_payment')),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
                     ],
                   ),
               ],
@@ -377,6 +435,144 @@ class _Notice extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Supplier payment dialog ─────────────────────────────────────────────────
+
+class _SupplierPayDialog extends StatefulWidget {
+  const _SupplierPayDialog({
+    required this.projectId,
+    required this.bill,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsSupplierBill bill;
+  final AppLanguage language;
+
+  @override
+  State<_SupplierPayDialog> createState() => _SupplierPayDialogState();
+}
+
+class _SupplierPayDialogState extends State<_SupplierPayDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _date;
+  final _reference = TextEditingController();
+  final _reason = TextEditingController();
+  String _method = 'bank_transfer';
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  static String _todayIso() {
+    final d = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = TextEditingController(
+      text: widget.bill.outstandingAmount.canonicalText,
+    );
+    _date = TextEditingController(text: _todayIso());
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsSupplierPaymentInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    final reason = _reason.text.trim();
+    return YorksAccountsSupplierPaymentInput(
+      projectId: widget.projectId,
+      supplierBillId: widget.bill.supplierBillId,
+      expectedVersion: widget.bill.recordVersion,
+      paymentDate: date,
+      paymentMethod: _method,
+      paymentReference: _reference.text.trim(),
+      amount: amount,
+      reason: reason.isEmpty ? null : reason,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    InputDecoration deco(String label, {String? hint}) => InputDecoration(
+      labelText: label,
+      hintText: hint,
+      isDense: true,
+      border: const OutlineInputBorder(),
+    );
+    return AlertDialog(
+      title: Text(_t('v2_pay_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_pay_amount')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _date,
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_pay_date'), hint: 'YYYY-MM-DD'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<String>(
+            initialValue: _method,
+            decoration: deco(_t('v2_pay_method')),
+            items: [
+              DropdownMenuItem(
+                value: 'bank_transfer',
+                child: Text(_t('v2_pay_method_bank')),
+              ),
+              DropdownMenuItem(
+                value: 'cash',
+                child: Text(_t('v2_pay_method_cash')),
+              ),
+            ],
+            onChanged: (v) => setState(() => _method = v ?? 'bank_transfer'),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reference,
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_pay_reference')),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reason,
+            onChanged: (_) => setState(() {}),
+            decoration: deco(_t('v2_pay_reason_opt')),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:material_ledger/features/accounts/application/accounts_supplier_
 import 'package:material_ledger/features/accounts/data/accounts_supplier_repository.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_receivables_inputs.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_supplier_inputs.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_supplier_tab.dart';
@@ -20,6 +21,11 @@ YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);
 const _caps = YorksAccountsSupplierCapabilities(
   manageSupplierBills: false,
   approveSupplierBillPayment: false,
+  viewSupplierCosts: true,
+);
+const _capsPay = YorksAccountsSupplierCapabilities(
+  manageSupplierBills: true,
+  approveSupplierBillPayment: true,
   viewSupplierCosts: true,
 );
 const _capsNoCosts = YorksAccountsSupplierCapabilities(
@@ -76,12 +82,13 @@ YorksAccountsSupplierBill _bill() => YorksAccountsSupplierBill(
 
 YorksAccountsSupplierBillsProjection _projection({
   bool costs = true,
+  bool pay = false,
   List<YorksAccountsSupplierBill>? items,
 }) => YorksAccountsSupplierBillsProjection(
   projectId: 'p1',
   items: items ?? [_bill()],
   nextCursor: null,
-  capabilities: costs ? _caps : _capsNoCosts,
+  capabilities: pay ? _capsPay : (costs ? _caps : _capsNoCosts),
   commands: _cmds,
 );
 
@@ -165,6 +172,62 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_sup_empty')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2SupplierTab payment', () {
+    testWidgets('records a supplier payment through onPay', (tester) async {
+      _wideSurface(tester);
+      YorksAccountsSupplierPaymentInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(pay: true),
+            language: en,
+            onPay: (i) async {
+              captured = i;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final btn = find.text(t('v2_inv_record_payment'));
+      expect(btn, findsOneWidget);
+      await tester.ensureVisible(btn);
+      await tester.pumpAndSettle();
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
+      // Fields: amount(0), date(1), reference(2), note(3).
+      await tester.enterText(find.byType(TextField).at(2), 'SPAY-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.supplierBillId, 'sb1');
+      expect(captured!.paymentReference, 'SPAY-1');
+      expect(captured!.paymentMethod, 'bank_transfer');
+      expect(find.text(t('v2_pay_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no payment button without the capability', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(),
+            language: en,
+            onPay: (i) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_inv_record_payment')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

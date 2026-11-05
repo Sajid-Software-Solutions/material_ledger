@@ -460,6 +460,7 @@ class _SupplierBody extends ConsumerWidget {
           child: AccountsV2SupplierTab(
             projection: projection!,
             language: language,
+            onPay: controller.recordPayment,
           ),
         ),
       ],

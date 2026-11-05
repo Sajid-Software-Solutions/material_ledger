@@ -21,6 +21,7 @@ import '../../data/v2/accounts_workspace_repository.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
+import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
@@ -493,6 +494,18 @@ final class YorksAccountsSupplierBillsController
         error,
         stackTrace,
       ).copyWithPrevious(state);
+    }
+  }
+
+  /// Records a payment against an approved supplier bill. No optimistic
+  /// success: the bills list is re-fetched on the server's confirmation.
+  Future<String?> recordPayment(YorksAccountsSupplierPaymentInput input) async {
+    try {
+      await _repository.recordPayment(input, idempotencyKey: const Uuid().v4());
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
     }
   }
 }
