@@ -28,6 +28,10 @@ typedef YorksCertifyAction =
 typedef YorksPayAction =
     Future<String?> Function(YorksAccountsPaymentInput input);
 
+/// Reverses a recorded receipt; returns null on success or an error message.
+typedef YorksReversePaymentAction =
+    Future<String?> Function(YorksAccountsPaymentReversalInput input);
+
 class AccountsV2InvoicesTab extends StatelessWidget {
   const AccountsV2InvoicesTab({
     super.key,
@@ -35,6 +39,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     required this.language,
     this.onCertify,
     this.onPay,
+    this.onReversePayment,
     this.onPrintInvoice,
     this.onOpenDetail,
     this.trailing,
@@ -48,6 +53,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   final Widget? trailing;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
+  final YorksReversePaymentAction? onReversePayment;
 
   /// Fetches + renders the invoice PDF and opens the print/preview; returns
   /// null on success or an error message.
@@ -108,6 +114,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         format: format,
         onCertify: onCertify,
         onPay: onPay,
+        onReversePayment: onReversePayment,
         onPrintInvoice: onPrintInvoice,
         onOpenDetail: onOpenDetail,
       ),
@@ -241,6 +248,7 @@ class _TrackerCard extends StatelessWidget {
     required this.format,
     this.onCertify,
     this.onPay,
+    this.onReversePayment,
     this.onPrintInvoice,
     this.onOpenDetail,
   });
@@ -254,6 +262,7 @@ class _TrackerCard extends StatelessWidget {
   final AccountsV2Format format;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
+  final YorksReversePaymentAction? onReversePayment;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
   final Future<YorksAccountsInvoiceDetailProjection?> Function(
     String invoiceId,
@@ -283,6 +292,7 @@ class _TrackerCard extends StatelessWidget {
         detail: detail,
         language: language,
         format: format,
+        onReversePayment: onReversePayment,
       ),
     );
   }
@@ -886,13 +896,62 @@ class _InvoiceDetailSheet extends StatelessWidget {
     required this.detail,
     required this.language,
     required this.format,
+    this.onReversePayment,
   });
 
   final YorksAccountsInvoiceDetailProjection detail;
   final AppLanguage language;
   final AccountsV2Format format;
+  final YorksReversePaymentAction? onReversePayment;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  /// Payment ids that already carry a reversal entry — they cannot be reversed
+  /// again (the server enforces one reversal per receipt).
+  Set<String> get _reversedPaymentIds => {
+    for (final p in detail.payments)
+      if (p.entryKind == YorksAccountsPaymentEntryKind.reversal &&
+          p.originalPaymentId != null)
+        p.originalPaymentId!,
+  };
+
+  bool _canReverse(YorksAccountsClientPayment p) =>
+      onReversePayment != null &&
+      detail.commands.reversePayment &&
+      p.entryKind == YorksAccountsPaymentEntryKind.receipt &&
+      !_reversedPaymentIds.contains(p.paymentId);
+
+  Future<void> _reverse(
+    BuildContext context,
+    YorksAccountsClientPayment payment,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final input = await showDialog<YorksAccountsPaymentReversalInput>(
+      context: context,
+      builder: (_) => _ReversalDialog(
+        projectId: detail.projectId,
+        invoiceId: detail.invoice.invoiceId,
+        expectedVersion: detail.invoice.recordVersion,
+        payment: payment,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onReversePayment!(input);
+    if (!context.mounted) return;
+    if (error == null) {
+      // No optimistic success: close the drawer so the refreshed tracker is
+      // shown; the user re-opens it to see the reversal entry.
+      Navigator.of(context).pop();
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_pay_reversed') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -972,6 +1031,18 @@ class _InvoiceDetailSheet extends StatelessWidget {
                     leading: p.paymentReference,
                     trailing: format.money(p.amount),
                     sub: '${p.paymentDate} · ${p.paymentMethod}',
+                    chip: p.entryKind == YorksAccountsPaymentEntryKind.reversal
+                        ? StatusChip(
+                            label: _t('v2_pay_reversal'),
+                            tone: NexusStatusTone.warning,
+                          )
+                        : null,
+                    action: _canReverse(p)
+                        ? TextButton(
+                            onPressed: () => _reverse(context, p),
+                            child: Text(_t('v2_pay_reverse')),
+                          )
+                        : null,
                   ),
               ],
             ),
@@ -1105,12 +1176,14 @@ class _DetailRow extends StatelessWidget {
     required this.trailing,
     required this.sub,
     this.chip,
+    this.action,
   });
 
   final String leading;
   final String trailing;
   final String sub;
   final Widget? chip;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -1148,10 +1221,116 @@ class _DetailRow extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xxs),
                 chip!,
               ],
+              ?action,
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Payment reversal dialog ─────────────────────────────────────────────────
+
+class _ReversalDialog extends StatefulWidget {
+  const _ReversalDialog({
+    required this.projectId,
+    required this.invoiceId,
+    required this.expectedVersion,
+    required this.payment,
+    required this.language,
+  });
+
+  final String projectId;
+  final String invoiceId;
+  final int expectedVersion;
+  final YorksAccountsClientPayment payment;
+  final AppLanguage language;
+
+  @override
+  State<_ReversalDialog> createState() => _ReversalDialogState();
+}
+
+class _ReversalDialogState extends State<_ReversalDialog> {
+  late final TextEditingController _date;
+  final _reference = TextEditingController();
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _date = TextEditingController(text: accountsV2TodayIso());
+  }
+
+  @override
+  void dispose() {
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPaymentReversalInput? _build() {
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (date == null) return null;
+    return YorksAccountsPaymentReversalInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoiceId,
+      expectedVersion: widget.expectedVersion,
+      originalPaymentId: widget.payment.paymentId,
+      reversalDate: date,
+      reversalReference: _reference.text.trim(),
+      reason: _reason.text.trim(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pay_reverse_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.payment.paymentReference,
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reverse_date'),
+            controller: _date,
+            hint: 'YYYY-MM-DD',
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reverse_reference'),
+            controller: _reference,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reverse_reason'),
+            controller: _reason,
+            onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
     );
   }
 }

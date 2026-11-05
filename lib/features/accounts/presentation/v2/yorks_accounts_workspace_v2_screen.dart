@@ -435,6 +435,7 @@ class _InvoicesBody extends ConsumerWidget {
           language: language,
           canManage: projection.capabilities.managePdc,
           onTransition: registerController.transition,
+          onReplace: registerController.replace,
         );
       }
     }
@@ -449,6 +450,7 @@ class _InvoicesBody extends ConsumerWidget {
             language: language,
             onCertify: controller.certify,
             onPay: controller.pay,
+            onReversePayment: controller.reversePayment,
             onPrintInvoice: (invoiceId) async {
               final bytes = await controller.buildInvoicePdf(invoiceId);
               if (bytes == null) return 'error';

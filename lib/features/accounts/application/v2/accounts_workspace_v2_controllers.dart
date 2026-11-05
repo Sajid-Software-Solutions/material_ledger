@@ -518,6 +518,17 @@ final class YorksAccountsInvoicesController
     action: (key) => _repository.recordPayment(input, idempotencyKey: key),
   );
 
+  /// Reverses a recorded receipt (an append-only reversal entry; the original
+  /// stays on the ledger). No optimistic success: the tracker re-fetches on the
+  /// server's confirmation.
+  Future<String?> reversePayment(YorksAccountsPaymentReversalInput input) =>
+      runCommand(
+        operation: 'reverse_payment',
+        entityId: input.originalPaymentId,
+        payload: input.idempotencyPayload(),
+        action: (key) => _repository.reversePayment(input, idempotencyKey: key),
+      );
+
   /// Fetches the full invoice detail (invoice, certifications, payments and
   /// cheques) for the drawer. Pure read; returns null on failure.
   Future<YorksAccountsInvoiceDetailProjection?> fetchInvoiceDetail(
@@ -636,6 +647,23 @@ final class YorksAccountsPdcRegisterController
       entityId: input.pdcId,
       payload: input.idempotencyPayload(),
       action: (key) => _receivables.transitionPdc(input, idempotencyKey: key),
+    );
+  }
+
+  /// Replaces a returned or bounced cheque with a re-presented one. The old
+  /// cheque is marked replaced and linked to the new one; no optimistic
+  /// success — the register re-fetches on the server's confirmation.
+  Future<String?> replace(YorksAccountsPdcReplacementInput input) {
+    if (!input.isValid) {
+      return Future<String?>.value(
+        'R39_ACCOUNTS_PDC_REPLACEMENT_FIELDS_REQUIRED',
+      );
+    }
+    return runCommand(
+      operation: 'replace_pdc',
+      entityId: input.originalPdcId,
+      payload: input.idempotencyPayload(),
+      action: (key) => _receivables.replacePdc(input, idempotencyKey: key),
     );
   }
 }

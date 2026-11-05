@@ -200,5 +200,61 @@ void main() {
       expect(captured!.clearanceReference, 'BANK-REF-9');
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('replaces a bounced cheque with a re-presented one', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      YorksAccountsPdcReplacementInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2PdcRegisterCard(
+            projectId: 'p1',
+            register: _register([
+              _pdc(
+                status: YorksAccountsPdcStatus.bounced,
+                recordVersion: 4,
+                actionRequired: true,
+              ),
+            ]),
+            language: en,
+            canManage: true,
+            onTransition: (_) async => null,
+            onReplace: (i) async {
+              captured = i;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // A bounced cheque offers Replace, not the lifecycle menu.
+      expect(find.text(t('v2_pdc_update')), findsNothing);
+      await tester.tap(find.text(t('v2_pdc_replace')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pdc_replace_cheque')),
+        'CHQ-002',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pdc_reason')),
+        'Re-presented after bounce',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured, isNotNull);
+      expect(captured!.originalPdcId, 'pdc1');
+      expect(captured!.expectedVersion, 4);
+      expect(captured!.chequeNumber, 'CHQ-002');
+      expect(captured!.reason, 'Re-presented after bounce');
+      // Amount defaults to the original cheque's value (52,500.00).
+      expect(captured!.amount, YorksAccountsDecimal.parse('52500.00'));
+      expect(find.text(t('v2_pdc_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

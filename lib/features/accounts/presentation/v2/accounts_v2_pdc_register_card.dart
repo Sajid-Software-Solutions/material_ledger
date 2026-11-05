@@ -16,6 +16,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../domain/accounts_decimal.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import 'accounts_v2_common.dart';
@@ -25,6 +26,11 @@ import 'accounts_v2_common.dart';
 typedef YorksPdcTransitionAction =
     Future<String?> Function(YorksAccountsPdcTransitionInput input);
 
+/// Replaces a returned/bounced cheque with a re-presented one; returns null on
+/// success or an error message.
+typedef YorksPdcReplaceAction =
+    Future<String?> Function(YorksAccountsPdcReplacementInput input);
+
 class AccountsV2PdcRegisterCard extends StatelessWidget {
   const AccountsV2PdcRegisterCard({
     super.key,
@@ -33,6 +39,7 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     required this.language,
     required this.canManage,
     this.onTransition,
+    this.onReplace,
   });
 
   final String projectId;
@@ -43,10 +50,17 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
   /// it; the server re-checks regardless.
   final bool canManage;
   final YorksPdcTransitionAction? onTransition;
+  final YorksPdcReplaceAction? onReplace;
 
   String _t(String key) => accountsV2Text(language, key);
 
-  bool get _showAction => canManage && onTransition != null;
+  bool get _showAction =>
+      canManage && (onTransition != null || onReplace != null);
+
+  bool _canReplace(YorksAccountsProjectPdc pdc) =>
+      onReplace != null &&
+      (pdc.status == YorksAccountsPdcStatus.returned ||
+          pdc.status == YorksAccountsPdcStatus.bounced);
 
   Future<void> _transition(
     BuildContext context,
@@ -65,6 +79,31 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     );
     if (input == null) return;
     final error = await onTransition!(input);
+    if (!context.mounted) return;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _replace(
+    BuildContext context,
+    YorksAccountsProjectPdc pdc,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final input = await showDialog<YorksAccountsPdcReplacementInput>(
+      context: context,
+      builder: (_) => _PdcReplacementDialog(
+        projectId: projectId,
+        pdc: pdc,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onReplace!(input);
     if (!context.mounted) return;
     messenger?.showSnackBar(
       SnackBar(
@@ -161,7 +200,15 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
   }
 
   Widget _actionCell(BuildContext context, YorksAccountsProjectPdc pdc) {
-    final next = pdc.nextStatuses;
+    if (_canReplace(pdc)) {
+      return TextButton(
+        onPressed: () => _replace(context, pdc),
+        child: Text(_t('v2_pdc_replace')),
+      );
+    }
+    final next = onTransition == null
+        ? const <YorksAccountsPdcStatus>[]
+        : pdc.nextStatuses;
     if (next.isEmpty) return const Text('—');
     return PopupMenuButton<YorksAccountsPdcStatus>(
       onSelected: (target) => _transition(context, pdc, target),
@@ -350,18 +397,23 @@ class _Field extends StatelessWidget {
     required this.label,
     required this.controller,
     this.hint,
+    this.numeric = false,
     this.onChanged,
   });
 
   final String label;
   final TextEditingController controller;
   final String? hint;
+  final bool numeric;
   final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      keyboardType: numeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
       onChanged: onChanged == null ? null : (_) => onChanged!(),
       decoration: InputDecoration(
         labelText: label,
@@ -369,6 +421,132 @@ class _Field extends StatelessWidget {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
+    );
+  }
+}
+
+// ─── Cheque replacement dialog ───────────────────────────────────────────────
+
+class _PdcReplacementDialog extends StatefulWidget {
+  const _PdcReplacementDialog({
+    required this.projectId,
+    required this.pdc,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsProjectPdc pdc;
+  final AppLanguage language;
+
+  @override
+  State<_PdcReplacementDialog> createState() => _PdcReplacementDialogState();
+}
+
+class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
+  late final TextEditingController _cheque;
+  late final TextEditingController _date;
+  late final TextEditingController _amount;
+  late final TextEditingController _bank;
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _cheque = TextEditingController();
+    _date = TextEditingController(text: accountsV2TodayIso());
+    _amount = TextEditingController(text: widget.pdc.amount.canonicalText);
+    _bank = TextEditingController(text: widget.pdc.bankName ?? '');
+  }
+
+  @override
+  void dispose() {
+    _cheque.dispose();
+    _date.dispose();
+    _amount.dispose();
+    _bank.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPdcReplacementInput? _build() {
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    if (date == null || amount == null) return null;
+    final bank = _bank.text.trim();
+    return YorksAccountsPdcReplacementInput(
+      projectId: widget.projectId,
+      originalPdcId: widget.pdc.pdcId,
+      expectedVersion: widget.pdc.recordVersion,
+      chequeNumber: _cheque.text.trim(),
+      chequeDate: date,
+      amount: amount,
+      bankName: bank.isEmpty ? null : bank,
+      reason: _reason.text.trim(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pdc_replace_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.pdc.chequeNumber,
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_replace_cheque'),
+              controller: _cheque,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_replace_date'),
+              controller: _date,
+              hint: 'YYYY-MM-DD',
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_replace_amount'),
+              controller: _amount,
+              numeric: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_replace_bank'),
+              controller: _bank,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_reason'),
+              controller: _reason,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
     );
   }
 }
