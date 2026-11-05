@@ -19,6 +19,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../application/accounts_records_providers.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import 'accounts_v2_claims_tab.dart';
@@ -316,14 +317,41 @@ class _ClaimsBody extends ConsumerWidget {
     if (state.hasError && workbench == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
+    final data = workbench!;
+    final canConfirm = data.capabilities['can_confirm'] == true;
+    final docsWorkspace = ref
+        .watch(yorksAccountsDocumentsControllerProvider(projectId))
+        .workspace;
+    final evidenceDocuments = <YorksAccountsEvidenceDoc>[
+      for (final doc in docsWorkspace?.documents ?? const [])
+        (id: doc.id, name: doc.fileName),
+    ];
     return Column(
       children: [
         if (state.hasError)
           _ErrorBanner(language: language, onRetry: controller.load),
         Expanded(
           child: AccountsV2ClaimsTab(
-            workbench: workbench!,
+            workbench: data,
             language: language,
+            canRecordProgress: canConfirm,
+            evidenceDocuments: evidenceDocuments,
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) => controller.saveWorkbench(
+                  claimReference: claimReference,
+                  periodStart: periodStart,
+                  periodEnd: periodEnd,
+                  entries: entries,
+                  evidenceDocumentIds: evidenceDocumentIds,
+                  reason: reason,
+                ),
             onReopen:
                 ({
                   required String claimId,

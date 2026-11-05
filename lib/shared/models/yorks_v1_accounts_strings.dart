@@ -3748,6 +3748,89 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ادائیگی درج ہو گئی',
       'hi': 'भुगतान दर्ज हुआ',
     },
+
+    // ─── Record progress (claim workbench grid edit) ───────────────────────
+    'v2_record_progress': {
+      'en': 'Record progress',
+      'ar': 'تسجيل التقدم',
+      'ur': 'پیشرفت ریکارڈ کریں',
+      'hi': 'प्रगति दर्ज करें',
+    },
+    'v2_progress_period_start': {
+      'en': 'Period start',
+      'ar': 'بداية الفترة',
+      'ur': 'مدت کا آغاز',
+      'hi': 'अवधि प्रारंभ',
+    },
+    'v2_progress_period_end': {
+      'en': 'Period end',
+      'ar': 'نهاية الفترة',
+      'ur': 'مدت کا اختتام',
+      'hi': 'अवधि अंत',
+    },
+    'v2_progress_this_claim': {
+      'en': '% to date',
+      'ar': '٪ حتى الآن',
+      'ur': '٪ اب تک',
+      'hi': '% अब तक',
+    },
+    'v2_progress_evidence': {
+      'en': 'Evidence',
+      'ar': 'الأدلة',
+      'ur': 'ثبوت',
+      'hi': 'साक्ष्य',
+    },
+    'v2_progress_evidence_pick': {
+      'en': 'Attach documents',
+      'ar': 'إرفاق مستندات',
+      'ur': 'دستاویزات منسلک کریں',
+      'hi': 'दस्तावेज़ संलग्न करें',
+    },
+    'v2_progress_evidence_required': {
+      'en': 'Attach at least one document to record an increase.',
+      'ar': 'أرفق مستنداً واحداً على الأقل لتسجيل زيادة.',
+      'ur': 'اضافہ ریکارڈ کرنے کے لیے کم از کم ایک دستاویز منسلک کریں۔',
+      'hi': 'वृद्धि दर्ज करने के लिए कम से कम एक दस्तावेज़ संलग्न करें।',
+    },
+    'v2_evidence_none_available': {
+      'en': 'No documents available to attach.',
+      'ar': 'لا توجد مستندات متاحة للإرفاق.',
+      'ur': 'منسلک کرنے کے لیے کوئی دستاویز دستیاب نہیں۔',
+      'hi': 'संलग्न करने के लिए कोई दस्तावेज़ उपलब्ध नहीं।',
+    },
+    'v2_progress_items_readonly': {
+      'en':
+          'Item-quantity stages are recorded in the full workbench (coming soon).',
+      'ar': 'مراحل كميات البنود تُسجَّل في مساحة العمل الكاملة (قريباً).',
+      'ur':
+          'آئٹم مقدار اسٹیجز مکمل ورک بینچ میں ریکارڈ ہوتے ہیں (جلد آ رہا ہے)۔',
+      'hi':
+          'आइटम-मात्रा स्टेज पूर्ण वर्कबेंच में दर्ज होते हैं (जल्द आ रहा है)।',
+    },
+    'v2_progress_no_percent_cells': {
+      'en': 'No lump-sum stages to record here.',
+      'ar': 'لا توجد مراحل مقطوعة لتسجيلها هنا.',
+      'ur': 'یہاں ریکارڈ کرنے کے لیے کوئی یکمشت اسٹیج نہیں۔',
+      'hi': 'यहाँ दर्ज करने के लिए कोई एकमुश्त स्टेज नहीं।',
+    },
+    'v2_progress_reason_opt': {
+      'en': 'Reason (optional)',
+      'ar': 'السبب (اختياري)',
+      'ur': 'وجہ (اختیاری)',
+      'hi': 'कारण (वैकल्पिक)',
+    },
+    'v2_progress_saved': {
+      'en': 'Progress recorded',
+      'ar': 'تم تسجيل التقدم',
+      'ur': 'پیشرفت ریکارڈ ہو گئی',
+      'hi': 'प्रगति दर्ज हुई',
+    },
+    'v2_evidence_selected': {
+      'en': 'selected',
+      'ar': 'محدد',
+      'ur': 'منتخب',
+      'hi': 'चयनित',
+    },
   };
 
   static String text(AppLanguage language, String key) {

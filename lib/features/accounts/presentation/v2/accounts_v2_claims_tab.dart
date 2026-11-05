@@ -37,27 +37,97 @@ typedef YorksIssueInvoiceAction =
       String? invoiceReference,
     });
 
-class AccountsV2ClaimsTab extends StatelessWidget {
+/// A selectable evidence document (id + display name) for the progress editor.
+typedef YorksAccountsEvidenceDoc = ({String id, String name});
+
+/// Confirms edited progress and rebuilds the draft claim; returns null on
+/// success or an error message.
+typedef YorksSaveWorkbenchAction =
+    Future<String?> Function({
+      String? claimReference,
+      required String periodStart,
+      required String periodEnd,
+      required List<Map<String, Object?>> entries,
+      required List<String> evidenceDocumentIds,
+      String? reason,
+    });
+
+class AccountsV2ClaimsTab extends StatefulWidget {
   const AccountsV2ClaimsTab({
     super.key,
     required this.workbench,
     required this.language,
     this.onReopen,
     this.onIssue,
+    this.onSaveWorkbench,
+    this.canRecordProgress = false,
+    this.evidenceDocuments = const [],
   });
 
   final YorksAccountsWorkbench workbench;
   final AppLanguage language;
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
+  final YorksSaveWorkbenchAction? onSaveWorkbench;
+  final bool canRecordProgress;
+  final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+
+  @override
+  State<AccountsV2ClaimsTab> createState() => _AccountsV2ClaimsTabState();
+}
+
+class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
+  bool _editing = false;
 
   bool get _canValues =>
-      workbench.capabilities['view_project_commercial_values'] == true;
+      widget.workbench.capabilities['view_project_commercial_values'] == true;
 
-  String _t(String key) => accountsV2Text(language, key);
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  List<YorksAccountsWorkbenchCell> get _percentCells => widget.workbench.cells
+      .where((c) => !c.isItemsMode)
+      .toList(growable: false);
+
+  bool get _showRecordProgress =>
+      widget.canRecordProgress &&
+      widget.onSaveWorkbench != null &&
+      _percentCells.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
+    if (_editing) {
+      return _ProgressEditor(
+        cells: _percentCells,
+        language: widget.language,
+        evidenceDocuments: widget.evidenceDocuments,
+        onCancel: () => setState(() => _editing = false),
+        onSave:
+            ({
+              String? claimReference,
+              required String periodStart,
+              required String periodEnd,
+              required List<Map<String, Object?>> entries,
+              required List<String> evidenceDocumentIds,
+              String? reason,
+            }) async {
+              final error = await widget.onSaveWorkbench!(
+                claimReference: claimReference,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                entries: entries,
+                evidenceDocumentIds: evidenceDocumentIds,
+                reason: reason,
+              );
+              if (mounted && error == null) setState(() => _editing = false);
+              return error;
+            },
+      );
+    }
+
+    final workbench = widget.workbench;
+    final language = widget.language;
+    final onReopen = widget.onReopen;
+    final onIssue = widget.onIssue;
     final format = const AccountsV2Format();
 
     if (workbench.baselineRevisionId == null) {
@@ -96,6 +166,22 @@ class AccountsV2ClaimsTab extends StatelessWidget {
       ],
     ];
     if (grid.isNotEmpty) grid.removeLast();
+
+    if (_showRecordProgress) {
+      grid
+        ..insert(
+          0,
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton.icon(
+              onPressed: () => setState(() => _editing = true),
+              icon: const Icon(Icons.edit_note_outlined, size: 16),
+              label: Text(_t('v2_record_progress')),
+            ),
+          ),
+        )
+        ..insert(1, const SizedBox(height: AppSpacing.lg));
+    }
 
     final aside = _ClaimSidePanel(
       workbench: workbench,
@@ -843,6 +929,346 @@ class _IssueDialogState extends State<_IssueDialog> {
           child: Text(_t('v2_confirm')),
         ),
       ],
+    );
+  }
+}
+
+// ─── Progress editor (percent-mode confirm) ──────────────────────────────────
+
+class _ProgressEditor extends StatefulWidget {
+  const _ProgressEditor({
+    required this.cells,
+    required this.language,
+    required this.evidenceDocuments,
+    required this.onCancel,
+    required this.onSave,
+  });
+
+  final List<YorksAccountsWorkbenchCell> cells;
+  final AppLanguage language;
+  final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+  final VoidCallback onCancel;
+  final YorksSaveWorkbenchAction onSave;
+
+  @override
+  State<_ProgressEditor> createState() => _ProgressEditorState();
+}
+
+class _ProgressEditorState extends State<_ProgressEditor> {
+  final Map<String, TextEditingController> _pct = {};
+  late final TextEditingController _start;
+  late final TextEditingController _end;
+  final _reason = TextEditingController();
+  final Set<String> _evidence = {};
+  bool _saving = false;
+
+  static final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  static String _todayIso() {
+    final d = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final today = _todayIso();
+    _start = TextEditingController(text: today);
+    _end = TextEditingController(text: today);
+    for (final c in widget.cells) {
+      _pct[c.progressEntryId] = TextEditingController(
+        text: c.confirmedPercent.canonicalText,
+      );
+    }
+    for (final c in _pct.values) {
+      c.addListener(_onChanged);
+    }
+    _start.addListener(_onChanged);
+    _end.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_start, _end, _reason, ..._pct.values]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  List<Map<String, Object?>> _entries() {
+    final out = <Map<String, Object?>>[];
+    for (final c in widget.cells) {
+      final text = _pct[c.progressEntryId]!.text.trim();
+      final parsed = YorksAccountsDecimal.tryParse(text);
+      if (parsed == null) continue;
+      if (parsed.compareTo(c.confirmedPercent) != 0) {
+        out.add({
+          'progress_entry_id': c.progressEntryId,
+          'confirmed_percent_to_date': text,
+        });
+      }
+    }
+    return out;
+  }
+
+  bool get _hasIncrease {
+    for (final c in widget.cells) {
+      final parsed = YorksAccountsDecimal.tryParse(
+        _pct[c.progressEntryId]!.text.trim(),
+      );
+      if (parsed != null && parsed.compareTo(c.confirmedPercent) > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool get _datesValid =>
+      _datePattern.hasMatch(_start.text.trim()) &&
+      _datePattern.hasMatch(_end.text.trim());
+
+  Future<void> _save() async {
+    final entries = _entries();
+    setState(() => _saving = true);
+    final error = await widget.onSave(
+      periodStart: _start.text.trim(),
+      periodEnd: _end.text.trim(),
+      entries: entries,
+      evidenceDocumentIds: _evidence.toList(growable: false),
+      reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_progress_saved') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _entries();
+    final needsEvidence = _hasIncrease && _evidence.isEmpty;
+    final canSave =
+        !_saving && _datesValid && entries.isNotEmpty && !needsEvidence;
+
+    return ListView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      children: [
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(_t('v2_record_progress')),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ProgressField(
+                      label: _t('v2_progress_period_start'),
+                      controller: _start,
+                      hint: 'YYYY-MM-DD',
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: _ProgressField(
+                      label: _t('v2_progress_period_end'),
+                      controller: _end,
+                      hint: 'YYYY-MM-DD',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AccountsV2SectionTitle(_t('v2_progress_this_claim')),
+              const SizedBox(height: AppSpacing.sm),
+              if (widget.cells.isEmpty)
+                Text(
+                  _t('v2_progress_no_percent_cells'),
+                  style: AppTypography.bodyMedium,
+                )
+              else
+                for (final c in widget.cells)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xs,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${c.buildingName} · ${c.stageLabel ?? c.stageKey}',
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 120,
+                          child: TextField(
+                            controller: _pct[c.progressEntryId],
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            textAlign: TextAlign.end,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              suffixText: '%',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _EvidencePicker(
+          documents: widget.evidenceDocuments,
+          selected: _evidence,
+          language: widget.language,
+          required: needsEvidence,
+          onToggle: (id, on) => setState(() {
+            if (on) {
+              _evidence.add(id);
+            } else {
+              _evidence.remove(id);
+            }
+          }),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AccountsV2Card(
+          child: _ProgressField(
+            label: _t('v2_progress_reason_opt'),
+            controller: _reason,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Row(
+          children: [
+            FilledButton(
+              onPressed: canSave ? _save : null,
+              child: Text(_saving ? _t('v2_saving') : _t('v2_save')),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: _saving ? null : widget.onCancel,
+              child: Text(_t('v2_cancel')),
+            ),
+            if (_saving) ...[
+              const SizedBox(width: AppSpacing.md),
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _EvidencePicker extends StatelessWidget {
+  const _EvidencePicker({
+    required this.documents,
+    required this.selected,
+    required this.language,
+    required this.required,
+    required this.onToggle,
+  });
+
+  final List<YorksAccountsEvidenceDoc> documents;
+  final Set<String> selected;
+  final AppLanguage language;
+  final bool required;
+  final void Function(String id, bool on) onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return AccountsV2Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AccountsV2SectionTitle(
+            '${accountsV2Text(language, 'v2_progress_evidence')}'
+            '${selected.isEmpty ? '' : ' · ${selected.length} '
+                      '${accountsV2Text(language, 'v2_evidence_selected')}'}',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (documents.isEmpty)
+            Text(
+              accountsV2Text(language, 'v2_evidence_none_available'),
+              style: AppTypography.bodyMedium,
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                for (final doc in documents)
+                  FilterChip(
+                    label: Text(doc.name),
+                    selected: selected.contains(doc.id),
+                    onSelected: (on) => onToggle(doc.id, on),
+                  ),
+              ],
+            ),
+          if (required) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              accountsV2Text(language, 'v2_progress_evidence_required'),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressField extends StatelessWidget {
+  const _ProgressField({
+    required this.label,
+    required this.controller,
+    this.hint,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 }

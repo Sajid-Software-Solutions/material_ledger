@@ -18,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 Map<String, dynamic> _workbenchJson({
   bool commercial = true,
   bool withClaim = true,
+  bool confirm = false,
   String claimStatus = 'draft',
 }) {
   Map<String, dynamic> cell({
@@ -56,7 +57,10 @@ Map<String, dynamic> _workbenchJson({
     'project_id': 'p1',
     'baseline_revision_id': 'rev1',
     'baseline_revision_number': 1,
-    'capabilities': {'view_project_commercial_values': commercial},
+    'capabilities': {
+      'view_project_commercial_values': commercial,
+      'can_confirm': confirm,
+    },
     'commands': <String, dynamic>{},
     'cells': [
       cell(
@@ -181,6 +185,90 @@ void main() {
 
       expect(find.text(t('v2_claims_no_claim')), findsOneWidget);
       expect(find.text('CLM-01'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2ClaimsTab record progress', () {
+    testWidgets('confirms an increase with evidence via onSaveWorkbench', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
+      List<Map<String, Object?>>? capturedEntries;
+      List<String>? capturedEvidence;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async {
+                  capturedEntries = entries;
+                  capturedEvidence = evidenceDocumentIds;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_record_progress')), findsOneWidget);
+      await tester.tap(find.text(t('v2_record_progress')));
+      await tester.pumpAndSettle();
+
+      // Fields: period start(0), end(1), the single percent cell(2), reason(3).
+      await tester.enterText(find.byType(TextField).at(2), '75');
+      await tester.pumpAndSettle();
+      // Increase needs evidence — select the document, then save.
+      await tester.tap(find.text('Signed sheet'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_save')));
+      await tester.pumpAndSettle();
+
+      expect(capturedEntries, isNotNull);
+      expect(capturedEntries!.single['progress_entry_id'], 'pe-design');
+      expect(capturedEntries!.single['confirmed_percent_to_date'], '75');
+      expect(capturedEvidence, ['doc1']);
+      expect(find.text(t('v2_progress_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no record-progress button without the capability', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: false,
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_record_progress')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

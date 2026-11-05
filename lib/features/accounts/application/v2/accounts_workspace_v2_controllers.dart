@@ -268,6 +268,38 @@ final class YorksAccountsWorkbenchController
     }
   }
 
+  /// Confirms the edited progress percentages and rebuilds the single open
+  /// draft claim in one transaction (v1_save_claim_workbench). No optimistic
+  /// success: the workbench is re-fetched on the server's confirmation. The
+  /// server requires at least one evidence document for any increase.
+  Future<String?> saveWorkbench({
+    String? claimReference,
+    required String periodStart,
+    required String periodEnd,
+    required List<Map<String, Object?>> entries,
+    required List<String> evidenceDocumentIds,
+    String? reason,
+  }) async {
+    final repository = _repository;
+    if (repository == null) return 'accounts_backend_unavailable';
+    try {
+      await repository.saveClaimWorkbench(
+        projectId: _projectId,
+        claimReference: claimReference,
+        periodStart: periodStart,
+        periodEnd: periodEnd,
+        entries: entries,
+        evidenceDocumentIds: evidenceDocumentIds,
+        reason: reason,
+        idempotencyKey: const Uuid().v4(),
+      );
+      await load();
+      return null;
+    } catch (error) {
+      return error.toString();
+    }
+  }
+
   /// Issues the client invoice for a checked claim (allocates the number,
   /// submits and freezes the document snapshot server-side). Re-fetches on
   /// confirmation; the idempotency key makes a retry a no-op.
