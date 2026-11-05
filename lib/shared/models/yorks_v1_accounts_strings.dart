@@ -3676,6 +3676,18 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ادائیگی درج کریں',
       'hi': 'भुगतान दर्ज करें',
     },
+    'v2_inv_view_print': {
+      'en': 'View / print',
+      'ar': 'عرض / طباعة',
+      'ur': 'دیکھیں / پرنٹ',
+      'hi': 'देखें / प्रिंट',
+    },
+    'v2_inv_pdf_failed': {
+      'en': "Couldn't open the invoice PDF — please try again.",
+      'ar': 'تعذّر فتح ملف الفاتورة — يرجى المحاولة مرة أخرى.',
+      'ur': 'انوائس PDF نہیں کھل سکی — دوبارہ کوشش کریں۔',
+      'hi': 'इनवॉइस PDF नहीं खुल सकी — कृपया पुनः प्रयास करें।',
+    },
     'v2_cert_title': {
       'en': 'Record certification',
       'ar': 'تسجيل الاعتماد',

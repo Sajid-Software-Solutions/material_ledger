@@ -10,6 +10,8 @@
 /// transition; commands return the server result and the controller re-fetches.
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -18,6 +20,7 @@ import '../../data/accounts_receivables_repository.dart';
 import '../../data/accounts_records_repository.dart';
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
+import '../../data/v2/client_invoice_document_builder.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
@@ -385,14 +388,17 @@ final class YorksAccountsInvoicesController
     extends StateNotifier<AsyncValue<YorksAccountsInvoicesProjection>> {
   YorksAccountsInvoicesController({
     required YorksAccountsReceivablesRepository repository,
+    required YorksAccountsWorkspaceRepository? workspaceRepository,
     required String projectId,
   }) : _repository = repository,
+       _workspace = workspaceRepository,
        _projectId = projectId,
        super(const AsyncValue.loading()) {
     load();
   }
 
   final YorksAccountsReceivablesRepository _repository;
+  final YorksAccountsWorkspaceRepository? _workspace;
   final String _projectId;
 
   Future<void> load() async {
@@ -442,6 +448,21 @@ final class YorksAccountsInvoicesController
       return error.toString();
     }
   }
+
+  /// Fetches the frozen invoice document snapshot and renders the tax-invoice
+  /// PDF. Returns the bytes, or null if the backend is unavailable or the
+  /// fetch/build fails (the caller shows a failure message). Pure read — it
+  /// never mutates state.
+  Future<Uint8List?> buildInvoicePdf(String invoiceId) async {
+    final workspace = _workspace;
+    if (workspace == null) return null;
+    try {
+      final doc = await workspace.getInvoiceDocument(_projectId, invoiceId);
+      return await YorksClientInvoiceDocumentBuilder.build(doc.document);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 final yorksAccountsInvoicesControllerProvider = StateNotifierProvider
@@ -456,6 +477,9 @@ final yorksAccountsInvoicesControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsInvoicesController(
         repository: ref.watch(yorksAccountsReceivablesRepositoryProvider),
+        workspaceRepository: ref.watch(
+          yorksAccountsWorkspaceRepositoryProvider,
+        ),
         projectId: projectId,
       );
     });

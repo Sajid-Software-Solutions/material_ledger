@@ -235,6 +235,36 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('view/print invokes onPrintInvoice for an issued invoice', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      String? printedId;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(),
+            language: en,
+            onPrintInvoice: (id) async {
+              printedId = id;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final btn = find.text(t('v2_inv_view_print'));
+      expect(btn, findsOneWidget);
+      await tester.ensureVisible(btn);
+      await tester.pumpAndSettle();
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
+
+      expect(printedId, 'i1');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('no action buttons without the capabilities', (tester) async {
       _wideSurface(tester);
       await tester.pumpWidget(

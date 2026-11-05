@@ -35,12 +35,17 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     required this.language,
     this.onCertify,
     this.onPay,
+    this.onPrintInvoice,
   });
 
   final YorksAccountsInvoicesProjection projection;
   final AppLanguage language;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
+
+  /// Fetches + renders the invoice PDF and opens the print/preview; returns
+  /// null on success or an error message.
+  final Future<String?> Function(String invoiceId)? onPrintInvoice;
 
   bool get _canValues => projection.capabilities.canViewValues;
 
@@ -91,6 +96,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         format: format,
         onCertify: onCertify,
         onPay: onPay,
+        onPrintInvoice: onPrintInvoice,
       ),
     );
 
@@ -217,6 +223,7 @@ class _TrackerCard extends StatelessWidget {
     required this.format,
     this.onCertify,
     this.onPay,
+    this.onPrintInvoice,
   });
 
   final String projectId;
@@ -228,8 +235,25 @@ class _TrackerCard extends StatelessWidget {
   final AccountsV2Format format;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
+  final Future<String?> Function(String invoiceId)? onPrintInvoice;
 
-  bool get _showActions => canCertify || canPay;
+  bool get _showActions => canCertify || canPay || onPrintInvoice != null;
+
+  bool _canPrint(YorksAccountsClientInvoiceSummary inv) =>
+      onPrintInvoice != null &&
+      inv.status != YorksAccountsInvoiceStatus.draft &&
+      inv.status != YorksAccountsInvoiceStatus.cancelled;
+
+  Future<void> _print(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final error = await onPrintInvoice!(inv.invoiceId);
+    if (!context.mounted || error == null) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(_t('v2_inv_pdf_failed'))));
+  }
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -392,6 +416,11 @@ class _TrackerCard extends StatelessWidget {
                                 TextButton(
                                   onPressed: () => _pay(context, inv),
                                   child: Text(_t('v2_inv_record_payment')),
+                                ),
+                              if (_canPrint(inv))
+                                TextButton(
+                                  onPressed: () => _print(context, inv),
+                                  child: Text(_t('v2_inv_view_print')),
                                 ),
                             ],
                           ),

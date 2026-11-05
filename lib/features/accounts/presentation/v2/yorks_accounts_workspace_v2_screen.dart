@@ -13,6 +13,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -423,6 +424,12 @@ class _InvoicesBody extends ConsumerWidget {
             language: language,
             onCertify: controller.certify,
             onPay: controller.pay,
+            onPrintInvoice: (invoiceId) async {
+              final bytes = await controller.buildInvoicePdf(invoiceId);
+              if (bytes == null) return 'error';
+              await Printing.layoutPdf(onLayout: (_) async => bytes);
+              return null;
+            },
           ),
         ),
       ],
