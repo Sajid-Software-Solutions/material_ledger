@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_receivables_inputs.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_receivables_models.dart';
+import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/accounts_workspace_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
@@ -12,7 +16,9 @@ import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_cl
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_contract_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_history_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_invoices_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_summary_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_supplier_tab.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 
 const _en = AppLanguage.english;
@@ -301,6 +307,139 @@ Widget _historyTab() => AccountsV2HistoryTab(
   language: _en,
 );
 
+YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);
+
+YorksAccountsInvoicesProjection _invoicesProjection() =>
+    YorksAccountsInvoicesProjection(
+      schemaVersion: 1,
+      projectId: 'p1',
+      invoices: [
+        YorksAccountsClientInvoiceSummary(
+          invoiceId: 'i1',
+          claimId: 'c1',
+          invoiceReference: 'YRA322-01',
+          status: YorksAccountsInvoiceStatus.certified,
+          claimedExVat: _d('1000000.00'),
+          certifiedExVat: _d('900000.00'),
+          totalInclVat: _d('1050000.00'),
+          amountPaidTillDate: _d('500000.00'),
+          stillDue: _d('550000.00'),
+          pdcExposure: _d('200000.00'),
+          submissionDate: YorksAccountsDate.parse('2026-08-26'),
+          dueDate: YorksAccountsDate.parse('2026-10-10'),
+          dueState: YorksAccountsDueState.overdue,
+          recordVersion: 1,
+          updatedAt: DateTime.utc(2026, 8, 26),
+        ),
+        YorksAccountsClientInvoiceSummary(
+          invoiceId: 'i2',
+          claimId: 'c0',
+          invoiceReference: 'YRA322-00',
+          status: YorksAccountsInvoiceStatus.paid,
+          claimedExVat: _d('800000.00'),
+          certifiedExVat: _d('800000.00'),
+          totalInclVat: _d('840000.00'),
+          amountPaidTillDate: _d('840000.00'),
+          stillDue: _d('0.00'),
+          pdcExposure: _d('0.00'),
+          submissionDate: YorksAccountsDate.parse('2026-07-10'),
+          dueDate: YorksAccountsDate.parse('2026-08-24'),
+          dueState: YorksAccountsDueState.onTrack,
+          recordVersion: 3,
+          updatedAt: DateTime.utc(2026, 8, 20),
+        ),
+      ],
+      nextCursor: null,
+      capabilities: const YorksAccountsReceivablesCapabilities(
+        canViewValues: true,
+        prepareClientClaim: false,
+        manageClientInvoices: false,
+        recordClientCertification: false,
+        recordClientPayment: false,
+        managePdc: false,
+      ),
+      commands: const YorksAccountsReceivablesCommands(
+        createClaimDraft: false,
+        editClaimDraft: false,
+        submitClaimToAccounts: false,
+        cancelClaim: false,
+        createInvoiceDraft: false,
+        submitInvoice: false,
+        returnInvoice: false,
+        cancelInvoice: false,
+        recordCertification: false,
+        recordPayment: false,
+        reversePayment: false,
+        createPdc: false,
+        transitionPdc: false,
+        replacePdc: false,
+      ),
+    );
+
+YorksAccountsSupplierBillsProjection _supplierProjection() =>
+    YorksAccountsSupplierBillsProjection(
+      projectId: 'p1',
+      items: [
+        YorksAccountsSupplierBill(
+          supplierBillId: 'sb1',
+          projectId: 'p1',
+          supplierId: 'sup1',
+          supplierName: 'Cool Air Co',
+          supplierInvoiceReference: 'INV-5001',
+          invoiceDate: YorksAccountsDate.parse('2026-08-01'),
+          dueDate: YorksAccountsDate.parse('2026-09-01'),
+          exVatAmount: _d('100000.00'),
+          vatRatePercent: _d('5.0000'),
+          vatAmount: _d('5000.00'),
+          totalInclVat: _d('105000.00'),
+          poLpoReference: 'PO-77',
+          poLpoDocumentId: null,
+          acceptedReceiptReviewId: null,
+          acceptedDeliveryReference: 'DO-3001',
+          acceptedDelivery: null,
+          supplierInvoiceDocumentId: null,
+          explicitMismatchReason: null,
+          matchStatus: YorksAccountsSupplierMatchStatus.matched,
+          status: YorksAccountsSupplierBillStatus.approved,
+          paymentStatus: YorksAccountsSupplierPaymentStatus.partiallyPaid,
+          paidAmount: _d('40000.00'),
+          outstandingAmount: _d('65000.00'),
+          approvalAdminExceptionReason: null,
+          approvedAt: DateTime.utc(2026, 8, 2),
+          approvedByAuthUserId: 'u',
+          approvedByExactRole: 'accountant',
+          cancelledAt: null,
+          cancellationReason: null,
+          notes: null,
+          recordVersion: 1,
+          createdByAuthUserId: 'u',
+          createdByExactRole: 'accountant',
+          createdAt: DateTime.utc(2026, 8, 1),
+          updatedAt: DateTime.utc(2026, 8, 2),
+        ),
+      ],
+      nextCursor: null,
+      capabilities: const YorksAccountsSupplierCapabilities(
+        manageSupplierBills: false,
+        approveSupplierBillPayment: false,
+        viewSupplierCosts: true,
+      ),
+      commands: const YorksAccountsSupplierCommands(
+        createBill: false,
+        editBill: false,
+        approveBill: false,
+        recordPayment: false,
+        reversePayment: false,
+        cancelBill: false,
+      ),
+    );
+
+Widget _invoicesTab() =>
+    AccountsV2InvoicesTab(projection: _invoicesProjection(), language: _en);
+
+Widget _supplierTab() =>
+    AccountsV2SupplierTab(projection: _supplierProjection(), language: _en);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadGoldenFonts);
@@ -309,6 +448,8 @@ void main() {
     'summary': _summaryTab,
     'contract': _contractTab,
     'claims': _claimsTab,
+    'invoices': _invoicesTab,
+    'supplier': _supplierTab,
     'history': _historyTab,
   };
   final viewports = <String, Size>{
