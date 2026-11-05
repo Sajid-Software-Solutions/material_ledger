@@ -1,10 +1,24 @@
-# D4 — Cent (fils) rounding: decision needed from the owner
+# D4 — Cent (fils) rounding
 
-**Status:** awaiting owner sign-off · **Scope:** Accounts V2 invoice totals only ·
-**Blocks:** turning on `YORKS_V1_ACCOUNTS_WORKSPACE_V2` in production
+**Status: RESOLVED (2026-11-05) — keep the server's per-cell rounding (Option A).**
+Owner to acknowledge the ≤1-fil difference vs the historical Excel PDFs before
+go-live. · **Scope:** Accounts V2 invoice totals only ·
 **Prepared:** 2026-11-05 · **Verified against primary sources** (Yorks' own Excel
-invoice + the approved HTML prototype) on 2026-11-05.
-**Reference invoice:** YRA-322 `INVOICE#02R.1`
+invoice + the approved HTML prototype). **Reference invoice:** YRA-322
+`INVOICE#02R.1`
+
+> **Resolution.** We evaluated matching the Excel/prototype exactly (Option B)
+> and **declined** it. Exact parity is not a contained change: each building is
+> its own claim line stored at `numeric(20,2)`, and the server intentionally
+> rounds each building × stage cell to the fil (item values are distributed by
+> largest remainder so they sum to the cell exactly). The sub-fil fractions are
+> therefore gone before the gross sums the cells, so no "round later" recovers
+> the last fil — B would require carrying cell amounts at sub-fil precision
+> through the claim/invoice engine (an additive exact-amount column populated at
+> claim creation, plus issue/gross/P9 changes). That is disproportionate to a
+> **≤1-fil** cosmetic match, and the per-cell model is the stricter one (printed
+> lines always total the printed gross). We keep **Option A**; the sections below
+> record the full analysis.
 
 ---
 
@@ -117,30 +131,25 @@ is a **deviation from the approved target**, not the target itself.
 
 ---
 
-## Recommendation
+## Decision (why A, after evaluating B)
 
-**Option B — match the Excel and the approved prototype (full precision, round
-once).** Primary sources settle it: the effective R35 prototype (authority level
-2 in `AGENTS.md`) and Yorks' real signed invoices both round only the final
-total. The current server's per-line rounding is an unintended deviation that
-would print `.44` where the business expects `.45`. Fidelity to the documents
-Yorks actually issues outweighs the "lines add up on screen" nicety — especially
-as their own spreadsheets already carry that same sub-fil display quirk.
+Matching the Excel/prototype exactly (Option B) is the faithful-to-the-old-PDFs
+choice, and initially we leaned that way. On tracing the engine, B turned out to
+require a **sub-fil precision change through the core claim/invoice path**, not a
+contained tweak (see the Resolution box at the top). Weighed against a **≤1-fil**
+difference that only appears when several buildings are summed, that migration is
+disproportionate — and the server's per-cell model is arguably *better*: every
+printed line totals the printed gross exactly, with no sub-fil display quirk.
 
-If the owner prefers to **keep A** anyway (e.g. to guarantee the printed lines
-always total exactly, accepting the one-fil gap vs the old PDFs), that is a valid
-call — it just needs to be a deliberate choice, recorded as a change from the
-prototype's behavior.
+So we **keep Option A** (round each building × stage cell to the fil; gross = Σ
+cells; VAT on gross). No code change; the behavior is already implemented and
+tested.
 
----
+## What this needs from the owner
 
-## What we need from the owner
-
-1. **B or A?** Recommended **B** (match your existing invoices + the approved
-   prototype). If no reply, I will proceed on **B** and record it.
-2. Confirm **B applies to new invoices only** — no V2 invoice has been issued in
-   production yet (the flag is off), so nothing needs reissuing.
-
-Either answer is recorded back into `PRODUCT_DECISIONS.md` (D4) before the
-feature flag is turned on. Choosing **B** also schedules the small server change
-above and a re-pin of the P9 import fixtures to the round-once totals.
+Just an **acknowledgement**, not a build: on a multi-building invoice the system
+may show a gross one fil different from the equivalent old Excel sheet (e.g.
+`5,983,597.44` where `INVOICE#02R.1` printed `.45`). If any client reconciles to
+the fil against the **historical** PDFs, flag it and we will reopen Option B.
+Otherwise A stands and D4 is closed. (No V2 invoice has been issued in production
+— the flag is off — so nothing needs reissuing either way.)

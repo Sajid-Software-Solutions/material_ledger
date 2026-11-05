@@ -1858,10 +1858,21 @@ explicitly here.**
   Material Supply, Installation). Item weight is % of total contract per building;
   item value is server-derived by largest-remainder so item values sum to the
   stage value to the fil.
-- **D4 — Rounding.** Each building×stage claim line is rounded to fils; invoice
-  gross = Σ lines; VAT is applied to gross. This can differ from Yorks' Excel by
-  fils (Excel rounds only the total); confirm the exact fil treatment with the
-  owner against `INVOICE#02R.1`.
+- **D4 — Rounding (resolved 2026-11-05: keep per-cell rounding).** Each
+  building×stage claim cell is rounded to the fil — item values are distributed
+  across the cell by largest remainder so they sum to the cell exactly — then the
+  invoice ex-VAT gross = Σ cells and VAT is applied to that gross. This can differ
+  from Yorks' legacy Excel / the approved prototype by **at most one fil** on a
+  multi-building invoice: those keep every cell at full precision and round only
+  the final total (e.g. `5,983,597.45` vs the server's `5,983,597.44` on
+  `INVOICE#02R.1`). Exact parity (Option B) was evaluated against the real
+  `INVOICE#02R.1.xlsx` and the prototype and **declined**: it would require
+  carrying cell amounts at sub-fil precision through the claim/invoice engine (an
+  additive exact-amount column populated at claim creation, plus issue/gross and
+  P9-import changes) — disproportionate to a ≤1-fil cosmetic match, and the
+  per-cell model is the stricter one (printed lines always total the printed
+  gross). Full analysis in `D4_ROUNDING_OWNER_DECISION.md`; owner to acknowledge
+  the ≤1-fil difference vs historical PDFs before go-live.
 - **D5 — Evidence for confirmed increases.** A confirmed increase accepts a
   controlled document **or** a confirmed Receipt Review / Delivery Order of the
   same project; decreases need a reason only. Evidence is stored as a typed array;
