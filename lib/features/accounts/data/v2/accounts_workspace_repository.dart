@@ -10,6 +10,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_repository.dart' show YorksAccountsRpcClient;
 
 final class YorksAccountsWorkspaceRepository {
@@ -57,6 +58,16 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId, 'p_invoice_id': invoiceId},
     );
     return YorksClientInvoiceDocument.fromJson(json);
+  }
+
+  Future<YorksAccountsProjectPdcRegister> getProjectPdcRegister(
+    String projectId,
+  ) async {
+    final json = await _client.invoke(
+      functionName: 'v1_list_project_client_pdcs',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsProjectPdcRegister.fromJson(json);
   }
 
   Future<YorksClientInvoiceDocument> previewInvoiceDocument(

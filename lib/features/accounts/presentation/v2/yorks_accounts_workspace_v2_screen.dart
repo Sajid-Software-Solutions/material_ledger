@@ -28,6 +28,7 @@ import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
 import 'accounts_v2_history_tab.dart';
 import 'accounts_v2_invoices_tab.dart';
+import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
 
@@ -414,13 +415,37 @@ class _InvoicesBody extends ConsumerWidget {
     if (state.hasError && projection == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
+
+    // Cheque register: commercial, so the whole card is drawn only with
+    // view_project_commercial_values. The read is gated server-side too; here we
+    // simply omit it when the actor cannot see values or the register is empty.
+    Widget? registerCard;
+    if (projection!.capabilities.canViewValues) {
+      final registerState = ref.watch(
+        yorksAccountsPdcRegisterControllerProvider(projectId),
+      );
+      final register = registerState.valueOrNull;
+      if (register != null && register.pdcs.isNotEmpty) {
+        final registerController = ref.read(
+          yorksAccountsPdcRegisterControllerProvider(projectId).notifier,
+        );
+        registerCard = AccountsV2PdcRegisterCard(
+          projectId: projectId,
+          register: register,
+          language: language,
+          canManage: projection.capabilities.managePdc,
+          onTransition: registerController.transition,
+        );
+      }
+    }
+
     return Column(
       children: [
         if (state.hasError)
           _ErrorBanner(language: language, onRetry: controller.load),
         Expanded(
           child: AccountsV2InvoicesTab(
-            projection: projection!,
+            projection: projection,
             language: language,
             onCertify: controller.certify,
             onPay: controller.pay,
@@ -431,6 +456,7 @@ class _InvoicesBody extends ConsumerWidget {
               return null;
             },
             onOpenDetail: controller.fetchInvoiceDetail,
+            trailing: registerCard,
           ),
         ),
       ],

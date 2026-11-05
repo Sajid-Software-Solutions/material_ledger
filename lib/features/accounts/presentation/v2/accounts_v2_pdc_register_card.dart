@@ -1,0 +1,374 @@
+/// R39 Accounts Workspace V2 — project cheque (PDC) register card (P8).
+///
+/// A standalone card on the Invoices & payments tab that lists every client
+/// post-dated cheque for the project (from v1_list_project_client_pdcs) with its
+/// lifecycle status, and drives the In hand → Deposited → Cleared / Bounced /
+/// Returned transitions through the existing receivables transition command. A
+/// cheque reduces the amount due only once it clears. The whole card is drawn
+/// only for an actor with view_project_commercial_values (cheques are
+/// commercial), and the Update action only with manage_pdc.
+library;
+
+import 'package:flutter/material.dart';
+
+import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_typography.dart';
+import '../../../../core/widgets/status_chip.dart';
+import '../../../../shared/models/app_language.dart';
+import '../../domain/accounts_receivables_inputs.dart';
+import '../../domain/v2/pdc_register_models.dart';
+import 'accounts_v2_common.dart';
+
+/// Runs a cheque lifecycle transition; returns null on success or an error
+/// message (a version conflict resolves on reload).
+typedef YorksPdcTransitionAction =
+    Future<String?> Function(YorksAccountsPdcTransitionInput input);
+
+class AccountsV2PdcRegisterCard extends StatelessWidget {
+  const AccountsV2PdcRegisterCard({
+    super.key,
+    required this.projectId,
+    required this.register,
+    required this.language,
+    required this.canManage,
+    this.onTransition,
+  });
+
+  final String projectId;
+  final YorksAccountsProjectPdcRegister register;
+  final AppLanguage language;
+
+  /// Whether the actor holds manage_pdc. The Update control is hidden without
+  /// it; the server re-checks regardless.
+  final bool canManage;
+  final YorksPdcTransitionAction? onTransition;
+
+  String _t(String key) => accountsV2Text(language, key);
+
+  bool get _showAction => canManage && onTransition != null;
+
+  Future<void> _transition(
+    BuildContext context,
+    YorksAccountsProjectPdc pdc,
+    YorksAccountsPdcStatus target,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final input = await showDialog<YorksAccountsPdcTransitionInput>(
+      context: context,
+      builder: (_) => _PdcTransitionDialog(
+        projectId: projectId,
+        pdc: pdc,
+        target: target,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onTransition!(input);
+    if (!context.mounted) return;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final format = const AccountsV2Format();
+    return AccountsV2Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AccountsV2SectionTitle(_t('v2_pdc_register_title')),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            _t('v2_pdc_register_hint'),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (register.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Text(_t('v2_pdc_empty'), style: AppTypography.bodyMedium),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: AppSpacing.xl,
+                headingRowHeight: 36,
+                dataRowMinHeight: 40,
+                dataRowMaxHeight: 56,
+                columns: [
+                  DataColumn(label: Text(_t('v2_pdc_col_cheque'))),
+                  DataColumn(label: Text(_t('v2_pdc_col_invoice'))),
+                  DataColumn(label: Text(_t('v2_pdc_col_bank'))),
+                  DataColumn(label: Text(_t('v2_pdc_col_cheque_date'))),
+                  DataColumn(
+                    label: Text(_t('v2_pdc_col_amount')),
+                    numeric: true,
+                  ),
+                  DataColumn(label: Text(_t('v2_pdc_col_status'))),
+                  if (_showAction)
+                    DataColumn(label: Text(_t('v2_pdc_col_action'))),
+                ],
+                rows: [
+                  for (final pdc in register.pdcs)
+                    DataRow(
+                      cells: [
+                        DataCell(
+                          Text(
+                            pdc.chequeNumber,
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        DataCell(Text(pdc.invoiceReference)),
+                        DataCell(Text(pdc.bankName ?? '—')),
+                        DataCell(Text(pdc.chequeDate.postgresText)),
+                        DataCell(
+                          Text(format.money(pdc.amount, withCurrency: false)),
+                        ),
+                        DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PdcStatusChip(
+                                status: pdc.status,
+                                language: language,
+                              ),
+                              if (pdc.actionRequired) ...[
+                                const SizedBox(width: AppSpacing.xs),
+                                StatusChip.warning(_t('v2_pdc_needs_action')),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (_showAction) DataCell(_actionCell(context, pdc)),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionCell(BuildContext context, YorksAccountsProjectPdc pdc) {
+    final next = pdc.nextStatuses;
+    if (next.isEmpty) return const Text('—');
+    return PopupMenuButton<YorksAccountsPdcStatus>(
+      onSelected: (target) => _transition(context, pdc, target),
+      itemBuilder: (_) => [
+        for (final target in next)
+          PopupMenuItem<YorksAccountsPdcStatus>(
+            value: target,
+            child: Text(accountsV2Text(language, _statusKey(target))),
+          ),
+      ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _t('v2_pdc_update'),
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.primary),
+          ),
+          const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
+        ],
+      ),
+    );
+  }
+}
+
+String _statusKey(YorksAccountsPdcStatus status) => switch (status) {
+  YorksAccountsPdcStatus.expected => 'v2_pdc_expected',
+  YorksAccountsPdcStatus.received => 'v2_pdc_received',
+  YorksAccountsPdcStatus.deposited => 'v2_pdc_deposited',
+  YorksAccountsPdcStatus.cleared => 'v2_pdc_cleared',
+  YorksAccountsPdcStatus.replaced => 'v2_pdc_replaced',
+  YorksAccountsPdcStatus.returned => 'v2_pdc_returned',
+  YorksAccountsPdcStatus.bounced => 'v2_pdc_bounced',
+  YorksAccountsPdcStatus.cancelled => 'v2_pdc_cancelled',
+};
+
+/// Shared status chip for a cheque, reused by the register and the invoice
+/// drawer.
+class PdcStatusChip extends StatelessWidget {
+  const PdcStatusChip({
+    super.key,
+    required this.status,
+    required this.language,
+  });
+
+  final YorksAccountsPdcStatus status;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = switch (status) {
+      YorksAccountsPdcStatus.expected => NexusStatusTone.neutral,
+      YorksAccountsPdcStatus.received => NexusStatusTone.info,
+      YorksAccountsPdcStatus.deposited => NexusStatusTone.info,
+      YorksAccountsPdcStatus.cleared => NexusStatusTone.success,
+      YorksAccountsPdcStatus.replaced => NexusStatusTone.neutral,
+      YorksAccountsPdcStatus.returned => NexusStatusTone.warning,
+      YorksAccountsPdcStatus.bounced => NexusStatusTone.danger,
+      YorksAccountsPdcStatus.cancelled => NexusStatusTone.neutral,
+    };
+    return StatusChip(
+      label: accountsV2Text(language, _statusKey(status)),
+      tone: tone,
+    );
+  }
+}
+
+// ─── Transition dialog ───────────────────────────────────────────────────────
+
+class _PdcTransitionDialog extends StatefulWidget {
+  const _PdcTransitionDialog({
+    required this.projectId,
+    required this.pdc,
+    required this.target,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsProjectPdc pdc;
+  final YorksAccountsPdcStatus target;
+  final AppLanguage language;
+
+  @override
+  State<_PdcTransitionDialog> createState() => _PdcTransitionDialogState();
+}
+
+class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
+  late final TextEditingController _date;
+  final _clearance = TextEditingController();
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  bool get _needsClearance => widget.target == YorksAccountsPdcStatus.cleared;
+
+  bool get _needsReason =>
+      widget.target == YorksAccountsPdcStatus.returned ||
+      widget.target == YorksAccountsPdcStatus.bounced ||
+      widget.target == YorksAccountsPdcStatus.cancelled;
+
+  @override
+  void initState() {
+    super.initState();
+    _date = TextEditingController(text: accountsV2TodayIso());
+  }
+
+  @override
+  void dispose() {
+    _date.dispose();
+    _clearance.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPdcTransitionInput? _build() {
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (date == null) return null;
+    final clearance = _clearance.text.trim();
+    final reason = _reason.text.trim();
+    return YorksAccountsPdcTransitionInput(
+      projectId: widget.projectId,
+      pdcId: widget.pdc.pdcId,
+      expectedVersion: widget.pdc.recordVersion,
+      targetStatus: widget.target,
+      actionDate: date,
+      clearanceReference: clearance.isEmpty ? null : clearance,
+      reason: reason.isEmpty ? null : reason,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pdc_transition_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.pdc.chequeNumber} → '
+            '${accountsV2Text(widget.language, _statusKey(widget.target))}',
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _Field(
+            label: _t('v2_pdc_action_date'),
+            controller: _date,
+            hint: 'YYYY-MM-DD',
+            onChanged: () => setState(() {}),
+          ),
+          if (_needsClearance) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_clearance_ref'),
+              controller: _clearance,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+          if (_needsReason) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_reason'),
+              controller: _reason,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.label,
+    required this.controller,
+    this.hint,
+    this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? hint;
+  final VoidCallback? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged == null ? null : (_) => onChanged!(),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+}

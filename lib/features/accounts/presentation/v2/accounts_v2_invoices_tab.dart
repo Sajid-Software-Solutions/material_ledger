@@ -37,10 +37,15 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onPay,
     this.onPrintInvoice,
     this.onOpenDetail,
+    this.trailing,
   });
 
   final YorksAccountsInvoicesProjection projection;
   final AppLanguage language;
+
+  /// Optional card rendered below the tracker (the cheque register), scrolling
+  /// with it rather than in a separate viewport.
+  final Widget? trailing;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
 
@@ -107,6 +112,11 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onOpenDetail: onOpenDetail,
       ),
     );
+    if (trailing != null) {
+      children
+        ..add(const SizedBox(height: AppSpacing.lg))
+        ..add(trailing!);
+    }
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),

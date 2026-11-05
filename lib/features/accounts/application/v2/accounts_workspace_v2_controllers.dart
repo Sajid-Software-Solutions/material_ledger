@@ -32,6 +32,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_providers.dart';
 import '../accounts_receivables_providers.dart';
 import '../accounts_records_providers.dart';
@@ -559,6 +560,102 @@ final yorksAccountsInvoicesControllerProvider = StateNotifierProvider
         repository: ref.watch(yorksAccountsReceivablesRepositoryProvider),
         workspaceRepository: ref.watch(
           yorksAccountsWorkspaceRepositoryProvider,
+        ),
+        commandKeys: _commandKeys(ref),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the project cheque (PDC) register behind the Invoices & payments tab
+/// and runs the lifecycle transitions (deposit / clear / bounce / return /
+/// cancel) through the existing receivables transition command. The read is
+/// gated behind `view_project_commercial_values`, so for an actor without that
+/// capability it surfaces as an error and the register card simply stays hidden.
+final class YorksAccountsPdcRegisterController
+    extends StateNotifier<AsyncValue<YorksAccountsProjectPdcRegister>>
+    with _AccountsCommandRunner<YorksAccountsProjectPdcRegister> {
+  YorksAccountsPdcRegisterController({
+    required YorksAccountsWorkspaceRepository? workspaceRepository,
+    required YorksAccountsReceivablesRepository receivablesRepository,
+    required this.commandKeys,
+    required String projectId,
+  }) : _workspace = workspaceRepository,
+       _receivables = receivablesRepository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _workspace;
+  final YorksAccountsReceivablesRepository _receivables;
+  @override
+  final YorksV1CriticalCommandKeyStore commandKeys;
+  final String _projectId;
+
+  @override
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsProjectPdcRegister>.loading();
+    await _fetch();
+  }
+
+  @override
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final workspace = _workspace;
+    if (workspace == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsProjectPdcRegister>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final register = await workspace.getProjectPdcRegister(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsProjectPdcRegister>.data(register);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsProjectPdcRegister>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+
+  /// Moves a cheque to its next lifecycle state. No optimistic success: the
+  /// register is re-fetched on the server's confirmation. Returns null on
+  /// success or an error message (a version conflict resolves on reload).
+  Future<String?> transition(YorksAccountsPdcTransitionInput input) {
+    if (!input.isValid) {
+      return Future<String?>.value('R39_ACCOUNTS_INVALID_PDC_TRANSITION');
+    }
+    return runCommand(
+      operation: 'transition_pdc',
+      entityId: input.pdcId,
+      payload: input.idempotencyPayload(),
+      action: (key) => _receivables.transitionPdc(input, idempotencyKey: key),
+    );
+  }
+}
+
+final yorksAccountsPdcRegisterControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsPdcRegisterController,
+      AsyncValue<YorksAccountsProjectPdcRegister>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsPdcRegisterController(
+        workspaceRepository: ref.watch(
+          yorksAccountsWorkspaceRepositoryProvider,
+        ),
+        receivablesRepository: ref.watch(
+          yorksAccountsReceivablesRepositoryProvider,
         ),
         commandKeys: _commandKeys(ref),
         projectId: projectId,
