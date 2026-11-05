@@ -190,6 +190,57 @@ void main() {
   });
 
   group('AccountsV2ClaimsTab record progress', () {
+    testWidgets('confirms an item quantity for an items-mode stage', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
+      List<Map<String, Object?>>? capturedEntries;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'Delivery note')],
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async {
+                  capturedEntries = entries;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t('v2_record_progress')));
+      await tester.pumpAndSettle();
+
+      // Fields: start(0), end(1), design %(2), AHU item qty(3), reason(4).
+      await tester.enterText(find.byType(TextField).at(3), '3');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delivery note'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_save')));
+      await tester.pumpAndSettle();
+
+      expect(capturedEntries, isNotNull);
+      final itemEntry = capturedEntries!.firstWhere(
+        (e) => e.containsKey('stage_item_id'),
+        orElse: () => <String, Object?>{},
+      );
+      expect(itemEntry['stage_item_id'], 'si1');
+      expect(itemEntry['confirmed_qty_to_date'], '3');
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('confirms an increase with evidence via onSaveWorkbench', (
       tester,
     ) async {

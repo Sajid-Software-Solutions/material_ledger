@@ -86,20 +86,27 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
-  List<YorksAccountsWorkbenchCell> get _percentCells => widget.workbench.cells
-      .where((c) => !c.isItemsMode)
-      .toList(growable: false);
+  List<YorksAccountsWorkbenchCell> get _orderedCells {
+    final cells = [...widget.workbench.cells]
+      ..sort((a, b) {
+        final byStage = a.stagePosition.compareTo(b.stagePosition);
+        return byStage != 0
+            ? byStage
+            : a.buildingName.compareTo(b.buildingName);
+      });
+    return cells;
+  }
 
   bool get _showRecordProgress =>
       widget.canRecordProgress &&
       widget.onSaveWorkbench != null &&
-      _percentCells.isNotEmpty;
+      widget.workbench.cells.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     if (_editing) {
       return _ProgressEditor(
-        cells: _percentCells,
+        cells: _orderedCells,
         language: widget.language,
         evidenceDocuments: widget.evidenceDocuments,
         onCancel: () => setState(() => _editing = false),
@@ -1027,6 +1034,8 @@ class _ProgressEditor extends StatefulWidget {
 
 class _ProgressEditorState extends State<_ProgressEditor> {
   final Map<String, TextEditingController> _pct = {};
+  final Map<String, TextEditingController> _qty = {};
+  final Map<String, YorksAccountsWorkbenchItem> _itemsById = {};
   late final TextEditingController _start;
   late final TextEditingController _end;
   final _reason = TextEditingController();
@@ -1044,11 +1053,20 @@ class _ProgressEditorState extends State<_ProgressEditor> {
     _start = TextEditingController(text: today);
     _end = TextEditingController(text: today);
     for (final c in widget.cells) {
-      _pct[c.progressEntryId] = TextEditingController(
-        text: c.confirmedPercent.canonicalText,
-      );
+      if (c.isItemsMode) {
+        for (final item in c.items) {
+          _itemsById[item.stageItemId] = item;
+          _qty[item.stageItemId] = TextEditingController(
+            text: item.confirmedQty.canonicalText,
+          );
+        }
+      } else {
+        _pct[c.progressEntryId] = TextEditingController(
+          text: c.confirmedPercent.canonicalText,
+        );
+      }
     }
-    for (final c in _pct.values) {
+    for (final c in [..._pct.values, ..._qty.values]) {
       c.addListener(_onChanged);
     }
     _start.addListener(_onChanged);
@@ -1061,7 +1079,7 @@ class _ProgressEditorState extends State<_ProgressEditor> {
 
   @override
   void dispose() {
-    for (final c in [_start, _end, _reason, ..._pct.values]) {
+    for (final c in [_start, _end, _reason, ..._pct.values, ..._qty.values]) {
       c.dispose();
     }
     super.dispose();
@@ -1070,6 +1088,7 @@ class _ProgressEditorState extends State<_ProgressEditor> {
   List<Map<String, Object?>> _entries() {
     final out = <Map<String, Object?>>[];
     for (final c in widget.cells) {
+      if (c.isItemsMode) continue;
       final text = _pct[c.progressEntryId]!.text.trim();
       final parsed = YorksAccountsDecimal.tryParse(text);
       if (parsed == null) continue;
@@ -1080,15 +1099,34 @@ class _ProgressEditorState extends State<_ProgressEditor> {
         });
       }
     }
+    for (final entry in _qty.entries) {
+      final item = _itemsById[entry.key]!;
+      final parsed = YorksAccountsDecimal.tryParse(entry.value.text.trim());
+      if (parsed == null) continue;
+      if (parsed.compareTo(item.confirmedQty) != 0) {
+        out.add({
+          'stage_item_id': entry.key,
+          'confirmed_qty_to_date': entry.value.text.trim(),
+        });
+      }
+    }
     return out;
   }
 
   bool get _hasIncrease {
     for (final c in widget.cells) {
+      if (c.isItemsMode) continue;
       final parsed = YorksAccountsDecimal.tryParse(
         _pct[c.progressEntryId]!.text.trim(),
       );
       if (parsed != null && parsed.compareTo(c.confirmedPercent) > 0) {
+        return true;
+      }
+    }
+    for (final entry in _qty.entries) {
+      final item = _itemsById[entry.key]!;
+      final parsed = YorksAccountsDecimal.tryParse(entry.value.text.trim());
+      if (parsed != null && parsed.compareTo(item.confirmedQty) > 0) {
         return true;
       }
     }
@@ -1175,38 +1213,46 @@ class _ProgressEditorState extends State<_ProgressEditor> {
                 )
               else
                 for (final c in widget.cells)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.xs,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${c.buildingName} · ${c.stageLabel ?? c.stageKey}',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.ink,
+                  if (c.isItemsMode)
+                    _ItemsCellEditor(
+                      cell: c,
+                      controllers: _qty,
+                      language: widget.language,
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${c.buildingName} · ${c.stageLabel ?? c.stageKey}',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.ink,
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(
-                          width: 120,
-                          child: TextField(
-                            controller: _pct[c.progressEntryId],
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            textAlign: TextAlign.end,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              suffixText: '%',
-                              border: OutlineInputBorder(),
+                          SizedBox(
+                            width: 120,
+                            child: TextField(
+                              controller: _pct[c.progressEntryId],
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              textAlign: TextAlign.end,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                suffixText: '%',
+                                border: OutlineInputBorder(),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
             ],
           ),
         ),
@@ -1336,6 +1382,100 @@ class _ProgressField extends StatelessWidget {
         hintText: hint,
         isDense: true,
         border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
+// ─── Items-mode cell editor (per-item confirmed quantity) ────────────────────
+
+class _ItemsCellEditor extends StatelessWidget {
+  const _ItemsCellEditor({
+    required this.cell,
+    required this.controllers,
+    required this.language,
+  });
+
+  final YorksAccountsWorkbenchCell cell;
+  final Map<String, TextEditingController> controllers;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${cell.buildingName} · ${cell.stageLabel ?? cell.stageKey}',
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+              StatusChip.info(accountsV2Text(language, 'v2_mode_items')),
+            ],
+          ),
+          for (final item in cell.items)
+            Padding(
+              padding: const EdgeInsets.only(
+                left: AppSpacing.md,
+                top: AppSpacing.xxs,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item.itemLabel,
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.ink,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (item.needsReview) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          StatusChip.warning(
+                            accountsV2Text(language, 'v2_needs_review'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      controller: controllers[item.stageItemId],
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textAlign: TextAlign.end,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        suffixText: item.unitCode,
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(
+                    width: 64,
+                    child: Text(
+                      '/ ${item.quantity.displayText(maximumFractionDigits: 2)}',
+                      style: AppTypography.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
