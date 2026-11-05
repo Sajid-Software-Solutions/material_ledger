@@ -3467,6 +3467,67 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'منسوخ',
       'hi': 'रद्द',
     },
+
+    // ─── History & files tab ───────────────────────────────────────────────
+    'v2_hist_title': {
+      'en': 'History',
+      'ar': 'السجل',
+      'ur': 'تاریخ',
+      'hi': 'इतिहास',
+    },
+    'v2_hist_empty': {
+      'en': 'No accounts activity recorded yet.',
+      'ar': 'لا يوجد نشاط حسابات مسجل بعد.',
+      'ur': 'ابھی کوئی اکاؤنٹس سرگرمی ریکارڈ نہیں۔',
+      'hi': 'अभी कोई अकाउंट्स गतिविधि दर्ज नहीं।',
+    },
+    'v2_hist_by': {'en': 'by', 'ar': 'بواسطة', 'ur': 'بذریعہ', 'hi': 'द्वारा'},
+    'v2_hist_all': {'en': 'All', 'ar': 'الكل', 'ur': 'سب', 'hi': 'सभी'},
+    'v2_hist_contract': {
+      'en': 'Contract',
+      'ar': 'العقد',
+      'ur': 'کنٹریکٹ',
+      'hi': 'कॉन्ट्रैक्ट',
+    },
+    'v2_hist_claims': {
+      'en': 'Claims',
+      'ar': 'المطالبات',
+      'ur': 'کلیمز',
+      'hi': 'क्लेम',
+    },
+    'v2_hist_invoices': {
+      'en': 'Invoices',
+      'ar': 'الفواتير',
+      'ur': 'انوائسز',
+      'hi': 'इनवॉइस',
+    },
+    'v2_hist_payments': {
+      'en': 'Payments',
+      'ar': 'المدفوعات',
+      'ur': 'ادائیگیاں',
+      'hi': 'भुगतान',
+    },
+    'v2_hist_supplier': {
+      'en': 'Supplier bills',
+      'ar': 'فواتير الموردين',
+      'ur': 'سپلائر بلز',
+      'hi': 'सप्लायर बिल',
+    },
+    'v2_files_title': {
+      'en': 'Files',
+      'ar': 'الملفات',
+      'ur': 'فائلیں',
+      'hi': 'फाइलें',
+    },
+    'v2_files_pending': {
+      'en':
+          'Files attached to invoices and supplier bills will be listed here with their reference.',
+      'ar': 'الملفات المرفقة بالفواتير وفواتير الموردين ستُعرض هنا مع مرجعها.',
+      'ur':
+          'انوائسز اور سپلائر بلز کے ساتھ منسلک فائلیں یہاں ان کے حوالے کے ساتھ دکھائی جائیں گی۔',
+      'hi':
+          'इनवॉइस और सप्लायर बिल से जुड़ी फाइलें यहाँ उनके संदर्भ के साथ दिखेंगी।',
+    },
   };
 
   static String text(AppLanguage language, String key) {

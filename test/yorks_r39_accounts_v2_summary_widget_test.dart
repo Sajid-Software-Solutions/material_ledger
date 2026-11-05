@@ -251,18 +251,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('switching to a not-yet-built tab shows the placeholder', (
-      tester,
-    ) async {
+    testWidgets('switching tabs leaves the Summary surface', (tester) async {
       await _pumpScreen(tester);
 
-      final historyTab = find.text(t('v2_tab_history'));
-      await tester.ensureVisible(historyTab);
+      final contractTab = find.text(t('v2_tab_contract'));
+      await tester.ensureVisible(contractTab);
       await tester.pumpAndSettle();
-      await tester.tap(historyTab);
+      await tester.tap(contractTab);
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_coming_soon_body')), findsOneWidget);
       // Summary KPI is gone once we leave the Summary tab.
       expect(find.text('AED 17,192,000.00'), findsNothing);
       expect(tester.takeException(), isNull);

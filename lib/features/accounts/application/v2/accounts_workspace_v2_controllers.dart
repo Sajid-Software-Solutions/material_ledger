@@ -14,15 +14,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../data/accounts_receivables_repository.dart';
+import '../../data/accounts_records_repository.dart';
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../domain/accounts_receivables_models.dart';
+import '../../domain/accounts_records_models.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../accounts_providers.dart';
 import '../accounts_receivables_providers.dart';
+import '../accounts_records_providers.dart';
 import '../accounts_supplier_providers.dart';
 
 /// Repository for the V2 RPCs. Null when Supabase is not configured, so the
@@ -333,6 +336,62 @@ final yorksAccountsSupplierBillsControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsSupplierBillsController(
         repository: ref.watch(yorksAccountsSupplierRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads and refreshes the accounts activity behind the History & files tab,
+/// reusing the existing records repository's v1_get_accounts_activity.
+final class YorksAccountsHistoryController
+    extends StateNotifier<AsyncValue<YorksAccountsActivityProjection>> {
+  YorksAccountsHistoryController({
+    required YorksAccountsRecordsRepository repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsRecordsRepository _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsActivityProjection>.loading();
+    await _fetch();
+  }
+
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    try {
+      final projection = await _repository.getActivity(
+        _projectId,
+        const YorksAccountsActivityFilters(limit: 50),
+      );
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsActivityProjection>.data(projection);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsActivityProjection>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+}
+
+final yorksAccountsHistoryControllerProvider = StateNotifierProvider.autoDispose
+    .family<
+      YorksAccountsHistoryController,
+      AsyncValue<YorksAccountsActivityProjection>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsHistoryController(
+        repository: ref.watch(yorksAccountsRecordsRepositoryProvider),
         projectId: projectId,
       );
     });

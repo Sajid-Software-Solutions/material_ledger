@@ -24,6 +24,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import 'accounts_v2_claims_tab.dart';
 import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
+import 'accounts_v2_history_tab.dart';
 import 'accounts_v2_invoices_tab.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
@@ -98,7 +99,7 @@ class _YorksAccountsWorkspaceV2ScreenState
       case YorksAccountsWorkspaceV2Tab.supplierBills:
         return _SupplierBody(projectId: widget.projectId, language: language);
       case YorksAccountsWorkspaceV2Tab.history:
-        return _ComingSoon(language: language, tab: _tab);
+        return _HistoryBody(projectId: widget.projectId, language: language);
     }
   }
 }
@@ -390,6 +391,41 @@ class _SupplierBody extends ConsumerWidget {
   }
 }
 
+class _HistoryBody extends ConsumerWidget {
+  const _HistoryBody({required this.projectId, required this.language});
+
+  final String projectId;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(yorksAccountsHistoryControllerProvider(projectId));
+    final controller = ref.read(
+      yorksAccountsHistoryControllerProvider(projectId).notifier,
+    );
+    final projection = state.valueOrNull;
+
+    if (state.isLoading && projection == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.hasError && projection == null) {
+      return _ErrorState(language: language, onRetry: controller.load);
+    }
+    return Column(
+      children: [
+        if (state.hasError)
+          _ErrorBanner(language: language, onRetry: controller.load),
+        Expanded(
+          child: AccountsV2HistoryTab(
+            projection: projection!,
+            language: language,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.language, required this.onRetry});
 
@@ -461,42 +497,6 @@ class _ErrorBanner extends StatelessWidget {
             TextButton(
               onPressed: onRetry,
               child: Text(accountsV2Text(language, 'v2_retry')),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Placeholder for not-yet-built tabs ──────────────────────────────────────
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.language, required this.tab});
-
-  final AppLanguage language;
-  final YorksAccountsWorkspaceV2Tab tab;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(tab.icon, size: 32, color: AppColors.muted),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              accountsV2Text(language, tab.labelKey),
-              style: AppTypography.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              accountsV2Text(language, 'v2_coming_soon_body'),
-              style: AppTypography.bodyMedium,
-              textAlign: TextAlign.center,
             ),
           ],
         ),
