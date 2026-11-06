@@ -1147,6 +1147,18 @@ class YorksV1CurrentPermissionSnapshot {
 
   /// A fail-closed presentation helper. Trusted reads and commands must still
   /// repeat the authorization check in Postgres.
+  /// An Accountant is never a technical project member, so [projectAccess] is
+  /// empty by design and the server grants their Accounts capabilities from the
+  /// role default instead. Limited to the Accounts module: this gives them no
+  /// project, BOQ or other technical access. A per-project denial still wins, and
+  /// the server re-checks every Accounts RPC.
+  bool accountantHoldsAccountsCapability(
+    YorksV1PermissionCapabilityAccess access,
+  ) =>
+      user.exactRole == YorksV1Role.accountant &&
+      access.catalog.module == 'accounts' &&
+      access.roleDefault.isGranted;
+
   bool allows(String capabilityKey, {String? projectId}) {
     if (!user.isActive) return false;
     final access = capability(capabilityKey);
@@ -1162,6 +1174,14 @@ class YorksV1CurrentPermissionSnapshot {
     }
     final normalizedProjectId = projectId.trim();
     if (normalizedProjectId.isEmpty) return false;
+    if (accountantHoldsAccountsCapability(access)) {
+      for (final override in access.projectOverrides) {
+        if (override.projectId == normalizedProjectId) {
+          return override.authoritativeEffective;
+        }
+      }
+      return true;
+    }
     if (!projectAccess.any(
       (project) =>
           project.projectId == normalizedProjectId && project.hasAccess,

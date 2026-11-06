@@ -61,15 +61,13 @@ void main() {
   });
 
   group('Accountant project Accounts links', () {
-    // Mirrors a real Accountant snapshot: the capability is held, but
-    // project_access is empty, so a per-project question is always denied.
     bool? resolver(
       String capabilityKey, {
       required bool legacyAllowed,
       bool requireWrite = false,
       bool organizationSummary = false,
       String? projectId,
-    }) => organizationSummary;
+    }) => true;
 
     for (final (name, v2, expected) in const [
       ('with V2 on opens the project', true, true),

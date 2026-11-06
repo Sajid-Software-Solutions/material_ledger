@@ -811,17 +811,10 @@ bool? _isYorksV1RouteAllowedForRole(
     final capability = supplierOnly
         ? YorksV1CapabilityKeys.viewSupplierCosts
         : YorksV1CapabilityKeys.viewProjectAccounts;
-    // An Accountant is never a technical project member, so the snapshot's
-    // project_access is empty by design and a per-project check would always
-    // deny. Their project Accounts scope is resolved by the server on every RPC;
-    // this experience guard matches the portfolio's capability check.
-    if (role == YorksV1Role.accountant && accountsWorkspaceV2Enabled) {
-      return _hybridRouteAllows(
-        permissionResolver,
-        capability,
-        legacyAllowed: false,
-        organizationSummary: true,
-      );
+    // An Accountant has no access to the technical project shell, so a project
+    // link is only useful once V2 gives them the workspace on its own page.
+    if (role == YorksV1Role.accountant && !accountsWorkspaceV2Enabled) {
+      return false;
     }
     return _hybridRouteAllows(
       permissionResolver,
