@@ -9,6 +9,7 @@ library;
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/claims_list_models.dart';
+import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
@@ -70,6 +71,41 @@ final class YorksAccountsWorkspaceRepository {
         'p_work_order_date': workOrderDate,
         'p_contract_number': contractNumber,
         'p_retention_percent': retentionPercent,
+        'p_expected_version': expectedVersion,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+  }
+
+  /// The project's variation (VO) register.
+  Future<YorksAccountsVariationsList> getVariations(String projectId) async {
+    final json = await _client.invoke(
+      functionName: 'v1_list_accounts_variations',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsVariationsList.fromJson(json);
+  }
+
+  /// Creates (variationId null) or edits a variation. Amount is a decimal string.
+  Future<Map<String, dynamic>> saveVariation({
+    required String projectId,
+    String? variationId,
+    required String voNumber,
+    String? description,
+    String? amount,
+    required String status,
+    int? expectedVersion,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_variation',
+      parameters: {
+        'p_project_id': projectId,
+        'p_variation_id': variationId,
+        'p_vo_number': voNumber,
+        'p_description': description,
+        'p_amount': amount,
+        'p_status': status,
         'p_expected_version': expectedVersion,
         'p_idempotency_key': idempotencyKey,
       },

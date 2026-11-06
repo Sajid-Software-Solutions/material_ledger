@@ -32,6 +32,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
+import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_providers.dart';
@@ -560,6 +561,116 @@ final yorksAccountsClaimsListControllerProvider = StateNotifierProvider
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsClaimsListController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the contract variations (VO register) and creates/edits them. The
+/// register is display-only (no contract-value side effects).
+final class YorksAccountsVariationsController
+    extends StateNotifier<AsyncValue<YorksAccountsVariationsList>>
+    with _AccountsCommandRunner<YorksAccountsVariationsList> {
+  YorksAccountsVariationsController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required this.commandKeys,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  @override
+  final YorksV1CriticalCommandKeyStore commandKeys;
+  final String _projectId;
+
+  @override
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsVariationsList>.loading();
+    await _fetch();
+  }
+
+  @override
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final list = await repository.getVariations(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.data(list);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+
+  /// Creates (variationId null) or edits a variation. No optimistic success;
+  /// the register re-fetches on the server's confirmation.
+  Future<String?> saveVariation({
+    String? variationId,
+    required String voNumber,
+    String? description,
+    String? amount,
+    required String status,
+    int? expectedVersion,
+  }) {
+    return runCommand(
+      operation: 'save_variation',
+      entityId: variationId ?? 'new',
+      payload: {
+        'variation_id': variationId,
+        'vo_number': voNumber,
+        'description': description,
+        'amount': amount,
+        'status': status,
+        'version': expectedVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveVariation(
+          projectId: _projectId,
+          variationId: variationId,
+          voNumber: voNumber,
+          description: description,
+          amount: amount,
+          status: status,
+          expectedVersion: expectedVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
+}
+
+final yorksAccountsVariationsControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsVariationsController,
+      AsyncValue<YorksAccountsVariationsList>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsVariationsController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        commandKeys: _commandKeys(ref),
         projectId: projectId,
       );
     });

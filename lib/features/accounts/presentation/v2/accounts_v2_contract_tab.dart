@@ -19,7 +19,9 @@ import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_variations_card.dart';
 
 /// Saves the editable contract references; null on success or an error message.
 typedef YorksSaveReferencesAction =
@@ -40,6 +42,8 @@ class AccountsV2ContractTab extends StatefulWidget {
     this.canEdit = false,
     this.onSave,
     this.onSaveReferences,
+    this.variations = const [],
+    this.onSaveVariation,
   });
 
   final YorksAccountsCommercialSetupRead setup;
@@ -53,6 +57,12 @@ class AccountsV2ContractTab extends StatefulWidget {
 
   /// Saves the editable contract references; null on success or an error.
   final YorksSaveReferencesAction? onSaveReferences;
+
+  /// The contract variations (VO register).
+  final List<YorksAccountsVariation> variations;
+
+  /// Creates/edits a variation; null when the register is read-only.
+  final YorksSaveVariationAction? onSaveVariation;
 
   @override
   State<AccountsV2ContractTab> createState() => _AccountsV2ContractTabState();
@@ -143,6 +153,20 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
           _InvoiceNumberingCard(
             settings: setup.invoiceSettings!,
             language: language,
+          ),
+        );
+    }
+    if (widget.variations.isNotEmpty ||
+        (widget.canEdit && widget.onSaveVariation != null)) {
+      main
+        ..add(const SizedBox(height: AppSpacing.lg))
+        ..add(
+          AccountsV2VariationsCard(
+            variations: widget.variations,
+            canConfigure: widget.canEdit,
+            language: language,
+            format: format,
+            onSave: widget.onSaveVariation,
           ),
         );
     }

@@ -11,6 +11,7 @@ import 'package:material_ledger/features/accounts/domain/accounts_supplier_model
 import 'package:material_ledger/features/accounts/domain/v2/accounts_workspace_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claims_list_models.dart';
+import 'package:material_ledger/features/accounts/domain/v2/variations_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
@@ -354,6 +355,33 @@ Widget _contractTab() => AccountsV2ContractTab(
         String? contractNumber,
         String? retentionPercent,
         int? expectedProfileVersion,
+      }) async => null,
+  variations: [
+    YorksAccountsVariation.fromJson(const {
+      'variation_id': 'v1',
+      'vo_number': 'VO-01',
+      'description': 'Extra ductwork to Block C',
+      'amount': '45000.00',
+      'status': 'approved',
+      'record_version': 1,
+    }),
+    YorksAccountsVariation.fromJson(const {
+      'variation_id': 'v2',
+      'vo_number': 'VO-02',
+      'description': 'Revised BMS controls',
+      'amount': '12000.00',
+      'status': 'pending',
+      'record_version': 1,
+    }),
+  ],
+  onSaveVariation:
+      ({
+        String? variationId,
+        required String voNumber,
+        String? description,
+        String? amount,
+        required String status,
+        int? expectedVersion,
       }) async => null,
 );
 

@@ -3095,6 +3095,61 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ریٹینشن %',
       'hi': 'रिटेंशन %',
     },
+    'v2_variations_title': {
+      'en': 'Variations',
+      'ar': 'التغييرات',
+      'ur': 'ویری ایشنز',
+      'hi': 'वैरिएशन',
+    },
+    'v2_variations_empty': {
+      'en': 'No variations yet.',
+      'ar': 'لا توجد تغييرات بعد.',
+      'ur': 'ابھی کوئی ویری ایشن نہیں۔',
+      'hi': 'अभी कोई वैरिएशन नहीं।',
+    },
+    'v2_add_variation': {
+      'en': 'Add variation',
+      'ar': 'إضافة تغيير',
+      'ur': 'ویری ایشن شامل کریں',
+      'hi': 'वैरिएशन जोड़ें',
+    },
+    'v2_vo_number': {
+      'en': 'VO no.',
+      'ar': 'رقم أمر التغيير',
+      'ur': 'VO نمبر',
+      'hi': 'VO नं.',
+    },
+    'v2_vo_description': {
+      'en': 'Description',
+      'ar': 'الوصف',
+      'ur': 'تفصیل',
+      'hi': 'विवरण',
+    },
+    'v2_vo_amount': {'en': 'Amount', 'ar': 'المبلغ', 'ur': 'رقم', 'hi': 'राशि'},
+    'v2_vo_status': {
+      'en': 'Status',
+      'ar': 'الحالة',
+      'ur': 'اسٹیٹس',
+      'hi': 'स्थिति',
+    },
+    'v2_vo_status_pending': {
+      'en': 'Pending',
+      'ar': 'قيد الانتظار',
+      'ur': 'زیر التوا',
+      'hi': 'लंबित',
+    },
+    'v2_vo_status_approved': {
+      'en': 'Approved',
+      'ar': 'معتمد',
+      'ur': 'منظور شدہ',
+      'hi': 'स्वीकृत',
+    },
+    'v2_vo_status_rejected': {
+      'en': 'Rejected',
+      'ar': 'مرفوض',
+      'ur': 'مسترد',
+      'hi': 'अस्वीकृत',
+    },
     'v2_contract_edit_note': {
       'en':
           'Everything here can be edited. Issued invoices keep their amounts — '

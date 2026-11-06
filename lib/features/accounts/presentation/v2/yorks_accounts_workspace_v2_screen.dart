@@ -24,6 +24,7 @@ import '../../application/accounts_records_providers.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claims_list_models.dart';
+import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_claims_tab.dart';
 import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
@@ -387,6 +388,16 @@ class _ContractBody extends ConsumerWidget {
       return _ErrorState(language: language, onRetry: controller.load);
     }
     final data = setup!;
+    // Contract variations (VO register); empty while loading or without access.
+    final variations =
+        ref
+            .watch(yorksAccountsVariationsControllerProvider(projectId))
+            .valueOrNull
+            ?.variations ??
+        const <YorksAccountsVariation>[];
+    final variationsController = ref.read(
+      yorksAccountsVariationsControllerProvider(projectId).notifier,
+    );
     return Column(
       children: [
         if (state.hasError)
@@ -396,6 +407,23 @@ class _ContractBody extends ConsumerWidget {
             setup: data,
             language: language,
             canEdit: data.canConfigure,
+            variations: variations,
+            onSaveVariation:
+                ({
+                  String? variationId,
+                  required String voNumber,
+                  String? description,
+                  String? amount,
+                  required String status,
+                  int? expectedVersion,
+                }) => variationsController.saveVariation(
+                  variationId: variationId,
+                  voNumber: voNumber,
+                  description: description,
+                  amount: amount,
+                  status: status,
+                  expectedVersion: expectedVersion,
+                ),
             onSave: (form) => controller.saveSetup(
               setup: form,
               expectedProfileVersion: data.profileVersion,
