@@ -102,25 +102,62 @@ AGENTS forbids adding generic/untrusted parsing paths to trusted RPCs. So:
 `v1_apply_accounts_master_import` re-validates everything and is the only thing
 that writes. No optimistic success.
 
-## 5. The master-file layout (and the one owner decision)
+## 5. The master-file layout (confirmed from the real workbook)
 
-The importer must know the workbook's sheet names and column positions. The
-prototype says it was pre-filled from *"Project Master File – Nexus 4 Station"*
-and *"INVOICE#02R.1"*, and §12 lists the exact numbers it must reproduce:
+Confirmed 7 November 2026 against `Project Master File - Nexus 4 Station.xlsx`
+(Yorks Ref YRA-322). Sheet names and column positions:
 
-| Fixture (§12) | Expected |
-|---|---|
-| Contract | AED 17,192,000.00, 4 buildings × 25%, stages 10/50/30/5/5 |
-| Stage value — DF3W Material Supply | 2,149,000.00 |
-| Item value — AC Units (4.5%) | 773,640.00 |
-| 20 of 55 dampers (1%) | 62,516.36 |
-| Σ item values | = stage value, to the fil |
+**`Summery (Option)`** — the contract/buildings/stages source. Four per-building
+blocks (A/B/C/D = DF3W, DF4W, DF6W, DF7W), then an **ALL PROJECT SUMMARY** block,
+then an invoice tracker. All percentages are **fractions** (0.1 = 10%).
 
-**Owner decision / stop condition:** the exact sheet names and column layout of
-the real Project Master File are not in the repo. Before S1, the owner supplies a
-representative workbook (or confirms the column map). The parser is written to
-that layout and the §12 numbers are the acceptance fixture. Until then the parser
-contract is unknown — do not guess a layout.
+- Building block: col `B` = block letter; `C` = building name
+  (`"132/22Kv Substation- (DF3W)"`); a `Contract Value` label row; a share row
+  `D`=contract% (1), `E`=building% (0.25), `F`=building value; then five stage
+  rows `B`=`A.1…A.5`, `C`=stage name, `D`=contract% (0.1/0.5/0.3/0.05/0.05),
+  `E`=building×stage fraction, `F`=amount; a `TOTAL` row.
+- **ALL PROJECT SUMMARY** (rows ~49–58): `D`=`CONTRACT VALUE`, `F`=total contract
+  value; five stage rows with `D`=contract%, `E`=project%, `F`=amount; `TOTAL`.
+- Invoice tracker (rows ~60–66): labels in `D`, one column group per invoice
+  (`H/K/N/Q/T`): `Invoice Ref. No.`, `Amount W/O VAT`, `Submission/Approved/Due/
+  Paid Date`, `Delay (days)`, note `45 days PDC`. (Tracker is out of scope — §2.)
+- Stage names → keys: `Cooling Load Design`→design, `Material Supply`→
+  material_supply, `Progress Installation`→installation, `Comissioning &
+  Handover` (sic)→commissioning_handover, `Energizing Substation`→energizing.
+
+**`Material  `** (trailing spaces) and **`Installation`** — the items source.
+Per-building blocks (`DELIVERD MATERIAL SUMMARY (DF3W)` …). Header row (row 5):
+`B`=`Item`, `C`=`Description`, `E`=`Total Qty.`, `F`=`WEIGHT`, `G`=`Contract`/
+`Amount`. A block total row (`G`=total contract value) and a stage row
+(`C`=`Material Supply`/`Installation`, `F`=stage fraction, `G`=amount). Item rows:
+`B`=item no (`A.1`), `D`=item name (`AC Units (Package Unit)`), `E`=Total Qty,
+`F`=`WEIGHT` = **fraction of total contract** (0.045 = 4.5%), `G`=amount
+(= contract × weight). Sub-rows (`A.1.1 System-01`) carry only a qty breakdown
+in `E`, no weight.
+
+**Owner decision / stop condition — the contract value conflicts across the two
+source documents.** The parser's acceptance target cannot be fixed until this is
+resolved by the owner:
+
+| Source | Total contract value | AC Units (4.5%) | DF3W Material Supply |
+|---|---|---|---|
+| **This master file** (Summery `F52`, Material `G7`) | **18,085,468** | 813,846.06 | 2,260,683.50 |
+| **Signed invoice** `INVOICE#02R.1` / plan §12 | **17,192,000** | 773,640.00 | 2,149,000.00 |
+
+The two differ by 893,468. The master file is self-inconsistent too: every block
+uses 18,085,468 **except** the DF7W block header (`F40` = 17,192,000) — the only
+place 17,192,000 appears in it. So the plan §12 fixtures (17,192,000-based) were
+taken from the **invoice** workbook, not this master file, and will **not**
+reproduce from it.
+
+Decisions needed before S1:
+1. **Which contract value is authoritative** for the baseline the importer sets —
+   18,085,468 (master-file summary) or 17,192,000 (signed invoice / §12)?
+2. The importer must **flag** internal inconsistencies like the DF7W stray as
+   `needs_review` rather than silently pick one (AGENTS: never reinterpret or
+   silently omit). Confirm that behaviour is wanted.
+
+The column map above is settled; these value questions are the remaining S0 gate.
 
 ## 6. UI
 
@@ -149,8 +186,8 @@ In `accounts_v2_contract_tab.dart`, gated by `configure_project_commercials`
 
 | Slice | Scope | Gate |
 |---|---|---|
-| **S0** | Owner supplies the master-file layout / sample workbook | column map confirmed against §12 |
-| **S1** | Client master-file parser + `YorksAccountsMasterFileDraft` model | unit tests reproduce the §12 numbers from the sample; unmapped rows surfaced, none dropped |
+| **S0** | Layout confirmed (§5). Owner resolves the contract-value conflict (18,085,468 vs 17,192,000) and confirms needs_review flagging | authoritative value chosen |
+| **S1** | Client master-file parser + `YorksAccountsMasterFileDraft` model | unit tests reproduce the chosen-base numbers from the real sample; the DF7W stray and any unmapped rows surface as needs_review, none dropped |
 | **S2** | Preview UI in Contract tab (read + editable), behind the existing V2 flag | widget tests desktop + 360px; setup-check + needs_review render |
 | **S3** | `v1_apply_accounts_master_import` RPC (provenance + setup save) | pgTAP: invariants, idempotency/replay, sha256 uniqueness, role negatives (PE/SE/Procurement denied; Admin/PM/SME allowed) |
 | **S4** | Wire Confirm → apply; end-to-end; owner sign-off | §12 totals reproduced through the real save; nothing locked afterwards |
