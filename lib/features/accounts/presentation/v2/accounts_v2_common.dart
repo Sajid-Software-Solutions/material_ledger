@@ -230,6 +230,81 @@ class AccountsV2KpiGrid extends StatelessWidget {
 }
 
 /// Soft white card used across the workspace (prototype radius 14).
+/// One table row as a card, for phone widths, where a desktop table would have to
+/// be scrolled sideways to reach its status and actions.
+class AccountsV2RecordCard extends StatelessWidget {
+  const AccountsV2RecordCard({
+    super.key,
+    required this.title,
+    this.status,
+    this.facts = const [],
+    this.actions = const [],
+  });
+
+  final Widget title;
+  final Widget? status;
+  final List<(String label, Widget value)> facts;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: title),
+              if (status != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                status!,
+              ],
+            ],
+          ),
+          if (facts.isNotEmpty) const SizedBox(height: AppSpacing.sm),
+          for (final (label, value) in facts)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
+              child: Row(
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: value,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (actions.isNotEmpty)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: actions,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class AccountsV2Card extends StatelessWidget {
   const AccountsV2Card({
     super.key,

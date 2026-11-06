@@ -68,10 +68,22 @@ select ok(not (select payload->'attention' @> '[{"kind":"no_claim"}]' from v1_r3
 select is((select payload#>>'{badges,claims_draft}' from v1_r39_p4a where result_key='acc_ready'), 'false', 'a checked claim is no longer a draft');
 select is((select payload#>>'{steps,1,detail,claim_reference}' from v1_r39_p4a where result_key='acc_ready'), 'CLM-A', 'the progress step still names the claim');
 
+-- Upload targets: only records this person may attach a file to.
+insert into v1_r39_p4a select 'acc_docs', public.v1_get_accounts_documents('39d19000-0000-4000-8000-000000000001',null,null,false);
+select ok(not (select payload->'upload_targets' @> '[{"entity_type":"accounts_baseline_revision"}]' from v1_r39_p4a where result_key='acc_docs'),
+  'an Accountant, who cannot configure the contract, is not offered it');
+select ok((select payload->'upload_targets' @> '[{"entity_type":"accounts_client_claim"}]' from v1_r39_p4a where result_key='acc_docs'),
+  'an Accountant is offered the claim they can attach to');
+
 -- Delivery options: empty list for those who may write a bill.
 select is((public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001'))->'deliveries', '[]'::jsonb, 'Accountant sees the (empty) delivery options');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
 select lives_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, 'Admin may list delivery options');
+insert into v1_r39_p4a select 'adm_docs', public.v1_get_accounts_documents('39d19000-0000-4000-8000-000000000001',null,null,false);
+select ok((select payload->'upload_targets' @> '[{"entity_type":"accounts_baseline_revision"}]' from v1_r39_p4a where result_key='adm_docs'),
+  'Admin, who can configure the contract, is offered it');
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000003","role":"authenticated","app_metadata":{"role":"procurement","app_user_id":"usr-local-procurement"}}',true);
+select lives_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, 'Procurement may list delivery options');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
 select throws_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, '42501', null, 'Project Engineer may not list delivery options');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);

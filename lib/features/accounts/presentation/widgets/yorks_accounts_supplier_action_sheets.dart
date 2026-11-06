@@ -288,6 +288,7 @@ class _SupplierBillDraftSheetState
                         projectId: widget.projectId,
                         language: widget.language,
                         uploadType: YorksV1AccountsDocumentType.poLpo,
+                        billId: widget.existing?.supplierBillId,
                         value: _poDocumentId,
                         onChanged: (id) => setState(() => _poDocumentId = id),
                       ),
@@ -315,6 +316,7 @@ class _SupplierBillDraftSheetState
                         projectId: widget.projectId,
                         language: widget.language,
                         uploadType: YorksV1AccountsDocumentType.supplierInvoice,
+                        billId: widget.existing?.supplierBillId,
                         value: _invoiceDocumentId,
                         onChanged: (id) =>
                             setState(() => _invoiceDocumentId = id),
@@ -378,6 +380,7 @@ class _DocumentPicker extends ConsumerWidget {
     required this.uploadType,
     required this.value,
     required this.onChanged,
+    this.billId,
   });
 
   final String projectId;
@@ -385,6 +388,10 @@ class _DocumentPicker extends ConsumerWidget {
   final YorksV1AccountsDocumentType uploadType;
   final String? value;
   final ValueChanged<String?> onChanged;
+
+  /// The bill being edited, which a new file links to. A new bill has no record
+  /// to link to until its draft is saved.
+  final String? billId;
 
   String _t(String key) => YorksV1AccountsStrings.text(language, key);
 
@@ -408,6 +415,7 @@ class _DocumentPicker extends ConsumerWidget {
       language: language,
       workspace: workspace,
       initialType: uploadType,
+      initialTargetEntityId: billId,
     );
     if (saved != true) return;
     final updated = ref
@@ -460,11 +468,20 @@ class _DocumentPicker extends ConsumerWidget {
           ],
           onChanged: onChanged,
         ),
-        if (workspace?.canUpload == true)
+        if (billId == null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              _t('v2_sup_save_first'),
+              style: AppTypography.bodySmall,
+            ),
+          )
+        else if (workspace != null &&
+            workspace.uploadTargets.any((t) => t.entityId == billId))
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
-              onPressed: () => _add(context, ref, workspace!),
+              onPressed: () => _add(context, ref, workspace),
               icon: const Icon(Icons.upload_file_outlined, size: 18),
               label: Text(_t('v2_sup_add_document')),
             ),
@@ -935,17 +952,18 @@ class _MatchPosition extends StatelessWidget {
       LayoutBuilder(
         builder: (context, constraints) {
           final cards = [
+            // The server counts a PO only with both its reference and its file.
             _MatchFact(
               title: _text('po_lpo'),
               present:
-                  bill.poLpoDocumentId != null || bill.poLpoReference != null,
-              detail:
-                  bill.poLpoReference ??
-                  _text(
-                    bill.poLpoDocumentId == null
-                        ? 'missing_evidence'
-                        : 'v2_sup_linked',
-                  ),
+                  bill.poLpoDocumentId != null && bill.poLpoReference != null,
+              detail: switch ((bill.poLpoReference, bill.poLpoDocumentId)) {
+                (null, null) => _text('missing_evidence'),
+                (null, _) => _text('v2_sup_po_needs_reference'),
+                (final reference?, null) =>
+                  '$reference · ${_text('v2_sup_po_needs_file')}',
+                (final reference?, _) => reference,
+              },
             ),
             _MatchFact(
               title: _text('accepted_delivery'),

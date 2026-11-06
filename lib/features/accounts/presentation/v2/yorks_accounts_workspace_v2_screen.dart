@@ -362,7 +362,10 @@ class _TabBar extends StatelessWidget {
                     for (final tab in YorksAccountsWorkspaceV2Tab.values)
                       Padding(
                         padding: const EdgeInsets.only(right: AppSpacing.xs),
-                        child: _chip(tab),
+                        child: _KeepInViewWhenSelected(
+                          selected: tab == selected,
+                          child: _chip(tab),
+                        ),
                       ),
                   ],
                 ),
@@ -388,6 +391,43 @@ class _TabBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Scrolls a chip into view when it becomes the selected one, so a phone always
+/// shows which tab is open.
+class _KeepInViewWhenSelected extends StatefulWidget {
+  const _KeepInViewWhenSelected({required this.selected, required this.child});
+
+  final bool selected;
+  final Widget child;
+
+  @override
+  State<_KeepInViewWhenSelected> createState() =>
+      _KeepInViewWhenSelectedState();
+}
+
+class _KeepInViewWhenSelectedState extends State<_KeepInViewWhenSelected> {
+  void _reveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(context, alignment: 0.5);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.selected) _reveal();
+  }
+
+  @override
+  void didUpdateWidget(_KeepInViewWhenSelected oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected && !oldWidget.selected) _reveal();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _TabChip extends StatelessWidget {
@@ -1013,13 +1053,15 @@ class _SupplierBody extends ConsumerWidget {
                     if (saved) await controller.refresh();
                   },
             onOpenBill: (bill) async {
-              final changed = await showYorksAccountsSupplierBillActionsSheet(
+              await showYorksAccountsSupplierBillActionsSheet(
                 context,
                 projectId: projectId,
                 supplierBillId: bill.supplierBillId,
                 language: language,
               );
-              if (changed) await controller.refresh();
+              // Always reload: an edit made inside the sheet leaves it open, so
+              // closing it afterwards doesn't report a change.
+              await controller.refresh();
             },
             invoicedTotal: invoicedTotal,
             onPay: controller.recordPayment,

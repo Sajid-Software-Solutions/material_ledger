@@ -384,22 +384,18 @@ class _ClaimCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        claim.reference,
-                        style: AppTypography.titleSmall.copyWith(
-                          color: AppColors.ink,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    _ClaimStatusChip(status: claim.status, language: language),
-                  ],
+                // On its own line: a generated reference is too long to share one
+                // with the status chip without being cut off.
+                Text(
+                  claim.reference,
+                  style: AppTypography.titleSmall.copyWith(
+                    color: AppColors.ink,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: AppSpacing.xs),
+                _ClaimStatusChip(status: claim.status, language: language),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   period,
@@ -545,7 +541,15 @@ class _ClaimSidePanel extends StatelessWidget {
           children: [
             AccountsV2SectionTitle(_t('v2_claim_title')),
             const SizedBox(height: AppSpacing.sm),
-            Text(_t('v2_claims_no_claim'), style: AppTypography.bodyMedium),
+            // Only someone who can confirm progress is told it starts a claim.
+            Text(
+              _t(
+                workbench.canConfirmProgress
+                    ? 'v2_claims_no_claim'
+                    : 'v2_att_no_claim',
+              ),
+              style: AppTypography.bodyMedium,
+            ),
           ],
         ),
       );

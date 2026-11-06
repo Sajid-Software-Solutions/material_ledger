@@ -182,9 +182,10 @@ final class YorksAccountsSetupReadInvoiceSettings {
   final String? billToPartyId;
   final int recordVersion;
 
-  /// The next invoice number as it will read, e.g. `YRA322-03`.
+  /// The next invoice number as v1_issue_client_invoice will write it: the prefix
+  /// and a two-digit sequence with nothing between, e.g. `YRA32203`.
   String get nextInvoiceNumber =>
-      '$invoicePrefix-${nextSequence.toString().padLeft(2, '0')}';
+      '$invoicePrefix${nextSequence.toString().padLeft(2, '0')}';
 }
 
 /// A contract party (client or main contractor) read from project setup.

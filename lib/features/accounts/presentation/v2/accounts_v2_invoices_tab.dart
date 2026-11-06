@@ -511,92 +511,166 @@ class _TrackerCard extends StatelessWidget {
         children: [
           AccountsV2SectionTitle(_t('v2_tab_invoices')),
           const SizedBox(height: AppSpacing.sm),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: AppSpacing.xl,
-              headingRowHeight: 36,
-              dataRowMinHeight: 40,
-              dataRowMaxHeight: 52,
-              columns: columns,
-              rows: [
-                for (final inv in invoices)
-                  DataRow(
-                    cells: [
-                      DataCell(
-                        onOpenDetail == null
-                            ? Text(
-                                inv.invoiceReference,
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              )
-                            : InkWell(
-                                onTap: () => _openDetail(context, inv),
-                                child: Text(
-                                  inv.invoiceReference,
-                                  style: AppTypography.bodyMedium.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w700,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                      ),
-                      DataCell(Text(inv.submissionDate?.toString() ?? '—')),
-                      if (canValues) ...[
-                        DataCell(
-                          Text(
-                            format.money(inv.claimedExVat, withCurrency: false),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            format.money(inv.totalInclVat, withCurrency: false),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            format.money(
-                              inv.certifiedExVat,
-                              withCurrency: false,
-                            ),
-                          ),
-                        ),
-                      ],
-                      DataCell(_DueCell(inv: inv, language: language)),
-                      if (canValues) ...[
-                        DataCell(
-                          Text(
-                            format.money(
-                              inv.amountPaidTillDate,
-                              withCurrency: false,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(format.money(inv.stillDue, withCurrency: false)),
-                        ),
-                      ],
-                      DataCell(
-                        _StatusChip(status: inv.status, language: language),
-                      ),
-                      if (_showActions)
-                        DataCell(
-                          _RowActions(
-                            moreLabel: _t('v2_inv_more_actions'),
-                            actions: _actionsFor(context, inv),
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
+                return Column(
+                  children: [
+                    for (final inv in invoices) _invoiceCard(context, inv),
+                  ],
+                );
+              }
+              return _table(context, columns);
+            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _invoiceCard(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) {
+    final reference = Text(
+      inv.invoiceReference,
+      style: AppTypography.bodyMedium.copyWith(
+        color: onOpenDetail == null ? AppColors.ink : AppColors.primary,
+        fontWeight: FontWeight.w700,
+        decoration: onOpenDetail == null ? null : TextDecoration.underline,
+        decorationColor: AppColors.primary,
+      ),
+    );
+    Widget amount(YorksAccountsDecimal value) => Text(
+      format.money(value),
+      style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+    );
+    return AccountsV2RecordCard(
+      title: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: onOpenDetail == null
+            ? reference
+            : InkWell(
+                onTap: () => _openDetail(context, inv),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: AppSpacing.minTapTarget,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: 1,
+                    child: reference,
+                  ),
+                ),
+              ),
+      ),
+      status: _StatusChip(status: inv.status, language: language),
+      facts: [
+        (_t('v2_inv_col_due'), _DueCell(inv: inv, language: language)),
+        if (canValues) ...[
+          (_t('v2_inv_col_incl'), amount(inv.totalInclVat)),
+          (_t('v2_inv_kpi_certified_excl'), amount(inv.certifiedExVat)),
+          (_t('v2_kpi_received'), amount(inv.amountPaidTillDate)),
+          (_t('v2_inv_col_balance'), amount(inv.stillDue)),
+        ],
+      ],
+      actions: [
+        if (_showActions)
+          _RowActions(
+            moreLabel: _t('v2_inv_more_actions'),
+            actions: _actionsFor(context, inv),
+          ),
+      ],
+    );
+  }
+
+  Widget _table(BuildContext context, List<DataColumn> columns) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: AppSpacing.md,
+            horizontalMargin: AppSpacing.md,
+            headingRowHeight: 36,
+            dataRowMinHeight: 40,
+            dataRowMaxHeight: 52,
+            columns: columns,
+            rows: [
+              for (final inv in invoices)
+                DataRow(
+                  cells: [
+                    DataCell(
+                      onOpenDetail == null
+                          ? Text(
+                              inv.invoiceReference,
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : InkWell(
+                              onTap: () => _openDetail(context, inv),
+                              child: Text(
+                                inv.invoiceReference,
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                    ),
+                    DataCell(Text(inv.submissionDate?.toString() ?? '—')),
+                    if (canValues) ...[
+                      DataCell(
+                        Text(
+                          format.money(inv.claimedExVat, withCurrency: false),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          format.money(inv.totalInclVat, withCurrency: false),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          format.money(inv.certifiedExVat, withCurrency: false),
+                        ),
+                      ),
+                    ],
+                    DataCell(_DueCell(inv: inv, language: language)),
+                    if (canValues) ...[
+                      DataCell(
+                        Text(
+                          format.money(
+                            inv.amountPaidTillDate,
+                            withCurrency: false,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(format.money(inv.stillDue, withCurrency: false)),
+                      ),
+                    ],
+                    DataCell(
+                      _StatusChip(status: inv.status, language: language),
+                    ),
+                    if (_showActions)
+                      DataCell(
+                        _RowActions(
+                          moreLabel: _t('v2_inv_more_actions'),
+                          actions: _actionsFor(context, inv),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -623,9 +697,15 @@ class _RowActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        TextButton(
-          onPressed: actions.first.onPressed,
-          child: Text(actions.first.label),
+        Flexible(
+          child: TextButton(
+            onPressed: actions.first.onPressed,
+            child: Text(
+              actions.first.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
         if (rest.isNotEmpty)
           PopupMenuButton<_RowAction>(
@@ -651,8 +731,11 @@ class _DueCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overdue = inv.dueState == YorksAccountsDueState.overdue;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xxs,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           inv.dueDate?.toString() ?? '—',
@@ -660,10 +743,8 @@ class _DueCell extends StatelessWidget {
             color: overdue ? AppColors.error : AppColors.inkSecondary,
           ),
         ),
-        if (overdue) ...[
-          const SizedBox(width: AppSpacing.xs),
+        if (overdue)
           StatusChip.error(accountsV2Text(language, 'v2_inv_overdue')),
-        ],
       ],
     );
   }
@@ -1099,6 +1180,15 @@ class _InvoiceDetailSheet extends StatelessWidget {
         p.originalPaymentId!,
   };
 
+  /// Written label for a stored method; anything else keeps its recorded text.
+  String _methodLabel(String method) => switch (method) {
+    'bank_transfer' => _t('v2_pay_method_bank'),
+    'cash' => _t('v2_pay_method_cash'),
+    'PDC' => _t('v2_pay_method_cheque'),
+    'reversal' => _t('v2_pay_reversal'),
+    _ => method,
+  };
+
   bool _canReverse(YorksAccountsClientPayment p) =>
       onReversePayment != null &&
       detail.commands.reversePayment &&
@@ -1170,27 +1260,26 @@ class _InvoiceDetailSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
+            // Wraps on a phone, where three amounts can't share a line unclipped.
+            Wrap(
+              spacing: AppSpacing.xl,
+              runSpacing: AppSpacing.sm,
               children: [
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_total'),
-                    value: format.money(invoice.totalInclVatSnapshot),
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_total'),
+                  value: format.money(invoice.totalInclVatSnapshot),
                 ),
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_received'),
-                    value: format.money(invoice.paidAmount),
-                    accent: AppColors.success,
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_received'),
+                  value: format.money(invoice.paidAmount),
+                  accent: AppColors.success,
                 ),
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_balance'),
-                    value: format.money(invoice.stillDue),
-                    accent: AppColors.warning,
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_balance'),
+                  value: format.money(invoice.stillDue),
+                  accent: invoice.stillDue?.isPositive == true
+                      ? AppColors.warning
+                      : null,
                 ),
               ],
             ),
@@ -1259,7 +1348,7 @@ class _InvoiceDetailSheet extends StatelessWidget {
                   _DetailRow(
                     leading: p.paymentReference,
                     trailing: format.money(p.amount),
-                    sub: '${p.paymentDate} · ${p.paymentMethod}',
+                    sub: '${p.paymentDate} · ${_methodLabel(p.paymentMethod)}',
                     chip: p.entryKind == YorksAccountsPaymentEntryKind.reversal
                         ? StatusChip(
                             label: _t('v2_pay_reversal'),

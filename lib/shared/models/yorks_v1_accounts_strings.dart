@@ -5258,6 +5258,30 @@ abstract final class YorksV1AccountsStrings {
       'ur': "منسلک",
       'hi': "जुड़ा हुआ",
     },
+    'v2_pay_method_cheque': {
+      'en': "Cheque",
+      'ar': "شيك",
+      'ur': "چیک",
+      'hi': "चेक",
+    },
+    'v2_sup_save_first': {
+      'en': "Save the draft first, then you can add a new file here.",
+      'ar': "احفظ المسودة أولاً، ثم يمكنك إضافة ملف جديد هنا.",
+      'ur': "پہلے مسودہ محفوظ کریں، پھر یہاں نئی فائل شامل کر سکتے ہیں۔",
+      'hi': "पहले मसौदा सहेजें, फिर यहाँ नई फ़ाइल जोड़ सकते हैं।",
+    },
+    'v2_sup_po_needs_reference': {
+      'en': "File linked; add the PO / LPO reference",
+      'ar': "الملف مرتبط؛ أضف مرجع أمر الشراء",
+      'ur': "فائل منسلک ہے؛ PO / LPO حوالہ شامل کریں",
+      'hi': "फ़ाइल जुड़ी है; PO / LPO संदर्भ जोड़ें",
+    },
+    'v2_sup_po_needs_file': {
+      'en': "add the PO / LPO file",
+      'ar': "أضف ملف أمر الشراء",
+      'ur': "PO / LPO فائل شامل کریں",
+      'hi': "PO / LPO फ़ाइल जोड़ें",
+    },
   };
 
   static String text(AppLanguage language, String key) {

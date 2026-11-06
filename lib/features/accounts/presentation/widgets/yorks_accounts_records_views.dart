@@ -714,6 +714,7 @@ Future<bool?> showYorksAccountsDocumentUploadDialog(
   required AppLanguage language,
   required YorksV1AccountsDocumentWorkspace workspace,
   YorksV1AccountsDocumentType? initialType,
+  String? initialTargetEntityId,
 }) => showDialog<bool>(
   context: context,
   barrierDismissible: false,
@@ -722,6 +723,7 @@ Future<bool?> showYorksAccountsDocumentUploadDialog(
     language: language,
     workspace: workspace,
     initialType: initialType,
+    initialTargetEntityId: initialTargetEntityId,
   ),
 );
 
@@ -732,6 +734,7 @@ class _AccountsDocumentUploadDialog extends ConsumerStatefulWidget {
     required this.workspace,
     this.revisionOf,
     this.initialType,
+    this.initialTargetEntityId,
   });
 
   final String projectId;
@@ -739,6 +742,7 @@ class _AccountsDocumentUploadDialog extends ConsumerStatefulWidget {
   final YorksV1AccountsDocumentWorkspace workspace;
   final YorksV1Document? revisionOf;
   final YorksV1AccountsDocumentType? initialType;
+  final String? initialTargetEntityId;
 
   @override
   ConsumerState<_AccountsDocumentUploadDialog> createState() =>
@@ -768,7 +772,11 @@ class _AccountsDocumentUploadDialogState
         label: revision.currentVersion.fileName,
       );
     } else if (widget.workspace.uploadTargets.isNotEmpty) {
-      _target = widget.workspace.uploadTargets.first;
+      final targets = widget.workspace.uploadTargets;
+      _target = targets.firstWhere(
+        (target) => target.entityId == widget.initialTargetEntityId,
+        orElse: () => targets.first,
+      );
       _type = widget.initialType ?? YorksV1AccountsDocumentType.other;
     }
   }
@@ -808,7 +816,15 @@ class _AccountsDocumentUploadDialogState
             ),
           );
       if (!mounted) return;
-      Navigator.of(context).pop(saved);
+      if (saved) {
+        Navigator.of(context).pop(true);
+        return;
+      }
+      // Stay open and say so; closing here looked like nothing had happened.
+      setState(() {
+        _busy = false;
+        _error = _text(widget.language, 'document_failed');
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {

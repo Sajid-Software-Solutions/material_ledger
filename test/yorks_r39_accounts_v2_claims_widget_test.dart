@@ -202,7 +202,7 @@ void main() {
     testWidgets('shows the no-claim note when nothing is open', (tester) async {
       _wideSurface(tester);
       final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(withClaim: false),
+        _workbenchJson(withClaim: false, confirm: true),
       );
       await tester.pumpWidget(
         _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
@@ -212,6 +212,22 @@ void main() {
       expect(find.text(t('v2_claims_no_claim')), findsOneWidget);
       expect(find.text('CLM-01'), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('does not tell someone who cannot confirm to confirm', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(
+        _workbenchJson(withClaim: false),
+      );
+      await tester.pumpWidget(
+        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_att_no_claim')), findsOneWidget);
+      expect(find.text(t('v2_claims_no_claim')), findsNothing);
     });
 
     testWidgets('claim cards switch the active claim via onSelectClaim', (

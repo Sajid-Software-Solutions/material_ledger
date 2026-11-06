@@ -45,6 +45,8 @@ const _cmds = YorksAccountsSupplierCommands(
 YorksAccountsSupplierBill _bill({
   YorksAccountsSupplierBillStatus status =
       YorksAccountsSupplierBillStatus.approved,
+  YorksAccountsSupplierMatchStatus match =
+      YorksAccountsSupplierMatchStatus.matched,
 }) => YorksAccountsSupplierBill(
   supplierBillId: 'sb1',
   projectId: 'p1',
@@ -64,7 +66,7 @@ YorksAccountsSupplierBill _bill({
   acceptedDelivery: null,
   supplierInvoiceDocumentId: null,
   explicitMismatchReason: null,
-  matchStatus: YorksAccountsSupplierMatchStatus.matched,
+  matchStatus: match,
   status: status,
   paymentStatus: YorksAccountsSupplierPaymentStatus.partiallyPaid,
   paidAmount: _d('40000.00'),
@@ -290,6 +292,72 @@ void main() {
   });
 
   group('AccountsV2SupplierTab approval', () {
+    testWidgets('no Approve until all three documents match', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(
+              pay: true,
+              items: [
+                _bill(
+                  status: YorksAccountsSupplierBillStatus.draft,
+                  match: YorksAccountsSupplierMatchStatus.blocked,
+                ),
+              ],
+            ),
+            language: en,
+            onApprove:
+                ({required supplierBillId, required expectedVersion}) async =>
+                    null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_sup_approve')), findsNothing);
+    });
+
+    testWidgets('no Approve for someone who cannot approve', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(
+              items: [_bill(status: YorksAccountsSupplierBillStatus.draft)],
+            ),
+            language: en,
+            onApprove:
+                ({required supplierBillId, required expectedVersion}) async =>
+                    null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_sup_approve')), findsNothing);
+    });
+
+    testWidgets('a phone shows a card with the bill and its actions', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(pay: true),
+            language: en,
+            onPay: (input) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DataTable), findsNothing);
+      await tester.scrollUntilVisible(find.text('INV-5001'), 200);
+      expect(find.text('INV-5001'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('approves a draft bill through onApprove', (tester) async {
       _wideSurface(tester);
       String? approvedId;

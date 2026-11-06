@@ -330,6 +330,33 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a phone shows a card, not a table to scroll sideways', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(cert: true, pay: true),
+            language: en,
+            onCertify: (i) async => null,
+            onPay: (i) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DataTable), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text(t('v2_inv_record_payment')),
+        200,
+      );
+      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('an uncertified invoice leads with Certify', (tester) async {
       _wideSurface(tester);
       await tester.pumpWidget(
