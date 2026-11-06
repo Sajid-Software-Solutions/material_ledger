@@ -513,6 +513,19 @@ final class YorksAccountsWorkbenchController
     },
   );
 
+  /// Renders the invoice a checked claim would produce, without issuing it. Pure
+  /// read; returns null if the backend is unavailable or the render fails.
+  Future<Uint8List?> buildInvoicePreview(String claimId) async {
+    final repository = _repository;
+    if (repository == null) return null;
+    try {
+      final doc = await repository.previewInvoiceDocument(_projectId, claimId);
+      return await YorksClientInvoiceDocumentBuilder.build(doc.document);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Issues the client invoice for a checked claim (allocates the number,
   /// submits and freezes the document snapshot server-side). No optimistic
   /// success; re-fetches on confirmation. The persisted idempotency lease means
@@ -812,6 +825,14 @@ final class YorksAccountsInvoicesController
         payload: input.idempotencyPayload(),
         action: (key) => _repository.reversePayment(input, idempotencyKey: key),
       );
+
+  /// Records a cheque against an invoice. No optimistic success.
+  Future<String?> createPdc(YorksAccountsPdcCreateInput input) => runCommand(
+    operation: 'create_pdc',
+    entityId: input.invoiceId,
+    payload: input.idempotencyPayload(),
+    action: (key) => _repository.createPdc(input, idempotencyKey: key),
+  );
 
   /// Revises an issued invoice (R.n): clones a successor draft claim from the
   /// predecessor while the predecessor invoice stays submitted. The server

@@ -134,6 +134,57 @@ final class AccountsV2Format {
   }
 }
 
+/// A date input: type `YYYY-MM-DD` or pick from a calendar. The text stays the
+/// value the accounts commands parse, so both routes behave the same.
+class AccountsV2DateField extends StatelessWidget {
+  const AccountsV2DateField({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.language,
+    this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final AppLanguage language;
+  final VoidCallback? onChanged;
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.tryParse(controller.text.trim()) ?? now,
+      firstDate: DateTime(2015),
+      lastDate: DateTime(now.year + 10),
+    );
+    if (picked == null) return;
+    String two(int v) => v.toString().padLeft(2, '0');
+    controller.text = '${picked.year}-${two(picked.month)}-${two(picked.day)}';
+    onChanged?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.datetime,
+      onChanged: onChanged == null ? null : (_) => onChanged!(),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: 'YYYY-MM-DD',
+        isDense: true,
+        border: const OutlineInputBorder(),
+        suffixIcon: IconButton(
+          tooltip: accountsV2Text(language, 'v2_pick_date'),
+          icon: const Icon(Icons.calendar_today_outlined, size: 18),
+          onPressed: () => _pick(context),
+        ),
+      ),
+    );
+  }
+}
+
 /// Soft white card used across the workspace (prototype radius 14).
 class AccountsV2Card extends StatelessWidget {
   const AccountsV2Card({

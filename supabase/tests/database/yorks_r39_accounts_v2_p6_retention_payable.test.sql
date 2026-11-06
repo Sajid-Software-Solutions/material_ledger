@@ -79,6 +79,12 @@ select is((select v->>'still_due' from jsonb_array_elements((select payload from
 select is((select payload->>'still_due' from v1_r39_p6r where result_key='pay'),'0.00','Paying the retention-reduced due clears the balance');
 select is((select payload->'receivables'->>'still_due' from v1_r39_p6r where result_key='overview'),'47500.00','Project overview outstanding nets retention');
 select is((select (payload->'rows'->0->>10) from v1_r39_p6r where result_key='export'),'47500.00','project_summary export Still Due nets retention');
+-- The client reads these exact keys (YorksAccountsWorkbench getters). A renamed key
+-- silently hid every money figure on the claims tab once, so pin them here.
+select is((select (payload->'capabilities'->>'can_view_values')::boolean from v1_r39_p6r where result_key='wb'),true,'Workbench capability key can_view_values');
+select ok((select payload->'capabilities' ? 'can_confirm' from v1_r39_p6r where result_key='wb'),'Workbench capability key can_confirm');
+select is((select (payload->'commands'->>'submit_invoice')::boolean from v1_r39_p6r where result_key='wb'),true,'Workbench command key submit_invoice');
+select is((select (payload->'commands'->>'create_claim_draft')::boolean from v1_r39_p6r where result_key='wb'),true,'Workbench command key create_claim_draft');
 select is((select payload->'claim'->>'retention_percent' from v1_r39_p6r where result_key='wb'),'10.0000','Claim panel exposes the profile retention percent');
 select is((select payload->'claim'->>'retention_preview' from v1_r39_p6r where result_key='wb'),'5000.00','Claim panel previews retention = 10% of the 50,000 gross');
 select is((select payload->'claim'->>'net_payable_after_retention' from v1_r39_p6r where result_key='wb'),'47500.00','Claim panel previews net-after-retention = 52,500 − 5,000');

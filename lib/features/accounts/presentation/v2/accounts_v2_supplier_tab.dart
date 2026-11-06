@@ -1,4 +1,4 @@
-/// R39 Accounts Workspace V2 — Supplier bills tab (P6, read view).
+/// R39 Accounts Workspace V2 — Supplier bills tab.
 ///
 /// Shows the supplier bills from the existing v1_list_supplier_bills
 /// projection: the KPIs (billed incl VAT, paid, unpaid with an overdue count)
@@ -40,6 +40,8 @@ class AccountsV2SupplierTab extends StatelessWidget {
     this.invoicedTotal,
     this.onPay,
     this.onApprove,
+    this.onAddBill,
+    this.onOpenBill,
   });
 
   final YorksAccountsSupplierBillsProjection projection;
@@ -49,6 +51,12 @@ class AccountsV2SupplierTab extends StatelessWidget {
   final YorksAccountsDecimal? invoicedTotal;
   final YorksSupplierPayAction? onPay;
   final YorksSupplierApproveAction? onApprove;
+
+  /// Opens the add-bill form; null when the actor can't create bills.
+  final VoidCallback? onAddBill;
+
+  /// Opens a bill's full details and actions (match, approve, pay, reverse).
+  final ValueChanged<YorksAccountsSupplierBill>? onOpenBill;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -66,10 +74,31 @@ class AccountsV2SupplierTab extends StatelessWidget {
     if (!projection.capabilities.viewSupplierCosts) {
       return _Notice(icon: Icons.lock_outline, message: _t('v2_sup_no_access'));
     }
+    final addBill = onAddBill == null
+        ? null
+        : Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.icon(
+              onPressed: onAddBill,
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(_t('v2_sup_add_bill')),
+            ),
+          );
     if (projection.items.isEmpty) {
-      return _Notice(
-        icon: Icons.local_shipping_outlined,
-        message: _t('v2_sup_empty'),
+      return Column(
+        children: [
+          if (addBill != null)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: addBill,
+            ),
+          Expanded(
+            child: _Notice(
+              icon: Icons.local_shipping_outlined,
+              message: _t('v2_sup_empty'),
+            ),
+          ),
+        ],
       );
     }
 
@@ -85,6 +114,10 @@ class AccountsV2SupplierTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
+        if (addBill != null) ...[
+          addBill,
+          const SizedBox(height: AppSpacing.md),
+        ],
         _KpiRow(
           language: language,
           format: format,
@@ -107,6 +140,7 @@ class AccountsV2SupplierTab extends StatelessWidget {
           format: format,
           isOverdue: _isOverdue,
           onPay: onPay,
+          onOpenBill: onOpenBill,
           onApprove: onApprove,
         ),
       ],
@@ -278,6 +312,7 @@ class _BillsCard extends StatelessWidget {
     required this.isOverdue,
     this.onPay,
     this.onApprove,
+    this.onOpenBill,
   });
 
   final String projectId;
@@ -289,8 +324,9 @@ class _BillsCard extends StatelessWidget {
   final bool Function(YorksAccountsSupplierBill) isOverdue;
   final YorksSupplierPayAction? onPay;
   final YorksSupplierApproveAction? onApprove;
+  final ValueChanged<YorksAccountsSupplierBill>? onOpenBill;
 
-  bool get _showActions => canPay || canApprove;
+  bool get _showActions => canPay || canApprove || onOpenBill != null;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -441,6 +477,11 @@ class _BillsCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              if (onOpenBill != null)
+                                TextButton(
+                                  onPressed: () => onOpenBill!(bill),
+                                  child: Text(_t('v2_sup_open_bill')),
+                                ),
                               if (_canApprove(bill))
                                 TextButton(
                                   onPressed: () => _approve(context, bill),
@@ -639,10 +680,11 @@ class _SupplierPayDialogState extends State<_SupplierPayDialog> {
             decoration: deco(_t('v2_pay_amount')),
           ),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_pay_date'),
             controller: _date,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_pay_date'), hint: 'YYYY-MM-DD'),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
           DropdownButtonFormField<String>(

@@ -1,4 +1,4 @@
-/// R39 Accounts Workspace V2 — Invoices & payments tab (P6, read view).
+/// R39 Accounts Workspace V2 — Invoices & payments tab.
 ///
 /// Shows the client invoice tracker from the existing v1_list_client_invoices
 /// projection: the five KPIs (invoiced incl VAT, certified, received, cheques
@@ -35,6 +35,10 @@ typedef YorksPayAction =
 typedef YorksReversePaymentAction =
     Future<String?> Function(YorksAccountsPaymentReversalInput input);
 
+/// Records a cheque against an invoice; returns null on success or a failure code.
+typedef YorksCreatePdcAction =
+    Future<String?> Function(YorksAccountsPdcCreateInput input);
+
 /// Revises an issued invoice (R.n); returns null on success or an error message.
 typedef YorksReviseInvoiceAction =
     Future<String?> Function({
@@ -52,6 +56,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onPay,
     this.onReversePayment,
     this.onRevise,
+    this.onCreatePdc,
     this.onPrintInvoice,
     this.onOpenDetail,
     this.trailing,
@@ -69,6 +74,9 @@ class AccountsV2InvoicesTab extends StatelessWidget {
 
   /// Revises an issued invoice (R.n) from the detail drawer; null hides it.
   final YorksReviseInvoiceAction? onRevise;
+
+  /// Records a cheque; shown only with manage_pdc.
+  final YorksCreatePdcAction? onCreatePdc;
 
   /// Fetches + renders the invoice PDF and opens the print/preview; returns
   /// null on success or an error message.
@@ -131,6 +139,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onPay: onPay,
         onReversePayment: onReversePayment,
         onRevise: onRevise,
+        onCreatePdc: projection.capabilities.managePdc ? onCreatePdc : null,
         onPrintInvoice: onPrintInvoice,
         onOpenDetail: onOpenDetail,
       ),
@@ -297,6 +306,7 @@ class _TrackerCard extends StatelessWidget {
     this.onPay,
     this.onReversePayment,
     this.onRevise,
+    this.onCreatePdc,
     this.onPrintInvoice,
     this.onOpenDetail,
   });
@@ -312,13 +322,41 @@ class _TrackerCard extends StatelessWidget {
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
   final YorksReviseInvoiceAction? onRevise;
+  final YorksCreatePdcAction? onCreatePdc;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
   final Future<YorksAccountsInvoiceDetailProjection?> Function(
     String invoiceId,
   )?
   onOpenDetail;
 
-  bool get _showActions => canCertify || canPay || onPrintInvoice != null;
+  bool get _showActions =>
+      canCertify || canPay || onCreatePdc != null || onPrintInvoice != null;
+
+  /// Mirrors v1_create_client_pdc: open invoices with a certified amount. The
+  /// server re-checks this and the remaining-exposure cap.
+  bool _canRecordCheque(YorksAccountsClientInvoiceSummary inv) =>
+      onCreatePdc != null &&
+      inv.certifiedExVat.isPositive &&
+      !const {
+        YorksAccountsInvoiceStatus.draft,
+        YorksAccountsInvoiceStatus.returned,
+        YorksAccountsInvoiceStatus.cancelled,
+        YorksAccountsInvoiceStatus.paid,
+      }.contains(inv.status);
+
+  Future<void> _recordCheque(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final input = await showDialog<YorksAccountsPdcCreateInput>(
+      context: context,
+      builder: (_) =>
+          _ChequeDialog(projectId: projectId, invoice: inv, language: language),
+    );
+    if (input == null) return;
+    final error = await onCreatePdc!(input);
+    if (context.mounted) await _report(context, error, 'v2_pdc_saved');
+  }
 
   Future<void> _openDetail(
     BuildContext context,
@@ -540,6 +578,11 @@ class _TrackerCard extends StatelessWidget {
                                   onPressed: () => _pay(context, inv),
                                   child: Text(_t('v2_inv_record_payment')),
                                 ),
+                              if (_canRecordCheque(inv))
+                                TextButton(
+                                  onPressed: () => _recordCheque(context, inv),
+                                  child: Text(_t('v2_pdc_add')),
+                                ),
                               if (_canPrint(inv))
                                 TextButton(
                                   onPressed: () => _print(context, inv),
@@ -746,10 +789,10 @@ class _CertifyDialogState extends State<_CertifyDialog> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_cert_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -855,10 +898,10 @@ class _PayDialogState extends State<_PayDialog> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_pay_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -913,14 +956,12 @@ class _DialogField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.numeric = false,
-    this.hint,
     this.onChanged,
   });
 
   final String label;
   final TextEditingController controller;
   final bool numeric;
-  final String? hint;
   final VoidCallback? onChanged;
 
   @override
@@ -933,7 +974,6 @@ class _DialogField extends StatelessWidget {
       onChanged: onChanged == null ? null : (_) => onChanged!(),
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -1450,10 +1490,10 @@ class _ReversalDialogState extends State<_ReversalDialog> {
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_pay_reverse_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1477,6 +1517,125 @@ class _ReversalDialogState extends State<_ReversalDialog> {
         ),
         FilledButton(
           onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Record cheque dialog ────────────────────────────────────────────────────
+
+class _ChequeDialog extends StatefulWidget {
+  const _ChequeDialog({
+    required this.projectId,
+    required this.invoice,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsClientInvoiceSummary invoice;
+  final AppLanguage language;
+
+  @override
+  State<_ChequeDialog> createState() => _ChequeDialogState();
+}
+
+class _ChequeDialogState extends State<_ChequeDialog> {
+  final _number = TextEditingController();
+  late final TextEditingController _date;
+  late final TextEditingController _amount;
+  final _bank = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _date = TextEditingController(text: accountsV2TodayIso());
+    final open = widget.invoice.stillDue - widget.invoice.pdcExposure;
+    _amount = TextEditingController(
+      text: open.isPositive ? open.canonicalText : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_number, _date, _amount, _bank]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  YorksAccountsPdcCreateInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    final bank = _bank.text.trim();
+    final input = YorksAccountsPdcCreateInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoice.invoiceId,
+      expectedVersion: widget.invoice.recordVersion,
+      chequeNumber: _number.text.trim(),
+      chequeDate: date,
+      amount: amount,
+      bankName: bank.isEmpty ? null : bank,
+    );
+    return input.isValid ? input : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    return AlertDialog(
+      title: Text(_t('v2_pdc_add_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.invoice.invoiceReference} · ${_t('v2_pdc_add_hint')}',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_add_number'),
+              controller: _number,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AccountsV2DateField(
+              label: _t('v2_pdc_col_cheque_date'),
+              controller: _date,
+              language: widget.language,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_col_amount'),
+              controller: _amount,
+              numeric: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_col_bank'),
+              controller: _bank,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: input == null
+              ? null
+              : () => Navigator.of(context).pop(input),
           child: Text(_t('v2_confirm')),
         ),
       ],

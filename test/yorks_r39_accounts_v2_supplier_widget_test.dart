@@ -179,6 +179,60 @@ void main() {
     });
   });
 
+  group('AccountsV2SupplierTab add and open', () {
+    testWidgets('a project with no bills can still add the first one', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      var added = 0;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(items: const []),
+            language: en,
+            onAddBill: () => added++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_sup_empty')), findsOneWidget);
+      await tester.tap(find.text(t('v2_sup_add_bill')));
+      expect(added, 1);
+    });
+
+    testWidgets('a bill opens its details', (tester) async {
+      _wideSurface(tester);
+      String? opened;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2SupplierTab(
+            projection: _projection(),
+            language: en,
+            onAddBill: () {},
+            onOpenBill: (bill) => opened = bill.supplierBillId,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_sup_add_bill')), findsOneWidget);
+      final details = find.text(t('v2_sup_open_bill')).first;
+      await tester.ensureVisible(details);
+      await tester.pumpAndSettle();
+      await tester.tap(details);
+      expect(opened, isNotNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no add button without the capability', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(AccountsV2SupplierTab(projection: _projection(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_sup_add_bill')), findsNothing);
+    });
+  });
+
   group('AccountsV2SupplierTab payment', () {
     testWidgets('records a supplier payment through onPay', (tester) async {
       _wideSurface(tester);

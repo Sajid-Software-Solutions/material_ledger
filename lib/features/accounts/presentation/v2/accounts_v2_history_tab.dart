@@ -1,4 +1,4 @@
-/// R39 Accounts Workspace V2 — History & files tab (P6, read view).
+/// R39 Accounts Workspace V2 — History & files tab.
 ///
 /// Shows the accounts activity timeline from the existing
 /// v1_get_accounts_activity projection, with filter segments (All / Contract /

@@ -1,10 +1,22 @@
 # R39 Accounts Workspace V2 — Import Master File scope
 
-Status: **scoped, not started.** This is the one remaining prototype feature in
-the per-project Accounts workspace that is not yet built. Unlike the claim
-workbench and invoice-revise slices (which were UI-only on top of existing
-RPCs), Import Master File needs new work on both sides and one owner decision,
-so it is written up here before implementation.
+Status: **built on the existing setup-save RPC; provenance table not used.**
+Verified 7 November 2026 by sending both real YRA-322 workbooks through the real
+codec, parser and `v1_save_project_commercial_setup` in a rolled-back transaction:
+DF3W Material Supply 2,149,000.00, AC Units 773,640.00, dampers 171,920.00, 15
+items per building and item stage. The live file picker has not been exercised.
+
+**Differences from the plan below.** Parsing, review and saving shipped together
+as one flow. The confirm step uses the existing setup-save RPC with the file name
+and SHA-256 in the revision note, rather than a new
+`v1_apply_accounts_master_import` writing `v1_accounts_source_imports`. That avoids
+a migration; a separate provenance row remains a possible follow-up. The invoice
+workbook layout is supported as well as the master file.
+
+**Corrections to the original analysis.** The earlier version of §5 described
+18,085,468 as a stale total. That was not established; see the corrected table in
+§5. Some layout statements had also been written after inspecting only the first
+Material block; they are now checked against every block.
 
 Authority: [`AGENTS.md`](../../AGENTS.md),
 [`R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md`](R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md)
@@ -135,29 +147,35 @@ Per-building blocks (`DELIVERD MATERIAL SUMMARY (DF3W)` …). Header row (row 5)
 (= contract × weight). Sub-rows (`A.1.1 System-01`) carry only a qty breakdown
 in `E`, no weight.
 
-**Owner decision / stop condition — the contract value conflicts across the two
-source documents.** The parser's acceptance target cannot be fixed until this is
-resolved by the owner:
+Further layout facts, verified across all four blocks of both sheets:
 
-| Source | Total contract value | AC Units (4.5%) | DF3W Material Supply |
-|---|---|---|---|
-| **This master file** (Summery `F52`, Material `G7`) | **18,085,468** | 813,846.06 | 2,260,683.50 |
-| **Signed invoice** `INVOICE#02R.1` / plan §12 | **17,192,000** | 773,640.00 | 2,149,000.00 |
+- Some weights sit on sub-rows: `A.10 Ducting works` has qty `Lot ` and no weight,
+  and `A.10.1…A.10.5` carry the weights. With them, each block sums to the stage
+  share (12.5% and 7.5% per building).
+- Numeric cells are Excel's raw text, for example `4.4999999999999998E-2`.
+- Installation headers read `(A) MATERIAL INSTALLATION SUMMARY  (DF3W)`; the code
+  is the last bracket, not the first.
+- In the master file's DF4W, DF6W and DF7W Installation blocks one number repeats,
+  shifting later numbers by one. The items match DF3W, so blocks are compared by
+  content.
+- The invoice workbook adds a `Units` column, which moves `WEIGHT` and `Contract`
+  one column right, so item columns are found from the header row.
 
-The two differ by 893,468. The master file is self-inconsistent too: every block
-uses 18,085,468 **except** the DF7W block header (`F40` = 17,192,000) — the only
-place 17,192,000 appears in it. So the plan §12 fixtures (17,192,000-based) were
-taken from the **invoice** workbook, not this master file, and will **not**
-reproduce from it.
+**The contract value differs between sources, and the cause is not known.**
 
-Decisions needed before S1:
-1. **Which contract value is authoritative** for the baseline the importer sets —
-   18,085,468 (master-file summary) or 17,192,000 (signed invoice / §12)?
-2. The importer must **flag** internal inconsistencies like the DF7W stray as
-   `needs_review` rather than silently pick one (AGENTS: never reinterpret or
-   silently omit). Confirm that behaviour is wanted.
+| Date | Source | Total contract value |
+|---|---|---|
+| 29 Aug 2026 | Master file as reconciled ([record](R39_YRA322_MASTER_FILE_RECONCILIATION.md), `F52`) | 17,192,000 |
+| 26 Sep 2026 | Master file, `F52` (`F40` still 17,192,000) | 18,085,468 |
+| 29 Sep 2026 | Invoice `YRA32202R.1` | 17,192,000 |
+| 23 Oct 2026 | Master file, `F52` (`F40` still 17,192,000) | 18,085,468 |
 
-The column map above is settled; these value questions are the remaining S0 gate.
+The 893,468 difference has no explanation in the workbook (no VO or amendment
+reference). The owner chose 17,192,000 on 7 November 2026, before this timeline was
+available, so it should be reconfirmed. The importer does not hardcode either: it
+proposes the project's current value, shows the workbook's beside it, and a person
+confirms the figure. Item weights and quantities match between the two workbooks,
+so only the top-line value is affected.
 
 ## 6. UI
 
@@ -182,17 +200,12 @@ In `accounts_v2_contract_tab.dart`, gated by `configure_project_commercials`
   (AGENTS: "never silently discard … quarantine and report").
 - No optimistic success; a stale `p_expected_profile_version` returns a conflict.
 
-## 8. Phasing (sub-slices, one vertical slice per PR)
+## 8. What remains
 
-| Slice | Scope | Gate |
-|---|---|---|
-| **S0** | Layout confirmed (§5). Owner resolves the contract-value conflict (18,085,468 vs 17,192,000) and confirms needs_review flagging | authoritative value chosen |
-| **S1** | Client master-file parser + `YorksAccountsMasterFileDraft` model | unit tests reproduce the chosen-base numbers from the real sample; the DF7W stray and any unmapped rows surface as needs_review, none dropped |
-| **S2** | Preview UI in Contract tab (read + editable), behind the existing V2 flag | widget tests desktop + 360px; setup-check + needs_review render |
-| **S3** | `v1_apply_accounts_master_import` RPC (provenance + setup save) | pgTAP: invariants, idempotency/replay, sha256 uniqueness, role negatives (PE/SE/Procurement denied; Admin/PM/SME allowed) |
-| **S4** | Wire Confirm → apply; end-to-end; owner sign-off | §12 totals reproduced through the real save; nothing locked afterwards |
-
-Estimate ≈ **4–6 engineer-days** after S0, the import-dialog subset of plan P2.
+- Exercise the live file picker in a browser with the real workbook.
+- Optional: a dedicated provenance row in `v1_accounts_source_imports`, if the note
+  on the baseline revision proves insufficient for audit.
+- Importing the invoice tracker rows stays out of scope (§2).
 
 ## 9. Testing gate (standard, per AGENTS)
 

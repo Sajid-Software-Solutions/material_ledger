@@ -4856,6 +4856,58 @@ abstract final class YorksV1AccountsStrings {
       'ur': "\"{building}\" کے آئٹم ملے، جو خلاصہ شیٹ میں نہیں۔",
       'hi': "\"{building}\" के आइटम मिले, जो सारांश शीट में नहीं है।",
     },
+    'v2_pdc_add': {
+      'en': "Record cheque",
+      'ar': "تسجيل شيك",
+      'ur': "چیک درج کریں",
+      'hi': "चेक दर्ज करें",
+    },
+    'v2_pdc_add_title': {
+      'en': "Record a cheque",
+      'ar': "تسجيل شيك",
+      'ur': "ایک چیک درج کریں",
+      'hi': "एक चेक दर्ज करें",
+    },
+    'v2_pdc_add_number': {
+      'en': "Cheque number",
+      'ar': "رقم الشيك",
+      'ur': "چیک نمبر",
+      'hi': "चेक संख्या",
+    },
+    'v2_pdc_add_hint': {
+      'en':
+          "A cheque reduces the amount due only when it clears. It needs a certified amount first.",
+      'ar':
+          "يخفض الشيك المبلغ المستحق فقط عند تحصيله. ويتطلب مبلغاً معتمداً أولاً.",
+      'ur':
+          "چیک واجب الادا رقم صرف کلیئر ہونے پر کم کرتا ہے۔ اس کے لیے پہلے تصدیق شدہ رقم درکار ہے۔",
+      'hi':
+          "चेक देय राशि केवल क्लियर होने पर घटाता है। इसके लिए पहले प्रमाणित राशि चाहिए।",
+    },
+    'v2_pick_date': {
+      'en': "Pick a date",
+      'ar': "اختر تاريخاً",
+      'ur': "تاریخ منتخب کریں",
+      'hi': "तारीख चुनें",
+    },
+    'v2_sup_add_bill': {
+      'en': "Add bill",
+      'ar': "إضافة فاتورة",
+      'ur': "بل شامل کریں",
+      'hi': "बिल जोड़ें",
+    },
+    'v2_sup_open_bill': {
+      'en': "Details",
+      'ar': "التفاصيل",
+      'ur': "تفصیلات",
+      'hi': "विवरण",
+    },
+    'v2_claim_preview': {
+      'en': "Preview invoice",
+      'ar': "معاينة الفاتورة",
+      'ur': "انوائس کا پیش منظر",
+      'hi': "इनवॉइस पूर्वावलोकन",
+    },
   };
 
   static String text(AppLanguage language, String key) {

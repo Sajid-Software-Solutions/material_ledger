@@ -21,13 +21,14 @@ YorksAccountsReceivablesCapabilities _caps({
   bool values = true,
   bool cert = false,
   bool pay = false,
+  bool pdc = false,
 }) => YorksAccountsReceivablesCapabilities(
   canViewValues: values,
   prepareClientClaim: false,
   manageClientInvoices: false,
   recordClientCertification: cert,
   recordClientPayment: pay,
-  managePdc: false,
+  managePdc: pdc,
 );
 
 const _cmds = YorksAccountsReceivablesCommands(
@@ -71,13 +72,14 @@ YorksAccountsInvoicesProjection _projection({
   bool values = true,
   bool cert = false,
   bool pay = false,
+  bool pdc = false,
   List<YorksAccountsClientInvoiceSummary>? invoices,
 }) => YorksAccountsInvoicesProjection(
   schemaVersion: 1,
   projectId: 'p1',
   invoices: invoices ?? [_invoice()],
   nextCursor: null,
-  capabilities: _caps(values: values, cert: cert, pay: pay),
+  capabilities: _caps(values: values, cert: cert, pay: pay, pdc: pdc),
   commands: _cmds,
 );
 
@@ -396,6 +398,91 @@ void main() {
       expect(find.text(t('v2_inv_record_payment')), findsNothing);
       expect(find.text(t('v2_inv_certify')), findsNothing);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2InvoicesTab cheques', () {
+    testWidgets('records a cheque, prefilled with what is still open', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      YorksAccountsPdcCreateInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(pdc: true),
+            language: en,
+            onCreatePdc: (input) async {
+              captured = input;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = find.text(t('v2_pdc_add'));
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      // Due 550,000 less 200,000 already covered by cheques.
+      expect(find.widgetWithText(TextField, '350000'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, t('v2_confirm')),
+            )
+            .onPressed,
+        isNull,
+        reason: 'A cheque number is required',
+      );
+      await tester.enterText(find.byType(TextField).first, '004517');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(captured!.chequeNumber, '004517');
+      expect(captured!.amount.canonicalText, '350000');
+      expect(find.text(t('v2_pdc_saved')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('no cheque button without manage_pdc', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(),
+            language: en,
+            onCreatePdc: (_) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_pdc_add')), findsNothing);
+    });
+
+    testWidgets('a rejected payment explains why', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(pay: true),
+            language: en,
+            onPay: (_) async => 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final pay = find.text(t('v2_inv_record_payment'));
+      await tester.ensureVisible(pay);
+      await tester.pumpAndSettle();
+      await tester.tap(pay);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_err_over_due')), findsOneWidget);
     });
   });
 

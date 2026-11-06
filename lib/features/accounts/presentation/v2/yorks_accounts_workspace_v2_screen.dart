@@ -36,6 +36,7 @@ import 'accounts_v2_invoices_tab.dart';
 import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
+import '../widgets/yorks_accounts_supplier_action_sheets.dart';
 
 class YorksAccountsWorkspaceV2Screen extends ConsumerStatefulWidget {
   const YorksAccountsWorkspaceV2Screen({
@@ -556,7 +557,15 @@ class _ClaimsBody extends ConsumerWidget {
           child: AccountsV2ClaimsTab(
             workbench: data,
             language: language,
-            canRecordProgress: canConfirm,
+            canRecordProgress: canConfirm && data.canPrepareClaim,
+            onPreviewInvoice: !data.canManageInvoices
+                ? null
+                : (claimId) async {
+                    final bytes = await controller.buildInvoicePreview(claimId);
+                    if (bytes == null) return 'error';
+                    await Printing.layoutPdf(onLayout: (_) async => bytes);
+                    return null;
+                  },
             evidenceDocuments: evidenceDocuments,
             claims: claims,
             onSelectClaim: (id) => controller.selectClaim(id),
@@ -674,6 +683,19 @@ class _InvoicesBody extends ConsumerWidget {
             onPay: controller.pay,
             onReversePayment: controller.reversePayment,
             onRevise: controller.revise,
+            onCreatePdc: (input) async {
+              final error = await controller.createPdc(input);
+              if (error == null) {
+                await ref
+                    .read(
+                      yorksAccountsPdcRegisterControllerProvider(
+                        projectId,
+                      ).notifier,
+                    )
+                    .refresh();
+              }
+              return error;
+            },
             onPrintInvoice: (invoiceId) async {
               final bytes = await controller.buildInvoicePdf(invoiceId);
               if (bytes == null) return 'error';
@@ -726,6 +748,25 @@ class _SupplierBody extends ConsumerWidget {
           child: AccountsV2SupplierTab(
             projection: projection!,
             language: language,
+            onAddBill: !projection.commands.createBill
+                ? null
+                : () async {
+                    final saved = await showYorksAccountsSupplierBillDraftSheet(
+                      context,
+                      projectId: projectId,
+                      language: language,
+                    );
+                    if (saved) await controller.refresh();
+                  },
+            onOpenBill: (bill) async {
+              final changed = await showYorksAccountsSupplierBillActionsSheet(
+                context,
+                projectId: projectId,
+                supplierBillId: bill.supplierBillId,
+                language: language,
+              );
+              if (changed) await controller.refresh();
+            },
             invoicedTotal: invoicedTotal,
             onPay: controller.recordPayment,
             onApprove:

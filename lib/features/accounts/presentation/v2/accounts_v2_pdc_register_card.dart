@@ -358,10 +358,10 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _Field(
+          AccountsV2DateField(
             label: _t('v2_pdc_action_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           if (_needsClearance) ...[
@@ -400,14 +400,12 @@ class _Field extends StatelessWidget {
   const _Field({
     required this.label,
     required this.controller,
-    this.hint,
     this.numeric = false,
     this.onChanged,
   });
 
   final String label;
   final TextEditingController controller;
-  final String? hint;
   final bool numeric;
   final VoidCallback? onChanged;
 
@@ -421,7 +419,6 @@ class _Field extends StatelessWidget {
       onChanged: onChanged == null ? null : (_) => onChanged!(),
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -513,10 +510,10 @@ class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.sm),
-            _Field(
+            AccountsV2DateField(
               label: _t('v2_pdc_replace_date'),
               controller: _date,
-              hint: 'YYYY-MM-DD',
+              language: widget.language,
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.sm),

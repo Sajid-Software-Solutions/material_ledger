@@ -1,4 +1,4 @@
-/// R39 Accounts Workspace V2 — Progress & claims tab (P6, read view).
+/// R39 Accounts Workspace V2 — Progress & claims tab.
 ///
 /// Shows the claim workbench (`v1_get_claim_workbench`): the current open claim
 /// (reference, pipeline status, period, gross) and the confirmed progress by
@@ -68,6 +68,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onReopen,
     this.onIssue,
     this.onMarkChecked,
+    this.onPreviewInvoice,
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
@@ -80,6 +81,9 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
   final YorksReopenClaimAction? onMarkChecked;
+
+  /// Renders the invoice this claim would produce; null on success or an error.
+  final Future<String?> Function(String claimId)? onPreviewInvoice;
   final YorksSaveWorkbenchAction? onSaveWorkbench;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
@@ -215,6 +219,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       onReopen: onReopen,
       onIssue: onIssue,
       onMarkChecked: widget.onMarkChecked,
+      onPreviewInvoice: widget.onPreviewInvoice,
     );
 
     // The claim-cards row (navigate between claims). Shown only when the claims
@@ -421,6 +426,7 @@ class _ClaimSidePanel extends StatelessWidget {
     this.onReopen,
     this.onIssue,
     this.onMarkChecked,
+    this.onPreviewInvoice,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -430,8 +436,18 @@ class _ClaimSidePanel extends StatelessWidget {
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
   final YorksReopenClaimAction? onMarkChecked;
+  final Future<String?> Function(String claimId)? onPreviewInvoice;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  Future<void> _preview(BuildContext context, String claimId) async {
+    final error = await onPreviewInvoice!(claimId);
+    if (context.mounted && error != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(_t('v2_inv_pdf_failed'))));
+    }
+  }
 
   Future<void> _report(
     BuildContext context,
@@ -633,6 +649,17 @@ class _ClaimSidePanel extends StatelessWidget {
                   label: Text(_t('v2_claim_mark_checked')),
                 ),
               ),
+            if (showIssue && onPreviewInvoice != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _preview(context, claimId),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: Text(_t('v2_claim_preview')),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             if (showIssue)
               SizedBox(
                 width: double.infinity,
@@ -1216,26 +1243,25 @@ class _IssueDialogState extends State<_IssueDialog> {
     final valid =
         _datePattern.hasMatch(_invoiceDate.text.trim()) &&
         _datePattern.hasMatch(_submissionDate.text.trim());
-    InputDecoration deco(String label) => InputDecoration(
-      labelText: label,
-      hintText: 'YYYY-MM-DD',
-      border: const OutlineInputBorder(),
-    );
+    InputDecoration deco(String label) =>
+        InputDecoration(labelText: label, border: const OutlineInputBorder());
     return AlertDialog(
       title: Text(_t('v2_claim_issue')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_claim_invoice_date'),
             controller: _invoiceDate,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_claim_invoice_date')),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_claim_submission_date'),
             controller: _submissionDate,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_claim_submission_date')),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
@@ -1440,18 +1466,18 @@ class _ProgressEditorState extends State<_ProgressEditor> {
               Row(
                 children: [
                   Expanded(
-                    child: _ProgressField(
+                    child: AccountsV2DateField(
                       label: _t('v2_progress_period_start'),
                       controller: _start,
-                      hint: 'YYYY-MM-DD',
+                      language: widget.language,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: _ProgressField(
+                    child: AccountsV2DateField(
                       label: _t('v2_progress_period_end'),
                       controller: _end,
-                      hint: 'YYYY-MM-DD',
+                      language: widget.language,
                     ),
                   ),
                 ],
@@ -1615,15 +1641,10 @@ class _EvidencePicker extends StatelessWidget {
 }
 
 class _ProgressField extends StatelessWidget {
-  const _ProgressField({
-    required this.label,
-    required this.controller,
-    this.hint,
-  });
+  const _ProgressField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
-  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -1631,7 +1652,6 @@ class _ProgressField extends StatelessWidget {
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         isDense: true,
         border: const OutlineInputBorder(),
       ),

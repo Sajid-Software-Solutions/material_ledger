@@ -58,10 +58,7 @@ Map<String, dynamic> _workbenchJson({
     'project_id': 'p1',
     'baseline_revision_id': 'rev1',
     'baseline_revision_number': 1,
-    'capabilities': {
-      'can_view_values': commercial,
-      'can_confirm': confirm,
-    },
+    'capabilities': {'can_view_values': commercial, 'can_confirm': confirm},
     'commands': <String, dynamic>{},
     'cells': [
       cell(
@@ -604,6 +601,52 @@ void main() {
 
       expect(reopenReason, 'Correction needed');
       expect(find.text(t('v2_claim_reopened')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2ClaimsTab money visibility', () {
+    test('reads the keys the server really sends', () {
+      expect(
+        YorksAccountsWorkbench.fromJson(_workbenchJson()).canViewValues,
+        isTrue,
+      );
+      final old = _workbenchJson()
+        ..['capabilities'] = {'view_project_commercial_values': true};
+      expect(YorksAccountsWorkbench.fromJson(old).canViewValues, isFalse);
+    });
+  });
+
+  group('AccountsV2ClaimsTab preview', () {
+    testWidgets('previews the invoice before issuing', (tester) async {
+      _wideSurface(tester);
+      String? previewed;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: YorksAccountsWorkbench.fromJson(
+              _workbenchJson(claimStatus: 'ready_for_accounts'),
+            ),
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async => null,
+            onPreviewInvoice: (id) async {
+              previewed = id;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_claim_preview')));
+      await tester.pumpAndSettle();
+      expect(previewed, 'c1');
       expect(tester.takeException(), isNull);
     });
   });
