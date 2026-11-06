@@ -35,11 +35,32 @@ Map<String, dynamic> _summaryJson() => {
     'view_supplier_costs': true,
   },
   'steps': [
-    {'key': 'setup', 'state': 'done'},
-    {'key': 'progress', 'state': 'done'},
-    {'key': 'invoice', 'state': 'current'},
-    {'key': 'paid', 'state': ''},
+    {
+      'key': 'setup',
+      'state': 'done',
+      'detail': {
+        'contract_value': '17192000.00',
+        'building_count': 4,
+        'stage_count': 5,
+      },
+    },
+    {
+      'key': 'progress',
+      'state': 'done',
+      'detail': {'claim_reference': 'Claim #03', 'claim_gross': '27507.00'},
+    },
+    {
+      'key': 'invoice',
+      'state': 'current',
+      'detail': {'issued_count': 2, 'latest_reference': 'YRA32202R.1'},
+    },
+    {
+      'key': 'paid',
+      'state': '',
+      'detail': {'received': '1000000.00', 'to_come': '17051600.00'},
+    },
   ],
+  'badges': {'claims_draft': true, 'supplier_count': 2},
   'attention': [
     {
       'severity': 'pri',

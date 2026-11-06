@@ -58,6 +58,7 @@ class AccountsV2SummaryTab extends StatelessWidget {
       _StepStrip(
         steps: workspace.steps,
         language: language,
+        format: format,
         onTap: (step) => onOpenTab(_tabForStep(step.key)),
       ),
       const SizedBox(height: AppSpacing.lg),
@@ -139,11 +140,13 @@ class _StepStrip extends StatelessWidget {
   const _StepStrip({
     required this.steps,
     required this.language,
+    required this.format,
     required this.onTap,
   });
 
   final List<YorksAccountsWorkspaceStep> steps;
   final AppLanguage language;
+  final AccountsV2Format format;
   final ValueChanged<YorksAccountsWorkspaceStep> onTap;
 
   static const _icons = <String, IconData>{
@@ -167,6 +170,7 @@ class _StepStrip extends StatelessWidget {
                   step: steps[i],
                   icon: _icons[steps[i].key] ?? Icons.circle_outlined,
                   language: language,
+                  format: format,
                   onTap: () => onTap(steps[i]),
                 ),
               ),
@@ -183,6 +187,7 @@ class _StepStrip extends StatelessWidget {
                         step: steps[i],
                         icon: _icons[steps[i].key] ?? Icons.circle_outlined,
                         language: language,
+                        format: format,
                         onTap: () => onTap(steps[i]),
                         dense: true,
                       ),
@@ -192,7 +197,7 @@ class _StepStrip extends StatelessWidget {
                   ],
                 )
               : Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: tiles,
                 );
         },
@@ -220,6 +225,7 @@ class _StepTile extends StatelessWidget {
     required this.step,
     required this.icon,
     required this.language,
+    required this.format,
     required this.onTap,
     this.dense = false,
   });
@@ -227,8 +233,42 @@ class _StepTile extends StatelessWidget {
   final YorksAccountsWorkspaceStep step;
   final IconData icon;
   final AppLanguage language;
+  final AccountsV2Format format;
   final VoidCallback onTap;
   final bool dense;
+
+  /// The prototype's second line: status + figures, composed from the gated
+  /// step detail. Returns null when the figures are absent (no commercial
+  /// access, or nothing to show yet) so the tile stays label-only.
+  String? _detailText() {
+    final d = step.detail;
+    if (d == null) return null;
+    switch (step.key) {
+      case 'setup':
+        if (d.contractValue == null) return null;
+        return '${format.money(d.contractValue!)} · '
+            '${d.buildingCount ?? 0} ${accountsV2Text(language, 'v2_buildings')} · '
+            '${d.stageCount ?? 0} ${accountsV2Text(language, 'v2_stages')}';
+      case 'progress':
+        if (d.claimReference == null || d.claimGross == null) return null;
+        return '${d.claimReference} ${accountsV2Text(language, 'v2_in_progress')} · '
+            '${format.money(d.claimGross!)}';
+      case 'invoice':
+        final count = d.issuedCount ?? 0;
+        if (count == 0) return null;
+        final base = '$count ${accountsV2Text(language, 'v2_issued')}';
+        final latest = d.latestReference;
+        return latest == null
+            ? base
+            : '$base · ${accountsV2Text(language, 'v2_latest')} $latest';
+      case 'paid':
+        if (d.received == null || d.toCome == null) return null;
+        return '${format.money(d.received!)} ${accountsV2Text(language, 'v2_received_in')} · '
+            '${format.money(d.toCome!)} ${accountsV2Text(language, 'v2_to_come')}';
+      default:
+        return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,9 +285,10 @@ class _StepTile extends StatelessWidget {
       background = AppColors.surfaceContainer;
     }
     final label = accountsV2Text(language, 'v2_step_${step.key}');
+    final detail = _detailText();
     return Semantics(
       button: true,
-      label: label,
+      label: detail == null ? label : '$label. $detail',
       child: InkWell(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         onTap: onTap,
@@ -261,6 +302,7 @@ class _StepTile extends StatelessWidget {
             mainAxisAlignment: dense
                 ? MainAxisAlignment.start
                 : MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 width: 30,
@@ -276,13 +318,32 @@ class _StepTile extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Flexible(
-                child: Text(
-                  label,
-                  style: AppTypography.titleSmall.copyWith(
-                    color: step.state.isEmpty ? AppColors.muted : AppColors.ink,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.titleSmall.copyWith(
+                        color: step.state.isEmpty
+                            ? AppColors.muted
+                            : AppColors.ink,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (detail != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        detail,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.muted,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -313,24 +374,28 @@ class _KpiRow extends StatelessWidget {
     final invoicedRatio = format.ratio(kpis.invoiced, kpis.contractValue);
     final tiles = <Widget>[
       _KpiTile(
+        icon: Icons.description_outlined,
         title: accountsV2Text(language, 'v2_kpi_contract'),
         value: format.money(kpis.contractValue),
         caption:
             '${format.money(kpis.contractInclVat)} ${accountsV2Text(language, 'v2_incl_vat')}',
       ),
       _KpiTile(
+        icon: Icons.receipt_long_outlined,
         title: accountsV2Text(language, 'v2_kpi_invoiced'),
         value: format.money(kpis.invoiced),
         caption:
             '${format.percentOfRatio(invoicedRatio)} ${accountsV2Text(language, 'v2_of_contract')} · ${accountsV2Text(language, 'v2_excl_vat')}',
       ),
       _KpiTile(
+        icon: Icons.payments_outlined,
         title: accountsV2Text(language, 'v2_kpi_received'),
         value: format.money(kpis.received),
         caption: accountsV2Text(language, 'v2_cleared_money'),
         accent: AppColors.success,
       ),
       _KpiTile(
+        icon: Icons.account_balance_wallet_outlined,
         title: accountsV2Text(language, 'v2_kpi_outstanding'),
         value: format.money(kpis.outstanding),
         caption: kpis.chequesInHand.isPositive
@@ -342,6 +407,7 @@ class _KpiRow extends StatelessWidget {
     if (supplier != null) {
       tiles.add(
         _KpiTile(
+          icon: Icons.local_shipping_outlined,
           title: accountsV2Text(language, 'v2_kpi_supplier_unpaid'),
           value: format.money(supplier!.unpaid),
           caption: supplier!.overdueCount > 0
@@ -373,12 +439,14 @@ class _KpiRow extends StatelessWidget {
 
 class _KpiTile extends StatelessWidget {
   const _KpiTile({
+    required this.icon,
     required this.title,
     required this.value,
     required this.caption,
     this.accent,
   });
 
+  final IconData icon;
   final String title;
   final String value;
   final String caption;
@@ -386,19 +454,39 @@ class _KpiTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = accent ?? AppColors.primary;
     return AccountsV2Card(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-            style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: tint),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             value,
             style: AppTypography.titleMedium.copyWith(

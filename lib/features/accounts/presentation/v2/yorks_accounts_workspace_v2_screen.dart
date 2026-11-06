@@ -70,12 +70,26 @@ class _YorksAccountsWorkspaceV2ScreenState
   @override
   Widget build(BuildContext context) {
     final language = ref.watch(languageProvider);
+    // The workspace projection carries the tab badges (open-draft claim,
+    // overdue supplier bills); watch it at the shell so badges stay correct on
+    // every tab, falling back to none while it loads or on any tab error.
+    final badges =
+        ref
+            .watch(yorksAccountsWorkspaceControllerProvider(widget.projectId))
+            .valueOrNull
+            ?.badges ??
+        YorksAccountsWorkspaceBadges.empty;
     return ColoredBox(
       color: AppColors.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TabBar(selected: _tab, language: language, onSelected: _select),
+          _TabBar(
+            selected: _tab,
+            language: language,
+            badges: badges,
+            onSelected: _select,
+          ),
           const Divider(height: 1, color: AppColors.line),
           Expanded(child: _buildBody(language)),
         ],
@@ -113,36 +127,92 @@ class _TabBar extends StatelessWidget {
   const _TabBar({
     required this.selected,
     required this.language,
+    required this.badges,
     required this.onSelected,
   });
 
   final YorksAccountsWorkspaceV2Tab selected;
   final AppLanguage language;
+  final YorksAccountsWorkspaceBadges badges;
   final ValueChanged<YorksAccountsWorkspaceV2Tab> onSelected;
+
+  // Prototype layout: two symmetric rows of three.
+  static const _topRow = [
+    YorksAccountsWorkspaceV2Tab.summary,
+    YorksAccountsWorkspaceV2Tab.contract,
+    YorksAccountsWorkspaceV2Tab.claims,
+  ];
+  static const _bottomRow = [
+    YorksAccountsWorkspaceV2Tab.invoices,
+    YorksAccountsWorkspaceV2Tab.supplierBills,
+    YorksAccountsWorkspaceV2Tab.history,
+  ];
+
+  String? _badgeFor(YorksAccountsWorkspaceV2Tab tab) {
+    switch (tab) {
+      case YorksAccountsWorkspaceV2Tab.claims:
+        return badges.claimsDraft
+            ? accountsV2Text(language, 'v2_badge_draft')
+            : null;
+      case YorksAccountsWorkspaceV2Tab.supplierBills:
+        final count = badges.supplierCount;
+        return (count != null && count > 0) ? '$count' : null;
+      default:
+        return null;
+    }
+  }
+
+  _TabChip _chip(YorksAccountsWorkspaceV2Tab tab) => _TabChip(
+    tab: tab,
+    selected: tab == selected,
+    label: accountsV2Text(language, tab.labelKey),
+    badge: _badgeFor(tab),
+    onTap: () => onSelected(tab),
+  );
 
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppColors.surfaceContainerLowest,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
         ),
-        child: Row(
-          children: [
-            for (final tab in YorksAccountsWorkspaceV2Tab.values)
-              Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: _TabChip(
-                  tab: tab,
-                  selected: tab == selected,
-                  label: accountsV2Text(language, tab.labelKey),
-                  onTap: () => onSelected(tab),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Desktop: the symmetric 3 + 3 grid. Narrow: a single scrolling row
+            // so the longer labels stay readable instead of being squeezed.
+            if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final tab in YorksAccountsWorkspaceV2Tab.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.xs),
+                        child: _chip(tab),
+                      ),
+                  ],
                 ),
-              ),
-          ],
+              );
+            }
+            Widget gridRow(List<YorksAccountsWorkspaceV2Tab> tabs) => Row(
+              children: [
+                for (var i = 0; i < tabs.length; i++) ...[
+                  Expanded(child: _chip(tabs[i])),
+                  if (i < tabs.length - 1) const SizedBox(width: AppSpacing.sm),
+                ],
+              ],
+            );
+            return Column(
+              children: [
+                gridRow(_topRow),
+                const SizedBox(height: AppSpacing.sm),
+                gridRow(_bottomRow),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -155,11 +225,13 @@ class _TabChip extends StatelessWidget {
     required this.selected,
     required this.label,
     required this.onTap,
+    this.badge,
   });
 
   final YorksAccountsWorkspaceV2Tab tab;
   final bool selected;
   final String label;
+  final String? badge;
   final VoidCallback onTap;
 
   @override
@@ -168,7 +240,7 @@ class _TabChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: label,
+      label: badge == null ? label : '$label, $badge',
       child: Material(
         color: selected ? AppColors.primary : AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
@@ -186,17 +258,54 @@ class _TabChip extends StatelessWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(tab.icon, size: 16, color: fg),
                   const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    label,
-                    style: AppTypography.titleSmall.copyWith(color: fg),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.titleSmall.copyWith(color: fg),
+                    ),
                   ),
+                  if (badge != null) ...[
+                    const SizedBox(width: AppSpacing.xs),
+                    _TabBadge(text: badge!, selected: selected),
+                  ],
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small count/status pill inside a tab chip.
+class _TabBadge extends StatelessWidget {
+  const _TabBadge({required this.text, required this.selected});
+
+  final String text;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: selected
+            ? AppColors.onPrimary.withValues(alpha: 0.22)
+            : AppColors.warningContainer,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      ),
+      child: Text(
+        text,
+        style: AppTypography.labelSmall.copyWith(
+          color: selected ? AppColors.onPrimary : AppColors.warning,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
