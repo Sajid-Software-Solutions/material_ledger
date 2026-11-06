@@ -215,26 +215,30 @@ class _TimelineRow extends StatelessWidget {
   final YorksAccountsActivityEntry entry;
   final AppLanguage language;
 
-  IconData get _icon {
+  /// Icon and accent per entry type — colour-codes the timeline by kind, the
+  /// way the prototype does, reusing the workspace's colour language.
+  ({IconData icon, Color accent}) get _style {
     final e = entry.entityType.toLowerCase();
-    if (e.contains('claim')) return Icons.timeline_outlined;
+    if (e.contains('claim')) {
+      return (icon: Icons.timeline_outlined, accent: AppColors.primary);
+    }
     if (e.contains('invoice') && !e.contains('settings')) {
-      return Icons.receipt_long_outlined;
+      return (icon: Icons.receipt_long_outlined, accent: AppColors.primary);
     }
     if (e.contains('payment') ||
         e.contains('pdc') ||
         e.contains('certification')) {
-      return Icons.payments_outlined;
+      return (icon: Icons.payments_outlined, accent: AppColors.success);
     }
     if (e.contains('supplier') || e.contains('bill')) {
-      return Icons.local_shipping_outlined;
+      return (icon: Icons.local_shipping_outlined, accent: AppColors.purple);
     }
     if (e.contains('baseline') ||
         e.contains('commercial') ||
         e.contains('setup')) {
-      return Icons.description_outlined;
+      return (icon: Icons.description_outlined, accent: AppColors.inkSecondary);
     }
-    return Icons.history_outlined;
+    return (icon: Icons.history_outlined, accent: AppColors.muted);
   }
 
   String get _title => entry.eventType.replaceAll('_', ' ');
@@ -248,6 +252,7 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final style = _style;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
@@ -256,12 +261,12 @@ class _TimelineRow extends StatelessWidget {
           Container(
             width: 30,
             height: 30,
-            decoration: const BoxDecoration(
-              color: AppColors.blueContainer,
+            decoration: BoxDecoration(
+              color: style.accent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(_icon, size: 16, color: AppColors.primary),
+            child: Icon(style.icon, size: 16, color: style.accent),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
