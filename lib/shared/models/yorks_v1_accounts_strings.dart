@@ -4336,10 +4336,14 @@ abstract final class YorksV1AccountsStrings {
       'hi': 'वृद्धि दर्ज करने के लिए कम से कम एक दस्तावेज़ संलग्न करें।',
     },
     'v2_evidence_none_available': {
-      'en': 'No documents available to attach.',
-      'ar': 'لا توجد مستندات متاحة للإرفاق.',
-      'ur': 'منسلک کرنے کے لیے کوئی دستاویز دستیاب نہیں۔',
-      'hi': 'संलग्न करने के लिए कोई दस्तावेज़ उपलब्ध नहीं।',
+      'en':
+          "No documents on this project yet. Add one in the project's Documents tab, then come back to attach it.",
+      'ar':
+          'لا توجد مستندات في هذا المشروع بعد. أضف مستنداً من تبويب المستندات في المشروع، ثم عد لإرفاقه.',
+      'ur':
+          'اس پروجیکٹ میں ابھی کوئی دستاویز نہیں۔ پروجیکٹ کے دستاویزات ٹیب میں شامل کریں، پھر منسلک کرنے کے لیے واپس آئیں۔',
+      'hi':
+          'इस प्रोजेक्ट में अभी कोई दस्तावेज़ नहीं है। प्रोजेक्ट के दस्तावेज़ टैब में जोड़ें, फिर संलग्न करने के लिए लौटें।',
     },
     'v2_progress_no_percent_cells': {
       'en': 'No lump-sum stages to record here.',
@@ -4907,6 +4911,12 @@ abstract final class YorksV1AccountsStrings {
       'ar': "معاينة الفاتورة",
       'ur': "انوائس کا پیش منظر",
       'hi': "इनवॉइस पूर्वावलोकन",
+    },
+    'v2_cell_update_progress': {
+      'en': "Update progress",
+      'ar': "تحديث التقدم",
+      'ur': "پیشرفت اپ ڈیٹ کریں",
+      'hi': "प्रगति अपडेट करें",
     },
   };
 

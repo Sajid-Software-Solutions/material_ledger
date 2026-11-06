@@ -3,8 +3,7 @@
 /// Shows the accounts activity timeline from the existing
 /// v1_get_accounts_activity projection, with filter segments (All / Contract /
 /// Claims / Invoices / Payments / Supplier bills) applied to the loaded
-/// entries. The files panel lists the documents attached to invoices and
-/// supplier bills and arrives in a later increment.
+/// entries, beside the files attached to invoices and supplier bills.
 library;
 
 import 'package:flutter/material.dart';

@@ -618,6 +618,32 @@ void main() {
     });
   });
 
+  group('AccountsV2ClaimsTab single-cell update', () {
+    testWidgets('a suggester can update a percent stage, not an item stage', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      YorksAccountsWorkbenchCell? opened;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: YorksAccountsWorkbench.fromJson(
+              _workbenchJson(commercial: false),
+            ),
+            language: en,
+            onUpdateCell: (cell) => opened = cell,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final buttons = find.text(t('v2_cell_update_progress'));
+      expect(buttons, findsOneWidget);
+      await tester.tap(buttons);
+      expect(opened!.progressEntryId, 'pe-design');
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('AccountsV2ClaimsTab preview', () {
     testWidgets('previews the invoice before issuing', (tester) async {
       _wideSurface(tester);

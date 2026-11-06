@@ -21,10 +21,12 @@ import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../../shared/services/yorks_v1_critical_command_key_store.dart';
 import '../../data/accounts_receivables_repository.dart';
 import '../../data/accounts_records_repository.dart';
+import '../../data/accounts_repository.dart' show YorksAccountsRepository;
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../data/v2/client_invoice_document_builder.dart';
-import '../../domain/accounts_models.dart' show YorksAccountsBaselineProjection;
+import '../../domain/accounts_models.dart'
+    show YorksAccountsBaselineProjection, YorksAccountsProgressProjection;
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
@@ -370,10 +372,12 @@ final class YorksAccountsWorkbenchController
   YorksAccountsWorkbenchController({
     required YorksAccountsWorkspaceRepository? repository,
     required YorksAccountsReceivablesRepository receivablesRepository,
+    required YorksAccountsRepository progressRepository,
     required this.commandKeys,
     required String projectId,
   }) : _repository = repository,
        _receivables = receivablesRepository,
+       _progress = progressRepository,
        _projectId = projectId,
        super(const AsyncValue.loading()) {
     load();
@@ -381,6 +385,7 @@ final class YorksAccountsWorkbenchController
 
   final YorksAccountsWorkspaceRepository? _repository;
   final YorksAccountsReceivablesRepository _receivables;
+  final YorksAccountsRepository _progress;
   @override
   final YorksV1CriticalCommandKeyStore commandKeys;
   final String _projectId;
@@ -513,6 +518,15 @@ final class YorksAccountsWorkbenchController
     },
   );
 
+  /// The progress projection behind the single-cell update sheet. Pure read.
+  Future<YorksAccountsProgressProjection?> fetchProgress() async {
+    try {
+      return await _progress.listProgress(_projectId);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Renders the invoice a checked claim would produce, without issuing it. Pure
   /// read; returns null if the backend is unavailable or the render fails.
   Future<Uint8List?> buildInvoicePreview(String claimId) async {
@@ -576,6 +590,7 @@ final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
         receivablesRepository: ref.watch(
           yorksAccountsReceivablesRepositoryProvider,
         ),
+        progressRepository: ref.watch(yorksAccountsRepositoryProvider),
         commandKeys: _commandKeys(ref),
         projectId: projectId,
       );

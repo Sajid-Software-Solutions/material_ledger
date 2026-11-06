@@ -30,13 +30,21 @@ final class YorksAccountsWorkbenchItem {
       itemKey: json['item_key'] as String,
       itemLabel: json['item_label'] as String,
       displayOrder: (json['display_order'] as num).toInt(),
-      quantity: YorksAccountsDecimal.fromRpcValue(json['quantity'], key: 'item.quantity'),
+      quantity: YorksAccountsDecimal.fromRpcValue(
+        json['quantity'],
+        key: 'item.quantity',
+      ),
       unitCode: json['unit_code'] as String,
-      confirmedQty:
-          YorksAccountsDecimal.fromRpcValue(json['confirmed_qty'], key: 'item.confirmed_qty'),
+      confirmedQty: YorksAccountsDecimal.fromRpcValue(
+        json['confirmed_qty'],
+        key: 'item.confirmed_qty',
+      ),
       needsReview: json['needs_review'] == true,
       itemValue: json.containsKey('item_value')
-          ? YorksAccountsDecimal.fromRpcValue(json['item_value'], key: 'item.item_value')
+          ? YorksAccountsDecimal.fromRpcValue(
+              json['item_value'],
+              key: 'item.item_value',
+            )
           : null,
     );
   }
@@ -80,7 +88,11 @@ final class YorksAccountsWorkbenchCell {
         ? YorksAccountsDecimal.fromRpcValue(json[key], key: 'cell.$key')
         : null;
     final items = (json['items'] as List?)
-        ?.map((e) => YorksAccountsWorkbenchItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        ?.map(
+          (e) => YorksAccountsWorkbenchItem.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
         .toList(growable: false);
     return YorksAccountsWorkbenchCell(
       progressEntryId: json['progress_entry_id'] as String,
@@ -91,7 +103,9 @@ final class YorksAccountsWorkbenchCell {
       stagePosition: (json['stage_position'] as num).toInt(),
       measurementMode: json['measurement_mode'] as String,
       confirmedPercent: YorksAccountsDecimal.fromRpcValue(
-        json['confirmed_percent'], key: 'cell.confirmed_percent'),
+        json['confirmed_percent'],
+        key: 'cell.confirmed_percent',
+      ),
       reviewStatus: json['review_status'] as String,
       recordVersion: (json['record_version'] as num).toInt(),
       stageValue: money('stage_value'),
@@ -144,11 +158,18 @@ final class YorksAccountsWorkbench {
     return YorksAccountsWorkbench(
       projectId: json['project_id'] as String,
       baselineRevisionId: json['baseline_revision_id'] as String?,
-      baselineRevisionNumber: (json['baseline_revision_number'] as num?)?.toInt(),
+      baselineRevisionNumber: (json['baseline_revision_number'] as num?)
+          ?.toInt(),
       cells: ((json['cells'] as List?) ?? const <dynamic>[])
-          .map((e) => YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => YorksAccountsWorkbenchCell.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(growable: false),
-      claim: json['claim'] is Map ? Map<String, dynamic>.from(json['claim'] as Map) : null,
+      claim: json['claim'] is Map
+          ? Map<String, dynamic>.from(json['claim'] as Map)
+          : null,
       capabilities: json['capabilities'] is Map
           ? Map<String, dynamic>.from(json['capabilities'] as Map)
           : const <String, dynamic>{},
@@ -173,9 +194,12 @@ final class YorksAccountsWorkbench {
   /// getters, so a key name lives in one place.
   bool get canViewValues => capabilities['can_view_values'] == true;
   bool get canConfirmProgress => capabilities['can_confirm'] == true;
+  bool get canSuggestProgress => capabilities['can_suggest'] == true;
   bool get canManageInvoices => commands['submit_invoice'] == true;
   bool get canPrepareClaim => commands['create_claim_draft'] == true;
 
-  String? get openClaimId => claim == null ? null : claim!['claim_id'] as String?;
-  String? get openClaimStatus => claim == null ? null : claim!['status'] as String?;
+  String? get openClaimId =>
+      claim == null ? null : claim!['claim_id'] as String?;
+  String? get openClaimStatus =>
+      claim == null ? null : claim!['status'] as String?;
 }

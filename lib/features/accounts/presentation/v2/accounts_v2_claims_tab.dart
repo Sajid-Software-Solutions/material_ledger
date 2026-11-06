@@ -69,6 +69,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onIssue,
     this.onMarkChecked,
     this.onPreviewInvoice,
+    this.onUpdateCell,
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
@@ -85,6 +86,9 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   /// Renders the invoice this claim would produce; null on success or an error.
   final Future<String?> Function(String claimId)? onPreviewInvoice;
   final YorksSaveWorkbenchAction? onSaveWorkbench;
+
+  /// Suggests or confirms one cell, for people who can't prepare a claim.
+  final ValueChanged<YorksAccountsWorkbenchCell>? onUpdateCell;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
 
@@ -189,6 +193,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           canValues: _canValues,
           language: language,
           format: format,
+          onUpdateCell: widget.onUpdateCell,
         ),
         const SizedBox(height: AppSpacing.lg),
       ],
@@ -810,7 +815,10 @@ class _StageSection extends StatelessWidget {
     required this.canValues,
     required this.language,
     required this.format,
+    this.onUpdateCell,
   });
+
+  final ValueChanged<YorksAccountsWorkbenchCell>? onUpdateCell;
 
   final String title;
   final List<YorksAccountsWorkbenchCell> cells;
@@ -833,6 +841,16 @@ class _StageSection extends StatelessWidget {
               language: language,
               format: format,
             ),
+            if (onUpdateCell != null && !cell.isItemsMode)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: () => onUpdateCell!(cell),
+                  child: Text(
+                    accountsV2Text(language, 'v2_cell_update_progress'),
+                  ),
+                ),
+              ),
             if (cell.isItemsMode && cell.items.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(

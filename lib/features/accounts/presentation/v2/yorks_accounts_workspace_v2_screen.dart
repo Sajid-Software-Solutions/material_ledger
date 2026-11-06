@@ -38,6 +38,7 @@ import 'accounts_v2_invoices_tab.dart';
 import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
+import '../widgets/yorks_accounts_progress_action_sheet.dart';
 import '../widgets/yorks_accounts_supplier_action_sheets.dart';
 
 class YorksAccountsWorkspaceV2Screen extends ConsumerStatefulWidget {
@@ -630,6 +631,28 @@ class _ClaimsBody extends ConsumerWidget {
             workbench: data,
             language: language,
             canRecordProgress: canConfirm && data.canPrepareClaim,
+            // Site Engineers suggest, and a confirmer without claim access
+            // confirms, one cell at a time through the existing checked sheet.
+            onUpdateCell:
+                (canConfirm && data.canPrepareClaim) ||
+                    !(canConfirm || data.canSuggestProgress)
+                ? null
+                : (cell) async {
+                    final progress = await controller.fetchProgress();
+                    if (progress == null || !context.mounted) return;
+                    final entry = progress.progress.where(
+                      (e) => e.progressEntryId == cell.progressEntryId,
+                    );
+                    if (entry.isEmpty) return;
+                    final changed = await showYorksAccountsProgressActionSheet(
+                      context,
+                      projectId: projectId,
+                      entry: entry.first,
+                      projection: progress,
+                      language: language,
+                    );
+                    if (changed) await controller.refresh();
+                  },
             onPreviewInvoice: !data.canManageInvoices
                 ? null
                 : (claimId) async {
