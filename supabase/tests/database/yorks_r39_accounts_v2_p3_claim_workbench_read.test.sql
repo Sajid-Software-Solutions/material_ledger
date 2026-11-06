@@ -66,6 +66,15 @@ select is(
   (select c->>'available' from jsonb_array_elements((select payload from v1_r39_p3 where result_key='wb1')->'cells') c where c->>'stage_key'='design'),
   '50000.00','Design cell available = eligible 100,000 minus claimed 50,000');
 
+-- P3 part c: payable figures merged into the claim (commercial actor).
+select ok((select payload->'claim' ? 'vat_amount' from v1_r39_p3 where result_key='wb1'),'Workbench claim carries a VAT amount');
+select ok((select payload->'claim' ? 'net_payable' from v1_r39_p3 where result_key='wb1'),'Workbench claim carries a net payable');
+select is(
+  (select (payload->'claim'->>'net_payable')::numeric from v1_r39_p3 where result_key='wb1'),
+  (select ((payload->'claim'->>'claimed_ex_vat')::numeric + (payload->'claim'->>'vat_amount')::numeric) from v1_r39_p3 where result_key='wb1'),
+  'Net payable = gross ex-VAT + VAT');
+select ok((select payload->'claim' ? 'this_claim_percent' from v1_r39_p3 where result_key='wb1'),'Workbench claim carries this-claim percent of contract');
+
 -- Reopen: stale version is rejected, correct version returns to draft.
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);

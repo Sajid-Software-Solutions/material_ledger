@@ -3252,6 +3252,24 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'مجموعی (بدون VAT)',
       'hi': 'सकल (VAT रहित)',
     },
+    'v2_claim_vat': {
+      'en': 'VAT',
+      'ar': 'ضريبة القيمة المضافة',
+      'ur': 'VAT',
+      'hi': 'VAT',
+    },
+    'v2_claim_net_payable': {
+      'en': 'Net payable (incl. VAT)',
+      'ar': 'صافي المستحق (شامل الضريبة)',
+      'ur': 'قابلِ ادائیگی خالص (بشمول VAT)',
+      'hi': 'देय शुद्ध (VAT सहित)',
+    },
+    'v2_claim_of_contract': {
+      'en': 'This claim · of contract',
+      'ar': 'هذه المطالبة · من العقد',
+      'ur': 'یہ کلیم · کنٹریکٹ کا',
+      'hi': 'यह क्लेम · कॉन्ट्रैक्ट का',
+    },
     'v2_col_eligible': {
       'en': 'Eligible',
       'ar': 'المستحق',

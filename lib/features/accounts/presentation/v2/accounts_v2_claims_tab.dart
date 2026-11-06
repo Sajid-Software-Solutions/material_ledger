@@ -525,6 +525,14 @@ class _ClaimSidePanel extends StatelessWidget {
     final gross = YorksAccountsDecimal.tryParse(
       claim['claimed_ex_vat'] as String? ?? '',
     );
+    // Server-computed payable figures (commercial only; added in P3 part c).
+    final vat = YorksAccountsDecimal.tryParse(
+      claim['vat_amount'] as String? ?? '',
+    );
+    final net = YorksAccountsDecimal.tryParse(
+      claim['net_payable'] as String? ?? '',
+    );
+    final thisClaimPercent = claim['this_claim_percent'] as String?;
     final lineCount = (claim['lines'] as List?)?.length ?? 0;
     final claimId = claim['claim_id'] as String?;
     final version = (claim['record_version'] as num?)?.toInt() ?? 1;
@@ -559,12 +567,22 @@ class _ClaimSidePanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _PanelRow(label: _t('v2_claim_period'), value: period),
           _PanelRow(label: _t('v2_claim_lines'), value: '$lineCount'),
-          if (canValues)
-            _PanelRow(
-              label: _t('v2_claim_gross'),
-              value: format.money(gross),
-              emphasize: true,
-            ),
+          if (canValues) ...[
+            _PanelRow(label: _t('v2_claim_gross'), value: format.money(gross)),
+            if (vat != null)
+              _PanelRow(label: _t('v2_claim_vat'), value: format.money(vat)),
+            if (net != null)
+              _PanelRow(
+                label: _t('v2_claim_net_payable'),
+                value: format.money(net),
+                emphasize: true,
+              ),
+            if (thisClaimPercent != null)
+              _PanelRow(
+                label: _t('v2_claim_of_contract'),
+                value: '$thisClaimPercent%',
+              ),
+          ],
           if (showIssue || showReopen || showMark) ...[
             const SizedBox(height: AppSpacing.md),
             const Divider(height: 1, color: AppColors.line),

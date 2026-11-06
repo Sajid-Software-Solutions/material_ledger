@@ -254,6 +254,10 @@ Map<String, dynamic> _workbenchJson() => {
     'claim_period_start': '2026-08-01',
     'claim_period_end': '2026-08-25',
     'claimed_ex_vat': '1504300.00',
+    'vat_amount': '75215.00',
+    'net_payable': '1579515.00',
+    'contract_value': '17192000.00',
+    'this_claim_percent': '8.8',
     'lines': [
       {'progress_entry_id': 'pe-material'},
     ],
