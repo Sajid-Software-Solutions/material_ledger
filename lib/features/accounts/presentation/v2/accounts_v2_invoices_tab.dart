@@ -1039,6 +1039,33 @@ class _InvoiceDetailSheet extends StatelessWidget {
                 ),
               ],
             ),
+            if (invoice.retentionSnapshot?.isPositive == true) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 14,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    _t('v2_inv_detail_retention'),
+                    style: AppTypography.labelMedium.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    format.money(invoice.retentionSnapshot),
+                    style: AppTypography.labelLarge.copyWith(
+                      color: AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             _DetailSection(
               title: _t('v2_inv_certifications'),

@@ -3926,6 +3926,12 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'بیلنس',
       'hi': 'शेष',
     },
+    'v2_inv_detail_retention': {
+      'en': 'Retention held',
+      'ar': 'المبلغ المحتجز',
+      'ur': 'روکی گئی رقم',
+      'hi': 'रोकी गई राशि',
+    },
     'v2_inv_certifications': {
       'en': 'Certifications',
       'ar': 'الاعتمادات',

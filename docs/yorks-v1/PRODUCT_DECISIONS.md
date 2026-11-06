@@ -1911,11 +1911,17 @@ explicitly here.**
   contract value shown on Summary) but does not yet bill them; VO billing is a
   later decision.
 
-## 28. R39 Accounts — retention hold-back on client payable (PROPOSED — pending owner sign-off)
+## 28. R39 Accounts — retention hold-back on client payable (RESOLVED 2026-11-06)
 
-**Status: PROPOSED.** This records the design for the "B" upgrade to retention so
-the owner can confirm the exact rule before any money math changes. Nothing in
-this section is implemented yet. (Section 23 D14 anticipated variations raising
+**Status: RESOLVED (owner sign-off 2026-11-06).** The rule below (R-1…R-5) is
+adopted as proposed. On the one open scope choice, the owner chose **only
+invoices issued after the rule is set** are affected (question 3, option "only
+new"): retention is captured as a **per-invoice snapshot at issue**
+(`retention_snapshot` on `v1_accounts_client_invoices`, default 0), so existing
+issued invoices keep their current due unchanged and a new invoice freezes its
+retention from the profile's retention % at the moment of issue. The claim
+side-panel shows the net-after-retention as a *preview* using the profile's
+current retention %. Release of retention remains out of scope (R-3). (Section 23 D14 anticipated variations raising
 the contract value; per the 2026-11-06 owner choice, variations shipped as a
 **register only** and retention shipped as **display only** — both "A". This
 section is the retention "B".)
