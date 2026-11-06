@@ -132,15 +132,18 @@ class _KpiRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = <Widget>[
       _Kpi(
+        icon: Icons.receipt_long_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_billed'),
         value: format.money(billed),
       ),
       _Kpi(
+        icon: Icons.payments_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_paid'),
         value: format.money(paid),
         accent: AppColors.success,
       ),
       _Kpi(
+        icon: Icons.account_balance_wallet_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_unpaid'),
         value: format.money(unpaid),
         caption: overdueCount > 0
@@ -169,12 +172,14 @@ class _KpiRow extends StatelessWidget {
 
 class _Kpi extends StatelessWidget {
   const _Kpi({
+    required this.icon,
     required this.label,
     required this.value,
     this.caption = '',
     this.accent,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final String caption;
@@ -182,19 +187,39 @@ class _Kpi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = accent ?? AppColors.primary;
     return AccountsV2Card(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: tint),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             value,
             style: AppTypography.titleMedium.copyWith(
