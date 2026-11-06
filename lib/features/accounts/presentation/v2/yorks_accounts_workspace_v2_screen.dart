@@ -23,6 +23,7 @@ import '../../../../shared/providers/language_provider.dart';
 import '../../application/accounts_records_providers.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import 'accounts_v2_claims_tab.dart';
 import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
@@ -430,6 +431,14 @@ class _ClaimsBody extends ConsumerWidget {
     }
     final data = workbench!;
     final canConfirm = data.capabilities['can_confirm'] == true;
+    // All claims for the claim-cards row (commercial-gated; empty when the
+    // actor lacks access or the list is still loading).
+    final claims =
+        ref
+            .watch(yorksAccountsClaimsListControllerProvider(projectId))
+            .valueOrNull
+            ?.claims ??
+        const <YorksAccountsClaimSummary>[];
     final docsWorkspace = ref
         .watch(yorksAccountsDocumentsControllerProvider(projectId))
         .workspace;
@@ -447,6 +456,8 @@ class _ClaimsBody extends ConsumerWidget {
             language: language,
             canRecordProgress: canConfirm,
             evidenceDocuments: evidenceDocuments,
+            claims: claims,
+            onSelectClaim: (id) => controller.selectClaim(id),
             onSaveWorkbench:
                 ({
                   String? claimReference,

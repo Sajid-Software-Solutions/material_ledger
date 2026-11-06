@@ -30,6 +30,7 @@ import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
@@ -283,6 +284,11 @@ final class YorksAccountsWorkbenchController
   final YorksV1CriticalCommandKeyStore commandKeys;
   final String _projectId;
 
+  /// The claim the workbench is viewing. `null` is the open draft (the default
+  /// v1_get_claim_workbench behaviour); a value loads that historical claim.
+  String? _activeClaimId;
+  String? get activeClaimId => _activeClaimId;
+
   @override
   Future<void> load() async {
     state = const AsyncValue<YorksAccountsWorkbench>.loading();
@@ -291,6 +297,13 @@ final class YorksAccountsWorkbenchController
 
   @override
   Future<void> refresh() => _fetch();
+
+  /// Switches the workbench to a specific claim (or back to the open draft when
+  /// `claimId` is null) and reloads it.
+  Future<void> selectClaim(String? claimId) {
+    _activeClaimId = claimId;
+    return load();
+  }
 
   Future<void> _fetch() async {
     final repository = _repository;
@@ -303,7 +316,10 @@ final class YorksAccountsWorkbenchController
       return;
     }
     try {
-      final workbench = await repository.getClaimWorkbench(_projectId);
+      final workbench = await repository.getClaimWorkbench(
+        _projectId,
+        claimId: _activeClaimId,
+      );
       if (!mounted) return;
       state = AsyncValue<YorksAccountsWorkbench>.data(workbench);
     } catch (error, stackTrace) {
@@ -447,6 +463,63 @@ final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
           yorksAccountsReceivablesRepositoryProvider,
         ),
         commandKeys: _commandKeys(ref),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the project's claims (newest first) for the Progress & claims
+/// claim-cards row, reusing the commercial-gated v1_list_client_claims. Read
+/// only; an access-denied error simply yields no cards row in the UI.
+final class YorksAccountsClaimsListController
+    extends StateNotifier<AsyncValue<YorksAccountsClaimsList>> {
+  YorksAccountsClaimsListController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsClaimsList>.loading();
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final list = await repository.getClaimsList(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.data(list);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.error(error, stackTrace);
+    }
+  }
+
+  Future<void> refresh() => load();
+}
+
+final yorksAccountsClaimsListControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsClaimsListController,
+      AsyncValue<YorksAccountsClaimsList>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsClaimsListController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         projectId: projectId,
       );
     });

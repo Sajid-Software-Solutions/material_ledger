@@ -17,6 +17,7 @@ import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import 'accounts_v2_common.dart';
 
 /// Reopens a checked claim to draft; returns null on success or an error.
@@ -63,6 +64,8 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
+    this.claims = const [],
+    this.onSelectClaim,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -73,6 +76,12 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   final YorksSaveWorkbenchAction? onSaveWorkbench;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+
+  /// All claims for the project (newest first) for the claim-cards row.
+  final List<YorksAccountsClaimSummary> claims;
+
+  /// Switches the workbench to a claim card; null is a no-op (no row shown).
+  final ValueChanged<String>? onSelectClaim;
 
   @override
   State<AccountsV2ClaimsTab> createState() => _AccountsV2ClaimsTabState();
@@ -202,6 +211,21 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       onMarkChecked: widget.onMarkChecked,
     );
 
+    // The claim-cards row (navigate between claims). Shown only when the claims
+    // list loaded with claims and a selection handler is wired.
+    final onSelectClaim = widget.onSelectClaim;
+    final activeClaimId = workbench.claim?['claim_id'] as String?;
+    final cardsRow = (widget.claims.isNotEmpty && onSelectClaim != null)
+        ? _ClaimCardsRow(
+            claims: widget.claims,
+            activeClaimId: activeClaimId,
+            language: language,
+            format: format,
+            canValues: _canValues,
+            onSelect: onSelectClaim,
+          )
+        : null;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= AppSpacing.stackedBreakpoint;
@@ -209,6 +233,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
+              if (cardsRow != null) ...[
+                cardsRow,
+                const SizedBox(height: AppSpacing.lg),
+              ],
               aside,
               const SizedBox(height: AppSpacing.lg),
               ...grid,
@@ -218,6 +246,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         return ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
+            if (cardsRow != null) ...[
+              cardsRow,
+              const SizedBox(height: AppSpacing.lg),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -234,6 +266,140 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           ],
         );
       },
+    );
+  }
+}
+
+// ─── Claim cards row ─────────────────────────────────────────────────────────
+
+/// Horizontal row of claim cards; tapping one switches the workbench to it.
+class _ClaimCardsRow extends StatelessWidget {
+  const _ClaimCardsRow({
+    required this.claims,
+    required this.activeClaimId,
+    required this.language,
+    required this.format,
+    required this.canValues,
+    required this.onSelect,
+  });
+
+  final List<YorksAccountsClaimSummary> claims;
+  final String? activeClaimId;
+  final AppLanguage language;
+  final AccountsV2Format format;
+  final bool canValues;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final claim in claims)
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.md),
+                child: _ClaimCard(
+                  claim: claim,
+                  active: claim.claimId == activeClaimId,
+                  language: language,
+                  format: format,
+                  canValues: canValues,
+                  onTap: () => onSelect(claim.claimId),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClaimCard extends StatelessWidget {
+  const _ClaimCard({
+    required this.claim,
+    required this.active,
+    required this.language,
+    required this.format,
+    required this.canValues,
+    required this.onTap,
+  });
+
+  final YorksAccountsClaimSummary claim;
+  final bool active;
+  final AppLanguage language;
+  final AccountsV2Format format;
+  final bool canValues;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final period = claim.periodStart ?? '—';
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active
+            ? AppColors.blueContainer
+            : AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          onTap: onTap,
+          child: Container(
+            width: 190,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: active ? AppColors.primary : AppColors.line,
+                width: active ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        claim.reference,
+                        style: AppTypography.titleSmall.copyWith(
+                          color: AppColors.ink,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    _ClaimStatusChip(status: claim.status, language: language),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  period,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+                if (canValues) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    format.money(claim.grossExVat),
+                    style: AppTypography.titleSmall.copyWith(
+                      color: AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

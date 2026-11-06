@@ -10,6 +10,7 @@ import 'package:material_ledger/features/accounts/domain/accounts_receivables_mo
 import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/accounts_workspace_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
+import 'package:material_ledger/features/accounts/domain/v2/claims_list_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
@@ -323,6 +324,27 @@ Widget _contractTab() => AccountsV2ContractTab(
 Widget _claimsTab() => AccountsV2ClaimsTab(
   workbench: YorksAccountsWorkbench.fromJson(_workbenchJson()),
   language: _en,
+  claims: [
+    YorksAccountsClaimSummary.fromJson(const {
+      'claim_id': 'c1',
+      'claim_reference': 'YRA322-CLM-02',
+      'status': 'draft',
+      'claim_period_start': '2026-08-01',
+      'claim_period_end': '2026-08-25',
+      'claimed_ex_vat': '1504300.00',
+      'record_version': 2,
+    }),
+    YorksAccountsClaimSummary.fromJson(const {
+      'claim_id': 'c0',
+      'claim_reference': 'YRA322-CLM-01',
+      'status': 'invoiced',
+      'claim_period_start': '2026-07-01',
+      'claim_period_end': '2026-07-25',
+      'claimed_ex_vat': '1000000.00',
+      'record_version': 3,
+    }),
+  ],
+  onSelectClaim: (_) {},
 );
 
 Widget _historyTab() => AccountsV2HistoryTab(

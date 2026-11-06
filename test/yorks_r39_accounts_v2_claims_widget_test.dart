@@ -7,6 +7,7 @@ import 'package:material_ledger/features/accounts/data/accounts_repository.dart'
     show YorksAccountsRpcClient;
 import 'package:material_ledger/features/accounts/data/v2/accounts_workspace_repository.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
+import 'package:material_ledger/features/accounts/domain/v2/claims_list_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
@@ -185,6 +186,51 @@ void main() {
 
       expect(find.text(t('v2_claims_no_claim')), findsOneWidget);
       expect(find.text('CLM-01'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('claim cards switch the active claim via onSelectClaim', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+      String? selected;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            claims: [
+              YorksAccountsClaimSummary.fromJson(const {
+                'claim_id': 'c1',
+                'claim_reference': 'YRA322-CLM-02',
+                'status': 'draft',
+                'claim_period_start': '2026-08-01',
+                'claim_period_end': '2026-08-25',
+                'claimed_ex_vat': '1504300.00',
+                'record_version': 2,
+              }),
+              YorksAccountsClaimSummary.fromJson(const {
+                'claim_id': 'c0',
+                'claim_reference': 'YRA322-CLM-01',
+                'status': 'invoiced',
+                'claim_period_start': '2026-07-01',
+                'claim_period_end': '2026-07-25',
+                'claimed_ex_vat': '1000000.00',
+                'record_version': 3,
+              }),
+            ],
+            onSelectClaim: (id) => selected = id,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both claims appear as cards; tapping the older one selects it.
+      expect(find.text('YRA322-CLM-01'), findsOneWidget);
+      await tester.tap(find.text('YRA322-CLM-01'));
+      await tester.pump();
+      expect(selected, 'c0');
       expect(tester.takeException(), isNull);
     });
   });

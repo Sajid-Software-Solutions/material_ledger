@@ -8,6 +8,7 @@ library;
 
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
@@ -47,6 +48,16 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId, 'p_claim_id': claimId},
     );
     return YorksAccountsWorkbench.fromJson(json);
+  }
+
+  /// All claims for the project (newest first) for the claim-cards row. Reuses
+  /// the existing commercial-gated `v1_list_client_claims`.
+  Future<YorksAccountsClaimsList> getClaimsList(String projectId) async {
+    final json = await _client.invoke(
+      functionName: 'v1_list_client_claims',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsClaimsList.fromJson(json);
   }
 
   Future<YorksClientInvoiceDocument> getInvoiceDocument(
