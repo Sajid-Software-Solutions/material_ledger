@@ -57,6 +57,10 @@ insert into v1_r39_p6r select 'issue', public.v1_issue_client_invoice('39d18000-
 select public.v1_record_client_certification('39d18000-0000-4000-8000-000000000001',(select (payload->>'invoice_id')::uuid from v1_r39_p6r where result_key='issue'),
   2,'CERT-1',date '2026-08-27','50000.00',null,'39f99000-0000-4000-8000-000000000078');
 insert into v1_r39_p6r select 'list', public.v1_list_client_invoices('39d18000-0000-4000-8000-000000000001',null,null,null,null,50);
+-- Section 28 R-5: the Accountant-office overview and the register export net
+-- retention too. Read them BEFORE the payment, while still due = 47,500.
+insert into v1_r39_p6r select 'overview', public.v1_get_project_accounts_overview('39d18000-0000-4000-8000-000000000001');
+insert into v1_r39_p6r select 'export', public.v1_get_accounts_export('project_summary','39d18000-0000-4000-8000-000000000001','39f99000-0000-4000-8000-00000000007b');
 -- Pay exactly the retention-reduced due (52,500 - 5,000 = 47,500) at version 3.
 insert into v1_r39_p6r select 'pay', public.v1_record_client_payment('39d18000-0000-4000-8000-000000000001',(select (payload->>'invoice_id')::uuid from v1_r39_p6r where result_key='issue'),
   3,date '2026-08-28','bank_transfer','PAY-1','47500.00',null,'39f99000-0000-4000-8000-000000000079');
@@ -69,6 +73,8 @@ reset role;
 select is((select v->>'retention_snapshot' from jsonb_array_elements((select payload from v1_r39_p6r where result_key='list')->'invoices') v),'5000.00','Issued invoice freezes retention = 10% of the 50,000 gross');
 select is((select v->>'still_due' from jsonb_array_elements((select payload from v1_r39_p6r where result_key='list')->'invoices') v),'47500.00','Still due = certified 52,500 − retention 5,000 (unpaid)');
 select is((select payload->>'still_due' from v1_r39_p6r where result_key='pay'),'0.00','Paying the retention-reduced due clears the balance');
+select is((select payload->'receivables'->>'still_due' from v1_r39_p6r where result_key='overview'),'47500.00','Project overview outstanding nets retention');
+select is((select (payload->'rows'->0->>10) from v1_r39_p6r where result_key='export'),'47500.00','project_summary export Still Due nets retention');
 
 select finish();
 rollback;
