@@ -3,9 +3,16 @@
 /// Shows the claim workbench (`v1_get_claim_workbench`): the current open claim
 /// (reference, pipeline status, period, gross) and the confirmed progress by
 /// building × stage, with the per-item breakdown for items-mode cells. Monetary
-/// columns are drawn only with view_project_commercial_values. Confirming
-/// progress, editing claim lines and issuing the invoice are a later P6
-/// increment; this slice presents the current position read-only.
+/// columns are drawn only with view_project_commercial_values.
+///
+/// Recording progress rebuilds the single open draft claim server-side
+/// (`v1_save_claim_workbench`); Mark checked, Issue and Back to draft drive the
+/// claim lifecycle from the side panel. The editor follows the prototype's fast
+/// claim-building affordances: a per-row **Max** fill (100% / full quantity), an
+/// exact live change delta per row, a pending-changes count, and Enter moving to
+/// the next field. Deltas are exact `YorksAccountsDecimal` percentages/quantities
+/// (not money), so they are correct for the progress-recorder role too; the
+/// server computes the claimed amounts on save.
 library;
 
 import 'package:flutter/material.dart';
@@ -1470,38 +1477,10 @@ class _ProgressEditorState extends State<_ProgressEditor> {
                       language: widget.language,
                     )
                   else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.xs,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${c.buildingName} · ${c.stageLabel ?? c.stageKey}',
-                              style: AppTypography.bodyMedium.copyWith(
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: TextField(
-                              controller: _pct[c.progressEntryId],
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              textAlign: TextAlign.end,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                suffixText: '%',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    _PercentCellEditor(
+                      cell: c,
+                      controller: _pct[c.progressEntryId]!,
+                      language: widget.language,
                     ),
             ],
           ),
@@ -1528,6 +1507,26 @@ class _ProgressEditorState extends State<_ProgressEditor> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
+        if (entries.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  '${_t('v2_progress_changes')}: ${entries.length}',
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: [
             FilledButton(
@@ -1671,62 +1670,219 @@ class _ItemsCellEditor extends StatelessWidget {
             ],
           ),
           for (final item in cell.items)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.md,
-                top: AppSpacing.xxs,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item.itemLabel,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.ink,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (item.needsReview) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          StatusChip.warning(
-                            accountsV2Text(language, 'v2_needs_review'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 120,
-                    child: TextField(
-                      controller: controllers[item.stageItemId],
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      textAlign: TextAlign.end,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        suffixText: item.unitCode,
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  SizedBox(
-                    width: 64,
-                    child: Text(
-                      '/ ${item.quantity.displayText(maximumFractionDigits: 2)}',
-                      style: AppTypography.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
+            _ItemQtyRow(
+              item: item,
+              controller: controllers[item.stageItemId]!,
+              language: language,
             ),
         ],
       ),
     );
   }
+}
+
+/// One editable item-quantity row: label, needs-review flag, live quantity
+/// delta, a Max button (fill to the full quantity) and the quantity field.
+class _ItemQtyRow extends StatelessWidget {
+  const _ItemQtyRow({
+    required this.item,
+    required this.controller,
+    required this.language,
+  });
+
+  final YorksAccountsWorkbenchItem item;
+  final TextEditingController controller;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = _progressDelta(
+      item.confirmedQty,
+      controller.text,
+      ' ${item.unitCode}',
+    );
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.md, top: AppSpacing.xxs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    item.itemLabel,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.ink,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (item.needsReview) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  StatusChip.warning(
+                    accountsV2Text(language, 'v2_needs_review'),
+                  ),
+                ],
+                if (delta != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  _DeltaChip(delta: delta),
+                ],
+              ],
+            ),
+          ),
+          _MaxButton(
+            language: language,
+            onTap: () => _setField(controller, item.quantity.canonicalText),
+          ),
+          SizedBox(
+            width: 120,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: item.unitCode,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 64,
+            child: Text(
+              '/ ${item.quantity.displayText(maximumFractionDigits: 2)}',
+              style: AppTypography.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One editable lump-sum (percent-mode) cell: building · stage, live percent
+/// delta, a Max button (fill to 100%) and the percent field.
+class _PercentCellEditor extends StatelessWidget {
+  const _PercentCellEditor({
+    required this.cell,
+    required this.controller,
+    required this.language,
+  });
+
+  final YorksAccountsWorkbenchCell cell;
+  final TextEditingController controller;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = _progressDelta(cell.confirmedPercent, controller.text, '%');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${cell.buildingName} · ${cell.stageLabel ?? cell.stageKey}',
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+            ),
+          ),
+          if (delta != null) ...[
+            _DeltaChip(delta: delta),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          _MaxButton(
+            language: language,
+            onTap: () => _setField(controller, '100'),
+          ),
+          SizedBox(
+            width: 120,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: const InputDecoration(
+                isDense: true,
+                suffixText: '%',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact chip showing a signed progress delta (green up, amber down).
+class _DeltaChip extends StatelessWidget {
+  const _DeltaChip({required this.delta});
+
+  final ({String text, bool increase}) delta;
+
+  @override
+  Widget build(BuildContext context) {
+    return delta.increase
+        ? StatusChip.success(delta.text)
+        : StatusChip.warning(delta.text);
+  }
+}
+
+/// A dense "Max" button that fills a field to its ceiling (100% / full qty).
+class _MaxButton extends StatelessWidget {
+  const _MaxButton({required this.language, required this.onTap});
+
+  final AppLanguage language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(accountsV2Text(language, 'v2_max')),
+    );
+  }
+}
+
+/// Sets a field's text and places the caret at the end (used by Max).
+void _setField(TextEditingController controller, String value) {
+  controller.value = TextEditingValue(
+    text: value,
+    selection: TextSelection.collapsed(offset: value.length),
+  );
+}
+
+/// The exact signed change between a confirmed value and the typed value, with
+/// a unit suffix, or null when unchanged or unparseable. Exact
+/// [YorksAccountsDecimal] arithmetic — never a money figure, so it is correct
+/// for the progress-recorder role without commercial access.
+({String text, bool increase})? _progressDelta(
+  YorksAccountsDecimal current,
+  String typedText,
+  String suffix,
+) {
+  final typed = YorksAccountsDecimal.tryParse(typedText.trim());
+  if (typed == null) return null;
+  final cmp = typed.compareTo(current);
+  if (cmp == 0) return null;
+  final increase = cmp > 0;
+  final magnitude = increase ? (typed - current) : (current - typed);
+  final sign = increase ? '+' : '−';
+  return (
+    text: '$sign${magnitude.displayText(maximumFractionDigits: 4)}$suffix',
+    increase: increase,
+  );
 }

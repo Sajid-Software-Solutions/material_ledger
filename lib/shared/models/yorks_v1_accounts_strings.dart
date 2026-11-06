@@ -4370,6 +4370,18 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'منتخب',
       'hi': 'चयनित',
     },
+    'v2_max': {
+      'en': 'Max',
+      'ar': 'الحد الأقصى',
+      'ur': 'زیادہ سے زیادہ',
+      'hi': 'अधिकतम',
+    },
+    'v2_progress_changes': {
+      'en': 'Pending changes',
+      'ar': 'تغييرات معلقة',
+      'ur': 'زیر التواء تبدیلیاں',
+      'hi': 'लंबित परिवर्तन',
+    },
   };
 
   static String text(AppLanguage language, String key) {

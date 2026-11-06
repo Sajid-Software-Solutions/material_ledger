@@ -395,6 +395,116 @@ void main() {
       expect(find.text(t('v2_record_progress')), findsNothing);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets('Max fills a lump-sum cell to 100% and previews the delta', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_record_progress')));
+      await tester.pumpAndSettle();
+
+      // Two Max buttons: the Design lump-sum cell and the AHU item row.
+      expect(find.text(t('v2_max')), findsNWidgets(2));
+      await tester.tap(find.text(t('v2_max')).first);
+      await tester.pumpAndSettle();
+
+      // The percent field (index 2) is filled to 100 and a +50% delta previews.
+      final field = tester.widget<TextField>(find.byType(TextField).at(2));
+      expect(field.controller!.text, '100');
+      expect(find.text('+50%'), findsOneWidget);
+      expect(find.text('${t('v2_progress_changes')}: 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a value below the confirmed percent shows a decrease delta', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_record_progress')));
+      await tester.pumpAndSettle();
+
+      // Design confirmed is 50%; typing 30 shows a −20% decrease delta.
+      await tester.enterText(find.byType(TextField).at(2), '30');
+      await tester.pumpAndSettle();
+      expect(find.text('−20%'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('record-progress editor lays out at 360px wide', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: wb,
+            language: en,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_record_progress')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_max')), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('AccountsV2ClaimsTab actions', () {
