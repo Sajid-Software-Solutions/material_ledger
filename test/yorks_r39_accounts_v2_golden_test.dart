@@ -222,6 +222,7 @@ Map<String, dynamic> _contractJson() => {
     'work_order_number': 'WO-2026-0042',
     'work_order_date': '2026-06-01',
     'contract_number': 'N-19957.2',
+    'retention_percent': '10.0000',
   },
 };
 
@@ -351,6 +352,7 @@ Widget _contractTab() => AccountsV2ContractTab(
         String? workOrderNumber,
         String? workOrderDate,
         String? contractNumber,
+        String? retentionPercent,
         int? expectedProfileVersion,
       }) async => null,
 );

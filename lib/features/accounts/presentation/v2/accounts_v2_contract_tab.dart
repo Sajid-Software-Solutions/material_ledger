@@ -28,6 +28,7 @@ typedef YorksSaveReferencesAction =
       String? workOrderNumber,
       String? workOrderDate,
       String? contractNumber,
+      String? retentionPercent,
       int? expectedProfileVersion,
     });
 
@@ -218,6 +219,7 @@ class _ContractHeaderCard extends StatelessWidget {
     setup.workOrderNumber,
     setup.workOrderDate,
     setup.contractNumber,
+    setup.retentionPercent,
   ].any((v) => v != null && v.isNotEmpty);
 
   Future<void> _editReferences(BuildContext context) async {
@@ -268,6 +270,13 @@ class _ContractHeaderCard extends StatelessWidget {
                 label: _t('v2_vat_label'),
                 value: format.percent(setup.vatRatePercent),
               ),
+              if (setup.retentionPercent?.isNotEmpty ?? false)
+                _Field(
+                  label: _t('v2_retention_label'),
+                  value: format.percent(
+                    YorksAccountsDecimal.tryParse(setup.retentionPercent!),
+                  ),
+                ),
               _Field(label: _t('v2_payment_terms_label'), value: terms),
               _Field(label: _t('v2_next_invoice_label'), value: nextInvoice),
             ],
@@ -374,6 +383,7 @@ class _ReferencesDialogState extends State<_ReferencesDialog> {
   late final TextEditingController _woNo;
   late final TextEditingController _woDate;
   late final TextEditingController _contractNo;
+  late final TextEditingController _retention;
   bool _saving = false;
 
   String _t(String key) => accountsV2Text(widget.language, key);
@@ -386,11 +396,12 @@ class _ReferencesDialogState extends State<_ReferencesDialog> {
     _woNo = TextEditingController(text: s.workOrderNumber ?? '');
     _woDate = TextEditingController(text: s.workOrderDate ?? '');
     _contractNo = TextEditingController(text: s.contractNumber ?? '');
+    _retention = TextEditingController(text: s.retentionPercent ?? '');
   }
 
   @override
   void dispose() {
-    for (final c in [_trn, _woNo, _woDate, _contractNo]) {
+    for (final c in [_trn, _woNo, _woDate, _contractNo, _retention]) {
       c.dispose();
     }
     super.dispose();
@@ -408,6 +419,7 @@ class _ReferencesDialogState extends State<_ReferencesDialog> {
       workOrderNumber: _trim(_woNo),
       workOrderDate: _trim(_woDate),
       contractNumber: _trim(_contractNo),
+      retentionPercent: _trim(_retention),
       expectedProfileVersion: widget.setup.profileVersion,
     );
     if (!mounted) return;
@@ -434,6 +446,12 @@ class _ReferencesDialogState extends State<_ReferencesDialog> {
             _EditField(label: _t('v2_work_order_date'), controller: _woDate),
             _EditField(label: _t('v2_contract_no'), controller: _contractNo),
             _EditField(label: _t('v2_client_trn'), controller: _trn),
+            _EditField(
+              label: _t('v2_retention_label'),
+              controller: _retention,
+              numeric: true,
+              suffix: '%',
+            ),
           ],
         ),
       ),

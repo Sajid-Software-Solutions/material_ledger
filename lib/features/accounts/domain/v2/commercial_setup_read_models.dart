@@ -252,6 +252,7 @@ final class YorksAccountsCommercialSetupRead {
     required this.workOrderNumber,
     required this.workOrderDate,
     required this.contractNumber,
+    required this.retentionPercent,
   });
 
   factory YorksAccountsCommercialSetupRead.fromJson(Map<String, dynamic> json) {
@@ -311,6 +312,7 @@ final class YorksAccountsCommercialSetupRead {
       workOrderNumber: refs['work_order_number'] as String?,
       workOrderDate: refs['work_order_date'] as String?,
       contractNumber: refs['contract_number'] as String?,
+      retentionPercent: refs['retention_percent'] as String?,
     );
   }
 
@@ -344,6 +346,9 @@ final class YorksAccountsCommercialSetupRead {
   final String? workOrderNumber;
   final String? workOrderDate;
   final String? contractNumber;
+
+  /// Retention percent (display only; decimal string) or null.
+  final String? retentionPercent;
 
   bool get hasCommercialValues =>
       capabilities.viewProjectCommercialValues && contractValue != null;

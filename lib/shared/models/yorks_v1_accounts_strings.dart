@@ -3089,6 +3089,12 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'کلائنٹ TRN',
       'hi': 'क्लाइंट TRN',
     },
+    'v2_retention_label': {
+      'en': 'Retention %',
+      'ar': 'نسبة الاحتجاز %',
+      'ur': 'ریٹینشن %',
+      'hi': 'रिटेंशन %',
+    },
     'v2_contract_edit_note': {
       'en':
           'Everything here can be edited. Issued invoices keep their amounts — '

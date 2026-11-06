@@ -251,6 +251,7 @@ final class YorksAccountsContractController
     String? workOrderNumber,
     String? workOrderDate,
     String? contractNumber,
+    String? retentionPercent,
     int? expectedProfileVersion,
   }) {
     return runCommand(
@@ -261,6 +262,7 @@ final class YorksAccountsContractController
         'work_order_number': workOrderNumber,
         'work_order_date': workOrderDate,
         'contract_number': contractNumber,
+        'retention_percent': retentionPercent,
         'version': expectedProfileVersion,
       },
       action: (key) async {
@@ -274,6 +276,7 @@ final class YorksAccountsContractController
           workOrderNumber: workOrderNumber,
           workOrderDate: workOrderDate,
           contractNumber: contractNumber,
+          retentionPercent: retentionPercent,
           expectedVersion: expectedProfileVersion,
           idempotencyKey: key,
         );

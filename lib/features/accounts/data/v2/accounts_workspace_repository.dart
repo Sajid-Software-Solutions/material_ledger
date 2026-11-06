@@ -57,6 +57,7 @@ final class YorksAccountsWorkspaceRepository {
     String? workOrderNumber,
     String? workOrderDate,
     String? contractNumber,
+    String? retentionPercent,
     int? expectedVersion,
     required String idempotencyKey,
   }) {
@@ -68,6 +69,7 @@ final class YorksAccountsWorkspaceRepository {
         'p_work_order_number': workOrderNumber,
         'p_work_order_date': workOrderDate,
         'p_contract_number': contractNumber,
+        'p_retention_percent': retentionPercent,
         'p_expected_version': expectedVersion,
         'p_idempotency_key': idempotencyKey,
       },

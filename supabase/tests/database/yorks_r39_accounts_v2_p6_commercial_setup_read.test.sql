@@ -101,16 +101,16 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
 insert into v1_r39_p6s select 'refver0', jsonb_build_object('v',(select (payload->>'profile_version')::integer from v1_r39_p6s where result_key='admin'));
 insert into v1_r39_p6s select 'refsave', public.v1_save_accounts_contract_references(
-  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',
+  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',10.0,
   (select (payload->>'v')::integer from v1_r39_p6s where result_key='refver0'),
   '39f90000-0000-4000-8000-0000000000c1');
 insert into v1_r39_p6s select 'refreplay', public.v1_save_accounts_contract_references(
-  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',
+  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',10.0,
   (select (payload->>'v')::integer from v1_r39_p6s where result_key='refver0'),
   '39f90000-0000-4000-8000-0000000000c1');
 insert into v1_r39_p6s select 'refread', public.v1_get_project_commercial_setup('39d16000-0000-4000-8000-000000000001');
 select throws_ok(
-  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',999,'39f90000-0000-4000-8000-0000000000c2')$$,
+  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',5.0,999,'39f90000-0000-4000-8000-0000000000c2')$$,
   '40001','R39_ACCOUNTS_VERSION_CONFLICT','References save rejects a stale expected version');
 reset role;
 
@@ -123,12 +123,13 @@ select is((select (payload->>'record_version')::integer from v1_r39_p6s where re
   'Replay returns the same version (no double write)');
 select is((select payload->'references'->>'work_order_number' from v1_r39_p6s where result_key='refread'),'WO-7','Read-back returns the saved work order number');
 select is((select payload->'references'->>'client_trn' from v1_r39_p6s where result_key='refread'),'TRN-9','Read-back returns the saved client TRN');
+select is((select (payload->'references'->>'retention_percent')::numeric from v1_r39_p6s where result_key='refread'),10.0,'Read-back returns the saved retention percent');
 
 -- Role negative: a site engineer (no configure_project_commercials) cannot save.
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
 select throws_ok(
-  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',null,'39f90000-0000-4000-8000-0000000000c3')$$,
+  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',null,null,'39f90000-0000-4000-8000-0000000000c3')$$,
   '42501','R39_ACCOUNTS_ACCESS_DENIED','Site engineer without configure_project_commercials cannot save references');
 reset role;
 
