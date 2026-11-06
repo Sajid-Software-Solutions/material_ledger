@@ -886,6 +886,20 @@ class _StageSection extends StatelessWidget {
   }
 }
 
+String _suggestionText(
+  AppLanguage language,
+  AccountsV2Format format,
+  YorksAccountsWorkbenchCell cell,
+) {
+  final by = cell.suggestedBy;
+  final what =
+      '${accountsV2Text(language, 'v2_cell_suggested')} '
+      '${format.percent(cell.suggestedPercent)}';
+  return by == null || by.isEmpty
+      ? what
+      : '$what · ${accountsV2Text(language, 'v2_hist_by')} $by';
+}
+
 class _CellRow extends StatelessWidget {
   const _CellRow({
     required this.cell,
@@ -916,6 +930,13 @@ class _CellRow extends StatelessWidget {
                   accountsV2Text(language, 'v2_mode_items'),
                   style: AppTypography.labelSmall.copyWith(
                     color: AppColors.muted,
+                  ),
+                ),
+              if (cell.suggestedPercent != null)
+                Text(
+                  _suggestionText(language, format, cell),
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.warning,
                   ),
                 ),
             ],
@@ -1556,6 +1577,11 @@ class _ProgressEditorState extends State<_ProgressEditor> {
                       cell: c,
                       controller: _pct[c.progressEntryId]!,
                       language: widget.language,
+                      // The suggestion's evidence comes with it, so it needn't be
+                      // chosen again.
+                      onUseSuggestion: () => setState(
+                        () => _evidence.addAll(c.suggestedEvidenceDocumentIds),
+                      ),
                     ),
             ],
           ),
@@ -1856,23 +1882,58 @@ class _PercentCellEditor extends StatelessWidget {
     required this.cell,
     required this.controller,
     required this.language,
+    required this.onUseSuggestion,
   });
 
   final YorksAccountsWorkbenchCell cell;
   final TextEditingController controller;
   final AppLanguage language;
+  final VoidCallback onUseSuggestion;
 
   @override
   Widget build(BuildContext context) {
     final delta = _progressDelta(cell.confirmedPercent, controller.text, '%');
+    final suggested = cell.suggestedPercent;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              '${cell.buildingName} · ${cell.stageLabel ?? cell.stageKey}',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${cell.buildingName} · ${cell.stageLabel ?? cell.stageKey}',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+                if (suggested != null)
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        _suggestionText(
+                          language,
+                          const AccountsV2Format(),
+                          cell,
+                        ),
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          _setField(controller, suggested.canonicalText);
+                          onUseSuggestion();
+                        },
+                        child: Text(
+                          accountsV2Text(language, 'v2_cell_use_suggestion'),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
           if (delta != null) ...[

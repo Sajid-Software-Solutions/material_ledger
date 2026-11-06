@@ -393,15 +393,16 @@ class _OverviewMetricCard extends StatelessWidget {
               style: AppTypography.labelSmall,
             ),
             const Spacer(),
+            // The share of the contract, drawn as what it is: not a trend, which
+            // there is no history here to show.
             ExcludeSemantics(
-              child: SizedBox(
-                height: 20,
-                width: double.infinity,
-                child: CustomPaint(
-                  painter: _PositionLinePainter(
-                    value: metric.ratio,
-                    color: metric.color,
-                  ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                child: LinearProgressIndicator(
+                  value: metric.ratio.clamp(0.0, 1.0),
+                  minHeight: 6,
+                  color: metric.color,
+                  backgroundColor: AppColors.surfaceContainerHigh,
                 ),
               ),
             ),
@@ -410,49 +411,6 @@ class _OverviewMetricCard extends StatelessWidget {
       ),
     ),
   );
-}
-
-class _PositionLinePainter extends CustomPainter {
-  const _PositionLinePainter({required this.value, required this.color});
-
-  final double value;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final progress = value.clamp(0.0, 1.0);
-    final line = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: .18), color.withValues(alpha: 0)],
-      ).createShader(Offset.zero & size)
-      ..style = PaintingStyle.fill;
-    final endY = size.height * (1 - (.18 + progress * .62));
-    final path = Path()..moveTo(0, size.height - 2);
-    for (var index = 1; index <= 7; index++) {
-      final t = index / 7;
-      final baseline = size.height - 2 + (endY - (size.height - 2)) * t;
-      final offset = index.isEven ? 2.0 : -1.0;
-      path.lineTo(size.width * t, (baseline + offset).clamp(1, size.height));
-    }
-    final area = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(area, fill);
-    canvas.drawPath(path, line);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PositionLinePainter oldDelegate) =>
-      oldDelegate.value != value || oldDelegate.color != color;
 }
 
 class _FinancialHealthCard extends StatelessWidget {
@@ -503,7 +461,8 @@ class _FinancialHealthCard extends StatelessWidget {
         AppColors.blue,
       ),
     ];
-    final healthRatio = healthy / total;
+    // A fully paid project is as healthy as one can be.
+    final healthRatio = (healthy + paid) / total;
     return _OverviewPanel(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(

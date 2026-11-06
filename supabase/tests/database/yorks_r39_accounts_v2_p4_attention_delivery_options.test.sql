@@ -11,6 +11,8 @@ insert into public.v1_project_scopes(id,project_id,scope_kind,scope_code,name,is
 values('39d19000-0000-4000-8000-000000000002','39d19000-0000-4000-8000-000000000001','building','b01','Building 01',false);
 insert into public.v1_project_members(project_id,member_auth_user_id,project_role,effective_from,reason,assigned_by_auth_user_id,assigned_by_role)
 values('39d19000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','project_engineer',clock_timestamp()-interval '1 day','x','10000000-0000-4000-8000-000000000004','admin');
+insert into public.v1_project_members(project_id,member_auth_user_id,project_role,effective_from,reason,assigned_by_auth_user_id,assigned_by_role)
+values('39d19000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','site_engineer',clock_timestamp()-interval '1 day','x','10000000-0000-4000-8000-000000000004','admin');
 insert into public.v1_documents(id,classification,created_by_auth_user_id,created_by_role)
 values('39d19000-0000-4000-8000-000000000003','operational','10000000-0000-4000-8000-000000000004','admin');
 insert into public.v1_document_versions(id,document_id,revision_number,object_path,original_file_name,mime_type,byte_size,sha256,origin,uploaded_by_auth_user_id,uploaded_by_role)
@@ -88,6 +90,33 @@ select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-00000000
 select throws_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, '42501', null, 'Project Engineer may not list delivery options');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
 select throws_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, '42501', null, 'Site Engineer may not list delivery options');
+reset role;
+
+-- A site suggestion: visible on the workbench without money, and flagged only to
+-- those who can confirm it.
+insert into v1_r39_p4a select 'pid_mat', jsonb_build_object('id',(select id from public.v1_accounts_billing_progress where project_id='39d19000-0000-4000-8000-000000000001' and stage_key='material_supply'));
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
+select public.v1_suggest_billing_progress('39d19000-0000-4000-8000-000000000001',(select (payload->>'id')::uuid from v1_r39_p4a where result_key='pid_mat'),1,'40.0000','On site',array['39d19000-0000-4000-8000-000000000003'::uuid],'s','39f99000-0000-4000-8000-000000000085');
+insert into v1_r39_p4a select 'se_wb', public.v1_get_claim_workbench('39d19000-0000-4000-8000-000000000001',null);
+select is((select c->>'suggested_percent' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='se_wb' and c->>'stage_key'='material_supply'), '40.0000', 'the Site Engineer sees their suggestion');
+select is((select c->>'suggested_by' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='se_wb' and c->>'stage_key'='material_supply'), 'Local Site Engineer', 'the suggestion names who made it');
+select ok((select c->'suggested_evidence_document_ids' ? '39d19000-0000-4000-8000-000000000003' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='se_wb' and c->>'stage_key'='material_supply'), 'the suggestion carries its evidence');
+select ok(not (select c ? 'stage_value' or c ? 'eligible' or c ? 'claimed' or c ? 'available' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='se_wb' and c->>'stage_key'='material_supply'), 'a suggestion adds no commercial value for a Site Engineer');
+select ok(not (select c ? 'suggested_percent' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='se_wb' and c->>'stage_key'='design'), 'a stage with no suggestion carries none');
+
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
+insert into v1_r39_p4a select 'pe_sug', public.v1_get_project_accounts_workspace('39d19000-0000-4000-8000-000000000001');
+select ok((select payload->'attention' @> '[{"kind":"progress_suggested"}]' from v1_r39_p4a where result_key='pe_sug'), 'the Project Engineer is told a suggestion is waiting');
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000013","role":"authenticated","app_metadata":{"role":"accountant","app_user_id":"usr-local-accountant"}}',true);
+insert into v1_r39_p4a select 'acc_sug', public.v1_get_project_accounts_workspace('39d19000-0000-4000-8000-000000000001');
+select ok(not (select payload->'attention' @> '[{"kind":"progress_suggested"}]' from v1_r39_p4a where result_key='acc_sug'), 'an Accountant, who cannot confirm it, is not');
+
+-- Once confirmed, the suggestion is done.
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
+select public.v1_confirm_billing_progress('39d19000-0000-4000-8000-000000000001',(select (payload->>'id')::uuid from v1_r39_p4a where result_key='pid_mat'),2,'40.0000','On site',array['39d19000-0000-4000-8000-000000000003'::uuid],'c','39f99000-0000-4000-8000-000000000086');
+insert into v1_r39_p4a select 'pe_done', public.v1_get_claim_workbench('39d19000-0000-4000-8000-000000000001',null);
+select ok(not (select c ? 'suggested_percent' from v1_r39_p4a, jsonb_array_elements(payload->'cells') c where result_key='pe_done' and c->>'stage_key'='material_supply'), 'a confirmed suggestion is no longer shown');
 reset role;
 
 select * from finish();

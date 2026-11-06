@@ -790,6 +790,17 @@ class _ClaimsBody extends ConsumerWidget {
             !doc.isArchived)
           (id: doc.id, name: doc.currentVersion.fileName),
     ];
+    // The claim cards come from their own list, so a change to a claim has to
+    // reload it as well as the workbench.
+    Future<String?> reloadClaimsAfter(Future<String?> command) async {
+      final error = await command;
+      if (error != null) return error;
+      await ref
+          .read(yorksAccountsClaimsListControllerProvider(projectId).notifier)
+          .refresh();
+      return null;
+    }
+
     return Column(
       children: [
         if (state.hasError)
@@ -845,7 +856,11 @@ class _ClaimsBody extends ConsumerWidget {
                       projection: progress,
                       language: language,
                     );
-                    if (changed) await controller.refresh();
+                    if (!changed) return;
+                    await controller.refresh();
+                    if (context.mounted) {
+                      _showFileMessage(context, language, 'v2_cell_saved');
+                    }
                   },
             onPreviewInvoice: !data.canManageInvoices
                 ? null
@@ -866,33 +881,39 @@ class _ClaimsBody extends ConsumerWidget {
                   required List<Map<String, Object?>> entries,
                   required List<String> evidenceDocumentIds,
                   String? reason,
-                }) => controller.saveWorkbench(
-                  claimReference: claimReference,
-                  periodStart: periodStart,
-                  periodEnd: periodEnd,
-                  entries: entries,
-                  evidenceDocumentIds: evidenceDocumentIds,
-                  reason: reason,
+                }) => reloadClaimsAfter(
+                  controller.saveWorkbench(
+                    claimReference: claimReference,
+                    periodStart: periodStart,
+                    periodEnd: periodEnd,
+                    entries: entries,
+                    evidenceDocumentIds: evidenceDocumentIds,
+                    reason: reason,
+                  ),
                 ),
             onMarkChecked:
                 ({
                   required String claimId,
                   required int expectedVersion,
                   required String reason,
-                }) => controller.markChecked(
-                  claimId: claimId,
-                  expectedVersion: expectedVersion,
-                  reason: reason,
+                }) => reloadClaimsAfter(
+                  controller.markChecked(
+                    claimId: claimId,
+                    expectedVersion: expectedVersion,
+                    reason: reason,
+                  ),
                 ),
             onReopen:
                 ({
                   required String claimId,
                   required int expectedVersion,
                   required String reason,
-                }) => controller.reopenClaim(
-                  claimId: claimId,
-                  expectedVersion: expectedVersion,
-                  reason: reason,
+                }) => reloadClaimsAfter(
+                  controller.reopenClaim(
+                    claimId: claimId,
+                    expectedVersion: expectedVersion,
+                    reason: reason,
+                  ),
                 ),
             onIssue:
                 ({
@@ -901,12 +922,14 @@ class _ClaimsBody extends ConsumerWidget {
                   required String invoiceDate,
                   required String submissionDate,
                   String? invoiceReference,
-                }) => controller.issueInvoice(
-                  claimId: claimId,
-                  expectedClaimVersion: expectedClaimVersion,
-                  invoiceDate: invoiceDate,
-                  submissionDate: submissionDate,
-                  invoiceReference: invoiceReference,
+                }) => reloadClaimsAfter(
+                  controller.issueInvoice(
+                    claimId: claimId,
+                    expectedClaimVersion: expectedClaimVersion,
+                    invoiceDate: invoiceDate,
+                    submissionDate: submissionDate,
+                    invoiceReference: invoiceReference,
+                  ),
                 ),
           ),
         ),

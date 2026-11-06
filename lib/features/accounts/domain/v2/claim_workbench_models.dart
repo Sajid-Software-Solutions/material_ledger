@@ -81,6 +81,9 @@ final class YorksAccountsWorkbenchCell {
     required this.available,
     required this.overClaimed,
     required this.items,
+    this.suggestedPercent,
+    this.suggestedBy,
+    this.suggestedEvidenceDocumentIds = const [],
   });
 
   factory YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic> json) {
@@ -114,6 +117,18 @@ final class YorksAccountsWorkbenchCell {
       available: money('available'),
       overClaimed: json['over_claimed'] == true,
       items: items ?? const <YorksAccountsWorkbenchItem>[],
+      suggestedPercent: json['suggested_percent'] == null
+          ? null
+          : YorksAccountsDecimal.fromRpcValue(
+              json['suggested_percent'],
+              key: 'cell.suggested_percent',
+            ),
+      suggestedBy: json['suggested_by'] as String?,
+      suggestedEvidenceDocumentIds:
+          (json['suggested_evidence_document_ids'] as List?)
+              ?.cast<String>()
+              .toList(growable: false) ??
+          const <String>[],
     );
   }
 
@@ -138,6 +153,11 @@ final class YorksAccountsWorkbenchCell {
   final bool overClaimed;
 
   final List<YorksAccountsWorkbenchItem> items;
+
+  /// A site suggestion still ahead of the confirmed percent, if any.
+  final YorksAccountsDecimal? suggestedPercent;
+  final String? suggestedBy;
+  final List<String> suggestedEvidenceDocumentIds;
 
   bool get isItemsMode => measurementMode == 'items';
 }

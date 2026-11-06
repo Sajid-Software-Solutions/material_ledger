@@ -1,7 +1,7 @@
 -- =============================================================================
 -- R39 Accounts Workspace V2 — bundled migration apply script
 -- =============================================================================
--- Generated from the 23 V2 migration files, concatenated in dependency order.
+-- Generated from the 25 V2 migration files, concatenated in dependency order.
 -- Purpose: apply all V2 database objects in ONE paste in the Supabase SQL
 -- editor, instead of running the files by hand.
 --
@@ -37,7 +37,7 @@ BEGIN;
 
 
 -- #############################################################################
--- FILE 1 / 23 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
+-- FILE 1 / 25 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P1: dimension claim cap and single eligible source
@@ -257,7 +257,7 @@ revoke all on function public.v1_accounts_validate_claim_lines(uuid, uuid, jsonb
 
 
 -- #############################################################################
--- FILE 2 / 23 : 20261105101500_accounts_v2_p2_item_breakdown.sql
+-- FILE 2 / 25 : 20261105101500_accounts_v2_p2_item_breakdown.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 1): item-quantity billing foundation
@@ -501,7 +501,7 @@ revoke all on function public.v1_accounts_progress_eligible_amount(uuid)
 
 
 -- #############################################################################
--- FILE 3 / 23 : 20261105103000_accounts_v2_p2_save_setup.sql
+-- FILE 3 / 25 : 20261105103000_accounts_v2_p2_save_setup.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 2): save-setup command with carry-forward
@@ -798,7 +798,7 @@ grant execute on function public.v1_save_project_commercial_setup(uuid, integer,
 
 
 -- #############################################################################
--- FILE 4 / 23 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
+-- FILE 4 / 25 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 1): claim workbench read + reopen
@@ -1007,7 +1007,7 @@ grant execute on function public.v1_reopen_client_claim(uuid, uuid, integer, tex
 
 
 -- #############################################################################
--- FILE 5 / 23 : 20261105113000_accounts_v2_p3_invoice_issue.sql
+-- FILE 5 / 25 : 20261105113000_accounts_v2_p3_invoice_issue.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2a): invoice numbering, issue, document
@@ -1297,7 +1297,7 @@ revoke all on function public.v1_accounts_build_invoice_document(uuid, uuid, tex
 
 
 -- #############################################################################
--- FILE 6 / 23 : 20261105120000_accounts_v2_p3_invoice_revise.sql
+-- FILE 6 / 25 : 20261105120000_accounts_v2_p3_invoice_revise.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2b): invoice revision (R.n)
@@ -1527,7 +1527,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 7 / 23 : 20261105130000_accounts_v2_p3_save_workbench.sql
+-- FILE 7 / 25 : 20261105130000_accounts_v2_p3_save_workbench.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2c): save claim workbench
@@ -1750,7 +1750,7 @@ grant execute on function public.v1_save_claim_workbench(uuid, text, date, date,
 
 
 -- #############################################################################
--- FILE 8 / 23 : 20261105140000_accounts_v2_p4_company_settings.sql
+-- FILE 8 / 25 : 20261105140000_accounts_v2_p4_company_settings.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part a): company letterhead/bank settings (D9)
@@ -1867,7 +1867,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 9 / 23 : 20261105150000_accounts_v2_p4_workspace.sql
+-- FILE 9 / 25 : 20261105150000_accounts_v2_p4_workspace.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part b): Summary workspace projection
@@ -2083,7 +2083,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 10 / 23 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
+-- FILE 10 / 25 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part a): commercial-setup read
@@ -2266,7 +2266,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 11 / 23 : 20261105170000_accounts_v2_p8_pdc_register.sql
+-- FILE 11 / 25 : 20261105170000_accounts_v2_p8_pdc_register.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P8: project-wide cheque (PDC) register read
@@ -2344,7 +2344,7 @@ grant execute on function public.v1_list_project_client_pdcs(uuid)
 
 
 -- #############################################################################
--- FILE 12 / 23 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
+-- FILE 12 / 25 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P7 (part b): invoice document summary pages
@@ -2532,7 +2532,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 13 / 23 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
+-- FILE 13 / 25 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part c): enrich the Summary workspace steps
@@ -2804,7 +2804,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 14 / 23 : 20261106150000_accounts_v2_p3_claim_payable.sql
+-- FILE 14 / 25 : 20261106150000_accounts_v2_p3_claim_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part c): claim payable figures
@@ -2959,7 +2959,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 
 
 -- #############################################################################
--- FILE 15 / 23 : 20261106160000_accounts_v2_p6_commercial_parties.sql
+-- FILE 15 / 25 : 20261106160000_accounts_v2_p6_commercial_parties.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part b): contract parties on the setup read
@@ -3160,7 +3160,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 16 / 23 : 20261106170000_accounts_v2_p6_contract_references.sql
+-- FILE 16 / 25 : 20261106170000_accounts_v2_p6_contract_references.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part c): editable contract references
@@ -3434,7 +3434,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 17 / 23 : 20261106180000_accounts_v2_p6_retention.sql
+-- FILE 17 / 25 : 20261106180000_accounts_v2_p6_retention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part d): retention percent (display only)
@@ -3715,7 +3715,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 18 / 23 : 20261106190000_accounts_v2_p6_variations.sql
+-- FILE 18 / 25 : 20261106190000_accounts_v2_p6_variations.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part e): variations (VO) register
@@ -3843,7 +3843,7 @@ grant execute on function public.v1_save_accounts_variation(
 
 
 -- #############################################################################
--- FILE 19 / 23 : 20261106200000_accounts_v2_p6_retention_payable.sql
+-- FILE 19 / 25 : 20261106200000_accounts_v2_p6_retention_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part f): retention hold-back on payable
@@ -6316,7 +6316,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 20 / 23 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
+-- FILE 20 / 25 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part g): claim side-panel retention preview
@@ -6485,7 +6485,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 -- =============================================================================
 
 -- #############################################################################
--- FILE 21 / 23 : 20261107100000_accounts_v2_p4_workspace_attention.sql
+-- FILE 21 / 25 : 20261107100000_accounts_v2_p4_workspace_attention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4: what the workspace says needs attention
@@ -6497,6 +6497,8 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 --   * an Accountant, who cannot start a claim, was told to start one.
 -- `claim_ready` now means checked, the new `claim_draft` means waiting to be
 -- checked, and `claim_empty` / `no_claim` go only to those who can act on them.
+-- A site suggestion waiting for confirmation now shows as `progress_suggested` to
+-- those who can confirm it.
 --
 -- Additive: CREATE OR REPLACE of the read projection only. No table or row
 -- changes. Rollback: re-apply the function from
@@ -6535,6 +6537,8 @@ declare
   v_open_claim_gross numeric := 0;
   v_open_claim_status text;
   v_can_prepare boolean := false;
+  v_can_confirm boolean := false;
+  v_suggestions integer := 0;
   v_building_count integer := 0;
   v_stage_count integer := 0;
   v_invoice_count integer := 0;
@@ -6557,6 +6561,7 @@ begin
   v_can_values := public.v1_current_user_has_capability('view_project_commercial_values', p_project_id);
   v_can_supplier := public.v1_current_user_has_capability('view_supplier_costs', p_project_id);
   v_can_prepare := public.v1_current_user_has_capability('prepare_client_claim', p_project_id);
+  v_can_confirm := public.v1_current_user_has_capability('confirm_billing_progress', p_project_id);
   if not v_can_view and not v_can_supplier then
     raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode = '42501'; end if;
   select * into v_project from public.v1_projects where id = p_project_id;
@@ -6672,6 +6677,17 @@ begin
       v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','no_claim',
         'action_key','start_claim','target_type','project','target_id',p_project_id));
     end if;
+    if v_can_confirm then
+      select count(*) into v_suggestions
+      from public.v1_accounts_billing_progress bp
+      where bp.baseline_revision_id = v_baseline.id
+        and bp.suggested_percent > bp.confirmed_percent;
+      if v_suggestions > 0 then
+        v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','progress_suggested',
+          'action_key','open_claim','target_type','project','target_id',p_project_id,
+          'params', jsonb_build_object('count', v_suggestions)));
+      end if;
+    end if;
     if v_pdc > 0 then
       v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','cheques_in_hand',
         'action_key','open_invoices','target_type','project','target_id',p_project_id));
@@ -6755,8 +6771,9 @@ begin
 end;
 $$;
 
+
 -- #############################################################################
--- FILE 22 / 23 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
+-- FILE 22 / 25 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: confirmed deliveries a supplier bill can cite
@@ -6824,7 +6841,7 @@ grant execute on function public.v1_list_supplier_bill_delivery_options(uuid)
 
 
 -- #############################################################################
--- FILE 23 / 23 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
+-- FILE 23 / 25 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: only offer records a person may attach a file to
@@ -6963,6 +6980,696 @@ begin
       where public.v1_accounts_document_target_writable(
         target->>'entity_type',(target->>'entity_id')::uuid
       ))
+  );
+end;
+$$;
+
+
+-- #############################################################################
+-- FILE 24 / 25 : 20261107113000_accounts_v2_p3_workbench_suggestions.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — P3: show a site progress suggestion on the workbench
+--
+-- A Site Engineer can suggest progress, but the workbench never returned it, so
+-- neither they nor the Project Engineer who must confirm it could see it. Each
+-- cell now carries a suggestion that is still ahead of the confirmed percent:
+-- the percent, who suggested it and its evidence file IDs. It holds no commercial
+-- value and is returned to everyone who may read the workbench, like the confirmed
+-- percent beside it.
+--
+-- This is a copy of the body in
+-- 20261106210000_accounts_v2_p6_claim_retention_preview.sql plus those keys.
+-- Additive: CREATE OR REPLACE of one read. No table or row changes.
+-- Rollback: re-apply the function from that migration.
+
+create or replace function public.v1_get_claim_workbench(
+  p_project_id uuid,
+  p_claim_id uuid default null
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_can_values boolean;
+  v_profile public.v1_accounts_project_commercial_profiles%rowtype;
+  v_baseline public.v1_accounts_baseline_revisions%rowtype;
+  v_cells jsonb := '[]'::jsonb;
+  v_claim jsonb := null;
+  v_claim_id uuid;
+  v_claim_gross numeric := 0;
+  v_claim_vat numeric := 0;
+  v_claim_retention numeric := 0;
+begin
+  perform public.v1_accounts_require_capability(p_project_id, 'view_project_accounts');
+  v_can_values := public.v1_current_user_has_capability(
+    'view_project_commercial_values', p_project_id
+  );
+
+  select * into v_profile
+  from public.v1_accounts_project_commercial_profiles where project_id = p_project_id;
+  if not found or v_profile.current_baseline_revision_id is null then
+    return jsonb_build_object(
+      'schema_version', 1, 'project_id', p_project_id,
+      'baseline_revision_id', null, 'cells', '[]'::jsonb, 'claim', null,
+      'capabilities', public.v1_accounts_capability_envelope(p_project_id),
+      'commands', public.v1_accounts_receivables_commands(p_project_id)
+    );
+  end if;
+  select * into v_baseline
+  from public.v1_accounts_baseline_revisions where id = v_profile.current_baseline_revision_id;
+
+  select coalesce(jsonb_agg(cell order by ord, bname), '[]'::jsonb) into v_cells
+  from (
+    select sa.display_order as ord, scope.name as bname,
+      jsonb_build_object(
+        'progress_entry_id', bp.id,
+        'building_scope_id', bp.project_scope_id,
+        'building_name', scope.name,
+        'stage_key', bp.stage_key,
+        'stage_label', sa.stage_name,
+        'stage_position', sa.display_order,
+        'measurement_mode', sa.measurement_mode,
+        'confirmed_percent', bp.confirmed_percent::text,
+        'review_status', bp.review_status,
+        'record_version', bp.record_version
+      )
+      -- A site suggestion still ahead of what is confirmed. No money in it.
+      || case when bp.suggested_percent > bp.confirmed_percent then jsonb_build_object(
+          'suggested_percent', bp.suggested_percent::text,
+          'suggested_evidence_document_ids',
+            coalesce(to_jsonb(bp.suggested_evidence_document_ids), '[]'::jsonb),
+          'suggested_by', (
+            select public.v1_safe_profile_display_name(p.display_name, p.auth_user_id)
+            from public.v1_profiles p where p.auth_user_id = bp.suggested_by_auth_user_id)
+        ) else '{}'::jsonb end
+      || case when v_can_values then jsonb_build_object(
+          'stage_value', public.v1_accounts_stage_value(bp.id)::text,
+          'eligible', public.v1_accounts_progress_eligible_amount(bp.id)::text,
+          'claimed', public.v1_accounts_dimension_claimed_amount(
+            bp.project_id, bp.project_scope_id, bp.stage_key, null)::text,
+          'available', greatest(
+            public.v1_accounts_progress_eligible_amount(bp.id)
+              - public.v1_accounts_dimension_claimed_amount(
+                  bp.project_id, bp.project_scope_id, bp.stage_key, null), 0)::text,
+          'over_claimed', public.v1_accounts_dimension_claimed_amount(
+              bp.project_id, bp.project_scope_id, bp.stage_key, null)
+            > public.v1_accounts_progress_eligible_amount(bp.id)
+        ) else '{}'::jsonb end
+      || case when sa.measurement_mode = 'items' then jsonb_build_object('items', (
+          select coalesce(jsonb_agg(
+            jsonb_build_object(
+              'stage_item_id', si.id, 'item_key', si.item_key,
+              'item_label', si.item_label, 'display_order', si.display_order,
+              'quantity', si.quantity::text, 'unit_code', si.unit_code,
+              'confirmed_qty', coalesce(ip.confirmed_qty, 0)::text,
+              'needs_review', coalesce(ip.needs_review, false)
+            )
+            || case when v_can_values then jsonb_build_object(
+                'item_value', public.v1_accounts_stage_item_value(si.id)::text)
+              else '{}'::jsonb end
+            order by si.display_order), '[]'::jsonb)
+          from public.v1_accounts_baseline_stage_items si
+          left join public.v1_accounts_billing_item_progress ip
+            on ip.stage_item_id = si.id and ip.progress_entry_id = bp.id
+          where si.baseline_revision_id = v_baseline.id
+            and si.project_scope_id = bp.project_scope_id
+            and si.stage_key = bp.stage_key
+        )) else '{}'::jsonb end
+      as cell
+    from public.v1_accounts_billing_progress bp
+    join public.v1_accounts_baseline_stage_allocations sa
+      on sa.baseline_revision_id = bp.baseline_revision_id and sa.stage_key = bp.stage_key
+    join public.v1_project_scopes scope on scope.id = bp.project_scope_id
+    where bp.baseline_revision_id = v_baseline.id
+  ) rows;
+
+  select id into v_claim_id
+  from public.v1_accounts_client_claims
+  where project_id = p_project_id
+    and (
+      (p_claim_id is not null and id = p_claim_id)
+      or (p_claim_id is null and status in ('draft', 'ready_for_accounts'))
+    )
+  order by (status = 'draft') desc, updated_at desc
+  limit 1;
+  if v_claim_id is not null then
+    v_claim := public.v1_accounts_claim_snapshot(v_claim_id);
+    -- Payable figures: gross (ex VAT) + VAT at the baseline rate = net payable
+    -- (incl VAT), plus this claim's share of the contract. Commercial only.
+    if v_can_values then
+      v_claim_gross := coalesce((select sum(claimed_amount)
+        from public.v1_accounts_client_claim_lines where claim_id = v_claim_id), 0);
+      v_claim_vat := round(v_claim_gross * coalesce(v_baseline.vat_rate_percent, 0) / 100, 2);
+      -- §28 R-1 preview: retention the profile would currently withhold on this
+      -- claim's gross ex-VAT, and the net payable once it is held back.
+      v_claim_retention := round(
+        v_claim_gross * coalesce(v_profile.retention_percent, 0) / 100, 2);
+      v_claim := v_claim || jsonb_build_object(
+        'vat_amount', v_claim_vat::text,
+        'net_payable', (v_claim_gross + v_claim_vat)::text,
+        'contract_value', v_baseline.contract_value::text,
+        'this_claim_percent', case when v_baseline.contract_value > 0
+          then round(v_claim_gross / v_baseline.contract_value * 100, 1)
+          else 0 end::text,
+        'retention_percent', coalesce(v_profile.retention_percent, 0)::text,
+        'retention_preview', v_claim_retention::text,
+        'net_payable_after_retention',
+          (v_claim_gross + v_claim_vat - v_claim_retention)::text);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'schema_version', 1, 'project_id', p_project_id,
+    'baseline_revision_id', v_baseline.id,
+    'baseline_revision_number', v_baseline.revision_number,
+    'cells', v_cells, 'claim', v_claim,
+    'capabilities', public.v1_accounts_capability_envelope(p_project_id),
+    'commands', public.v1_accounts_receivables_commands(p_project_id)
+  );
+end;
+$$;
+
+
+-- #############################################################################
+-- FILE 25 / 25 : 20261107120000_accounts_v2_office_receipts_total.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — office: Receipts & PDC total counts money once
+--
+-- The Receipts & PDC summary added up every listed row, so a cleared cheque was
+-- counted again as the receipt it became, reversals added instead of subtracted,
+-- and bounced or cancelled cheques counted too. An invoice paid AED 1,805,160 with
+-- a AED 1,000,000 cheque showed AED 2,805,160.
+--
+-- This is a copy of the body in 20261106200000_accounts_v2_p6_retention_payable.sql
+-- changing only that summary. Rows and every other section are unchanged.
+-- Additive: CREATE OR REPLACE of one read. No table or row changes.
+-- Rollback: re-apply the function from that migration.
+
+create or replace function public.v1_get_accounts_office_register(
+  p_section text,
+  p_search text default null,
+  p_status text default null,
+  p_limit integer default 25,
+  p_offset integer default 0
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_section text := lower(btrim(coalesce(p_section, '')));
+  v_search text := nullif(btrim(p_search), '');
+  v_status text := nullif(lower(btrim(p_status)), '');
+  v_total integer;
+  v_amount numeric;
+  v_secondary numeric;
+  v_balance numeric;
+  v_action_count integer;
+  v_items jsonb;
+begin
+  if not public.v1_accounts_portfolio_role_allowed() then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode = '42501';
+  end if;
+  if v_section not in (
+    'claims', 'client_payments', 'supplier_bills',
+    'due_schedule', 'documents', 'activity'
+  ) then
+    raise exception 'R39_ACCOUNTS_OFFICE_SECTION_INVALID'
+      using errcode = '22023';
+  end if;
+  if p_limit not between 1 and 100 or p_offset < 0 then
+    raise exception 'R39_ACCOUNTS_OFFICE_PAGE_INVALID'
+      using errcode = '22023';
+  end if;
+
+  with project_context as materialized (
+    select project.id,
+      project.project_ref,
+      project.name,
+      project.project_site,
+      baseline.currency_code,
+      client.party_name as client_name,
+      public.v1_current_user_has_capability(
+        'view_project_accounts', project.id
+      ) as can_view_accounts,
+      public.v1_current_user_has_capability(
+        'view_project_commercial_values', project.id
+      ) as can_view_values,
+      public.v1_current_user_has_capability(
+        'view_supplier_costs', project.id
+      ) as can_view_supplier
+    from public.v1_projects project
+    left join public.v1_accounts_project_commercial_profiles profile
+      on profile.project_id = project.id
+    left join public.v1_accounts_baseline_revisions baseline
+      on baseline.id = profile.current_baseline_revision_id
+    left join lateral (
+      select party.party_name
+      from public.v1_project_parties party
+      where party.project_id = project.id and party.party_kind = 'client'
+      order by party.party_order, party.created_at, party.id
+      limit 1
+    ) client on true
+    where project.state <> 'archived'
+  ), office_rows as materialized (
+    -- Claims and their latest client invoice/certification/payment position.
+    select 'claims'::text as section,
+      claim.id as record_id,
+      claim.project_id,
+      project.project_ref as project_reference,
+      project.name as project_name,
+      project.client_name as party,
+      claim.claim_reference as reference,
+      invoice.invoice_reference as secondary_reference,
+      coalesce(invoice.status, claim.status) as status,
+      coalesce(lines.claimed_amount, 0)::numeric as amount,
+      coalesce(invoice.certified_amount, 0)::numeric as secondary_amount,
+      greatest(
+        coalesce(lines.claimed_amount, 0) - coalesce(invoice.certified_amount, 0),
+        0
+      )::numeric as balance_amount,
+      claim.claim_period_end as event_date,
+      invoice.due_date,
+      greatest(claim.updated_at, coalesce(invoice.updated_at, claim.updated_at)) as occurred_at,
+      (
+        claim.status = 'ready_for_accounts'
+        or coalesce(invoice.status in (
+          'submitted', 'under_certification', 'partially_certified', 'returned'
+        ), false)
+      ) as action_required,
+      'claim'::text as record_kind,
+      project.currency_code,
+      jsonb_build_object(
+        'claim_period_start', claim.claim_period_start,
+        'claim_period_end', claim.claim_period_end,
+        'is_stale', claim.is_stale,
+        'record_version', claim.record_version
+      ) as metadata
+    from public.v1_accounts_client_claims claim
+    join project_context project on project.id = claim.project_id
+    left join lateral (
+      select sum(line.claimed_amount) as claimed_amount
+      from public.v1_accounts_client_claim_lines line
+      where line.claim_id = claim.id
+    ) lines on true
+    left join lateral (
+      select string_agg(item.invoice_reference, ', ' order by item.created_at) as invoice_reference,
+        (array_agg(item.status order by item.updated_at desc, item.id desc))[1] as status,
+        sum(public.v1_accounts_invoice_certified_incl_vat(item.id)) as certified_amount,
+        max(item.due_date) as due_date,
+        max(item.updated_at) as updated_at
+      from public.v1_accounts_client_invoices item
+      where item.claim_id = claim.id and item.status <> 'cancelled'
+    ) invoice on true
+    where v_section = 'claims'
+      and project.can_view_accounts
+      and project.can_view_values
+
+    union all
+
+    -- Append-only client receipts.
+    select 'client_payments', payment.id, payment.project_id,
+      project.project_ref, project.name, project.client_name,
+      payment.payment_reference,
+      invoice.invoice_reference,
+      case when payment.entry_kind = 'reversal' then 'reversed' else 'received' end,
+      payment.amount,
+      null::numeric,
+      null::numeric,
+      payment.payment_date,
+      null::date,
+      payment.created_at,
+      false,
+      'client_payment',
+      project.currency_code,
+      jsonb_build_object(
+        'entry_kind', payment.entry_kind,
+        'payment_method', payment.payment_method,
+        'reason', payment.reason
+      )
+    from public.v1_accounts_client_payments payment
+    join project_context project on project.id = payment.project_id
+    join public.v1_accounts_client_invoices invoice on invoice.id = payment.invoice_id
+    where v_section = 'client_payments'
+      and project.can_view_accounts
+      and project.can_view_values
+
+    union all
+
+    -- Post-dated cheque register; this is not a bank-reconciliation ledger.
+    select 'client_payments', pdc.id, pdc.project_id,
+      project.project_ref, project.name, project.client_name,
+      pdc.cheque_number,
+      invoice.invoice_reference,
+      pdc.status,
+      pdc.amount,
+      null::numeric,
+      null::numeric,
+      pdc.received_date,
+      pdc.cheque_date,
+      pdc.updated_at,
+      pdc.action_required,
+      'pdc',
+      project.currency_code,
+      jsonb_build_object(
+        'bank_name', pdc.bank_name,
+        'last_action_reason', pdc.last_action_reason,
+        'record_version', pdc.record_version
+      )
+    from public.v1_accounts_client_pdcs pdc
+    join project_context project on project.id = pdc.project_id
+    join public.v1_accounts_client_invoices invoice on invoice.id = pdc.invoice_id
+    where v_section = 'client_payments'
+      and project.can_view_accounts
+      and project.can_view_values
+
+    union all
+
+    -- Supplier bills require both Accounts admission and the distinct
+    -- supplier-cost capability for this same project.
+    select 'supplier_bills', bill.id, bill.project_id,
+      project.project_ref, project.name, bill.supplier_name_snapshot,
+      bill.supplier_invoice_reference,
+      coalesce(bill.po_lpo_reference, bill.accepted_delivery_reference),
+      case
+        when bill.status = 'cancelled' then 'cancelled'
+        when public.v1_accounts_supplier_paid_amount(bill.id) >= bill.total_incl_vat then 'paid'
+        when public.v1_accounts_supplier_paid_amount(bill.id) > 0 then 'partially_paid'
+        when bill.status = 'approved' then 'approved'
+        when bill.explicit_mismatch_reason is not null then 'review'
+        else 'draft'
+      end,
+      bill.total_incl_vat,
+      public.v1_accounts_supplier_paid_amount(bill.id),
+      greatest(
+        bill.total_incl_vat - public.v1_accounts_supplier_paid_amount(bill.id),
+        0
+      ),
+      bill.invoice_date,
+      bill.due_date,
+      bill.updated_at,
+      (
+        bill.status <> 'cancelled'
+        and (
+          bill.status <> 'approved'
+          or public.v1_accounts_supplier_paid_amount(bill.id) < bill.total_incl_vat
+            and bill.due_date <= current_date + 7
+        )
+      ),
+      'supplier_bill',
+      project.currency_code,
+      jsonb_build_object(
+        'match_status', public.v1_accounts_supplier_match_status(bill.id),
+        'vat_amount', bill.vat_amount::text,
+        'record_version', bill.record_version
+      )
+    from public.v1_accounts_supplier_bills bill
+    join project_context project on project.id = bill.project_id
+    where v_section = 'supplier_bills'
+      and project.can_view_accounts
+      and project.can_view_supplier
+
+    union all
+
+    -- Client receivable due facts.
+    select 'due_schedule', invoice.id, invoice.project_id,
+      project.project_ref, project.name, project.client_name,
+      invoice.invoice_reference,
+      claim.claim_reference,
+      case
+        when invoice.due_date < current_date then 'overdue'
+        when invoice.due_date = current_date then 'due_today'
+        when invoice.due_date <= current_date + 7 then 'due_soon'
+        else 'current'
+      end,
+      public.v1_accounts_invoice_certified_incl_vat(invoice.id),
+      public.v1_accounts_invoice_paid_amount(invoice.id),
+      greatest(
+        public.v1_accounts_invoice_certified_incl_vat(invoice.id)
+          - public.v1_accounts_invoice_retention(invoice.id)
+          - public.v1_accounts_invoice_paid_amount(invoice.id),
+        0
+      ),
+      invoice.submission_date,
+      invoice.due_date,
+      invoice.updated_at,
+      invoice.due_date <= current_date + invoice.reminder_lead_days_snapshot,
+      'client_invoice_due',
+      project.currency_code,
+      jsonb_build_object('invoice_status', invoice.status)
+    from public.v1_accounts_client_invoices invoice
+    join project_context project on project.id = invoice.project_id
+    join public.v1_accounts_client_claims claim on claim.id = invoice.claim_id
+    where v_section = 'due_schedule'
+      and invoice.status not in ('draft', 'returned', 'cancelled', 'paid')
+      and invoice.due_date is not null
+      and public.v1_accounts_invoice_certified_incl_vat(invoice.id)
+        - public.v1_accounts_invoice_retention(invoice.id)
+        > public.v1_accounts_invoice_paid_amount(invoice.id)
+      and project.can_view_accounts
+      and project.can_view_values
+
+    union all
+
+    -- PDC maturity due facts.
+    select 'due_schedule', pdc.id, pdc.project_id,
+      project.project_ref, project.name, project.client_name,
+      pdc.cheque_number,
+      invoice.invoice_reference,
+      case
+        when pdc.cheque_date < current_date then 'overdue'
+        when pdc.cheque_date = current_date then 'due_today'
+        when pdc.cheque_date <= current_date + 7 then 'due_soon'
+        else 'current'
+      end,
+      pdc.amount,
+      null::numeric,
+      pdc.amount,
+      pdc.received_date,
+      pdc.cheque_date,
+      pdc.updated_at,
+      pdc.action_required or pdc.cheque_date <= current_date + 7,
+      'pdc_due',
+      project.currency_code,
+      jsonb_build_object('pdc_status', pdc.status, 'bank_name', pdc.bank_name)
+    from public.v1_accounts_client_pdcs pdc
+    join project_context project on project.id = pdc.project_id
+    join public.v1_accounts_client_invoices invoice on invoice.id = pdc.invoice_id
+    where v_section = 'due_schedule'
+      and pdc.status in ('expected', 'received', 'deposited')
+      and project.can_view_accounts
+      and project.can_view_values
+
+    union all
+
+    -- Supplier payable due facts require the same project's Accounts and
+    -- supplier-cost capabilities.
+    select 'due_schedule', bill.id, bill.project_id,
+      project.project_ref, project.name, bill.supplier_name_snapshot,
+      bill.supplier_invoice_reference,
+      coalesce(bill.po_lpo_reference, bill.accepted_delivery_reference),
+      case
+        when bill.due_date < current_date then 'overdue'
+        when bill.due_date = current_date then 'due_today'
+        when bill.due_date <= current_date + 7 then 'due_soon'
+        else 'current'
+      end,
+      bill.total_incl_vat,
+      public.v1_accounts_supplier_paid_amount(bill.id),
+      greatest(
+        bill.total_incl_vat - public.v1_accounts_supplier_paid_amount(bill.id),
+        0
+      ),
+      bill.invoice_date,
+      bill.due_date,
+      bill.updated_at,
+      bill.due_date <= current_date + 7,
+      'supplier_bill_due',
+      project.currency_code,
+      jsonb_build_object('bill_status', bill.status)
+    from public.v1_accounts_supplier_bills bill
+    join project_context project on project.id = bill.project_id
+    where v_section = 'due_schedule'
+      and bill.status <> 'cancelled'
+      and bill.due_date is not null
+      and bill.total_incl_vat > public.v1_accounts_supplier_paid_amount(bill.id)
+      and project.can_view_accounts
+      and project.can_view_supplier
+
+    union all
+
+    -- Controlled Accounts documents. v1_document_readable repeats storage
+    -- classification and entity-access checks for every row.
+    select 'documents', document.id, link.project_id,
+      project.project_ref, project.name, project.client_name,
+      version.original_file_name,
+      metadata.document_type,
+      case when metadata.archived_at is null then 'active' else 'archived' end,
+      null::numeric,
+      null::numeric,
+      null::numeric,
+      version.uploaded_at::date,
+      null::date,
+      version.uploaded_at,
+      false,
+      'document',
+      project.currency_code,
+      jsonb_build_object(
+        'classification', document.classification,
+        'mime_type', version.mime_type,
+        'byte_size', version.byte_size,
+        'revision_number', version.revision_number,
+        'entity_type', link.entity_type,
+        'entity_id', link.entity_id,
+        'uploader', public.v1_safe_profile_display_name(
+          uploader.display_name, uploader.auth_user_id
+        )
+      )
+    from public.v1_accounts_document_metadata metadata
+    join public.v1_documents document on document.id = metadata.document_id
+    join public.v1_document_versions version on version.id = document.current_version_id
+    join lateral (
+      select distinct on (candidate.project_id)
+        candidate.project_id,
+        candidate.entity_type,
+        candidate.entity_id
+      from public.v1_document_links candidate
+      where candidate.document_id = document.id
+        and candidate.removed_at is null
+        and candidate.project_id is not null
+      order by
+        candidate.project_id,
+        candidate.linked_at,
+        candidate.id
+    ) link on true
+    join project_context project on project.id = link.project_id
+    join public.v1_profiles uploader
+      on uploader.auth_user_id = version.uploaded_by_auth_user_id
+    where v_section = 'documents'
+      and project.can_view_accounts
+      and public.v1_document_readable(document.id)
+
+    union all
+
+    -- Portfolio-wide append-only Accounts activity. Commercial before/after
+    -- payloads deliberately remain in the existing project-scoped inspector.
+    select 'activity', audit.id, audit.project_id,
+      project.project_ref, project.name,
+      public.v1_safe_profile_display_name(actor.display_name, actor.auth_user_id),
+      audit.event_type,
+      audit.entity_type,
+      'recorded',
+      null::numeric,
+      null::numeric,
+      null::numeric,
+      audit.occurred_at::date,
+      null::date,
+      audit.occurred_at,
+      false,
+      'activity',
+      project.currency_code,
+      jsonb_build_object(
+        'actor_exact_role', coalesce(audit.actor_exact_role, audit.actor_role),
+        'reason', audit.reason,
+        'entity_id', audit.entity_id
+      )
+    from public.v1_audit_events audit
+    join project_context project on project.id = audit.project_id
+    join public.v1_profiles actor on actor.auth_user_id = audit.actor_auth_user_id
+    where v_section = 'activity'
+      and (audit.event_type like 'accounts.%' or audit.entity_type like 'accounts_%')
+      and project.can_view_accounts
+      and (
+        audit.entity_type not in ('accounts_supplier_bill', 'accounts_supplier_payment')
+        or project.can_view_supplier
+      )
+  ), filtered as materialized (
+    select *
+    from office_rows row_item
+    where (v_status is null or lower(row_item.status) = v_status)
+      and (
+        v_search is null
+        or row_item.project_reference ilike '%' || v_search || '%'
+        or row_item.project_name ilike '%' || v_search || '%'
+        or coalesce(row_item.party, '') ilike '%' || v_search || '%'
+        or row_item.reference ilike '%' || v_search || '%'
+        or coalesce(row_item.secondary_reference, '') ilike '%' || v_search || '%'
+      )
+  ), page as (
+    select *
+    from filtered
+    order by
+      case when v_section = 'due_schedule' then due_date end asc nulls last,
+      occurred_at desc,
+      record_id desc
+    limit p_limit offset p_offset
+  )
+  select
+    (select count(*) from filtered),
+    -- With no status filter, Receipts & PDC lists a cleared cheque beside the
+    -- receipt it became, and a reversal beside the payment it undoes. Count each
+    -- sum of money once. A filtered list is one kind of row, so it simply adds up.
+    (select coalesce(sum(case
+        when v_section <> 'client_payments' or v_status is not null then amount
+        when status = 'reversed' then -amount
+        when status in ('cleared', 'replaced', 'returned', 'bounced', 'cancelled') then 0
+        else amount
+      end), 0) from filtered),
+    (select coalesce(sum(secondary_amount), 0) from filtered),
+    (select coalesce(sum(balance_amount), 0) from filtered),
+    (select count(*) from filtered where action_required),
+    coalesce(jsonb_agg(jsonb_build_object(
+      'record_id', page.record_id,
+      'project_id', page.project_id,
+      'project_reference', page.project_reference,
+      'project_name', page.project_name,
+      'party', page.party,
+      'reference', page.reference,
+      'secondary_reference', page.secondary_reference,
+      'status', page.status,
+      'amount', case when page.amount is null then null else page.amount::text end,
+      'secondary_amount', case
+        when page.secondary_amount is null then null
+        else page.secondary_amount::text
+      end,
+      'balance_amount', case
+        when page.balance_amount is null then null
+        else page.balance_amount::text
+      end,
+      'event_date', page.event_date,
+      'due_date', page.due_date,
+      'occurred_at', page.occurred_at,
+      'action_required', page.action_required,
+      'record_kind', page.record_kind,
+      'currency_code', coalesce(page.currency_code, 'AED'),
+      'metadata', page.metadata
+    ) order by
+      case when v_section = 'due_schedule' then page.due_date end asc nulls last,
+      page.occurred_at desc,
+      page.record_id desc), '[]'::jsonb)
+  into v_total, v_amount, v_secondary, v_balance, v_action_count, v_items
+  from page;
+
+  return jsonb_build_object(
+    'schema_version', 8,
+    'section', v_section,
+    'total', v_total,
+    'limit', p_limit,
+    'offset', p_offset,
+    'summary', jsonb_build_object(
+      'amount', v_amount::text,
+      'secondary_amount', v_secondary::text,
+      'balance_amount', v_balance::text,
+      'action_count', v_action_count
+    ),
+    'items', v_items
   );
 end;
 $$;

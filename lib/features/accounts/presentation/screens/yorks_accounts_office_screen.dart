@@ -589,16 +589,6 @@ class _OfficeMetricCard extends StatelessWidget {
           ),
           if (item.caption case final caption?)
             Text(caption, style: AppTypography.labelSmall),
-          const Spacer(),
-          ExcludeSemantics(
-            child: SizedBox(
-              width: double.infinity,
-              height: 16,
-              child: CustomPaint(
-                painter: _OfficePositionPainter(color: item.color),
-              ),
-            ),
-          ),
         ],
       ),
     ),
@@ -636,36 +626,6 @@ class _OfficeSkeletonBlock extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
     ),
   );
-}
-
-class _OfficePositionPainter extends CustomPainter {
-  const _OfficePositionPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final line = Paint()
-      ..color = color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path()..moveTo(0, size.height - 2);
-    for (var index = 1; index <= 7; index++) {
-      final t = index / 7;
-      final baseline = size.height - 2 - (size.height * .72 * t);
-      path.lineTo(
-        size.width * t,
-        (baseline + (index.isEven ? 2 : -1)).clamp(1, size.height),
-      );
-    }
-    canvas.drawPath(path, line);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OfficePositionPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 class _OfficeFilterBar extends StatelessWidget {

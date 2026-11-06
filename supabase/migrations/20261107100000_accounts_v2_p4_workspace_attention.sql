@@ -7,6 +7,8 @@
 --   * an Accountant, who cannot start a claim, was told to start one.
 -- `claim_ready` now means checked, the new `claim_draft` means waiting to be
 -- checked, and `claim_empty` / `no_claim` go only to those who can act on them.
+-- A site suggestion waiting for confirmation now shows as `progress_suggested` to
+-- those who can confirm it.
 --
 -- Additive: CREATE OR REPLACE of the read projection only. No table or row
 -- changes. Rollback: re-apply the function from
@@ -45,6 +47,8 @@ declare
   v_open_claim_gross numeric := 0;
   v_open_claim_status text;
   v_can_prepare boolean := false;
+  v_can_confirm boolean := false;
+  v_suggestions integer := 0;
   v_building_count integer := 0;
   v_stage_count integer := 0;
   v_invoice_count integer := 0;
@@ -67,6 +71,7 @@ begin
   v_can_values := public.v1_current_user_has_capability('view_project_commercial_values', p_project_id);
   v_can_supplier := public.v1_current_user_has_capability('view_supplier_costs', p_project_id);
   v_can_prepare := public.v1_current_user_has_capability('prepare_client_claim', p_project_id);
+  v_can_confirm := public.v1_current_user_has_capability('confirm_billing_progress', p_project_id);
   if not v_can_view and not v_can_supplier then
     raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode = '42501'; end if;
   select * into v_project from public.v1_projects where id = p_project_id;
@@ -181,6 +186,17 @@ begin
       -- Only someone who can start a claim is asked to start one.
       v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','no_claim',
         'action_key','start_claim','target_type','project','target_id',p_project_id));
+    end if;
+    if v_can_confirm then
+      select count(*) into v_suggestions
+      from public.v1_accounts_billing_progress bp
+      where bp.baseline_revision_id = v_baseline.id
+        and bp.suggested_percent > bp.confirmed_percent;
+      if v_suggestions > 0 then
+        v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','progress_suggested',
+          'action_key','open_claim','target_type','project','target_id',p_project_id,
+          'params', jsonb_build_object('count', v_suggestions)));
+      end if;
     end if;
     if v_pdc > 0 then
       v_attention := v_attention || jsonb_build_array(jsonb_build_object('severity','pri','kind','cheques_in_hand',

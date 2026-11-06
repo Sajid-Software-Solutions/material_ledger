@@ -5282,6 +5282,30 @@ abstract final class YorksV1AccountsStrings {
       'ur': "PO / LPO فائل شامل کریں",
       'hi': "PO / LPO फ़ाइल जोड़ें",
     },
+    'v2_cell_suggested': {
+      'en': "Suggested",
+      'ar': "مقترح",
+      'ur': "تجویز کردہ",
+      'hi': "सुझाया गया",
+    },
+    'v2_cell_use_suggestion': {
+      'en': "Use this",
+      'ar': "استخدم هذا",
+      'ur': "یہ استعمال کریں",
+      'hi': "यह उपयोग करें",
+    },
+    'v2_cell_saved': {
+      'en': "Progress update saved",
+      'ar': "تم حفظ تحديث التقدم",
+      'ur': "پیش رفت کی تازہ کاری محفوظ ہوئی",
+      'hi': "प्रगति अपडेट सहेजा गया",
+    },
+    'v2_att_progress_suggested': {
+      'en': "Site progress is waiting for your confirmation",
+      'ar': "تقدم الموقع بانتظار تأكيدك",
+      'ur': "سائٹ کی پیش رفت آپ کی تصدیق کی منتظر ہے",
+      'hi': "साइट की प्रगति आपकी पुष्टि की प्रतीक्षा में है",
+    },
   };
 
   static String text(AppLanguage language, String key) {

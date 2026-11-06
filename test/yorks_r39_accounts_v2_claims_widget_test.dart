@@ -214,6 +214,28 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('shows a site suggestion with who made it', (tester) async {
+      _wideSurface(tester);
+      final json = _workbenchJson();
+      (json['cells'] as List).cast<Map<String, dynamic>>().first.addAll({
+        'suggested_percent': '40.0000',
+        'suggested_by': 'Sam Site',
+      });
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: YorksAccountsWorkbench.fromJson(json),
+            language: en,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('40%'), findsWidgets);
+      expect(find.textContaining('Sam Site'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('does not tell someone who cannot confirm to confirm', (
       tester,
     ) async {
