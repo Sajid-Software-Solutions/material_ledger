@@ -3035,6 +3035,26 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'کنٹریکٹ',
       'hi': 'कॉन्ट्रैक्ट',
     },
+    'v2_contract_subtitle': {
+      'en': 'From the work order. Used on every invoice.',
+      'ar': 'من أمر العمل. يُستخدم في كل فاتورة.',
+      'ur': 'ورک آرڈر سے۔ ہر انوائس پر استعمال ہوتا ہے۔',
+      'hi': 'वर्क ऑर्डर से। हर इनवॉइस पर प्रयुक्त।',
+    },
+    'v2_contract_edit_note': {
+      'en':
+          'Everything here can be edited. Issued invoices keep their amounts — '
+          'changes apply from the next claim and are recorded in History.',
+      'ar':
+          'كل شيء هنا قابل للتعديل. تحتفظ الفواتير الصادرة بمبالغها — تُطبَّق '
+          'التغييرات من المطالبة التالية وتُسجَّل في السجل.',
+      'ur':
+          'یہاں ہر چیز میں ترمیم ہو سکتی ہے۔ جاری شدہ انوائسز اپنی رقوم برقرار '
+          'رکھتی ہیں — تبدیلیاں اگلے کلیم سے لاگو ہوتی ہیں اور ہسٹری میں درج ہوتی ہیں۔',
+      'hi':
+          'यहाँ सब कुछ संपादित किया जा सकता है। जारी इनवॉइस अपनी राशि रखते हैं — '
+          'परिवर्तन अगले क्लेम से लागू होते हैं और हिस्ट्री में दर्ज होते हैं।',
+    },
     'v2_contract_value': {
       'en': 'Contract value (excl. VAT)',
       'ar': 'قيمة العقد (بدون الضريبة)',

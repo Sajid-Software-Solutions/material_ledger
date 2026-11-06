@@ -119,17 +119,46 @@ class AccountsV2Card extends StatelessWidget {
   }
 }
 
-/// Small section heading used at the top of workspace cards.
+/// Small section heading used at the top of workspace cards. An optional
+/// [number] draws the prototype's numbered-step badge; an optional [subtitle]
+/// adds a muted line beneath the title.
 class AccountsV2SectionTitle extends StatelessWidget {
-  const AccountsV2SectionTitle(this.title, {super.key, this.trailing});
+  const AccountsV2SectionTitle(
+    this.title, {
+    super.key,
+    this.trailing,
+    this.number,
+    this.subtitle,
+  });
 
   final String title;
   final Widget? trailing;
+  final int? number;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final titleRow = Row(
       children: [
+        if (number != null) ...[
+          Container(
+            width: 24,
+            height: 24,
+            decoration: const BoxDecoration(
+              color: AppColors.blueContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$number',
+              style: AppTypography.labelSmall.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
         Expanded(
           child: Text(
             title,
@@ -137,6 +166,23 @@ class AccountsV2SectionTitle extends StatelessWidget {
           ),
         ),
         ?trailing,
+      ],
+    );
+    if (subtitle == null) return titleRow;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        titleRow,
+        Padding(
+          padding: EdgeInsets.only(
+            left: number != null ? 24 + AppSpacing.sm : 0,
+            top: AppSpacing.xxs,
+          ),
+          child: Text(
+            subtitle!,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+        ),
       ],
     );
   }

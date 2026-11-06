@@ -316,6 +316,8 @@ Widget _summaryTab() => AccountsV2SummaryTab(
 Widget _contractTab() => AccountsV2ContractTab(
   setup: YorksAccountsCommercialSetupRead.fromJson(_contractJson()),
   language: _en,
+  canEdit: true,
+  onSave: (_) async => null,
 );
 
 Widget _claimsTab() => AccountsV2ClaimsTab(

@@ -82,6 +82,10 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
     }
 
     final main = <Widget>[
+      if (widget.canEdit) ...[
+        _EditNote(language: language),
+        const SizedBox(height: AppSpacing.lg),
+      ],
       if (_canEdit || _itemsBlocked) ...[
         _EditBar(
           language: language,
@@ -195,7 +199,11 @@ class _ContractHeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AccountsV2SectionTitle(_t('v2_contract_summary_title')),
+          AccountsV2SectionTitle(
+            _t('v2_contract_summary_title'),
+            number: 1,
+            subtitle: _t('v2_contract_subtitle'),
+          ),
           const SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: AppSpacing.xl,
@@ -283,6 +291,7 @@ class _BuildingsCard extends StatelessWidget {
         children: [
           AccountsV2SectionTitle(
             _t('v2_buildings_title'),
+            number: 2,
             trailing: _PercentBadge(
               percent: setup.buildingTotalPercent,
               ok: setup.buildingsHundred,
@@ -329,6 +338,7 @@ class _StagesCard extends StatelessWidget {
         children: [
           AccountsV2SectionTitle(
             _t('v2_stages_title'),
+            number: 3,
             trailing: _PercentBadge(
               percent: setup.stageTotalPercent,
               ok: setup.stagesHundred,
@@ -518,7 +528,7 @@ class _InvoiceNumberingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AccountsV2SectionTitle(_t('v2_invoice_numbering_title')),
+          AccountsV2SectionTitle(_t('v2_invoice_numbering_title'), number: 4),
           const SizedBox(height: AppSpacing.md),
           Wrap(
             spacing: AppSpacing.xl,
@@ -775,6 +785,42 @@ class _CommercialHidden extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Edit note ───────────────────────────────────────────────────────────────
+
+/// The prototype's blue note strip above the form: edits apply from the next
+/// claim and issued invoices keep their amounts.
+class _EditNote extends StatelessWidget {
+  const _EditNote({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.blueContainer,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              accountsV2Text(language, 'v2_contract_edit_note'),
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
