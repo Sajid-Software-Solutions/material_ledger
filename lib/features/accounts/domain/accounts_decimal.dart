@@ -6,7 +6,12 @@
 final class YorksAccountsDecimal implements Comparable<YorksAccountsDecimal> {
   const YorksAccountsDecimal._(this._coefficient, this._scale);
 
-  static final RegExp _pattern = RegExp(r'^([+-]?)(\d{1,30})(?:\.(\d{1,8}))?$');
+  // Fraction digits are not capped at a display precision: unrounded Postgres
+  // numerics such as a stage value of 429800.000000000000 must parse exactly.
+  // Command inputs enforce their own limits through `fractionDigits`.
+  static final RegExp _pattern = RegExp(
+    r'^([+-]?)(\d{1,30})(?:\.(\d{1,30}))?$',
+  );
 
   final BigInt _coefficient;
   final int _scale;

@@ -45,7 +45,8 @@ Map<String, dynamic> _workbenchJson({
       'over_claimed': false,
       'items': ?items,
       if (commercial) ...{
-        'stage_value': '100000.00',
+        // The real RPC sends stage values unrounded (v1_accounts_stage_value).
+        'stage_value': '429800.000000000000',
         'eligible': '50000.00',
         'claimed': '0.00',
         'available': '50000.00',

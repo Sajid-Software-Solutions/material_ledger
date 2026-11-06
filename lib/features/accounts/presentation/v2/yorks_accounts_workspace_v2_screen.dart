@@ -10,7 +10,9 @@
 library;
 
 import 'package:crypto/crypto.dart' as crypto;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
@@ -60,6 +62,68 @@ class _YorksAccountsWorkspaceV2ScreenState
   void _select(YorksAccountsWorkspaceV2Tab tab) {
     if (tab == _tab) return;
     setState(() => _tab = tab);
+    _refreshTab(tab);
+    _rememberTab(tab);
+  }
+
+  /// A change on one tab affects the others (saving a contract creates the
+  /// progress grid; issuing an invoice moves the claim), so a tab re-fetches when
+  /// opened. Each controller keeps its last data on screen meanwhile.
+  void _refreshTab(YorksAccountsWorkspaceV2Tab tab) {
+    final id = widget.projectId;
+    void refreshIfLoaded<T extends StateNotifier<Object?>>(
+      ProviderListenable<T> notifier,
+      ProviderBase<Object?> provider,
+      Future<void> Function(T) refresh,
+    ) {
+      if (ref.exists(provider)) refresh(ref.read(notifier));
+    }
+
+    final workspace = yorksAccountsWorkspaceControllerProvider(id);
+    refreshIfLoaded(workspace.notifier, workspace, (c) => c.refresh());
+    switch (tab) {
+      case YorksAccountsWorkspaceV2Tab.summary:
+        break;
+      case YorksAccountsWorkspaceV2Tab.contract:
+        final contract = yorksAccountsContractControllerProvider(id);
+        refreshIfLoaded(contract.notifier, contract, (c) => c.refresh());
+        final variations = yorksAccountsVariationsControllerProvider(id);
+        refreshIfLoaded(variations.notifier, variations, (c) => c.refresh());
+      case YorksAccountsWorkspaceV2Tab.claims:
+        final workbench = yorksAccountsWorkbenchControllerProvider(id);
+        refreshIfLoaded(workbench.notifier, workbench, (c) => c.refresh());
+        final claims = yorksAccountsClaimsListControllerProvider(id);
+        refreshIfLoaded(claims.notifier, claims, (c) => c.refresh());
+      case YorksAccountsWorkspaceV2Tab.invoices:
+        final invoices = yorksAccountsInvoicesControllerProvider(id);
+        refreshIfLoaded(invoices.notifier, invoices, (c) => c.refresh());
+        final pdcs = yorksAccountsPdcRegisterControllerProvider(id);
+        refreshIfLoaded(pdcs.notifier, pdcs, (c) => c.refresh());
+      case YorksAccountsWorkspaceV2Tab.supplierBills:
+        final bills = yorksAccountsSupplierBillsControllerProvider(id);
+        refreshIfLoaded(bills.notifier, bills, (c) => c.refresh());
+      case YorksAccountsWorkspaceV2Tab.history:
+        final history = yorksAccountsHistoryControllerProvider(id);
+        refreshIfLoaded(history.notifier, history, (c) => c.refresh());
+    }
+  }
+
+  /// Keeps the address bar on the open tab, so a browser refresh or a shared
+  /// link returns here, without rebuilding the page through a navigation.
+  void _rememberTab(YorksAccountsWorkspaceV2Tab tab) {
+    final segment = switch (tab) {
+      YorksAccountsWorkspaceV2Tab.summary => 'overview',
+      YorksAccountsWorkspaceV2Tab.contract => 'contract',
+      YorksAccountsWorkspaceV2Tab.claims => 'claims',
+      YorksAccountsWorkspaceV2Tab.invoices => 'client-invoices',
+      YorksAccountsWorkspaceV2Tab.supplierBills => 'supplier-bills',
+      YorksAccountsWorkspaceV2Tab.history => 'history',
+    };
+    if (!kIsWeb) return;
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse('/yorks/projects/${widget.projectId}/accounts/$segment'),
+      replace: true,
+    );
   }
 
   YorksAccountsWorkspaceV2Tab _tabForAction(String? actionKey) =>
@@ -253,6 +317,14 @@ class _TabChip extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
           onTap: onTap,
+          // The theme's hover colour is light; on the selected blue chip it would
+          // wash out the white label.
+          hoverColor: selected
+              ? AppColors.onPrimary.withValues(alpha: 0.08)
+              : null,
+          focusColor: selected
+              ? AppColors.onPrimary.withValues(alpha: 0.12)
+              : null,
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: AppSpacing.minTapTarget,

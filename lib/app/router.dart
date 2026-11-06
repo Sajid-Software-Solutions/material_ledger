@@ -162,6 +162,12 @@ abstract final class RoutePaths {
       '/yorks/projects/:projectId/accounts';
   static const String yorksV1ProjectAccountsOverview =
       '/yorks/projects/:projectId/accounts/overview';
+  static const String yorksV1ProjectAccountsContract =
+      '/yorks/projects/:projectId/accounts/contract';
+  static const String yorksV1ProjectAccountsClaims =
+      '/yorks/projects/:projectId/accounts/claims';
+  static const String yorksV1ProjectAccountsHistory =
+      '/yorks/projects/:projectId/accounts/history';
   static const String yorksV1ProjectAccountsBilling =
       '/yorks/projects/:projectId/accounts/billing';
   static const String yorksV1ProjectAccountsInvoices =
@@ -1805,6 +1811,38 @@ GoRouter createAppRouter({
           YorksV1ProjectWorkspaceScreen(
             projectId: state.pathParameters['projectId'] ?? '',
             initialTab: YorksV1ProjectWorkspaceTab.accounts,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.yorksV1ProjectAccountsContract,
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          YorksV1ProjectWorkspaceScreen(
+            projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.yorksV1ProjectAccountsClaims,
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          YorksV1ProjectWorkspaceScreen(
+            projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.billing,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.yorksV1ProjectAccountsHistory,
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          YorksV1ProjectWorkspaceScreen(
+            projectId: state.pathParameters['projectId'] ?? '',
+            initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            initialAccountsTab: YorksProjectAccountsTab.activity,
           ),
         ),
       ),

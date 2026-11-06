@@ -101,7 +101,8 @@ final class AccountsV2Format {
   /// Grouped money text, e.g. `AED 1,000,000.00`. `—` for a null value.
   String money(YorksAccountsDecimal? value, {bool withCurrency = true}) {
     if (value == null) return '—';
-    final raw = value.canonicalText;
+    // Rounded for display only: the server sends some values unrounded.
+    final raw = value.displayText(maximumFractionDigits: 2);
     final negative = raw.startsWith('-');
     final parts = (negative ? raw.substring(1) : raw).split('.');
     final whole = parts.first.replaceAllMapped(
@@ -181,6 +182,49 @@ class AccountsV2DateField extends StatelessWidget {
           onPressed: () => _pick(context),
         ),
       ),
+    );
+  }
+}
+
+/// KPI tiles in even rows. Tiles in a short last row share its full width, so a
+/// row never ends in an orphan with a gap beside it.
+class AccountsV2KpiGrid extends StatelessWidget {
+  const AccountsV2KpiGrid({super.key, required this.tiles});
+
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    const spacing = AppSpacing.md;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fit = (constraints.maxWidth / 200).floor().clamp(1, 5);
+        // Avoid a lone tile on the last row: 5 at a 4-across width becomes 3 + 2.
+        final perRow = (tiles.length % fit == 1 && fit > 1) ? fit - 1 : fit;
+        final rows = <List<Widget>>[
+          for (var i = 0; i < tiles.length; i += perRow)
+            tiles.sublist(i, (i + perRow).clamp(0, tiles.length)),
+        ];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (r, row) in rows.indexed) ...[
+              if (r > 0) const SizedBox(height: spacing),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (i, tile) in row.indexed) ...[
+                      if (i > 0) const SizedBox(width: spacing),
+                      Expanded(child: tile),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

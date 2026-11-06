@@ -212,21 +212,7 @@ class _KpiRow extends StatelessWidget {
           value: costVsInvoiced,
         ),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final perRow = (constraints.maxWidth / 220).floor().clamp(1, 4);
-        const spacing = AppSpacing.md;
-        final tileWidth =
-            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
-          ],
-        );
-      },
-    );
+    return AccountsV2KpiGrid(tiles: tiles);
   }
 }
 

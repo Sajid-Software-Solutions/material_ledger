@@ -270,25 +270,34 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
         _EditNote(language: language),
         const SizedBox(height: AppSpacing.lg),
       ],
-      if (_canEdit || _itemsBlocked) ...[
-        _EditBar(
-          language: language,
-          canEdit: _canEdit,
-          itemsBlocked: _itemsBlocked,
-          onEdit: () => setState(() => _editing = true),
-        ),
+      if (_itemsBlocked) ...[
+        _ItemsVaryNote(language: language),
         const SizedBox(height: AppSpacing.lg),
       ],
-      if (widget.canEdit &&
-          widget.onImportMasterFile != null &&
-          widget.onApplyImport != null) ...[
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: OutlinedButton.icon(
-            onPressed: () => _import(context),
-            icon: const Icon(Icons.upload_file_outlined, size: 16),
-            label: Text(accountsV2Text(language, 'v2_import_master')),
-          ),
+      if (_canEdit ||
+          (widget.canEdit &&
+              widget.onImportMasterFile != null &&
+              widget.onApplyImport != null)) ...[
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            if (widget.canEdit &&
+                widget.onImportMasterFile != null &&
+                widget.onApplyImport != null)
+              OutlinedButton.icon(
+                onPressed: () => _import(context),
+                icon: const Icon(Icons.upload_file_outlined, size: 16),
+                label: Text(accountsV2Text(language, 'v2_import_master')),
+              ),
+            if (_canEdit)
+              FilledButton.icon(
+                onPressed: () => setState(() => _editing = true),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(accountsV2Text(language, 'v2_edit')),
+              ),
+          ],
         ),
         const SizedBox(height: AppSpacing.lg),
       ],
@@ -1324,45 +1333,26 @@ class _EditNote extends StatelessWidget {
   }
 }
 
-// ─── Edit bar ────────────────────────────────────────────────────────────────
-
-class _EditBar extends StatelessWidget {
-  const _EditBar({
-    required this.language,
-    required this.canEdit,
-    required this.itemsBlocked,
-    required this.onEdit,
-  });
+/// Shown when a contract's item lists differ between buildings.
+class _ItemsVaryNote extends StatelessWidget {
+  const _ItemsVaryNote({required this.language});
 
   final AppLanguage language;
-  final bool canEdit;
-  final bool itemsBlocked;
-  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    if (itemsBlocked) {
-      return AccountsV2Card(
-        child: Row(
-          children: [
-            const Icon(Icons.info_outline, size: 18, color: AppColors.muted),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                accountsV2Text(language, 'v2_edit_items_blocked'),
-                style: AppTypography.bodyMedium,
-              ),
+    return AccountsV2Card(
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 18, color: AppColors.muted),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              accountsV2Text(language, 'v2_edit_items_blocked'),
+              style: AppTypography.bodyMedium,
             ),
-          ],
-        ),
-      );
-    }
-    return Align(
-      alignment: Alignment.centerRight,
-      child: FilledButton.icon(
-        onPressed: onEdit,
-        icon: const Icon(Icons.edit_outlined, size: 16),
-        label: Text(accountsV2Text(language, 'v2_edit')),
+          ),
+        ],
       ),
     );
   }

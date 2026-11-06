@@ -418,22 +418,7 @@ class _KpiRow extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Target ~210px tiles; at least one, at most five across.
-        final perRow = (constraints.maxWidth / 210).floor().clamp(1, 5);
-        final spacing = AppSpacing.md;
-        final tileWidth =
-            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
-          ],
-        );
-      },
-    );
+    return AccountsV2KpiGrid(tiles: tiles);
   }
 }
 

@@ -780,7 +780,9 @@ class _ContractEditorState extends State<_ContractEditor> {
           '${model.buildingTotal.displayText(maximumFractionDigits: 2)}%',
         'stages_total' =>
           '${model.stageTotal.displayText(maximumFractionDigits: 2)}%',
-        _ => model.contractValue.displayText(maximumFractionDigits: 2),
+        _ => AccountsV2Format(
+          currencyCode: model.currencyCode,
+        ).money(model.contractValue),
       };
 
   static String _checkLabelKey(String key) => switch (key) {

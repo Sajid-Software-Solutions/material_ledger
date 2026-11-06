@@ -9341,7 +9341,13 @@ class _ProjectAccountsEmbed extends ConsumerWidget {
     if (useV2) {
       return YorksAccountsWorkspaceV2Screen(
         projectId: projectId,
-        initialTab: _mapTab(initialTab),
+        // V1 has no Contract tab to map from, so its deep link is read directly.
+        initialTab:
+            GoRouter.maybeOf(context)?.routeInformationProvider.value.uri.path
+                    .endsWith('/accounts/contract') ==
+                true
+            ? YorksAccountsWorkspaceV2Tab.contract
+            : _mapTab(initialTab),
       );
     }
     return YorksProjectAccountsScreen(
