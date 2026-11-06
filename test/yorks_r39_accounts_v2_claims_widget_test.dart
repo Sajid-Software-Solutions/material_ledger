@@ -102,7 +102,14 @@ Map<String, dynamic> _workbenchJson({
             'record_version': 2,
             'claim_period_start': '2026-08-01',
             'claim_period_end': '2026-08-25',
-            if (commercial) 'claimed_ex_vat': '50000.00',
+            if (commercial) ...{
+              'claimed_ex_vat': '50000.00',
+              'vat_amount': '2500.00',
+              'net_payable': '52500.00',
+              'retention_percent': '10.0000',
+              'retention_preview': '5000.00',
+              'net_payable_after_retention': '47500.00',
+            },
             'lines': [
               {'progress_entry_id': 'pe-design'},
             ],
@@ -154,6 +161,26 @@ void main() {
       expect(find.text('AHU units'), findsOneWidget);
       // Commercial columns present.
       expect(find.text('AED 50,000.00'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('claim panel previews the retention hold-back', (tester) async {
+      _wideSurface(tester);
+      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+      await tester.pumpWidget(
+        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
+      );
+      await tester.pumpAndSettle();
+
+      // §28 R-1/R-4 preview: retention (shown as a deduction) and the resulting
+      // net-after-retention payable.
+      expect(
+        find.text('${t('v2_claim_retention_preview')} · 10%'),
+        findsOneWidget,
+      );
+      expect(find.text('− AED 5,000.00'), findsOneWidget);
+      expect(find.text(t('v2_claim_net_after_retention')), findsOneWidget);
+      expect(find.text('AED 47,500.00'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

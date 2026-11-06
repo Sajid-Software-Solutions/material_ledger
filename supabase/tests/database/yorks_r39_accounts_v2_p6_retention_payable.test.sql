@@ -53,6 +53,10 @@ reset role;
 -- Admin: issue (freezes retention), certify the full 50,000 ex-VAT.
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
+-- Section 28 R-1/R-4: the claim side panel previews the retention the profile
+-- would currently hold back, BEFORE any invoice exists. Read the workbench while
+-- the claim is still pre-issue (ready_for_accounts).
+insert into v1_r39_p6r select 'wb', public.v1_get_claim_workbench('39d18000-0000-4000-8000-000000000001',null);
 insert into v1_r39_p6r select 'issue', public.v1_issue_client_invoice('39d18000-0000-4000-8000-000000000001',(select (payload->>'claim_id')::uuid from v1_r39_p6r where result_key='claimA'),2,null,date '2026-08-26',date '2026-08-26','39f99000-0000-4000-8000-000000000077');
 select public.v1_record_client_certification('39d18000-0000-4000-8000-000000000001',(select (payload->>'invoice_id')::uuid from v1_r39_p6r where result_key='issue'),
   2,'CERT-1',date '2026-08-27','50000.00',null,'39f99000-0000-4000-8000-000000000078');
@@ -75,6 +79,9 @@ select is((select v->>'still_due' from jsonb_array_elements((select payload from
 select is((select payload->>'still_due' from v1_r39_p6r where result_key='pay'),'0.00','Paying the retention-reduced due clears the balance');
 select is((select payload->'receivables'->>'still_due' from v1_r39_p6r where result_key='overview'),'47500.00','Project overview outstanding nets retention');
 select is((select (payload->'rows'->0->>10) from v1_r39_p6r where result_key='export'),'47500.00','project_summary export Still Due nets retention');
+select is((select payload->'claim'->>'retention_percent' from v1_r39_p6r where result_key='wb'),'10.0000','Claim panel exposes the profile retention percent');
+select is((select payload->'claim'->>'retention_preview' from v1_r39_p6r where result_key='wb'),'5000.00','Claim panel previews retention = 10% of the 50,000 gross');
+select is((select payload->'claim'->>'net_payable_after_retention' from v1_r39_p6r where result_key='wb'),'47500.00','Claim panel previews net-after-retention = 52,500 − 5,000');
 
 select finish();
 rollback;

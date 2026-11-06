@@ -533,6 +533,20 @@ class _ClaimSidePanel extends StatelessWidget {
       claim['net_payable'] as String? ?? '',
     );
     final thisClaimPercent = claim['this_claim_percent'] as String?;
+    // §28 R-1/R-4 preview: retention the profile would currently hold back, and
+    // the net payable after it. Commercial only; absent until a retention % is
+    // set, so the panel renders the plain net payable when retention is zero.
+    final retentionPercent = YorksAccountsDecimal.tryParse(
+      claim['retention_percent'] as String? ?? '',
+    );
+    final retentionPreview = YorksAccountsDecimal.tryParse(
+      claim['retention_preview'] as String? ?? '',
+    );
+    final netAfterRetention = YorksAccountsDecimal.tryParse(
+      claim['net_payable_after_retention'] as String? ?? '',
+    );
+    final showRetention =
+        retentionPreview != null && retentionPreview.isPositive;
     final lineCount = (claim['lines'] as List?)?.length ?? 0;
     final claimId = claim['claim_id'] as String?;
     final version = (claim['record_version'] as num?)?.toInt() ?? 1;
@@ -575,8 +589,23 @@ class _ClaimSidePanel extends StatelessWidget {
               _PanelRow(
                 label: _t('v2_claim_net_payable'),
                 value: format.money(net),
-                emphasize: true,
+                emphasize: !showRetention,
               ),
+            if (showRetention) ...[
+              _PanelRow(
+                label: retentionPercent != null
+                    ? '${_t('v2_claim_retention_preview')} · '
+                          '${format.percent(retentionPercent)}'
+                    : _t('v2_claim_retention_preview'),
+                value: '− ${format.money(retentionPreview)}',
+              ),
+              if (netAfterRetention != null)
+                _PanelRow(
+                  label: _t('v2_claim_net_after_retention'),
+                  value: format.money(netAfterRetention),
+                  emphasize: true,
+                ),
+            ],
             if (thisClaimPercent != null)
               _PanelRow(
                 label: _t('v2_claim_of_contract'),

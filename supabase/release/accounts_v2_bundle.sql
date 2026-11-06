@@ -1,7 +1,7 @@
 -- =============================================================================
 -- R39 Accounts Workspace V2 — bundled migration apply script
 -- =============================================================================
--- Generated from the 19 V2 migration files, concatenated in dependency order.
+-- Generated from the 20 V2 migration files, concatenated in dependency order.
 -- Purpose: apply all V2 database objects in ONE paste in the Supabase SQL
 -- editor, instead of running the files by hand.
 --
@@ -37,7 +37,7 @@ BEGIN;
 
 
 -- #############################################################################
--- FILE 1 / 19 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
+-- FILE 1 / 20 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P1: dimension claim cap and single eligible source
@@ -257,7 +257,7 @@ revoke all on function public.v1_accounts_validate_claim_lines(uuid, uuid, jsonb
 
 
 -- #############################################################################
--- FILE 2 / 19 : 20261105101500_accounts_v2_p2_item_breakdown.sql
+-- FILE 2 / 20 : 20261105101500_accounts_v2_p2_item_breakdown.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 1): item-quantity billing foundation
@@ -501,7 +501,7 @@ revoke all on function public.v1_accounts_progress_eligible_amount(uuid)
 
 
 -- #############################################################################
--- FILE 3 / 19 : 20261105103000_accounts_v2_p2_save_setup.sql
+-- FILE 3 / 20 : 20261105103000_accounts_v2_p2_save_setup.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 2): save-setup command with carry-forward
@@ -798,7 +798,7 @@ grant execute on function public.v1_save_project_commercial_setup(uuid, integer,
 
 
 -- #############################################################################
--- FILE 4 / 19 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
+-- FILE 4 / 20 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 1): claim workbench read + reopen
@@ -1007,7 +1007,7 @@ grant execute on function public.v1_reopen_client_claim(uuid, uuid, integer, tex
 
 
 -- #############################################################################
--- FILE 5 / 19 : 20261105113000_accounts_v2_p3_invoice_issue.sql
+-- FILE 5 / 20 : 20261105113000_accounts_v2_p3_invoice_issue.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2a): invoice numbering, issue, document
@@ -1297,7 +1297,7 @@ revoke all on function public.v1_accounts_build_invoice_document(uuid, uuid, tex
 
 
 -- #############################################################################
--- FILE 6 / 19 : 20261105120000_accounts_v2_p3_invoice_revise.sql
+-- FILE 6 / 20 : 20261105120000_accounts_v2_p3_invoice_revise.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2b): invoice revision (R.n)
@@ -1527,7 +1527,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 7 / 19 : 20261105130000_accounts_v2_p3_save_workbench.sql
+-- FILE 7 / 20 : 20261105130000_accounts_v2_p3_save_workbench.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2c): save claim workbench
@@ -1750,7 +1750,7 @@ grant execute on function public.v1_save_claim_workbench(uuid, text, date, date,
 
 
 -- #############################################################################
--- FILE 8 / 19 : 20261105140000_accounts_v2_p4_company_settings.sql
+-- FILE 8 / 20 : 20261105140000_accounts_v2_p4_company_settings.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part a): company letterhead/bank settings (D9)
@@ -1867,7 +1867,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 9 / 19 : 20261105150000_accounts_v2_p4_workspace.sql
+-- FILE 9 / 20 : 20261105150000_accounts_v2_p4_workspace.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part b): Summary workspace projection
@@ -2083,7 +2083,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 10 / 19 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
+-- FILE 10 / 20 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part a): commercial-setup read
@@ -2266,7 +2266,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 11 / 19 : 20261105170000_accounts_v2_p8_pdc_register.sql
+-- FILE 11 / 20 : 20261105170000_accounts_v2_p8_pdc_register.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P8: project-wide cheque (PDC) register read
@@ -2344,7 +2344,7 @@ grant execute on function public.v1_list_project_client_pdcs(uuid)
 
 
 -- #############################################################################
--- FILE 12 / 19 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
+-- FILE 12 / 20 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P7 (part b): invoice document summary pages
@@ -2532,7 +2532,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 13 / 19 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
+-- FILE 13 / 20 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part c): enrich the Summary workspace steps
@@ -2804,7 +2804,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 14 / 19 : 20261106150000_accounts_v2_p3_claim_payable.sql
+-- FILE 14 / 20 : 20261106150000_accounts_v2_p3_claim_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part c): claim payable figures
@@ -2959,7 +2959,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 
 
 -- #############################################################################
--- FILE 15 / 19 : 20261106160000_accounts_v2_p6_commercial_parties.sql
+-- FILE 15 / 20 : 20261106160000_accounts_v2_p6_commercial_parties.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part b): contract parties on the setup read
@@ -3160,7 +3160,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 16 / 19 : 20261106170000_accounts_v2_p6_contract_references.sql
+-- FILE 16 / 20 : 20261106170000_accounts_v2_p6_contract_references.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part c): editable contract references
@@ -3434,7 +3434,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 17 / 19 : 20261106180000_accounts_v2_p6_retention.sql
+-- FILE 17 / 20 : 20261106180000_accounts_v2_p6_retention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part d): retention percent (display only)
@@ -3715,7 +3715,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 18 / 19 : 20261106190000_accounts_v2_p6_variations.sql
+-- FILE 18 / 20 : 20261106190000_accounts_v2_p6_variations.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part e): variations (VO) register
@@ -3843,7 +3843,7 @@ grant execute on function public.v1_save_accounts_variation(
 
 
 -- #############################################################################
--- FILE 19 / 19 : 20261106200000_accounts_v2_p6_retention_payable.sql
+-- FILE 19 / 20 : 20261106200000_accounts_v2_p6_retention_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part f): retention hold-back on payable
@@ -6315,6 +6315,173 @@ end;
 $$;
 
 
+-- #############################################################################
+-- FILE 20 / 20 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — P6 (part g): claim side-panel retention preview
+--
+-- Section 28 R-4/R-5 surfaces the retention hold-back on issued invoices. While
+-- a claim is still being drafted no invoice exists yet, so the claim side panel
+-- shows a *preview* of the retention that would be withheld — and the resulting
+-- net-after-retention payable — using the profile's CURRENT retention percent.
+-- The preview uses the same formula the issue freeze uses
+-- (round(claim gross ex-VAT * retention% / 100, 2), §28 R-1), so the previewed
+-- figure equals the retention that will later be frozen onto the invoice.
+--
+-- This CREATE OR REPLACE of v1_get_claim_workbench is a copy of the canonical
+-- part-c body (20261106150000_accounts_v2_p3_claim_payable.sql) PLUS three
+-- additive keys on the claim object: retention_percent, retention_preview and
+-- net_payable_after_retention. Keep this body in sync with the part-c migration
+-- if its claim-payable block ever changes.
+--
+-- Additive and accounts-only. The new figures are monetary / commercial, so they
+-- are added only with view_project_commercial_values (AT-SEC-001/008); every
+-- other key the prior version returned is returned unchanged. No table, row or
+-- status change. Retention rounds once to fils at the baseline currency scale.
+
+create or replace function public.v1_get_claim_workbench(
+  p_project_id uuid,
+  p_claim_id uuid default null
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_can_values boolean;
+  v_profile public.v1_accounts_project_commercial_profiles%rowtype;
+  v_baseline public.v1_accounts_baseline_revisions%rowtype;
+  v_cells jsonb := '[]'::jsonb;
+  v_claim jsonb := null;
+  v_claim_id uuid;
+  v_claim_gross numeric := 0;
+  v_claim_vat numeric := 0;
+  v_claim_retention numeric := 0;
+begin
+  perform public.v1_accounts_require_capability(p_project_id, 'view_project_accounts');
+  v_can_values := public.v1_current_user_has_capability(
+    'view_project_commercial_values', p_project_id
+  );
+
+  select * into v_profile
+  from public.v1_accounts_project_commercial_profiles where project_id = p_project_id;
+  if not found or v_profile.current_baseline_revision_id is null then
+    return jsonb_build_object(
+      'schema_version', 1, 'project_id', p_project_id,
+      'baseline_revision_id', null, 'cells', '[]'::jsonb, 'claim', null,
+      'capabilities', public.v1_accounts_capability_envelope(p_project_id),
+      'commands', public.v1_accounts_receivables_commands(p_project_id)
+    );
+  end if;
+  select * into v_baseline
+  from public.v1_accounts_baseline_revisions where id = v_profile.current_baseline_revision_id;
+
+  select coalesce(jsonb_agg(cell order by ord, bname), '[]'::jsonb) into v_cells
+  from (
+    select sa.display_order as ord, scope.name as bname,
+      jsonb_build_object(
+        'progress_entry_id', bp.id,
+        'building_scope_id', bp.project_scope_id,
+        'building_name', scope.name,
+        'stage_key', bp.stage_key,
+        'stage_label', sa.stage_name,
+        'stage_position', sa.display_order,
+        'measurement_mode', sa.measurement_mode,
+        'confirmed_percent', bp.confirmed_percent::text,
+        'review_status', bp.review_status,
+        'record_version', bp.record_version
+      )
+      || case when v_can_values then jsonb_build_object(
+          'stage_value', public.v1_accounts_stage_value(bp.id)::text,
+          'eligible', public.v1_accounts_progress_eligible_amount(bp.id)::text,
+          'claimed', public.v1_accounts_dimension_claimed_amount(
+            bp.project_id, bp.project_scope_id, bp.stage_key, null)::text,
+          'available', greatest(
+            public.v1_accounts_progress_eligible_amount(bp.id)
+              - public.v1_accounts_dimension_claimed_amount(
+                  bp.project_id, bp.project_scope_id, bp.stage_key, null), 0)::text,
+          'over_claimed', public.v1_accounts_dimension_claimed_amount(
+              bp.project_id, bp.project_scope_id, bp.stage_key, null)
+            > public.v1_accounts_progress_eligible_amount(bp.id)
+        ) else '{}'::jsonb end
+      || case when sa.measurement_mode = 'items' then jsonb_build_object('items', (
+          select coalesce(jsonb_agg(
+            jsonb_build_object(
+              'stage_item_id', si.id, 'item_key', si.item_key,
+              'item_label', si.item_label, 'display_order', si.display_order,
+              'quantity', si.quantity::text, 'unit_code', si.unit_code,
+              'confirmed_qty', coalesce(ip.confirmed_qty, 0)::text,
+              'needs_review', coalesce(ip.needs_review, false)
+            )
+            || case when v_can_values then jsonb_build_object(
+                'item_value', public.v1_accounts_stage_item_value(si.id)::text)
+              else '{}'::jsonb end
+            order by si.display_order), '[]'::jsonb)
+          from public.v1_accounts_baseline_stage_items si
+          left join public.v1_accounts_billing_item_progress ip
+            on ip.stage_item_id = si.id and ip.progress_entry_id = bp.id
+          where si.baseline_revision_id = v_baseline.id
+            and si.project_scope_id = bp.project_scope_id
+            and si.stage_key = bp.stage_key
+        )) else '{}'::jsonb end
+      as cell
+    from public.v1_accounts_billing_progress bp
+    join public.v1_accounts_baseline_stage_allocations sa
+      on sa.baseline_revision_id = bp.baseline_revision_id and sa.stage_key = bp.stage_key
+    join public.v1_project_scopes scope on scope.id = bp.project_scope_id
+    where bp.baseline_revision_id = v_baseline.id
+  ) rows;
+
+  select id into v_claim_id
+  from public.v1_accounts_client_claims
+  where project_id = p_project_id
+    and (
+      (p_claim_id is not null and id = p_claim_id)
+      or (p_claim_id is null and status in ('draft', 'ready_for_accounts'))
+    )
+  order by (status = 'draft') desc, updated_at desc
+  limit 1;
+  if v_claim_id is not null then
+    v_claim := public.v1_accounts_claim_snapshot(v_claim_id);
+    -- Payable figures: gross (ex VAT) + VAT at the baseline rate = net payable
+    -- (incl VAT), plus this claim's share of the contract. Commercial only.
+    if v_can_values then
+      v_claim_gross := coalesce((select sum(claimed_amount)
+        from public.v1_accounts_client_claim_lines where claim_id = v_claim_id), 0);
+      v_claim_vat := round(v_claim_gross * coalesce(v_baseline.vat_rate_percent, 0) / 100, 2);
+      -- §28 R-1 preview: retention the profile would currently withhold on this
+      -- claim's gross ex-VAT, and the net payable once it is held back.
+      v_claim_retention := round(
+        v_claim_gross * coalesce(v_profile.retention_percent, 0) / 100, 2);
+      v_claim := v_claim || jsonb_build_object(
+        'vat_amount', v_claim_vat::text,
+        'net_payable', (v_claim_gross + v_claim_vat)::text,
+        'contract_value', v_baseline.contract_value::text,
+        'this_claim_percent', case when v_baseline.contract_value > 0
+          then round(v_claim_gross / v_baseline.contract_value * 100, 1)
+          else 0 end::text,
+        'retention_percent', coalesce(v_profile.retention_percent, 0)::text,
+        'retention_preview', v_claim_retention::text,
+        'net_payable_after_retention',
+          (v_claim_gross + v_claim_vat - v_claim_retention)::text);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'schema_version', 1, 'project_id', p_project_id,
+    'baseline_revision_id', v_baseline.id,
+    'baseline_revision_number', v_baseline.revision_number,
+    'cells', v_cells, 'claim', v_claim,
+    'capabilities', public.v1_accounts_capability_envelope(p_project_id),
+    'commands', public.v1_accounts_receivables_commands(p_project_id)
+  );
+end;
+$$;
+
+grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authenticated;
 -- =============================================================================
 COMMIT;
 -- End of bundle. If COMMIT succeeded, all V2 migrations are applied.

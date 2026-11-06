@@ -3379,6 +3379,18 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'یہ کلیم · کنٹریکٹ کا',
       'hi': 'यह क्लेम · कॉन्ट्रैक्ट का',
     },
+    'v2_claim_retention_preview': {
+      'en': 'Retention (preview)',
+      'ar': 'المبلغ المحتجز (معاينة)',
+      'ur': 'روکی گئی رقم (پیش منظر)',
+      'hi': 'रोकी गई राशि (पूर्वावलोकन)',
+    },
+    'v2_claim_net_after_retention': {
+      'en': 'Payable after retention',
+      'ar': 'المستحق بعد الاحتجاز',
+      'ur': 'روکی گئی رقم کے بعد قابلِ ادائیگی',
+      'hi': 'रोक के बाद देय',
+    },
     'v2_col_eligible': {
       'en': 'Eligible',
       'ar': 'المستحق',
