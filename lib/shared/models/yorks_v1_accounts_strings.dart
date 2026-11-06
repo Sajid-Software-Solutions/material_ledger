@@ -4336,14 +4336,12 @@ abstract final class YorksV1AccountsStrings {
       'hi': 'वृद्धि दर्ज करने के लिए कम से कम एक दस्तावेज़ संलग्न करें।',
     },
     'v2_evidence_none_available': {
-      'en':
-          "No documents on this project yet. Add one in the project's Documents tab, then come back to attach it.",
-      'ar':
-          'لا توجد مستندات في هذا المشروع بعد. أضف مستنداً من تبويب المستندات في المشروع، ثم عد لإرفاقه.',
+      'en': 'No documents on this project yet. Upload one to attach it.',
+      'ar': 'لا توجد مستندات في هذا المشروع بعد. ارفع مستنداً لإرفاقه.',
       'ur':
-          'اس پروجیکٹ میں ابھی کوئی دستاویز نہیں۔ پروجیکٹ کے دستاویزات ٹیب میں شامل کریں، پھر منسلک کرنے کے لیے واپس آئیں۔',
+          'اس پروجیکٹ میں ابھی کوئی دستاویز نہیں۔ منسلک کرنے کے لیے ایک اپ لوڈ کریں۔',
       'hi':
-          'इस प्रोजेक्ट में अभी कोई दस्तावेज़ नहीं है। प्रोजेक्ट के दस्तावेज़ टैब में जोड़ें, फिर संलग्न करने के लिए लौटें।',
+          'इस प्रोजेक्ट में अभी कोई दस्तावेज़ नहीं है। संलग्न करने के लिए एक अपलोड करें।',
     },
     'v2_progress_no_percent_cells': {
       'en': 'No lump-sum stages to record here.',
@@ -4917,6 +4915,24 @@ abstract final class YorksV1AccountsStrings {
       'ar': "تحديث التقدم",
       'ur': "پیشرفت اپ ڈیٹ کریں",
       'hi': "प्रगति अपडेट करें",
+    },
+    'v2_evidence_upload': {
+      'en': "Upload document",
+      'ar': "رفع مستند",
+      'ur': "دستاویز اپ لوڈ کریں",
+      'hi': "दस्तावेज़ अपलोड करें",
+    },
+    'v2_evidence_upload_failed': {
+      'en': "Couldn't upload that file. Please try again.",
+      'ar': "تعذّر رفع هذا الملف. يرجى المحاولة مرة أخرى.",
+      'ur': "یہ فائل اپ لوڈ نہیں ہو سکی۔ براہ کرم دوبارہ کوشش کریں۔",
+      'hi': "वह फ़ाइल अपलोड नहीं हो सकी। कृपया पुनः प्रयास करें।",
+    },
+    'v2_all_projects': {
+      'en': "All projects",
+      'ar': "كل المشاريع",
+      'ur': "تمام پروجیکٹس",
+      'hi': "सभी प्रोजेक्ट",
     },
   };
 

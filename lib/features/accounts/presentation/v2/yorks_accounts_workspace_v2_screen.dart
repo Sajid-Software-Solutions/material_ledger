@@ -14,14 +14,22 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/models/yorks_v1_document.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
+import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
+import '../../../../shared/providers/yorks_v1_documents_provider.dart';
+import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart';
+import '../../application/accounts_controller.dart'
+    show YorksAccountsViewStatus;
 import '../../application/accounts_records_providers.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/accounts_models.dart'
@@ -40,6 +48,94 @@ import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
 import '../widgets/yorks_accounts_progress_action_sheet.dart';
 import '../widgets/yorks_accounts_supplier_action_sheets.dart';
+
+/// The tab a project Accounts URL opens, including the old V1 paths that
+/// notifications still link to.
+YorksAccountsWorkspaceV2Tab yorksAccountsV2TabForPath(
+  String path,
+) => switch (path.split('/').last) {
+  'contract' => YorksAccountsWorkspaceV2Tab.contract,
+  'claims' || 'billing' => YorksAccountsWorkspaceV2Tab.claims,
+  'client-invoices' || 'receipts-pdc' => YorksAccountsWorkspaceV2Tab.invoices,
+  'supplier-bills' => YorksAccountsWorkspaceV2Tab.supplierBills,
+  'history' || 'documents' || 'activity' => YorksAccountsWorkspaceV2Tab.history,
+  _ => YorksAccountsWorkspaceV2Tab.summary,
+};
+
+/// The workspace on its own page, for an Accountant, who has project Accounts
+/// scope but no access to the technical project shell around it.
+class YorksAccountsProjectPage extends ConsumerWidget {
+  const YorksAccountsProjectPage({
+    super.key,
+    required this.projectId,
+    required this.initialTab,
+  });
+
+  final String projectId;
+  final YorksAccountsWorkspaceV2Tab initialTab;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(languageProvider);
+    final setup = ref
+        .watch(yorksAccountsContractControllerProvider(projectId))
+        .valueOrNull;
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.sm,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.xs,
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: accountsV2Text(language, 'v2_all_projects'),
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.go('/yorks/accounts'),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (setup?.projectReference != null)
+                        Text(
+                          setup!.projectReference!,
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      Text(
+                        setup?.projectName ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: YorksAccountsWorkspaceV2Screen(
+              projectId: projectId,
+              initialTab: initialTab,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class YorksAccountsWorkspaceV2Screen extends ConsumerStatefulWidget {
   const YorksAccountsWorkspaceV2Screen({
@@ -106,6 +202,8 @@ class _YorksAccountsWorkspaceV2ScreenState
       case YorksAccountsWorkspaceV2Tab.history:
         final history = yorksAccountsHistoryControllerProvider(id);
         refreshIfLoaded(history.notifier, history, (c) => c.refresh());
+        final documents = yorksAccountsDocumentsControllerProvider(id);
+        if (ref.exists(documents)) ref.read(documents.notifier).load();
     }
   }
 
@@ -615,12 +713,18 @@ class _ClaimsBody extends ConsumerWidget {
             .valueOrNull
             ?.claims ??
         const <YorksAccountsClaimSummary>[];
-    final docsWorkspace = ref
-        .watch(yorksAccountsDocumentsControllerProvider(projectId))
-        .workspace;
+    // Evidence the server accepts: operational documents linked to the project.
+    final projectDocuments =
+        ref
+            .watch(yorksV1DocumentWorkspaceProvider(projectId))
+            .valueOrNull
+            ?.documents ??
+        const <YorksV1Document>[];
     final evidenceDocuments = <YorksAccountsEvidenceDoc>[
-      for (final doc in docsWorkspace?.documents ?? const [])
-        (id: doc.id, name: doc.fileName),
+      for (final doc in projectDocuments)
+        if (doc.classification == YorksV1DocumentClassification.operational &&
+            !doc.isArchived)
+          (id: doc.id, name: doc.currentVersion.fileName),
     ];
     return Column(
       children: [
@@ -631,6 +735,32 @@ class _ClaimsBody extends ConsumerWidget {
             workbench: data,
             language: language,
             canRecordProgress: canConfirm && data.canPrepareClaim,
+            onUploadEvidence: () async {
+              final selected = await ref
+                  .read(yorksV1DocumentFileServiceProvider)
+                  .selectDocument();
+              if (selected == null) return null;
+              final known = projectDocuments.map((d) => d.id).toSet();
+              final workspace = await ref
+                  .read(yorksV1DocumentsRepositoryProvider)
+                  .upload(
+                    YorksV1DocumentUploadInput(
+                      projectId: projectId,
+                      entityType: YorksV1DocumentEntityType.project,
+                      entityId: projectId,
+                      classification: YorksV1DocumentClassification.operational,
+                      fileName: selected.fileName,
+                      mimeType: selected.mimeType,
+                      bytes: selected.bytes,
+                      idempotencyKey: const Uuid().v4(),
+                    ),
+                  );
+              ref.invalidate(yorksV1DocumentWorkspaceProvider(projectId));
+              final added = workspace.documents.where(
+                (d) => !known.contains(d.id),
+              );
+              return added.isEmpty ? null : added.first.id;
+            },
             // Site Engineers suggest, and a confirmer without claim access
             // confirms, one cell at a time through the existing checked sheet.
             onUpdateCell:
@@ -899,13 +1029,23 @@ class _HistoryBody extends ConsumerWidget {
     if (state.hasError && projection == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
-    // Attached files for the Files panel, from the shared documents workspace.
-    final docs =
-        ref
-            .watch(yorksAccountsDocumentsControllerProvider(projectId))
-            .workspace
-            ?.documents ??
-        const [];
+    // Attached files for the Files panel. This controller doesn't load itself, so
+    // start it here; a failed load leaves the panel empty, as for no access.
+    final docsState = ref.watch(
+      yorksAccountsDocumentsControllerProvider(projectId),
+    );
+    if (docsState.status == YorksAccountsViewStatus.idle) {
+      Future.microtask(() async {
+        try {
+          await ref
+              .read(
+                yorksAccountsDocumentsControllerProvider(projectId).notifier,
+              )
+              .load();
+        } catch (_) {}
+      });
+    }
+    final docs = docsState.workspace?.documents ?? const [];
     final files = <YorksAccountsHistoryFile>[
       for (final doc in docs)
         (

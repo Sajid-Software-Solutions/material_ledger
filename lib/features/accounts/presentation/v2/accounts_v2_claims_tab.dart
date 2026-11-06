@@ -70,6 +70,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onMarkChecked,
     this.onPreviewInvoice,
     this.onUpdateCell,
+    this.onUploadEvidence,
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
@@ -89,6 +90,10 @@ class AccountsV2ClaimsTab extends StatefulWidget {
 
   /// Suggests or confirms one cell, for people who can't prepare a claim.
   final ValueChanged<YorksAccountsWorkbenchCell>? onUpdateCell;
+
+  /// Picks and uploads a project document; returns its id, or null if cancelled.
+  /// Throws when the upload fails.
+  final Future<String?> Function()? onUploadEvidence;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
 
@@ -132,6 +137,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         cells: _orderedCells,
         language: widget.language,
         evidenceDocuments: widget.evidenceDocuments,
+        onUploadEvidence: widget.onUploadEvidence,
         onCancel: () => setState(() => _editing = false),
         onSave:
             ({
@@ -1322,11 +1328,13 @@ class _ProgressEditor extends StatefulWidget {
     required this.evidenceDocuments,
     required this.onCancel,
     required this.onSave,
+    this.onUploadEvidence,
   });
 
   final List<YorksAccountsWorkbenchCell> cells;
   final AppLanguage language;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+  final Future<String?> Function()? onUploadEvidence;
   final VoidCallback onCancel;
   final YorksSaveWorkbenchAction onSave;
 
@@ -1343,6 +1351,22 @@ class _ProgressEditorState extends State<_ProgressEditor> {
   final _reason = TextEditingController();
   final Set<String> _evidence = {};
   bool _saving = false;
+  bool _uploading = false;
+
+  /// Uploads a document and selects it, since it was added to be attached.
+  Future<void> _uploadEvidence() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    setState(() => _uploading = true);
+    try {
+      final id = await widget.onUploadEvidence!();
+      if (mounted && id != null) setState(() => _evidence.add(id));
+    } catch (_) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(_t('v2_evidence_upload_failed'))),
+      );
+    }
+    if (mounted) setState(() => _uploading = false);
+  }
 
   static final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 
@@ -1538,6 +1562,8 @@ class _ProgressEditorState extends State<_ProgressEditor> {
           selected: _evidence,
           language: widget.language,
           required: needsEvidence,
+          uploading: _uploading,
+          onUpload: widget.onUploadEvidence == null ? null : _uploadEvidence,
           onToggle: (id, on) => setState(() {
             if (on) {
               _evidence.add(id);
@@ -1607,7 +1633,12 @@ class _EvidencePicker extends StatelessWidget {
     required this.language,
     required this.required,
     required this.onToggle,
+    this.uploading = false,
+    this.onUpload,
   });
+
+  final bool uploading;
+  final VoidCallback? onUpload;
 
   final List<YorksAccountsEvidenceDoc> documents;
   final Set<String> selected;
@@ -1645,6 +1676,14 @@ class _EvidencePicker extends StatelessWidget {
                   ),
               ],
             ),
+          if (onUpload != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: uploading ? null : onUpload,
+              icon: const Icon(Icons.upload_file_outlined, size: 16),
+              label: Text(accountsV2Text(language, 'v2_evidence_upload')),
+            ),
+          ],
           if (required) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
