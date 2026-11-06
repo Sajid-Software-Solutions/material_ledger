@@ -245,9 +245,9 @@ class _VariationDialogState extends State<_VariationDialog> {
       Navigator.of(context).pop(true);
     } else {
       setState(() => _saving = false);
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(_t('v2_save_failed'))));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(accountsV2ErrorText(widget.language, error))),
+      );
     }
   }
 

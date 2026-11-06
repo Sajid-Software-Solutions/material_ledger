@@ -20,6 +20,53 @@ import '../../domain/accounts_decimal.dart';
 String accountsV2Text(AppLanguage language, String key) =>
     YorksV1AccountsStrings.text(language, key);
 
+/// A clear, localized message for a failed command, from the code the V2
+/// controllers return. Unknown codes fall back to the generic message.
+String accountsV2ErrorText(AppLanguage language, String? code) {
+  final c = code ?? '';
+  bool any(List<String> parts) => parts.any(c.contains);
+  final key = switch (c) {
+    _ when any(['VERSION_CONFLICT', 'STALE_VERSION', 'conflict']) =>
+      'v2_err_conflict',
+    _ when any(['ACCESS_DENIED', 'unauthorized', 'unauthenticated']) =>
+      'v2_err_denied',
+    _ when any(['PAYMENT_CAP', 'PDC_EXPOSURE_CAP', 'NOT_PAYABLE']) =>
+      'v2_err_over_due',
+    _ when c.contains('CLAIM_CAP') => 'v2_err_over_claim',
+    _ when c.contains('DUPLICATE') => 'v2_err_duplicate',
+    _ when any(['INVOICE_SETTINGS_REQUIRED', 'INVOICE_PREFIX_REQUIRED']) =>
+      'v2_err_settings_required',
+    _ when c.contains('INVOICE_NOT_REVISABLE') => 'v2_err_not_revisable',
+    _ when c.contains('REVISION_ALREADY_OPEN') => 'v2_err_revision_open',
+    _ when c.contains('EVIDENCE') => 'v2_err_evidence',
+    _ when c.contains('INVALID_STAGE_ITEMS') => 'v2_err_stage_items',
+    _ when any(['INVALID_BUILDING_ALLOCATIONS', 'INVALID_STAGE_ALLOCATIONS']) =>
+      'v2_err_allocations',
+    _ when any(['SUPPLIER_INVOICE_DOCUMENT', 'SUPPLIER_DOCUMENT']) =>
+      'v2_err_supplier_document',
+    _ when c.contains('NOT_MATCHED') => 'v2_err_not_matched',
+    _ when c.contains('BELOW_CLAIMED') => 'v2_err_below_claimed',
+    _
+        when any([
+          'NOT_REOPENABLE',
+          'NOT_INVOICEABLE',
+          'NOT_EDITABLE',
+          'NOT_APPROVABLE',
+          'NOT_CANCELLABLE',
+          'INVALID_INVOICE_TRANSITION',
+          'INVALID_PDC_TRANSITION',
+          'invalidTransition',
+          'immutableRecord',
+        ]) =>
+      'v2_err_state',
+    _ when any(['backendUnavailable', 'network', 'timeout', 'offline']) =>
+      'v2_err_offline',
+    _ when any(['INVALID_', 'REQUIRED', 'invalidInput']) => 'v2_err_invalid',
+    _ => 'v2_action_failed',
+  };
+  return accountsV2Text(language, key);
+}
+
 /// Today as a `YYYY-MM-DD` string, the format the accounts date inputs use.
 String accountsV2TodayIso() {
   final d = DateTime.now();

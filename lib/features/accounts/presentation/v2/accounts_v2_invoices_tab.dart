@@ -390,7 +390,9 @@ class _TrackerCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }
@@ -1000,7 +1002,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_inv_revised') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_inv_revised')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );
@@ -1047,7 +1051,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pay_reversed') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pay_reversed')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );

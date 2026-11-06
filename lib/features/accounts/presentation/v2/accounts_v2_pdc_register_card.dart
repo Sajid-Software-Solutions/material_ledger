@@ -83,7 +83,9 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pdc_saved')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );
@@ -108,7 +110,9 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pdc_saved')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );

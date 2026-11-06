@@ -249,7 +249,7 @@ void main() {
       await tester.tap(find.text(t('v2_edit')));
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_edit_note')), findsOneWidget);
+      expect(find.text(t('v2_contract_edit_note')), findsOneWidget);
       await tester.tap(find.text(t('v2_save')));
       await tester.pumpAndSettle();
 
@@ -262,28 +262,6 @@ void main() {
         isTrue,
       );
       expect(find.text(t('v2_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('items-mode contract shows the editing-blocked note', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final setup = YorksAccountsCommercialSetupRead.fromJson(_setupJson());
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ContractTab(
-            setup: setup,
-            language: en,
-            canEdit: true,
-            onSave: (m) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_edit_items_blocked')), findsOneWidget);
-      expect(find.text(t('v2_edit')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

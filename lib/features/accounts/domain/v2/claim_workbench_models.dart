@@ -168,6 +168,14 @@ final class YorksAccountsWorkbench {
   final Map<String, dynamic> capabilities;
   final Map<String, dynamic> commands;
 
+  /// `capabilities` is the server's `v1_accounts_capability_envelope`; `commands`
+  /// is `v1_accounts_receivables_commands`. Read their keys only through these
+  /// getters, so a key name lives in one place.
+  bool get canViewValues => capabilities['can_view_values'] == true;
+  bool get canConfirmProgress => capabilities['can_confirm'] == true;
+  bool get canManageInvoices => commands['submit_invoice'] == true;
+  bool get canPrepareClaim => commands['create_claim_draft'] == true;
+
   String? get openClaimId => claim == null ? null : claim!['claim_id'] as String?;
   String? get openClaimStatus => claim == null ? null : claim!['status'] as String?;
 }

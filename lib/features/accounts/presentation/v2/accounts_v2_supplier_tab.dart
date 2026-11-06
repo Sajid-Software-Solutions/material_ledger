@@ -310,7 +310,9 @@ class _BillsCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }

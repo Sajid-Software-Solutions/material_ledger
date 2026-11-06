@@ -97,8 +97,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
 class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   bool _editing = false;
 
-  bool get _canValues =>
-      widget.workbench.capabilities['view_project_commercial_values'] == true;
+  bool get _canValues => widget.workbench.canViewValues;
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
@@ -442,7 +441,9 @@ class _ClaimSidePanel extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }
@@ -1412,7 +1413,9 @@ class _ProgressEditorState extends State<_ProgressEditor> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_progress_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_progress_saved')
+              : accountsV2ErrorText(widget.language, error),
         ),
       ),
     );

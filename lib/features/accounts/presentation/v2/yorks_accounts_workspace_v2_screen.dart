@@ -2,15 +2,14 @@
 ///
 /// The flag-guarded replacement for the per-project Accounts surface. It hosts
 /// the six job-shaped tabs (Summary, Contract, Progress & claims, Invoices &
-/// payments, Supplier bills, History & files). Only Summary is wired to the
-/// live workspace projection in this slice; the other five render a labelled
-/// placeholder and are built out in later P6 increments.
+/// payments, Supplier bills, History & files).
 ///
 /// It reads authority and data only through Riverpod controllers — it never
 /// calls Supabase directly — and recreates its protected projection on any
 /// role/permission change via the controller's watched authority inputs.
 library;
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -20,8 +19,12 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../application/accounts_records_providers.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
+import '../../domain/accounts_models.dart'
+    show YorksAccountsPhysicalBuilding, YorksAccountsStageTemplate;
+import '../../domain/v2/accounts_master_file_parser.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/variations_models.dart';
@@ -398,6 +401,15 @@ class _ContractBody extends ConsumerWidget {
     final variationsController = ref.read(
       yorksAccountsVariationsControllerProvider(projectId).notifier,
     );
+    final options = ref
+        .watch(yorksAccountsContractOptionsProvider(projectId))
+        .valueOrNull;
+    final canManageInvoices =
+        ref
+            .watch(yorksAccountsWorkbenchControllerProvider(projectId))
+            .valueOrNull
+            ?.canManageInvoices ??
+        false;
     return Column(
       children: [
         if (state.hasError)
@@ -407,6 +419,52 @@ class _ContractBody extends ConsumerWidget {
             setup: data,
             language: language,
             canEdit: data.canConfigure,
+            buildingOptions: [
+              for (final b
+                  in options?.physicalBuildings ??
+                      const <YorksAccountsPhysicalBuilding>[])
+                (
+                  scopeId: b.buildingScopeId,
+                  name: b.buildingName,
+                  code: b.scopeCode,
+                ),
+            ],
+            stageOptions: [
+              for (final t
+                  in options?.stageTemplates ??
+                      const <YorksAccountsStageTemplate>[])
+                (
+                  key: t.stageKey,
+                  label: t.stageLabel,
+                  percent: t.allocationPercent,
+                ),
+            ],
+            canManageInvoices: canManageInvoices,
+            onSaveInvoiceSettings: controller.saveInvoiceSettings,
+            onImportMasterFile: () async {
+              final selected = await ref
+                  .read(yorksV1BoqWorkbookFileServiceProvider)
+                  .selectWorkbook();
+              if (selected == null) return null;
+              final workbook = ref
+                  .read(yorksV1BoqWorkbookCodecProvider)
+                  .decode(bytes: selected.bytes, fileName: selected.fileName);
+              final draft = const YorksAccountsMasterFileParser().parse(
+                sheets: {for (final s in workbook.sheets) s.name: s.rows},
+                expectedContractValue: data.contractValue,
+                currencyCode: data.currencyCode ?? 'AED',
+              );
+              return (
+                draft: draft,
+                fileName: selected.fileName,
+                sha256: crypto.sha256.convert(selected.bytes).toString(),
+              );
+            },
+            onApplyImport: (setup, note) => controller.saveSetup(
+              setup: setup,
+              expectedProfileVersion: data.profileVersion,
+              note: note,
+            ),
             variations: variations,
             onSaveVariation:
                 ({
@@ -474,7 +532,7 @@ class _ClaimsBody extends ConsumerWidget {
       return _ErrorState(language: language, onRetry: controller.load);
     }
     final data = workbench!;
-    final canConfirm = data.capabilities['can_confirm'] == true;
+    final canConfirm = data.canConfirmProgress;
     // All claims for the claim-cards row (commercial-gated; empty when the
     // actor lacks access or the list is still loading).
     final claims =

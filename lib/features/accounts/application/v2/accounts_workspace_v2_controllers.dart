@@ -14,6 +14,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart'
     show sharedPreferencesProvider;
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
@@ -23,6 +24,7 @@ import '../../data/accounts_records_repository.dart';
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../data/v2/client_invoice_document_builder.dart';
+import '../../domain/accounts_models.dart' show YorksAccountsBaselineProjection;
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
@@ -55,6 +57,12 @@ YorksV1CriticalCommandKeyStore _commandKeys(Ref ref) =>
       preferences: ref.watch(sharedPreferencesProvider),
       actorAuthUserId: ref.watch(yorksV1AuthUserIdProvider) ?? '',
     );
+
+/// The reason a command failed: the server's own code when it sent one (read by
+/// `accountsV2ErrorText`), otherwise the domain category.
+String _commandFailureCode(Object error) => error is YorksV1DomainException
+    ? (error.serverMessage ?? error.code.name)
+    : YorksV1DomainErrorCode.serverRejected.name;
 
 /// Shared command runner for the editable V2 controllers. It wraps a critical
 /// command in a persisted idempotency lease (so a retry after an ambiguous
@@ -90,7 +98,7 @@ mixin _AccountsCommandRunner<T> on StateNotifier<AsyncValue<T>> {
       // Keep the lease (a retry reuses the key) and re-fetch so a conflict
       // leaves the current server state on screen, not the stale projection.
       await refresh();
-      return error.toString();
+      return _commandFailureCode(error);
     }
   }
 }
@@ -245,6 +253,42 @@ final class YorksAccountsContractController
     );
   }
 
+  /// Saves invoice numbering. No optimistic success; re-fetches on confirmation.
+  Future<String?> saveInvoiceSettings({
+    required String invoicePrefix,
+    String? scopeLine,
+    String? attentionName,
+    String? billToPartyId,
+    int? expectedVersion,
+  }) {
+    return runCommand(
+      operation: 'save_invoice_settings',
+      entityId: _projectId,
+      payload: {
+        'prefix': invoicePrefix,
+        'scope_line': scopeLine,
+        'attention': attentionName,
+        'bill_to': billToPartyId,
+        'version': expectedVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveInvoiceSettings(
+          projectId: _projectId,
+          invoicePrefix: invoicePrefix,
+          scopeLine: scopeLine,
+          attentionName: attentionName,
+          billToPartyId: billToPartyId,
+          expectedVersion: expectedVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
+
   /// Saves the editable contract references (TRN, work order, contract no) on
   /// the profile. No optimistic success; re-fetches on confirmation.
   Future<String?> saveReferences({
@@ -285,6 +329,22 @@ final class YorksAccountsContractController
     );
   }
 }
+
+/// The project's physical buildings and the default stage template, which a
+/// first contract needs because the setup read has none until a baseline exists.
+/// An unavailable read yields empty lists; the screen then explains what's needed.
+final yorksAccountsContractOptionsProvider = FutureProvider.autoDispose
+    .family<YorksAccountsBaselineProjection?, String>((ref, projectId) async {
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      try {
+        return await ref
+            .watch(yorksAccountsRepositoryProvider)
+            .getBaseline(projectId);
+      } catch (_) {
+        return null;
+      }
+    });
 
 final yorksAccountsContractControllerProvider = StateNotifierProvider
     .autoDispose

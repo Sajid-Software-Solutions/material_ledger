@@ -232,7 +232,7 @@ Map<String, dynamic> _workbenchJson() => {
   'project_id': 'p1',
   'baseline_revision_id': 'rev1',
   'baseline_revision_number': 1,
-  'capabilities': {'view_project_commercial_values': true, 'can_confirm': true},
+  'capabilities': {'can_view_values': true, 'can_confirm': true},
   'commands': <String, dynamic>{},
   'cells': [
     {

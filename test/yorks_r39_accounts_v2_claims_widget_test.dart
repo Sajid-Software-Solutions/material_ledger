@@ -59,7 +59,7 @@ Map<String, dynamic> _workbenchJson({
     'baseline_revision_id': 'rev1',
     'baseline_revision_number': 1,
     'capabilities': {
-      'view_project_commercial_values': commercial,
+      'can_view_values': commercial,
       'can_confirm': confirm,
     },
     'commands': <String, dynamic>{},

@@ -1,12 +1,11 @@
-/// R39 Accounts Workspace V2 — Contract tab (P6, read view).
+/// R39 Accounts Workspace V2 — Contract tab.
 ///
-/// Shows the current commercial setup (`v1_get_project_commercial_setup`): the
-/// contract header, the building split, the billing stages with their
-/// measurement mode, the per-building item breakdown for items-mode stages, and
-/// the invoice-numbering settings — alongside the live Setup-check panel and the
-/// "How amounts are worked out" explainer. Inline editing and save arrive in a
-/// later P6 increment; this slice presents the approved values. Commercial
-/// content is drawn only when the actor has commercial-value access.
+/// Shows the commercial setup (`v1_get_project_commercial_setup`) with the live
+/// setup check, and is where a contract is created and changed: a first-contract
+/// start for a new project, the editor for percent and item stages, the Project
+/// Master File import, invoice numbering and variations. Every save goes through
+/// a server command that re-validates it; nothing is shown as saved until the
+/// server confirms. Commercial content needs commercial-value access.
 library;
 
 import 'package:flutter/material.dart';
@@ -17,11 +16,15 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
+import '../../domain/v2/accounts_master_file_parser.dart';
 import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_common.dart';
 import 'accounts_v2_variations_card.dart';
+
+part 'accounts_v2_contract_editor.dart';
+part 'accounts_v2_contract_import.dart';
 
 /// Saves the editable contract references; null on success or an error message.
 typedef YorksSaveReferencesAction =
@@ -34,6 +37,46 @@ typedef YorksSaveReferencesAction =
       int? expectedProfileVersion,
     });
 
+/// A picked and parsed workbook, ready for review.
+typedef YorksAccountsMasterImportFile = ({
+  YorksAccountsMasterFileDraft draft,
+  String fileName,
+  String sha256,
+});
+
+/// Picks and parses a Project Master File. Null means the pick was cancelled; a
+/// thrown error means the file could not be read as a workbook.
+typedef YorksImportMasterFileAction =
+    Future<YorksAccountsMasterImportFile?> Function();
+
+/// Saves an imported setup with an audit note; null on success or a failure code.
+typedef YorksApplyMasterImportAction =
+    Future<String?> Function(YorksAccountsCommercialSetup setup, String note);
+
+/// Saves invoice numbering; null on success or a failure code.
+typedef YorksSaveInvoiceSettingsAction =
+    Future<String?> Function({
+      required String invoicePrefix,
+      String? scopeLine,
+      String? attentionName,
+      String? billToPartyId,
+      int? expectedVersion,
+    });
+
+/// A project building a contract can be split across.
+typedef YorksContractBuildingOption = ({
+  String scopeId,
+  String name,
+  String? code,
+});
+
+/// A stage from the protected default template.
+typedef YorksContractStageOption = ({
+  String key,
+  String label,
+  YorksAccountsDecimal percent,
+});
+
 class AccountsV2ContractTab extends StatefulWidget {
   const AccountsV2ContractTab({
     super.key,
@@ -44,6 +87,12 @@ class AccountsV2ContractTab extends StatefulWidget {
     this.onSaveReferences,
     this.variations = const [],
     this.onSaveVariation,
+    this.onImportMasterFile,
+    this.onApplyImport,
+    this.onSaveInvoiceSettings,
+    this.canManageInvoices = false,
+    this.buildingOptions = const [],
+    this.stageOptions = const [],
   });
 
   final YorksAccountsCommercialSetupRead setup;
@@ -64,6 +113,22 @@ class AccountsV2ContractTab extends StatefulWidget {
   /// Creates/edits a variation; null when the register is read-only.
   final YorksSaveVariationAction? onSaveVariation;
 
+  /// Picks and parses a Project Master File for review.
+  final YorksImportMasterFileAction? onImportMasterFile;
+
+  /// Saves a reviewed import.
+  final YorksApplyMasterImportAction? onApplyImport;
+
+  /// Saves invoice numbering (needs manage_client_invoices).
+  final YorksSaveInvoiceSettingsAction? onSaveInvoiceSettings;
+  final bool canManageInvoices;
+
+  /// The project's physical buildings (needed before a first contract exists).
+  final List<YorksContractBuildingOption> buildingOptions;
+
+  /// The default stage template.
+  final List<YorksContractStageOption> stageOptions;
+
   @override
   State<AccountsV2ContractTab> createState() => _AccountsV2ContractTabState();
 }
@@ -71,14 +136,91 @@ class AccountsV2ContractTab extends StatefulWidget {
 class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
   bool _editing = false;
 
-  bool get _hasItemsStage => widget.setup.stages.any((s) => s.isItemsMode);
+  /// The server stores one item list per building but saves one list for all of
+  /// them, so a contract whose buildings differ can't be edited here safely.
+  bool get _itemsVaryByBuilding {
+    for (final stage in widget.setup.stages.where((s) => s.isItemsMode)) {
+      final byBuilding = <String, List<String>>{};
+      for (final it in widget.setup.itemsForStage(stage.stageKey)) {
+        byBuilding
+            .putIfAbsent(it.projectScopeId, () => [])
+            .add(
+              '${it.itemKey}|${it.itemLabel}|${it.quantity.canonicalText}|'
+              '${it.unitCode}|${it.weightPercentOfContract.canonicalText}',
+            );
+      }
+      if (byBuilding.values.map((v) => v.join(';')).toSet().length > 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   bool get _canEdit =>
-      widget.canEdit &&
-      widget.onSave != null &&
-      widget.setup.hasCommercialValues &&
-      !_hasItemsStage;
-  bool get _itemsBlocked =>
-      widget.canEdit && widget.setup.hasCommercialValues && _hasItemsStage;
+      widget.canEdit && widget.onSave != null && !_itemsVaryByBuilding;
+  bool get _itemsBlocked => widget.canEdit && _itemsVaryByBuilding;
+
+  /// Every building a contract could use: the current split plus any others.
+  List<YorksContractBuildingOption> get _buildingChoices => [
+    for (final b in widget.setup.buildings)
+      (scopeId: b.projectScopeId, name: b.name, code: null),
+    for (final o in widget.buildingOptions)
+      if (!widget.setup.buildings.any((b) => b.projectScopeId == o.scopeId)) o,
+  ];
+
+  Future<void> _import(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final String failed = accountsV2Text(widget.language, 'v2_import_failed');
+    final YorksAccountsMasterImportFile? file;
+    try {
+      file = await widget.onImportMasterFile!();
+    } catch (_) {
+      messenger?.showSnackBar(SnackBar(content: Text(failed)));
+      return;
+    }
+    if (!context.mounted || file == null) return;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _MasterFileImportDialog(
+        file: file!,
+        setup: widget.setup,
+        buildings: [
+          ...widget.buildingOptions,
+          for (final b in widget.setup.buildings)
+            if (!widget.buildingOptions.any(
+              (o) => o.scopeId == b.projectScopeId,
+            ))
+              (scopeId: b.projectScopeId, name: b.name, code: null),
+        ],
+        language: widget.language,
+        onApply: widget.onApplyImport,
+      ),
+    );
+    if (saved == true) {
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(accountsV2Text(widget.language, 'v2_import_saved')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editInvoiceSettings(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _InvoiceSettingsDialog(
+        settings: widget.setup.invoiceSettings,
+        language: widget.language,
+        onSave: widget.onSaveInvoiceSettings!,
+      ),
+    );
+    if (saved == true) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(accountsV2Text(widget.language, 'v2_saved'))),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +228,9 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
     final language = widget.language;
     final format = AccountsV2Format(currencyCode: setup.currencyCode ?? 'AED');
 
-    if (!setup.hasCommercialValues) {
+    // Only a missing capability is "hidden"; a project with no contract yet is
+    // not, and must not look locked to the person who has to set it up.
+    if (!setup.capabilities.viewProjectCommercialValues) {
       return _CommercialHidden(
         language: language,
         hasBaseline: setup.hasBaseline,
@@ -96,6 +240,8 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
     if (_editing) {
       return _ContractEditor(
         setup: setup,
+        buildingChoices: _buildingChoices,
+        stageOptions: widget.stageOptions,
         language: language,
         onCancel: () => setState(() => _editing = false),
         onSave: (form) async {
@@ -103,6 +249,19 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
           if (mounted && error == null) setState(() => _editing = false);
           return error;
         },
+      );
+    }
+
+    if (!setup.hasBaseline) {
+      return _FirstContractStart(
+        language: language,
+        canEdit: widget.canEdit && widget.onSave != null,
+        hasBuildings: _buildingChoices.isNotEmpty,
+        onStart: () => setState(() => _editing = true),
+        onImport:
+            widget.onImportMasterFile == null || widget.onApplyImport == null
+            ? null
+            : () => _import(context),
       );
     }
 
@@ -117,6 +276,19 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
           canEdit: _canEdit,
           itemsBlocked: _itemsBlocked,
           onEdit: () => setState(() => _editing = true),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+      ],
+      if (widget.canEdit &&
+          widget.onImportMasterFile != null &&
+          widget.onApplyImport != null) ...[
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton.icon(
+            onPressed: () => _import(context),
+            icon: const Icon(Icons.upload_file_outlined, size: 16),
+            label: Text(accountsV2Text(language, 'v2_import_master')),
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
       ],
@@ -146,13 +318,18 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
           ),
         );
     }
-    if (setup.invoiceSettings != null) {
+    final canEditNumbering =
+        widget.canManageInvoices && widget.onSaveInvoiceSettings != null;
+    if (setup.invoiceSettings != null || canEditNumbering) {
       main
         ..add(const SizedBox(height: AppSpacing.lg))
         ..add(
           _InvoiceNumberingCard(
-            settings: setup.invoiceSettings!,
+            settings: setup.invoiceSettings,
             language: language,
+            onEdit: canEditNumbering
+                ? () => _editInvoiceSettings(context)
+                : null,
           ),
         );
     }
@@ -451,9 +628,9 @@ class _ReferencesDialogState extends State<_ReferencesDialog> {
       Navigator.of(context).pop(true);
     } else {
       setState(() => _saving = false);
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(_t('v2_save_failed'))));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(accountsV2ErrorText(widget.language, error))),
+      );
     }
   }
 
@@ -815,42 +992,63 @@ class _ItemsCard extends StatelessWidget {
 // ─── Invoice numbering ───────────────────────────────────────────────────────
 
 class _InvoiceNumberingCard extends StatelessWidget {
-  const _InvoiceNumberingCard({required this.settings, required this.language});
+  const _InvoiceNumberingCard({
+    required this.settings,
+    required this.language,
+    this.onEdit,
+  });
 
-  final YorksAccountsSetupReadInvoiceSettings settings;
+  final YorksAccountsSetupReadInvoiceSettings? settings;
   final AppLanguage language;
+  final VoidCallback? onEdit;
 
   String _t(String key) => accountsV2Text(language, key);
 
   @override
   Widget build(BuildContext context) {
+    final current = settings;
     return AccountsV2Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AccountsV2SectionTitle(_t('v2_invoice_numbering_title'), number: 4),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xl,
-            runSpacing: AppSpacing.md,
-            children: [
-              _Field(
-                label: _t('v2_next_invoice_label'),
-                value: settings.nextInvoiceNumber,
-              ),
-              if (settings.scopeLine != null && settings.scopeLine!.isNotEmpty)
-                _Field(
-                  label: _t('v2_scope_line_label'),
-                  value: settings.scopeLine!,
-                ),
-              if (settings.attentionName != null &&
-                  settings.attentionName!.isNotEmpty)
-                _Field(
-                  label: _t('v2_attention_name_label'),
-                  value: settings.attentionName!,
-                ),
-            ],
+          AccountsV2SectionTitle(
+            _t('v2_invoice_numbering_title'),
+            number: 4,
+            trailing: onEdit == null
+                ? null
+                : TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    label: Text(_t('v2_edit')),
+                  ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          if (current == null)
+            Text(
+              _t('v2_invoice_numbering_empty'),
+              style: AppTypography.bodyMedium,
+            )
+          else
+            Wrap(
+              spacing: AppSpacing.xl,
+              runSpacing: AppSpacing.md,
+              children: [
+                _Field(
+                  label: _t('v2_next_invoice_label'),
+                  value: current.nextInvoiceNumber,
+                ),
+                if (current.scopeLine?.isNotEmpty ?? false)
+                  _Field(
+                    label: _t('v2_scope_line_label'),
+                    value: current.scopeLine!,
+                  ),
+                if (current.attentionName?.isNotEmpty ?? false)
+                  _Field(
+                    label: _t('v2_attention_name_label'),
+                    value: current.attentionName!,
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -1168,282 +1366,6 @@ class _EditBar extends StatelessWidget {
       ),
     );
   }
-}
-
-// ─── Editor (percent-mode) ───────────────────────────────────────────────────
-
-class _ContractEditor extends StatefulWidget {
-  const _ContractEditor({
-    required this.setup,
-    required this.language,
-    required this.onCancel,
-    required this.onSave,
-  });
-
-  final YorksAccountsCommercialSetupRead setup;
-  final AppLanguage language;
-  final VoidCallback onCancel;
-  final Future<String?> Function(YorksAccountsCommercialSetup setup) onSave;
-
-  @override
-  State<_ContractEditor> createState() => _ContractEditorState();
-}
-
-class _ContractEditorState extends State<_ContractEditor> {
-  late final TextEditingController _contract;
-  late final TextEditingController _vat;
-  late final TextEditingController _terms;
-  late final TextEditingController _reminder;
-  final Map<String, TextEditingController> _building = {};
-  final Map<String, TextEditingController> _stage = {};
-  bool _saving = false;
-
-  String _t(String key) => accountsV2Text(widget.language, key);
-
-  @override
-  void initState() {
-    super.initState();
-    final s = widget.setup;
-    _contract = TextEditingController(
-      text: s.contractValue?.canonicalText ?? '',
-    );
-    _vat = TextEditingController(text: s.vatRatePercent?.canonicalText ?? '');
-    _terms = TextEditingController(text: s.paymentTermsDays?.toString() ?? '');
-    _reminder = TextEditingController(
-      text: s.reminderLeadDays?.toString() ?? '',
-    );
-    for (final b in s.buildings) {
-      _building[b.projectScopeId] = TextEditingController(
-        text: b.allocationPercent.canonicalText,
-      );
-    }
-    for (final st in s.stages) {
-      _stage[st.stageKey] = TextEditingController(
-        text: st.allocationPercent.canonicalText,
-      );
-    }
-    for (final c in _liveControllers) {
-      c.addListener(_onChanged);
-    }
-  }
-
-  Iterable<TextEditingController> get _liveControllers => [
-    _contract,
-    _vat,
-    ..._building.values,
-    ..._stage.values,
-  ];
-
-  void _onChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    for (final c in [
-      _contract,
-      _vat,
-      _terms,
-      _reminder,
-      ..._building.values,
-      ..._stage.values,
-    ]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  YorksAccountsDecimal _dec(TextEditingController c) =>
-      YorksAccountsDecimal.tryParse(c.text.trim()) ?? YorksAccountsDecimal.zero;
-
-  YorksAccountsCommercialSetup _model() {
-    final s = widget.setup;
-    return YorksAccountsCommercialSetup(
-      contractValue: _dec(_contract),
-      currencyCode: s.currencyCode ?? 'AED',
-      vatRatePercent: _dec(_vat),
-      paymentTermsDays: int.tryParse(_terms.text.trim()),
-      reminderLeadDays: int.tryParse(_reminder.text.trim()),
-      buildings: [
-        for (final b in s.buildings)
-          YorksAccountsSetupBuilding(
-            buildingScopeId: b.projectScopeId,
-            allocationPercent: _dec(_building[b.projectScopeId]!),
-          ),
-      ],
-      stages: [
-        for (final st in s.stages)
-          YorksAccountsSetupStage(
-            stageKey: st.stageKey,
-            stageLabel: st.stageName,
-            allocationPercent: _dec(_stage[st.stageKey]!),
-            position: st.displayOrder,
-            measurementMode: 'percent',
-            items: const [],
-          ),
-      ],
-    );
-  }
-
-  Future<void> _save() async {
-    final model = _model();
-    if (!model.isValid) return;
-    // Capture the messenger before the await: on success the parent flips out
-    // of edit mode and disposes this editor, so a post-await `mounted` guard
-    // would swallow the confirmation toast.
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    setState(() => _saving = true);
-    final error = await widget.onSave(model);
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(error == null ? _t('v2_saved') : _t('v2_save_failed')),
-      ),
-    );
-    if (mounted) setState(() => _saving = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.setup;
-    final model = _model();
-    final hundred = YorksAccountsDecimal.hundred;
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      children: [
-        AccountsV2Card(
-          child: Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                size: 18,
-                color: AppColors.primary,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(_t('v2_edit_note'), style: AppTypography.bodySmall),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AccountsV2Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AccountsV2SectionTitle(_t('v2_contract_summary_title')),
-              const SizedBox(height: AppSpacing.md),
-              _EditField(
-                label: _t('v2_contract_value'),
-                controller: _contract,
-                numeric: true,
-              ),
-              _EditField(
-                label: _t('v2_vat_label'),
-                controller: _vat,
-                numeric: true,
-              ),
-              _EditField(
-                label: _t('v2_payment_terms_label'),
-                controller: _terms,
-                numeric: true,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AccountsV2Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AccountsV2SectionTitle(
-                _t('v2_buildings_title'),
-                trailing: _PercentBadge(
-                  percent: model.buildingTotal,
-                  ok: model.buildingTotal == hundred,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final b in s.buildings)
-                _EditField(
-                  label: b.name,
-                  controller: _building[b.projectScopeId]!,
-                  numeric: true,
-                  suffix: '%',
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AccountsV2Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AccountsV2SectionTitle(
-                _t('v2_stages_title'),
-                trailing: _PercentBadge(
-                  percent: model.stageTotal,
-                  ok: model.stageTotal == hundred,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              for (final st in s.stages)
-                _EditField(
-                  label: st.stageName,
-                  controller: _stage[st.stageKey]!,
-                  numeric: true,
-                  suffix: '%',
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        AccountsV2Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AccountsV2SectionTitle(_t('v2_setup_check_title')),
-              const SizedBox(height: AppSpacing.sm),
-              for (final check in model.validate())
-                _CheckRow(
-                  label: _t(_checkLabelKey(check.key)),
-                  ok: check.ok,
-                  detail: check.detail,
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            FilledButton(
-              onPressed: (_saving || !model.isValid) ? null : _save,
-              child: Text(_saving ? _t('v2_saving') : _t('v2_save')),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            OutlinedButton(
-              onPressed: _saving ? null : widget.onCancel,
-              child: Text(_t('v2_cancel')),
-            ),
-            if (_saving) ...[
-              const SizedBox(width: AppSpacing.md),
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-
-  static String _checkLabelKey(String key) => switch (key) {
-    'contract_value' => 'v2_check_contract',
-    'buildings_total' => 'v2_check_buildings',
-    'stages_total' => 'v2_check_stages',
-    _ => key,
-  };
 }
 
 class _EditField extends StatelessWidget {
