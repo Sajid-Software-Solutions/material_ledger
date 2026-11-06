@@ -4,8 +4,11 @@
 /// projection: the five KPIs (invoiced incl VAT, certified, received, cheques
 /// in hand, still due) and a per-invoice table (ex/incl VAT, certified, due,
 /// received, balance, status). Monetary content is drawn only with
-/// view_project_commercial_values. The cheque (PDC) register, the invoice
-/// drawer and the certification/payment actions are a later P6 increment.
+/// view_project_commercial_values. Tapping an invoice opens the detail drawer
+/// (certifications, payments with reversal, cheques), and certify / record
+/// payment run from the row. The drawer also offers Revise (R.n) while the
+/// invoice is still revisable — before any certification, net payment or active
+/// PDC (D7); the server re-checks on `v1_revise_client_invoice`.
 library;
 
 import 'package:flutter/material.dart';
@@ -32,6 +35,14 @@ typedef YorksPayAction =
 typedef YorksReversePaymentAction =
     Future<String?> Function(YorksAccountsPaymentReversalInput input);
 
+/// Revises an issued invoice (R.n); returns null on success or an error message.
+typedef YorksReviseInvoiceAction =
+    Future<String?> Function({
+      required String invoiceId,
+      required int expectedVersion,
+      required String reason,
+    });
+
 class AccountsV2InvoicesTab extends StatelessWidget {
   const AccountsV2InvoicesTab({
     super.key,
@@ -40,6 +51,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onRevise,
     this.onPrintInvoice,
     this.onOpenDetail,
     this.trailing,
@@ -54,6 +66,9 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+
+  /// Revises an issued invoice (R.n) from the detail drawer; null hides it.
+  final YorksReviseInvoiceAction? onRevise;
 
   /// Fetches + renders the invoice PDF and opens the print/preview; returns
   /// null on success or an error message.
@@ -115,6 +130,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onCertify: onCertify,
         onPay: onPay,
         onReversePayment: onReversePayment,
+        onRevise: onRevise,
         onPrintInvoice: onPrintInvoice,
         onOpenDetail: onOpenDetail,
       ),
@@ -280,6 +296,7 @@ class _TrackerCard extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onRevise,
     this.onPrintInvoice,
     this.onOpenDetail,
   });
@@ -294,6 +311,7 @@ class _TrackerCard extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksReviseInvoiceAction? onRevise;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
   final Future<YorksAccountsInvoiceDetailProjection?> Function(
     String invoiceId,
@@ -324,6 +342,7 @@ class _TrackerCard extends StatelessWidget {
         language: language,
         format: format,
         onReversePayment: onReversePayment,
+        onRevise: onRevise,
       ),
     );
   }
@@ -928,14 +947,64 @@ class _InvoiceDetailSheet extends StatelessWidget {
     required this.language,
     required this.format,
     this.onReversePayment,
+    this.onRevise,
   });
 
   final YorksAccountsInvoiceDetailProjection detail;
   final AppLanguage language;
   final AccountsV2Format format;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksReviseInvoiceAction? onRevise;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  /// D7: an issued invoice may be revised (R.n) only before any certification,
+  /// net payment or active PDC. The server re-checks; this only gates the UI.
+  bool get _canRevise {
+    if (onRevise == null) return false;
+    final inv = detail.invoice;
+    final revisableStatus =
+        inv.status == YorksAccountsInvoiceStatus.submitted ||
+        inv.status == YorksAccountsInvoiceStatus.underCertification;
+    if (!revisableStatus) return false;
+    if (detail.certifications.isNotEmpty) return false;
+    if (inv.paidAmount?.isPositive ?? false) return false;
+    final hasActivePdc = detail.pdcs.any(
+      (p) => const {
+        YorksAccountsPdcStatus.expected,
+        YorksAccountsPdcStatus.received,
+        YorksAccountsPdcStatus.deposited,
+      }.contains(p.status),
+    );
+    return !hasActivePdc;
+  }
+
+  Future<void> _revise(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReviseDialog(language: language),
+    );
+    if (reason == null) return;
+    final error = await onRevise!(
+      invoiceId: detail.invoice.invoiceId,
+      expectedVersion: detail.invoice.recordVersion,
+      reason: reason,
+    );
+    if (!context.mounted) return;
+    if (error == null) {
+      // No optimistic success: close the drawer so the refreshed tracker shows
+      // the predecessor still submitted and the new successor draft claim.
+      Navigator.of(context).pop();
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null ? _t('v2_inv_revised') : _t('v2_action_failed'),
+        ),
+      ),
+    );
+  }
 
   /// Payment ids that already carry a reversal entry — they cannot be reversed
   /// again (the server enforces one reversal per receipt).
@@ -1064,6 +1133,22 @@ class _InvoiceDetailSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+            if (_canRevise) ...[
+              const SizedBox(height: AppSpacing.md),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  onPressed: () => _revise(context),
+                  icon: const Icon(Icons.edit_note_outlined, size: 16),
+                  label: Text(_t('v2_inv_revise')),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                _t('v2_inv_revise_hint'),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
@@ -1386,6 +1471,72 @@ class _ReversalDialogState extends State<_ReversalDialog> {
         ),
         FilledButton(
           onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Revise (R.n) dialog ─────────────────────────────────────────────────────
+
+/// Captures the required reason for revising an issued invoice (R.n).
+class _ReviseDialog extends StatefulWidget {
+  const _ReviseDialog({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  State<_ReviseDialog> createState() => _ReviseDialogState();
+}
+
+class _ReviseDialogState extends State<_ReviseDialog> {
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _reason.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: Text(_t('v2_inv_revise_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _t('v2_inv_revise_hint'),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reason,
+            autofocus: true,
+            minLines: 1,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: _t('v2_inv_revise_reason'),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid
+              ? () => Navigator.of(context).pop(_reason.text.trim())
+              : null,
           child: Text(_t('v2_confirm')),
         ),
       ],

@@ -47,24 +47,25 @@ const _cmds = YorksAccountsReceivablesCommands(
   replacePdc: false,
 );
 
-YorksAccountsClientInvoiceSummary _invoice() =>
-    YorksAccountsClientInvoiceSummary(
-      invoiceId: 'i1',
-      claimId: 'c1',
-      invoiceReference: 'YRA322-01',
-      status: YorksAccountsInvoiceStatus.certified,
-      claimedExVat: _d('1000000.00'),
-      certifiedExVat: _d('900000.00'),
-      totalInclVat: _d('1050000.00'),
-      amountPaidTillDate: _d('500000.00'),
-      stillDue: _d('550000.00'),
-      pdcExposure: _d('200000.00'),
-      submissionDate: YorksAccountsDate.parse('2026-08-26'),
-      dueDate: YorksAccountsDate.parse('2026-10-10'),
-      dueState: YorksAccountsDueState.overdue,
-      recordVersion: 1,
-      updatedAt: DateTime.utc(2026, 8, 26),
-    );
+YorksAccountsClientInvoiceSummary _invoice({
+  YorksAccountsInvoiceStatus status = YorksAccountsInvoiceStatus.certified,
+}) => YorksAccountsClientInvoiceSummary(
+  invoiceId: 'i1',
+  claimId: 'c1',
+  invoiceReference: 'YRA322-01',
+  status: status,
+  claimedExVat: _d('1000000.00'),
+  certifiedExVat: _d('900000.00'),
+  totalInclVat: _d('1050000.00'),
+  amountPaidTillDate: _d('500000.00'),
+  stillDue: _d('550000.00'),
+  pdcExposure: _d('200000.00'),
+  submissionDate: YorksAccountsDate.parse('2026-08-26'),
+  dueDate: YorksAccountsDate.parse('2026-10-10'),
+  dueState: YorksAccountsDueState.overdue,
+  recordVersion: 1,
+  updatedAt: DateTime.utc(2026, 8, 26),
+);
 
 YorksAccountsInvoicesProjection _projection({
   bool values = true,
@@ -79,6 +80,92 @@ YorksAccountsInvoicesProjection _projection({
   capabilities: _caps(values: values, cert: cert, pay: pay),
   commands: _cmds,
 );
+
+Map<String, dynamic> _detailClaimJson() => {
+  'claim_id': 'c1',
+  'project_id': 'p1',
+  'baseline_revision_id': 'rev1',
+  'claim_reference': 'CLM-01',
+  'claim_period_start': '2026-08-01',
+  'claim_period_end': '2026-08-25',
+  'status': 'invoiced',
+  'admin_exception_reason': null,
+  'notes': null,
+  'is_stale': false,
+  'stale_reason': null,
+  'record_version': 2,
+  'created_by_auth_user_id': 'actor-1',
+  'created_by_exact_role': 'project_engineer',
+  'ready_for_accounts_at': null,
+  'cancelled_at': null,
+  'cancellation_reason': null,
+  'claimed_ex_vat': '1000000.00',
+  'lines': const <Map<String, dynamic>>[],
+  'created_at': '2026-08-26T09:00:00Z',
+  'updated_at': '2026-08-26T09:15:00Z',
+};
+
+Map<String, dynamic> _detailInvoiceJson({required String status}) => {
+  'invoice_id': 'i1',
+  'project_id': 'p1',
+  'claim_id': 'c1',
+  'invoice_reference': 'YRA322-01',
+  'status': status,
+  'claimed_ex_vat': '1000000.00',
+  'vat_rate_percent_snapshot': '5.0000',
+  'vat_amount_snapshot': '50000.00',
+  'total_incl_vat_snapshot': '1050000.00',
+  'payment_terms_days_snapshot': 45,
+  'reminder_lead_days_snapshot': 7,
+  'submission_date': '2026-08-26',
+  'due_date': '2026-10-10',
+  'due_state': 'on_track',
+  'record_version': 2,
+  'certified_ex_vat': '0.00',
+  'certified_incl_vat': '0.00',
+  'paid_amount': '0.00',
+  'still_due': '1050000.00',
+  'pdc_exposure': '0.00',
+  'retention_snapshot': '0.00',
+  'created_at': '2026-08-26T09:00:00Z',
+  'updated_at': '2026-08-26T09:15:00Z',
+};
+
+YorksAccountsInvoiceDetailProjection _detail({required String status}) =>
+    YorksAccountsInvoiceDetailProjection.fromRpcJson({
+      'schema_version': 3,
+      'project_id': 'p1',
+      'invoice': _detailInvoiceJson(status: status),
+      'claim': _detailClaimJson(),
+      'certifications': const <Map<String, dynamic>>[],
+      'payments': const <Map<String, dynamic>>[],
+      'pdcs': const <Map<String, dynamic>>[],
+      'due_state': 'on_track',
+      'capabilities': const {
+        'view_project_commercial_values': true,
+        'prepare_client_claim': true,
+        'manage_client_invoices': true,
+        'record_client_certification': true,
+        'record_client_payment': true,
+        'manage_pdc': true,
+      },
+      'commands': const {
+        'create_claim_draft': true,
+        'edit_claim_draft': true,
+        'submit_claim_to_accounts': true,
+        'cancel_claim': true,
+        'create_invoice_draft': true,
+        'submit_invoice': true,
+        'return_invoice': true,
+        'cancel_invoice': true,
+        'record_certification': true,
+        'record_payment': true,
+        'reverse_payment': true,
+        'create_pdc': true,
+        'transition_pdc': true,
+        'replace_pdc': true,
+      },
+    });
 
 final class _FakeReceivables implements YorksAccountsReceivablesRepository {
   _FakeReceivables(this.projection);
@@ -308,6 +395,88 @@ void main() {
 
       expect(find.text(t('v2_inv_record_payment')), findsNothing);
       expect(find.text(t('v2_inv_certify')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('AccountsV2InvoicesTab revise', () {
+    testWidgets('revises a submitted invoice from the drawer', (tester) async {
+      _wideSurface(tester);
+      String? revisedId;
+      int? revisedVersion;
+      String? revisedReason;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(
+              invoices: [
+                _invoice(status: YorksAccountsInvoiceStatus.submitted),
+              ],
+            ),
+            language: en,
+            onOpenDetail: (id) async => _detail(status: 'submitted'),
+            onRevise:
+                ({
+                  required String invoiceId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  revisedId = invoiceId;
+                  revisedVersion = expectedVersion;
+                  revisedReason = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('YRA322-01'));
+      await tester.pumpAndSettle();
+
+      // Drawer offers Revise for a still-revisable invoice.
+      final revise = find.text(t('v2_inv_revise'));
+      expect(revise, findsOneWidget);
+      await tester.tap(revise);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, 'Wrong quantity');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(revisedId, 'i1');
+      expect(revisedVersion, 2);
+      expect(revisedReason, 'Wrong quantity');
+      expect(find.text(t('v2_inv_revised')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('hides Revise once the invoice is certified', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(),
+            language: en,
+            onOpenDetail: (id) async => _detail(status: 'certified'),
+            onRevise:
+                ({
+                  required String invoiceId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('YRA322-01'));
+      await tester.pumpAndSettle();
+
+      // Drawer opened (certifications section visible) but Revise is gated out.
+      expect(find.text(t('v2_inv_certifications')), findsOneWidget);
+      expect(find.text(t('v2_inv_revise')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

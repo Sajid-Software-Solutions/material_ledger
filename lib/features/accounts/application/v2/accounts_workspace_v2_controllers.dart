@@ -753,6 +753,32 @@ final class YorksAccountsInvoicesController
         action: (key) => _repository.reversePayment(input, idempotencyKey: key),
       );
 
+  /// Revises an issued invoice (R.n): clones a successor draft claim from the
+  /// predecessor while the predecessor invoice stays submitted. The server
+  /// (v1_revise_client_invoice) rejects it once a certification, net payment or
+  /// active PDC exists (D7). No optimistic success; the tracker re-fetches on
+  /// the server's confirmation. Returns null on success or an error message.
+  Future<String?> revise({
+    required String invoiceId,
+    required int expectedVersion,
+    required String reason,
+  }) => runCommand(
+    operation: 'revise_invoice',
+    entityId: invoiceId,
+    payload: {'version': expectedVersion, 'reason': reason},
+    action: (key) async {
+      final workspace = _workspace;
+      if (workspace == null) throw StateError('accounts_backend_unavailable');
+      await workspace.reviseInvoice(
+        projectId: _projectId,
+        invoiceId: invoiceId,
+        expectedVersion: expectedVersion,
+        reason: reason,
+        idempotencyKey: key,
+      );
+    },
+  );
+
   /// Fetches the full invoice detail (invoice, certifications, payments and
   /// cheques) for the drawer. Pure read; returns null on failure.
   Future<YorksAccountsInvoiceDetailProjection?> fetchInvoiceDetail(

@@ -615,6 +615,7 @@ class _InvoicesBody extends ConsumerWidget {
             onCertify: controller.certify,
             onPay: controller.pay,
             onReversePayment: controller.reversePayment,
+            onRevise: controller.revise,
             onPrintInvoice: (invoiceId) async {
               final bytes = await controller.buildInvoicePdf(invoiceId);
               if (bytes == null) return 'error';

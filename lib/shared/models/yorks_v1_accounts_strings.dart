@@ -3914,6 +3914,40 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'دیکھیں / پرنٹ',
       'hi': 'देखें / प्रिंट',
     },
+    'v2_inv_revise': {
+      'en': 'Revise (R.n)',
+      'ar': 'مراجعة (R.n)',
+      'ur': 'نظرِ ثانی (R.n)',
+      'hi': 'संशोधन (R.n)',
+    },
+    'v2_inv_revise_title': {
+      'en': 'Revise invoice',
+      'ar': 'مراجعة الفاتورة',
+      'ur': 'انوائس پر نظرِ ثانی',
+      'hi': 'इनवॉइस संशोधित करें',
+    },
+    'v2_inv_revise_hint': {
+      'en':
+          'Creates a successor draft claim. The current invoice stays submitted until the revision is issued.',
+      'ar':
+          'يُنشئ مطالبة مسودة لاحقة. تبقى الفاتورة الحالية مُقدَّمة حتى تصدر المراجعة.',
+      'ur':
+          'ایک متبادل مسودہ کلیم بناتا ہے۔ موجودہ انوائس اُس وقت تک جمع شدہ رہتی ہے جب تک نظرِ ثانی جاری نہ ہو۔',
+      'hi':
+          'एक उत्तरवर्ती ड्राफ्ट क्लेम बनाता है। वर्तमान इनवॉइस संशोधन जारी होने तक सबमिटेड रहती है।',
+    },
+    'v2_inv_revise_reason': {
+      'en': 'Reason for revision',
+      'ar': 'سبب المراجعة',
+      'ur': 'نظرِ ثانی کی وجہ',
+      'hi': 'संशोधन का कारण',
+    },
+    'v2_inv_revised': {
+      'en': 'Revision started',
+      'ar': 'بدأت المراجعة',
+      'ur': 'نظرِ ثانی شروع ہو گئی',
+      'hi': 'संशोधन शुरू हुआ',
+    },
     'v2_inv_pdf_failed': {
       'en': "Couldn't open the invoice PDF — please try again.",
       'ar': 'تعذّر فتح ملف الفاتورة — يرجى المحاولة مرة أخرى.',
