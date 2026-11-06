@@ -675,34 +675,71 @@ class _CellRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Fixed money columns need ~430px; stack them below on a narrow tab.
-          final narrow = constraints.maxWidth < 440;
-          if (!narrow) {
-            return Row(
-              children: [
-                Expanded(child: nameAndPercent),
-                ...moneyCols,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              nameAndPercent,
-              if (moneyCols.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                  child: Wrap(
-                    spacing: AppSpacing.lg,
-                    runSpacing: AppSpacing.xs,
-                    children: moneyCols,
-                  ),
-                ),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Fixed money columns need ~430px; stack them below on a narrow tab.
+              final narrow = constraints.maxWidth < 440;
+              if (!narrow) {
+                return Row(
+                  children: [
+                    Expanded(child: nameAndPercent),
+                    ...moneyCols,
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  nameAndPercent,
+                  if (moneyCols.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                      child: Wrap(
+                        spacing: AppSpacing.lg,
+                        runSpacing: AppSpacing.xs,
+                        children: moneyCols,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // Invoiced-so-far progress for this building x stage (claimed of
+          // eligible). Display-only ratio; the amounts stay decimal strings.
+          if (canValues && (cell.eligible?.isPositive ?? false)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _ClaimProgressBar(
+              ratio: format.ratio(cell.claimed, cell.eligible),
+              over: cell.overClaimed,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A thin invoiced-progress bar for a claim cell (claimed of eligible).
+class _ClaimProgressBar extends StatelessWidget {
+  const _ClaimProgressBar({required this.ratio, required this.over});
+
+  final double ratio;
+  final bool over;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      child: LinearProgressIndicator(
+        value: ratio.clamp(0.0, 1.0),
+        minHeight: 6,
+        backgroundColor: AppColors.surfaceContainer,
+        valueColor: AlwaysStoppedAnimation<Color>(
+          over ? AppColors.error : AppColors.primary,
+        ),
       ),
     );
   }
