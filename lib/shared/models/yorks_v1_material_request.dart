@@ -1730,6 +1730,7 @@ class YorksV1MaterialRequestDraft {
 class YorksV1PrivateMaterialRequestDraftRecord {
   const YorksV1PrivateMaterialRequestDraftRecord({
     required this.draftId,
+    this.savedRequestVersion = 0,
     required this.syncVersion,
     required this.draft,
     required this.clientUpdatedAt,
@@ -1737,6 +1738,7 @@ class YorksV1PrivateMaterialRequestDraftRecord {
   });
 
   final String draftId;
+  final int savedRequestVersion;
   final int syncVersion;
   final YorksV1MaterialRequestDraft draft;
   final DateTime clientUpdatedAt;
@@ -1757,6 +1759,8 @@ class YorksV1PrivateMaterialRequestDraftRecord {
     final syncVersion = _positiveInt(json['sync_version']);
     final serverUpdatedAt = _requiredDate(json, 'server_updated_at');
     return YorksV1PrivateMaterialRequestDraftRecord(
+      savedRequestVersion:
+          (json['saved_request_version'] as num?)?.toInt() ?? 0,
       draftId: _requiredString(json, 'draft_id'),
       syncVersion: syncVersion,
       clientUpdatedAt: _requiredDate(json, 'client_updated_at'),

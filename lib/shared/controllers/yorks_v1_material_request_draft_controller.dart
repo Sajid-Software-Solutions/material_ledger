@@ -38,6 +38,7 @@ class YorksV1MaterialRequestDraftState {
     required this.draft,
     this.status = YorksV1MaterialRequestDraftSyncStatus.local,
     this.errorCode,
+    this.recoveryRequest,
     this.canRetryUnconfirmed = false,
     this.localPersistenceFailed = false,
   });
@@ -45,6 +46,7 @@ class YorksV1MaterialRequestDraftState {
   final YorksV1MaterialRequestDraft draft;
   final YorksV1MaterialRequestDraftSyncStatus status;
   final YorksV1DomainErrorCode? errorCode;
+  final YorksV1MaterialRequest? recoveryRequest;
   final bool canRetryUnconfirmed;
   final bool localPersistenceFailed;
 }
@@ -70,6 +72,7 @@ class YorksV1MaterialRequestDraftController
     String Function()? uuidFactory,
     VoidCallback? onLocalDraftsChanged,
     bool Function()? isCurrentOwner,
+    bool Function(String projectId)? canReadRecoveryProject,
     VoidCallback Function()? retainForDeletion,
     AnalyticsService analytics = const NoopAnalyticsService(),
     Duration privateSyncDebounce = const Duration(milliseconds: 1200),
@@ -80,6 +83,7 @@ class YorksV1MaterialRequestDraftController
        _uuidFactory = uuidFactory ?? const Uuid().v4,
        _onLocalDraftsChanged = onLocalDraftsChanged,
        _isCurrentOwner = isCurrentOwner,
+       _canReadRecoveryProject = canReadRecoveryProject,
        _retainForDeletion = retainForDeletion,
        _analytics = analytics,
        _privateSyncDebounceDuration = privateSyncDebounce,
@@ -111,6 +115,7 @@ class YorksV1MaterialRequestDraftController
   final String Function() _uuidFactory;
   final VoidCallback? _onLocalDraftsChanged;
   final bool Function()? _isCurrentOwner;
+  final bool Function(String projectId)? _canReadRecoveryProject;
   final VoidCallback Function()? _retainForDeletion;
   final AnalyticsService _analytics;
   final Duration _privateSyncDebounceDuration;
@@ -140,6 +145,26 @@ class YorksV1MaterialRequestDraftController
   bool _disposed = false;
   bool _discardInFlight = false;
   bool _discarded = false;
+  bool _reviewingRecovery = false;
+  // Background resolution suspends connected commands immediately, but the
+  // visible editor must keep accepting input until comparison/error is shown.
+  bool _acceptingRecoveryInput = false;
+  final Set<VoidCallback> _pendingEditorFlushers = {};
+
+  /// Editors commit buffered cells synchronously before recovery locks input.
+  void addPendingEditorFlusher(VoidCallback flush) =>
+      _pendingEditorFlushers.add(flush);
+  void removePendingEditorFlusher(VoidCallback flush) =>
+      _pendingEditorFlushers.remove(flush);
+
+  void _flushPendingEditorInput() {
+    if (!_acceptingRecoveryInput || _inactive) return;
+    for (final flush in List<VoidCallback>.of(_pendingEditorFlushers)) {
+      flush();
+    }
+  }
+
+  String? _recoveryProjectId;
   Future<void>? _privateSyncDrain;
   bool get _inactive =>
       _disposed || _discarded || !(_isCurrentOwner?.call() ?? true);
@@ -159,6 +184,12 @@ class YorksV1MaterialRequestDraftController
   YorksV1DomainErrorCode? get lastErrorCode => state.errorCode;
 
   bool get isEditingBeforeApproval => _editingBeforeApproval;
+  bool get isReviewingRecovery =>
+      _reviewingRecovery && !_acceptingRecoveryInput;
+
+  Future<void> retryRecoveryReview() async {
+    if (_reviewingRecovery) await _resolveExistingRecovery();
+  }
 
   void recordReviewReached() {
     _analytics.capture(
@@ -180,8 +211,10 @@ class YorksV1MaterialRequestDraftController
   /// account copy replaces only an untouched/older device copy.
   Future<void> hydratePrivateDraft() {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         state.draft.pendingSubmissionApproval != null ||
+        state.draft.hasPendingSave ||
         _privateHydrationCompleted ||
         state.draft.serverRecordVersion > 0) {
       return Future<void>.value();
@@ -204,6 +237,17 @@ class YorksV1MaterialRequestDraftController
         submissionIdempotencyKey: initialLocal.submissionIdempotencyKey,
       );
       if (!_recoveryIsCurrent(generation)) return;
+      if (remote != null && remote.savedRequestVersion > 0) {
+        if (state.draft.updatedAt == initialLocal.updatedAt &&
+            (!state.draft.hasRecoverableContent ||
+                remote.clientUpdatedAt.isAfter(state.draft.updatedAt))) {
+          _acceptedDraft = remote.draft;
+          state = YorksV1MaterialRequestDraftState(draft: remote.draft);
+          await _persist(remote.draft);
+        }
+        await _resolveExistingRecovery();
+        return;
+      }
       final current = state.draft;
       final editedWhileLoading = current.updatedAt != initialLocal.updatedAt;
       if (remote == null) {
@@ -249,6 +293,10 @@ class YorksV1MaterialRequestDraftController
       }
     } on YorksV1DomainException catch (error) {
       if (!_recoveryIsCurrent(generation)) return;
+      if (error.serverMessage == 'V1_PRIVATE_DRAFT_ALREADY_SAVED') {
+        await _resolveExistingRecovery();
+        return;
+      }
       if (error.serverMessage == 'V1_PRIVATE_DRAFT_DELETED') {
         await _clearRetiredRecovery();
         return;
@@ -264,6 +312,103 @@ class YorksV1MaterialRequestDraftController
     } catch (_) {
       // Device-local recovery remains authoritative for this editing session.
     }
+  }
+
+  /// Resolve a cross-device save through the protected request projection. A
+  /// denial/network failure is never interpreted as deletion or permission.
+  Future<void> _resolveExistingRecovery() async {
+    if (_inactive ||
+        state.draft.hasPendingSave ||
+        state.draft.pendingSubmissionApproval != null) {
+      return;
+    }
+    _acceptingRecoveryInput = !_reviewingRecovery || _acceptingRecoveryInput;
+    _reviewingRecovery = true;
+    _privateSyncRequested = false;
+    _privateSyncDebounce?.cancel();
+    // A newer resolution supersedes an older response without replacing edits.
+    final generation = ++_recoveryGeneration;
+    YorksV1MaterialRequest request;
+    try {
+      request = await _repository.getRequest(_draftId);
+    } catch (error) {
+      if (!_recoveryIsCurrent(generation)) return;
+      _flushPendingEditorInput();
+      if (!_recoveryIsCurrent(generation)) return;
+      _acceptingRecoveryInput = false;
+      state = YorksV1MaterialRequestDraftState(
+        draft: state.draft,
+        status: YorksV1MaterialRequestDraftSyncStatus.failed,
+        errorCode: error is YorksV1DomainException
+            ? error.code
+            : YorksV1DomainErrorCode.backendUnavailable,
+      );
+      return;
+    }
+    if (!_recoveryIsCurrent(generation)) return;
+    _recoveryProjectId = request.projectId;
+    if (!(_canReadRecoveryProject?.call(request.projectId) ?? true)) {
+      invalidateRecoveryAuthority();
+      return;
+    }
+    _flushPendingEditorInput();
+    if (!_recoveryIsCurrent(generation)) return;
+    _acceptingRecoveryInput = false;
+    state = YorksV1MaterialRequestDraftState(
+      draft: state.draft,
+      status: YorksV1MaterialRequestDraftSyncStatus.conflict,
+      recoveryRequest: request,
+    );
+  }
+
+  /// Drop protected server data and invalidate pending reads without deleting
+  /// owner-authored recovery or changing an uncertain command's retry intent.
+  void invalidateRecoveryAuthority() {
+    if (_disposed || !_reviewingRecovery) return;
+    _recoveryGeneration++;
+    // Capture only the current owner's pending local fields while updates are
+    // still accepted. This is synchronous: protected content is cleared below
+    // without waiting for persistence or a replacement authorized lookup.
+    _flushPendingEditorInput();
+    _acceptingRecoveryInput = false;
+    state = YorksV1MaterialRequestDraftState(
+      draft: state.draft,
+      status: YorksV1MaterialRequestDraftSyncStatus.failed,
+      errorCode: YorksV1DomainErrorCode.unauthorized,
+    );
+  }
+
+  Future<void> refreshRecoveryAuthority() async {
+    if (!_reviewingRecovery || _inactive) return;
+    invalidateRecoveryAuthority();
+    final projectId = _recoveryProjectId ?? state.draft.projectId;
+    if (projectId == null ||
+        (_canReadRecoveryProject?.call(projectId) ?? true)) {
+      await _resolveExistingRecovery();
+    }
+  }
+
+  /// Explicitly carry recovered input onto the version the user just reviewed.
+  /// No server write occurs here; Save still checks that version on the server.
+  Future<void> keepRecoveredChanges() async {
+    final request = state.recoveryRequest;
+    if (_inactive ||
+        request == null ||
+        !request.state.isDraft ||
+        !(_canReadRecoveryProject?.call(request.projectId) ?? true) ||
+        state.draft.hasPendingSave ||
+        state.draft.pendingSubmissionApproval != null) {
+      return;
+    }
+    final reconciled = state.draft.copyWith(
+      serverRecordVersion: request.recordVersion,
+    );
+    final generation = _recoveryGeneration;
+    await _persist(reconciled);
+    if (!_recoveryIsCurrent(generation)) return;
+    _acceptedDraft = reconciled;
+    _reviewingRecovery = false;
+    state = YorksV1MaterialRequestDraftState(draft: reconciled);
   }
 
   static YorksV1MaterialRequestDraft _restoreOrEmpty({
@@ -654,6 +799,43 @@ class YorksV1MaterialRequestDraftController
     _captureItemChange('add_excel', count: additions.length);
   }
 
+  /// Preserve an interrupted inline editor as local draft input, including
+  /// incomplete required fields. Apply creation and edits in one replacement
+  /// before recovery locks input; never turn a removed line into a new one.
+  Future<void> preserveUnfinishedMaterial({
+    String? lineId,
+    required YorksV1MaterialRequestLine Function(YorksV1MaterialRequestLine)
+    transform,
+  }) async {
+    final draft = state.draft;
+    final index = lineId == null
+        ? -1
+        : draft.lines.indexWhere((line) => line.id == lineId);
+    if (lineId != null && index < 0) return;
+    final original = index < 0
+        ? YorksV1MaterialRequestLine(
+            id: _uuidFactory(),
+            displayOrder: draft.lines.length + 1,
+            source: YorksV1MaterialRequestLineSource.custom,
+            description: '',
+            quantity: '',
+            unit: '',
+          )
+        : draft.lines[index];
+    final recovered = transform(original);
+    if (index >= 0 &&
+        mapEquals(original.toDraftJson(), recovered.toDraftJson())) {
+      return;
+    }
+    final lines = [...draft.lines];
+    if (index < 0) {
+      lines.add(recovered);
+    } else {
+      lines[index] = recovered;
+    }
+    await _replace(draft.copyWith(lines: lines));
+  }
+
   @override
   Future<void> updateLine(
     String lineId,
@@ -723,6 +905,7 @@ class YorksV1MaterialRequestDraftController
   /// through the versioned draft RPC.
   Future<bool> saveDraft() async {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         state.draft.pendingSubmissionApproval != null) {
       return false;
@@ -749,6 +932,7 @@ class YorksV1MaterialRequestDraftController
 
   Future<bool> saveConnected() async {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         state.draft.pendingSubmissionApproval != null) {
       return false;
@@ -761,7 +945,10 @@ class YorksV1MaterialRequestDraftController
       screen: AnalyticsScreen.materialRequestDraft,
       operationWasLoading: _connectedCommandInFlight,
     );
-    if (_inactive || _discardInFlight || _connectedCommandInFlight) {
+    if (_inactive ||
+        _reviewingRecovery ||
+        _discardInFlight ||
+        _connectedCommandInFlight) {
       return false;
     }
     _beginConnectedCommand();
@@ -892,6 +1079,20 @@ class YorksV1MaterialRequestDraftController
           );
         }
       }
+      // A confirmed Save supersedes this exact recovery version. A newer
+      // cross-device copy is protected by the server's sync-version check.
+      final recoveryRepository = _phase2Repository;
+      if (recoveryRepository != null && draft.privateSyncVersion > 0) {
+        try {
+          await recoveryRepository.deletePrivateDraft(
+            draftId: _draftId,
+            expectedSyncVersion: draft.privateSyncVersion,
+            idempotencyKey: _uuidFactory(),
+          );
+        } catch (_) {
+          // The saved request is authoritative; differing recovery stays intact.
+        }
+      }
       return _DraftSaveResult(
         acknowledged: true,
         request: saved ?? legacySaved,
@@ -951,7 +1152,10 @@ class YorksV1MaterialRequestDraftController
   }
 
   Future<bool> reconcileDraftSave({bool retryIfAbsent = false}) async {
-    if (_inactive || _discardInFlight || _connectedCommandInFlight) {
+    if (_inactive ||
+        _reviewingRecovery ||
+        _discardInFlight ||
+        _connectedCommandInFlight) {
       return false;
     }
     final draft = state.draft;
@@ -1070,6 +1274,7 @@ class YorksV1MaterialRequestDraftController
     bool retryUnconfirmed = false,
   }) async {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         _connectedCommandInFlight ||
         state.draft.hasPendingSave) {
@@ -1094,7 +1299,12 @@ class YorksV1MaterialRequestDraftController
       screen: AnalyticsScreen.materialRequestDraft,
       operationWasLoading: _connectedCommandInFlight,
     );
-    if (_inactive || _discardInFlight || _connectedCommandInFlight) return null;
+    if (_inactive ||
+        _reviewingRecovery ||
+        _discardInFlight ||
+        _connectedCommandInFlight) {
+      return null;
+    }
     _beginConnectedCommand();
     final source = approveImmediately
         ? 'new_submit_and_approve'
@@ -1348,7 +1558,12 @@ class YorksV1MaterialRequestDraftController
   }
 
   Future<YorksV1MaterialRequest?> reconcileSubmission() async {
-    if (_inactive || _discardInFlight || _connectedCommandInFlight) return null;
+    if (_inactive ||
+        _reviewingRecovery ||
+        _discardInFlight ||
+        _connectedCommandInFlight) {
+      return null;
+    }
     final draft = state.draft;
     final mode = draft.pendingSubmissionApproval;
     final repository = _repository;
@@ -1403,6 +1618,7 @@ class YorksV1MaterialRequestDraftController
 
   Future<YorksV1MaterialRequest?> retryUnconfirmedSubmission() async {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         !state.canRetryUnconfirmed ||
         _connectedCommandInFlight) {
@@ -1545,7 +1761,10 @@ class YorksV1MaterialRequestDraftController
                 submissionIdempotencyKey: displayed.submissionIdempotencyKey,
               );
             } on YorksV1DomainException catch (error) {
-              if (error.serverMessage != 'V1_PRIVATE_DRAFT_DELETED') rethrow;
+              if (error.serverMessage != 'V1_PRIVATE_DRAFT_DELETED' &&
+                  error.serverMessage != 'V1_PRIVATE_DRAFT_ALREADY_SAVED') {
+                rethrow;
+              }
               // A prior delete committed but device cleanup failed. Retrying
               // remains safe even though the private row no longer exists.
             }
@@ -1734,6 +1953,7 @@ class YorksV1MaterialRequestDraftController
 
   Future<void> _replace(YorksV1MaterialRequestDraft draft) async {
     if (_inactive ||
+        (_reviewingRecovery && !_acceptingRecoveryInput) ||
         _discardInFlight ||
         _connectedCommandInFlight ||
         state.draft.hasPendingSave ||
@@ -1757,6 +1977,7 @@ class YorksV1MaterialRequestDraftController
 
   void _schedulePrivateSync() {
     if (_inactive ||
+        _reviewingRecovery ||
         _discardInFlight ||
         _connectedCommandInFlight ||
         state.draft.hasPendingSave ||
@@ -1775,7 +1996,12 @@ class YorksV1MaterialRequestDraftController
   }
 
   void _requestPrivateSync() {
-    if (_inactive || _discardInFlight || _connectedCommandInFlight) return;
+    if (_inactive ||
+        _reviewingRecovery ||
+        _discardInFlight ||
+        _connectedCommandInFlight) {
+      return;
+    }
     _privateSyncRequested = true;
     if (_privateSyncInFlight) return;
     _startPrivateSync();
@@ -1809,7 +2035,7 @@ class YorksV1MaterialRequestDraftController
     final repository = _phase2Repository;
     final snapshot = state.draft;
     final generation = _recoveryGeneration;
-    if (_connectedCommandInFlight) return;
+    if (_connectedCommandInFlight || _reviewingRecovery) return;
     if (repository == null || snapshot.serverRecordVersion > 0) return;
     if (!snapshot.hasRecoverableContent) return;
     state = YorksV1MaterialRequestDraftState(
@@ -1838,6 +2064,10 @@ class YorksV1MaterialRequestDraftController
       await _persist(reconciled);
     } on YorksV1DomainException catch (error) {
       if (!_recoveryIsCurrent(generation)) return;
+      if (error.serverMessage == 'V1_PRIVATE_DRAFT_ALREADY_SAVED') {
+        await _resolveExistingRecovery();
+        return;
+      }
       if (error.serverMessage == 'V1_PRIVATE_DRAFT_DELETED') {
         await _clearRetiredRecovery();
         return;

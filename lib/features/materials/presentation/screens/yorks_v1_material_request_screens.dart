@@ -11,6 +11,7 @@ import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 
 import '../widgets/yorks_v1_submission_recovery_panel.dart';
+import '../widgets/yorks_v1_material_request_recovery_changes.dart';
 import '../../../../app/router.dart';
 import '../../../../core/zoom/yorks_workspace_zoom.dart';
 import '../../../../core/constants/constants.dart';
@@ -193,7 +194,7 @@ class _ProjectMaterialRequestsScreen extends ConsumerWidget {
                   .valueOrNull ??
               const <YorksV1PrivateMaterialRequestDraftRecord>[];
     final savedDrafts = _mergeRecoverableDrafts(
-      deviceDrafts,
+      _visibleDeviceRecoveryDrafts(ref, deviceDrafts, ownerAuthUserId),
       accountDrafts.map((record) => record.draft),
       projectId: projectId,
     );
@@ -474,7 +475,7 @@ class _YorksMobileMaterialRequestsPageState
                   .valueOrNull ??
               const <YorksV1PrivateMaterialRequestDraftRecord>[];
     final savedDrafts = _mergeRecoverableDrafts(
-      deviceDrafts,
+      _visibleDeviceRecoveryDrafts(ref, deviceDrafts, ownerAuthUserId),
       accountDrafts.map((record) => record.draft),
       projectId: widget.projectId,
     );
@@ -1314,7 +1315,7 @@ class _RecoverableMaterialDraftNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleDrafts = compact ? drafts.take(3) : drafts.take(5);
+    final visibleDrafts = drafts;
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1478,6 +1479,44 @@ class _RecoverableDraftRowState extends ConsumerState<_RecoverableDraftRow> {
       ),
     );
   }
+}
+
+List<YorksV1MaterialRequestDraft> _visibleDeviceRecoveryDrafts(
+  WidgetRef ref,
+  List<YorksV1MaterialRequestDraft> drafts,
+  String? owner,
+) {
+  if (owner == null || drafts.isEmpty) return drafts;
+  final ids =
+      drafts
+          .where(
+            (draft) =>
+                !draft.hasPendingSave &&
+                draft.pendingSubmissionApproval == null,
+          )
+          .map((draft) => draft.id)
+          .toList()
+        ..sort();
+  final obsolete =
+      ref
+          .watch(
+            yorksV1ObsoleteMaterialRequestRecoveryProvider((
+              owner: owner,
+              ids: ids.join(','),
+            )),
+          )
+          .valueOrNull ??
+      const <String>{};
+  // Retain bytes locally: this is an authorized presentation classification,
+  // not deletion of potentially differing input from an offline device.
+  return drafts
+      .where(
+        (draft) =>
+            draft.hasPendingSave ||
+            draft.pendingSubmissionApproval != null ||
+            !obsolete.contains(draft.id),
+      )
+      .toList();
 }
 
 List<YorksV1MaterialRequestDraft> _mergeRecoverableDrafts(
@@ -2286,6 +2325,17 @@ class YorksV1MaterialRequestDraftScreen extends ConsumerStatefulWidget {
 
 class _YorksV1MaterialRequestDraftScreenState
     extends ConsumerState<YorksV1MaterialRequestDraftScreen> {
+  final _editorFocusScope = FocusScopeNode();
+  YorksV1MaterialRequestDraftController? _flushController;
+
+  void _flushPendingEditorInput() {
+    if (!mounted || !_editorFocusScope.hasFocus) return;
+    _editorFocusScope.unfocus();
+    // Blur listeners commit cells synchronously, while the controller still
+    // accepts input. Do not defer this until the comparison replaces the form.
+    FocusManager.instance.applyFocusChangesIfNeeded();
+  }
+
   bool _seededFromBoq = false;
   bool _seededProjectFromRoute = false;
   bool _hydratedFromServer = false;
@@ -2323,6 +2373,8 @@ class _YorksV1MaterialRequestDraftScreenState
 
   @override
   void dispose() {
+    _flushController?.removePendingEditorFlusher(_flushPendingEditorInput);
+    _editorFocusScope.dispose();
     final previous = _sidebarWasExpanded;
     final sidebarController = _sidebarController;
     if (previous != null && sidebarController != null) {
@@ -2336,7 +2388,10 @@ class _YorksV1MaterialRequestDraftScreenState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      FocusScope(node: _editorFocusScope, child: _buildEditor(context));
+
+  Widget _buildEditor(BuildContext context) {
     final owner = ref.watch(yorksV1AuthUserIdProvider);
     final language = ref.watch(languageProvider);
     if (owner == null || owner.isEmpty) {
@@ -2354,6 +2409,120 @@ class _YorksV1MaterialRequestDraftScreenState
     final controller = ref.read(
       yorksV1MaterialRequestDraftControllerProvider(key).notifier,
     );
+    if (!identical(_flushController, controller)) {
+      _flushController?.removePendingEditorFlusher(_flushPendingEditorInput);
+      _flushController = controller;
+      controller.addPendingEditorFlusher(_flushPendingEditorInput);
+    }
+    final recoveryRequest = state.recoveryRequest;
+    final recoveryPermission = ref.watch(
+      yorksV1CurrentPermissionSnapshotProvider,
+    );
+    if ((controller.isReviewingRecovery &&
+            state.errorCode == YorksV1DomainErrorCode.unauthorized) ||
+        (recoveryRequest != null &&
+            (!recoveryPermission.isTrustedForWrites ||
+                !yorksV1CanReadProjectRecord(
+                  recoveryPermission,
+                  YorksV1CapabilityKeys.materialRequestsView,
+                  legacyAllowed: true,
+                  projectId: recoveryRequest.projectId,
+                )))) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: YorksV1ProjectReadBoundary(
+          allowed: false,
+          language: language,
+          child: const SizedBox.shrink(),
+        ),
+      );
+    }
+    if (controller.isReviewingRecovery && recoveryRequest == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: _RequestError(
+          language: language,
+          onRetry: controller.retryRecoveryReview,
+        ),
+      );
+    }
+    if (recoveryRequest != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(
+            YorksV1MaterialRequestStrings.recoveredInput.active(language),
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    YorksV1MaterialRequestStrings.recoveryReview.active(
+                      language,
+                    ),
+                    style: AppTypography.titleMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    YorksV1MaterialRequestStrings.recoveredInput.active(
+                      language,
+                    ),
+                    style: AppTypography.labelLarge,
+                  ),
+                  Text(state.draft.title ?? ''),
+                  Text(
+                    '${YorksV1MaterialRequestStrings.lines.active(language)}: ${state.draft.lines.length}',
+                  ),
+                  const Divider(),
+                  Text(
+                    yorksV1MaterialRequestStateCopy(
+                      recoveryRequest.state,
+                    ).active(language),
+                    style: AppTypography.labelLarge,
+                  ),
+                  Text(recoveryRequest.title ?? ''),
+                  Text(
+                    '${YorksV1MaterialRequestStrings.lines.active(language)}: ${recoveryRequest.lines.length}',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  YorksV1MaterialRequestRecoveryChanges(
+                    draft: state.draft,
+                    saved: recoveryRequest,
+                    language: language,
+                  ),
+                  if (recoveryRequest.state.isDraft)
+                    FilledButton(
+                      onPressed: () async {
+                        await controller.keepRecoveredChanges();
+                        if (mounted) setState(() {});
+                      },
+                      child: Text(
+                        YorksV1MaterialRequestStrings.keepRecoveredChanges
+                            .active(language),
+                      ),
+                    ),
+                  TextButton(
+                    onPressed: () => context.go(
+                      RoutePaths.yorksV1MaterialRequestPath(recoveryRequest.id),
+                    ),
+                    child: Text(
+                      YorksV1MaterialRequestStrings.openExistingRequest.active(
+                        language,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final runtimeConfiguration = ref.watch(yorksV1RuntimeConfigurationProvider);
     final needsPrivateResolution =
         widget.entryMode ==
@@ -4362,10 +4531,62 @@ class _YorksMobileMaterialRequestDraftFlowState
     _customSize = TextEditingController();
     _customModel = TextEditingController();
     _customQuantity = TextEditingController(text: '1');
+    widget.controller.addPendingEditorFlusher(_preserveCustomEditor);
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant _YorksMobileMaterialRequestDraftFlow oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.removePendingEditorFlusher(_preserveCustomEditor);
+      widget.controller.addPendingEditorFlusher(_preserveCustomEditor);
+    }
+  }
+
+  void _preserveCustomEditor() {
+    if (!mounted || _sourcePage != _MobileMaterialRequestSourcePage.custom) {
+      return;
+    }
+    // Opening an untouched Add form must not manufacture an empty line.
+    if (_editingCustomLineId == null &&
+        _customDescription.text.isEmpty &&
+        _customBrand.text.isEmpty &&
+        _customSize.text.isEmpty &&
+        _customModel.text.isEmpty &&
+        _customQuantity.text == '1' &&
+        _customUnit.isEmpty) {
+      return;
+    }
+    unawaited(
+      widget.controller.preserveUnfinishedMaterial(
+        lineId: _editingCustomLineId,
+        transform: _applyCustomEditorInput,
+      ),
+    );
+  }
+
+  YorksV1MaterialRequestLine _applyCustomEditorInput(
+    YorksV1MaterialRequestLine current,
+  ) {
+    final selected = _customSuggestion;
+    final correlated = selected == null
+        ? current
+        : _applyMaterialSuggestion(current, selected);
+    return correlated.copyWith(
+      description: _customDescription.text,
+      brandOrigin: _customBrand.text,
+      size: _customSize.text,
+      model: _customModel.text,
+      quantity: _customQuantity.text,
+      unit: _customUnit,
+    );
   }
 
   @override
   void dispose() {
+    widget.controller.removePendingEditorFlusher(_preserveCustomEditor);
     _customDescription.dispose();
     _customBrand.dispose();
     _customSize.dispose();
@@ -5728,22 +5949,7 @@ class _YorksMobileMaterialRequestDraftFlowState
               .where((item) => item.id == editingLineId)
               .firstOrNull;
     if (line == null) return;
-    await widget.controller.updateLine(line.id, (current) {
-      final selected = _customSuggestion;
-      final correlated = selected == null
-          ? current
-          : _applyMaterialSuggestion(current, selected);
-      return correlated.copyWith(
-        description: _customDescription.text,
-        brandOrigin: _customBrand.text.trim().isEmpty
-            ? null
-            : _customBrand.text,
-        size: _customSize.text.trim().isEmpty ? null : _customSize.text,
-        model: _customModel.text.trim().isEmpty ? null : _customModel.text,
-        quantity: _customQuantity.text,
-        unit: _customUnit,
-      );
-    });
+    await widget.controller.updateLine(line.id, _applyCustomEditorInput);
     if (!mounted) return;
     setState(() {
       _sourcePage = _MobileMaterialRequestSourcePage.none;

@@ -11,6 +11,7 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_material_request.dart';
 import '../models/yorks_v1_material_request_document.dart';
 import '../models/yorks_v1_role.dart';
+import '../models/yorks_v1_permission_management.dart';
 import '../repositories/yorks_v1_material_request_draft_store.dart';
 import '../repositories/yorks_v1_material_request_repository.dart';
 import '../services/analytics_service.dart';
@@ -79,6 +80,15 @@ final yorksV1MaterialRequestDraftControllerProvider = StateNotifierProvider
         repository: ref.watch(yorksV1MaterialRequestRepositoryProvider),
         uuidFactory: uuid.v4,
         analytics: ref.watch(analyticsServiceProvider),
+        canReadRecoveryProject: (projectId) {
+          final permission = ref.read(yorksV1CurrentPermissionSnapshotProvider);
+          return permission.isTrustedForWrites &&
+              permission.hybridAllows(
+                YorksV1CapabilityKeys.materialRequestsView,
+                legacyAllowed: true,
+                projectId: projectId,
+              );
+        },
         isCurrentOwner: () =>
             ref.read(yorksV1AuthUserIdProvider) == key.ownerAuthUserId,
         onLocalDraftsChanged: () {
@@ -90,6 +100,18 @@ final yorksV1MaterialRequestDraftControllerProvider = StateNotifierProvider
           revision.state++;
         },
       );
+      ref.listen(yorksV1CurrentPermissionSnapshotProvider, (previous, next) {
+        if (previous?.snapshot != next.snapshot ||
+            previous?.isTrustedForWrites != next.isTrustedForWrites) {
+          unawaited(controller.refreshRecoveryAuthority());
+        }
+      });
+      ref.listen(yorksV1AuthUserIdProvider, (previous, next) {
+        if (previous != next) controller.invalidateRecoveryAuthority();
+      });
+      ref.listen(yorksV1CurrentRoleProvider, (previous, next) {
+        if (previous != next) controller.invalidateRecoveryAuthority();
+      });
       return controller;
     });
 
@@ -276,6 +298,27 @@ final yorksV1MaterialRequestLocalDraftsProvider =
       return List.unmodifiable(drafts);
     });
 
+/// Stable identity-only key avoids a classification request on every keystroke.
+/// Failure retains the local entry; it never becomes evidence of absence.
+final yorksV1ObsoleteMaterialRequestRecoveryProvider = FutureProvider
+    .autoDispose
+    .family<Set<String>, ({String owner, String ids})>((ref, key) async {
+      yorksV1RefreshProtectedProjectionOnPermissionRevision(ref);
+      ref.listen<int>(yorksV1MaterialRequestRealtimeRevisionProvider, (
+        previous,
+        next,
+      ) {
+        if (previous != null && previous != next) ref.invalidateSelf();
+      });
+      final repository = ref.watch(yorksV1MaterialRequestRepositoryProvider);
+      if (repository is! YorksV1MaterialRequestRecoveryLifecycleRepository ||
+          key.ids.isEmpty) {
+        return const <String>{};
+      }
+      return (repository as YorksV1MaterialRequestRecoveryLifecycleRepository)
+          .obsoleteRecoveryIds(key.ids.split(','));
+    });
+
 /// Cross-device recovery index. The database function is owner-scoped and
 /// returns only the authenticated creator's private, unsubmitted drafts.
 final yorksV1MaterialRequestPrivateDraftsProvider = FutureProvider.autoDispose
@@ -283,6 +326,13 @@ final yorksV1MaterialRequestPrivateDraftsProvider = FutureProvider.autoDispose
       ref,
       ownerAuthUserId,
     ) {
+      yorksV1RefreshProtectedProjectionOnPermissionRevision(ref);
+      ref.listen<int>(yorksV1MaterialRequestRealtimeRevisionProvider, (
+        previous,
+        next,
+      ) {
+        if (previous != null && previous != next) ref.invalidateSelf();
+      });
       // Local editor persistence is intentionally not a dependency here.
       // Every keystroke updates the device recovery index; coupling that
       // revision to this server index caused a second list RPC after every
