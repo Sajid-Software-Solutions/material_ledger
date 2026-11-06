@@ -660,6 +660,21 @@ class _HistoryBody extends ConsumerWidget {
     if (state.hasError && projection == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
+    // Attached files for the Files panel, from the shared documents workspace.
+    final docs =
+        ref
+            .watch(yorksAccountsDocumentsControllerProvider(projectId))
+            .workspace
+            ?.documents ??
+        const [];
+    final files = <YorksAccountsHistoryFile>[
+      for (final doc in docs)
+        (
+          name: doc.currentVersion.fileName,
+          reference: doc.currentVersion.businessReference,
+          uploadedBy: doc.currentVersion.uploadedByDisplayName,
+        ),
+    ];
     return Column(
       children: [
         if (state.hasError)
@@ -668,6 +683,7 @@ class _HistoryBody extends ConsumerWidget {
           child: AccountsV2HistoryTab(
             projection: projection!,
             language: language,
+            files: files,
           ),
         ),
       ],

@@ -354,6 +354,18 @@ Widget _claimsTab() => AccountsV2ClaimsTab(
 Widget _historyTab() => AccountsV2HistoryTab(
   projection: YorksAccountsActivityProjection.fromRpcJson(_historyJson()),
   language: _en,
+  files: const [
+    (
+      name: 'YRA322-02 tax invoice.pdf',
+      reference: 'YRA322-02',
+      uploadedBy: 'Omar (Accountant)',
+    ),
+    (
+      name: 'Cool Air Co INV-5001.pdf',
+      reference: 'INV-5001',
+      uploadedBy: 'Omar (Accountant)',
+    ),
+  ],
 );
 
 YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);

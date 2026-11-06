@@ -51,15 +51,26 @@ enum _HistFilter {
   }
 }
 
+/// A file shown in the History Files panel (name + optional reference/uploader).
+typedef YorksAccountsHistoryFile = ({
+  String name,
+  String? reference,
+  String? uploadedBy,
+});
+
 class AccountsV2HistoryTab extends StatefulWidget {
   const AccountsV2HistoryTab({
     super.key,
     required this.projection,
     required this.language,
+    this.files = const [],
   });
 
   final YorksAccountsActivityProjection projection;
   final AppLanguage language;
+
+  /// Files attached to invoices and supplier bills, newest first.
+  final List<YorksAccountsHistoryFile> files;
 
   @override
   State<AccountsV2HistoryTab> createState() => _AccountsV2HistoryTabState();
@@ -100,13 +111,18 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
       ),
     );
 
+    final fileItems = widget.files;
     final files = AccountsV2Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AccountsV2SectionTitle(_t('v2_files_title')),
           const SizedBox(height: AppSpacing.sm),
-          Text(_t('v2_files_pending'), style: AppTypography.bodyMedium),
+          if (fileItems.isEmpty)
+            Text(_t('v2_files_empty'), style: AppTypography.bodyMedium)
+          else
+            for (final file in fileItems)
+              _FileRow(file: file, language: widget.language),
         ],
       ),
     );
@@ -292,6 +308,72 @@ class _TimelineRow extends StatelessWidget {
                     color: AppColors.muted,
                   ),
                 ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One attached file in the Files panel: name + reference/uploader.
+class _FileRow extends StatelessWidget {
+  const _FileRow({required this.file, required this.language});
+
+  final YorksAccountsHistoryFile file;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = <String>[
+      if (file.reference != null && file.reference!.isNotEmpty) file.reference!,
+      if (file.uploadedBy != null && file.uploadedBy!.isNotEmpty)
+        '${accountsV2Text(language, 'v2_hist_by')} ${file.uploadedBy}',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: const BoxDecoration(
+              color: AppColors.blueContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.insert_drive_file_outlined,
+              size: 16,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  file.name,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.ink,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (meta.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    meta,
+                    style: AppTypography.labelSmall.copyWith(
+                      color: AppColors.muted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
