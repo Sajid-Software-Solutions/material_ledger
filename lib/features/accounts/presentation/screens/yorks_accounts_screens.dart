@@ -1031,6 +1031,7 @@ class _ProjectTabBody extends ConsumerWidget {
       onAction: (entry, projection) => showYorksAccountsProgressActionSheet(
         context,
         projectId: projectId,
+        projectReference: overview.projectReference,
         entry: entry,
         projection: projection,
         language: language,

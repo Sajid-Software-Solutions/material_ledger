@@ -182,6 +182,22 @@ insert into public.v1_documents (
   (
     '39240000-0000-4000-8000-000000000002', 'commercial',
     '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39240000-0000-4000-8000-000000000003', 'operational',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39240000-0000-4000-8000-000000000004', 'operational',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39240000-0000-4000-8000-000000000005', 'operational',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39240000-0000-4000-8000-000000000006', 'operational',
+    '10000000-0000-4000-8000-000000000004', 'admin'
   );
 
 insert into public.v1_document_versions (
@@ -202,17 +218,47 @@ insert into public.v1_document_versions (
     'r39/t02/commercial-progress.pdf', 'commercial-progress.pdf',
     'application/pdf', 128, repeat('b', 64), 'uploaded',
     '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39241000-0000-4000-8000-000000000003',
+    '39240000-0000-4000-8000-000000000003', 1,
+    'r39/t02/other-project.pdf', 'other-project.pdf',
+    'application/pdf', 128, repeat('c', 64), 'uploaded',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39241000-0000-4000-8000-000000000004',
+    '39240000-0000-4000-8000-000000000004', 1,
+    'r39/t02/cross-linked.pdf', 'cross-linked.pdf',
+    'application/pdf', 128, repeat('d', 64), 'uploaded',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39241000-0000-4000-8000-000000000006',
+    '39240000-0000-4000-8000-000000000006', 1,
+    'r39/t02/archived.pdf', 'archived.pdf',
+    'application/pdf', 128, repeat('e', 64), 'uploaded',
+    '10000000-0000-4000-8000-000000000004', 'admin'
   );
 
 update public.v1_documents
 set current_version_id = case id
   when '39240000-0000-4000-8000-000000000001'::uuid
     then '39241000-0000-4000-8000-000000000001'::uuid
+  when '39240000-0000-4000-8000-000000000003'::uuid
+    then '39241000-0000-4000-8000-000000000003'::uuid
+  when '39240000-0000-4000-8000-000000000004'::uuid
+    then '39241000-0000-4000-8000-000000000004'::uuid
+  when '39240000-0000-4000-8000-000000000006'::uuid
+    then '39241000-0000-4000-8000-000000000006'::uuid
   else '39241000-0000-4000-8000-000000000002'::uuid
 end
 where id in (
   '39240000-0000-4000-8000-000000000001',
-  '39240000-0000-4000-8000-000000000002'
+  '39240000-0000-4000-8000-000000000002',
+  '39240000-0000-4000-8000-000000000003',
+  '39240000-0000-4000-8000-000000000004',
+  '39240000-0000-4000-8000-000000000006'
 );
 
 insert into public.v1_document_links (
@@ -232,7 +278,146 @@ insert into public.v1_document_links (
     '39210000-0000-4000-8000-000000000001', 'project',
     '39210000-0000-4000-8000-000000000001',
     '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39242000-0000-4000-8000-000000000003',
+    '39240000-0000-4000-8000-000000000003',
+    '39210000-0000-4000-8000-000000000002', 'project',
+    '39210000-0000-4000-8000-000000000002',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39242000-0000-4000-8000-000000000004',
+    '39240000-0000-4000-8000-000000000004',
+    '39210000-0000-4000-8000-000000000001', 'project',
+    '39210000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39242000-0000-4000-8000-000000000005',
+    '39240000-0000-4000-8000-000000000004',
+    '39210000-0000-4000-8000-000000000002', 'project',
+    '39210000-0000-4000-8000-000000000002',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39242000-0000-4000-8000-000000000006',
+    '39240000-0000-4000-8000-000000000005',
+    '39210000-0000-4000-8000-000000000001', 'project',
+    '39210000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000004', 'admin'
+  ),
+  (
+    '39242000-0000-4000-8000-000000000007',
+    '39240000-0000-4000-8000-000000000006',
+    '39210000-0000-4000-8000-000000000001', 'project',
+    '39210000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000004', 'admin'
   );
+
+insert into public.v1_accounts_document_metadata (
+  document_id, document_type, archived_at, archived_by_auth_user_id,
+  archive_reason
+) values (
+  '39240000-0000-4000-8000-000000000006', 'progress_evidence',
+  clock_timestamp(), '10000000-0000-4000-8000-000000000004',
+  'T02 archived evidence fixture'
+);
+
+select ok(
+  has_function_privilege('authenticated',
+    'public.v1_accounts_search_progress_evidence(uuid,text,uuid[],integer)',
+    'execute')
+  and not has_function_privilege('anon',
+    'public.v1_accounts_search_progress_evidence(uuid,text,uuid[],integer)',
+    'execute')
+  and not has_function_privilege('authenticated',
+    'public.v1_accounts_validate_evidence_documents(uuid,uuid[])',
+    'execute'),
+  'Evidence search is authenticated; command validator remains an internal seam'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-site-engineer"}}',
+  true
+);
+
+select ok(
+  jsonb_array_length(result -> 'documents') = 1
+  and result #>> '{documents,0,file_name}' = 'operational-progress.pdf'
+  and result #>> '{documents,0,current_version_id}' =
+    '39241000-0000-4000-8000-000000000001'
+  and jsonb_array_length(result -> 'selected') = 1
+  and result #>> '{selected,0,id}' =
+    '39240000-0000-4000-8000-000000000001'
+  and not result::text like '%other-project.pdf%'
+  and not result::text like '%commercial-progress.pdf%'
+  and not result ? 'contract_value',
+  'Site Engineer sees one authorized current document without commercial values'
+)
+from (
+  select public.v1_accounts_search_progress_evidence(
+    '39210000-0000-4000-8000-000000000001', null,
+    array[
+      '39240000-0000-4000-8000-000000000001'::uuid,
+      '39240000-0000-4000-8000-000000000002'::uuid,
+      '39240000-0000-4000-8000-000000000003'::uuid,
+      '39240000-0000-4000-8000-000000000004'::uuid,
+      '39240000-0000-4000-8000-000000000005'::uuid,
+      '39240000-0000-4000-8000-000000000006'::uuid
+    ], 20
+  ) as result
+) evidence;
+
+select ok(
+  jsonb_array_length(result -> 'documents') = 0
+  and jsonb_array_length(result -> 'selected') = 0,
+  'Unfinalized and archived evidence cannot be selected; archived names are hidden'
+)
+from (
+  select public.v1_accounts_search_progress_evidence(
+    '39210000-0000-4000-8000-000000000001', 'archived',
+    array[
+      '39240000-0000-4000-8000-000000000005'::uuid,
+      '39240000-0000-4000-8000-000000000006'::uuid
+    ], 20
+  ) as result
+) evidence;
+
+select ok(
+  jsonb_array_length(result -> 'documents') = 0
+  and jsonb_array_length(result -> 'selected') = 0,
+  'Searching by a cross-project file name or selecting its ID reveals nothing'
+)
+from (
+  select public.v1_accounts_search_progress_evidence(
+    '39210000-0000-4000-8000-000000000001', 'other-project',
+    array['39240000-0000-4000-8000-000000000003'::uuid], 20
+  ) as result
+) evidence;
+
+select ok(
+  jsonb_array_length(result -> 'selected') = 0,
+  'A readable project link cannot expose evidence with another unreadable live link'
+)
+from (
+  select public.v1_accounts_search_progress_evidence(
+    '39210000-0000-4000-8000-000000000001', 'cross-linked',
+    array['39240000-0000-4000-8000-000000000004'::uuid], 20
+  ) as result
+) evidence;
+
+select throws_ok(
+  $$select public.v1_accounts_search_progress_evidence(
+    '39210000-0000-4000-8000-000000000001', null,
+    '{}'::uuid[], 21)$$,
+  '22023', 'R39_ACCOUNTS_EVIDENCE_SEARCH_INVALID',
+  'Unbounded result limits are rejected by the server'
+);
+
+reset role;
 
 create temporary table v1_r39_t02_results (
   result_key text primary key,
@@ -765,6 +950,32 @@ select throws_ok(
   )$$,
   '22023', 'R39_ACCOUNTS_EVIDENCE_DOCUMENT_INVALID',
   'Commercial evidence is rejected even when linked to the project'
+);
+
+select throws_ok(
+  $$select public.v1_suggest_billing_progress(
+    '39210000-0000-4000-8000-000000000001',
+    (select progress_entry_id from v1_r39_t02_target),
+    2, '30.0000', null,
+    array['39240000-0000-4000-8000-000000000003'::uuid],
+    'Cross-project evidence must fail closed',
+    '39290000-0000-4000-8000-000000000030'
+  )$$,
+  '22023', 'R39_ACCOUNTS_EVIDENCE_DOCUMENT_INVALID',
+  'Direct command substitution with a different project document is rejected'
+);
+
+select throws_ok(
+  $$select public.v1_suggest_billing_progress(
+    '39210000-0000-4000-8000-000000000001',
+    (select progress_entry_id from v1_r39_t02_target),
+    2, '30.0000', null,
+    array['39240000-0000-4000-8000-000000000004'::uuid],
+    'Cross-linked evidence must fail closed',
+    '39290000-0000-4000-8000-000000000031'
+  )$$,
+  '22023', 'R39_ACCOUNTS_EVIDENCE_DOCUMENT_INVALID',
+  'The save command rejects a project-linked document with another unreadable link'
 );
 
 select throws_ok(

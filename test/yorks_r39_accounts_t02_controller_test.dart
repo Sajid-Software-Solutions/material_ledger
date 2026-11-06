@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/accounts/application/accounts_controller.dart';
@@ -6,6 +7,8 @@ import 'package:material_ledger/features/accounts/data/accounts_repository.dart'
 import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_inputs.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_models.dart';
+import 'package:material_ledger/features/accounts/presentation/widgets/yorks_accounts_progress_action_sheet.dart';
+import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -15,6 +18,60 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final size in [const Size(390, 844), const Size(1366, 768)]) {
+    testWidgets('original save recovery is reachable at $size', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _Repository(failFirstSuggest: true);
+      final controller = await _controller(repository);
+      await controller.suggestProgress(_progressInput());
+      final projection = _protectedProgress();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksAccountsProjectControllerProvider(
+              'project-1',
+            ).overrideWith((ref) => controller),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) {
+                  return TextButton(
+                    onPressed: () => showYorksAccountsProgressActionSheet(
+                      context,
+                      projectId: 'project-1',
+                      entry: projection.progress.single,
+                      projection: projection,
+                      language: AppLanguage.english,
+                    ),
+                    child: const Text('Open fixture'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open fixture'));
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNothing);
+      expect(find.text('Check original save'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Check original save'));
+      await tester.pumpAndSettle();
+      expect(repository.commandKeys, hasLength(2));
+      expect(repository.commandKeys.first, repository.commandKeys.last);
+      expect(find.text('Check original save'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('denial purges the entire previously authorized projection', () async {
     final repository = _Repository();
@@ -66,6 +123,22 @@ void main() {
   });
 
   test(
+    'authorized action-only engineer retains progress commands without money',
+    () async {
+      final controller = await _controller(_Repository(actionOnly: true));
+      expect(await controller.load(), isTrue);
+      expect(controller.state.hasProtectedValues, isFalse);
+      expect(controller.state.baseline!.baseline!.contractValue, isNull);
+      expect(controller.state.progress!.totals!.contractValue, isNull);
+      expect(controller.state.progress!.capabilities.canSuggest, isTrue);
+      expect(
+        controller.state.progress!.commands.allows('suggest_progress'),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'lost command response is uncertain and retries with same key',
     () async {
       final repository = _Repository(failFirstSuggest: true);
@@ -84,15 +157,76 @@ void main() {
     },
   );
 
-  test('different payload replaces the pending key', () async {
-    final repository = _Repository(failEverySuggest: true);
+  test(
+    'different payload cannot replace an uncertain command intent',
+    () async {
+      final repository = _Repository(failEverySuggest: true);
+      final controller = await _controller(repository);
+
+      await controller.suggestProgress(_progressInput(percent: '25'));
+      await controller.suggestProgress(_progressInput(percent: '30'));
+
+      expect(repository.commandKeys, hasLength(1));
+      expect(controller.state.hasPendingCommand, isTrue);
+      await controller.reconcilePendingCommand();
+      expect(repository.commandKeys, hasLength(2));
+      expect(repository.commandKeys[0], repository.commandKeys[1]);
+    },
+  );
+
+  test('concurrent clicks invoke the repository once', () async {
+    final repository = _Repository();
     final controller = await _controller(repository);
+    final first = controller.suggestProgress(_progressInput());
+    final duplicate = controller.suggestProgress(_progressInput());
+    expect(await duplicate, isNull);
+    expect(await first, isNotNull);
+    expect(repository.commandKeys, hasLength(1));
+  });
 
-    await controller.suggestProgress(_progressInput(percent: '25'));
-    await controller.suggestProgress(_progressInput(percent: '30'));
+  test(
+    'successful progress action refreshes the active workbench filters',
+    () async {
+      final repository = _Repository();
+      final controller = await _controller(repository);
+      await controller.load(
+        buildingScopeId: 'building-1',
+        stageKey: 'material_supply',
+        actionOwner: 'site_engineer',
+        hasEvidence: true,
+      );
+      expect(await controller.suggestProgress(_progressInput()), isNotNull);
+      expect(repository.progressReads, hasLength(2));
+      expect(repository.progressReads.last, repository.progressReads.first);
+      expect(repository.progressReads.last.buildingScopeId, 'building-1');
+      expect(repository.progressReads.last.stageKey, 'material_supply');
+    },
+  );
 
-    expect(repository.commandKeys, hasLength(2));
-    expect(repository.commandKeys[0], isNot(repository.commandKeys[1]));
+  test('refresh does not resolve an unknown command outcome', () async {
+    final repository = _Repository(failFirstSuggest: true);
+    final controller = await _controller(repository);
+    await controller.suggestProgress(_progressInput());
+    await controller.load();
+    expect(controller.state.status, YorksAccountsViewStatus.uncertain);
+    expect(controller.state.hasPendingCommand, isTrue);
+    expect(await controller.reconcilePendingCommand(), isNotNull);
+    expect(repository.commandKeys[0], repository.commandKeys[1]);
+    expect(controller.state.hasPendingCommand, isFalse);
+  });
+
+  test('revocation clears pending intent and protected projections', () async {
+    final repository = _Repository(failFirstSuggest: true);
+    final controller = await _controller(repository);
+    await controller.suggestProgress(_progressInput());
+    repository.readError = const YorksV1DomainException(
+      YorksV1DomainErrorCode.unauthorized,
+    );
+    await controller.load();
+    expect(controller.state.hasPendingCommand, isFalse);
+    expect(controller.state.progress, isNull);
+    expect(await controller.reconcilePendingCommand(), isNull);
+    expect(repository.commandKeys, hasLength(1));
   });
 
   test(
@@ -222,18 +356,29 @@ final class _Repository implements YorksAccountsRepository {
     this.failFirstSuggest = false,
     this.failEverySuggest = false,
     this.downgradeProgressValues = false,
+    this.actionOnly = false,
   });
 
   final bool failFirstSuggest;
   final bool failEverySuggest;
   final bool downgradeProgressValues;
+  final bool actionOnly;
   YorksV1DomainException? readError;
   final List<String> commandKeys = [];
+  final List<
+    ({
+      String? buildingScopeId,
+      String? stageKey,
+      String? actionOwner,
+      bool? hasEvidence,
+    })
+  >
+  progressReads = [];
 
   @override
   Future<YorksAccountsBaselineProjection> getBaseline(String projectId) async {
     if (readError case final error?) throw error;
-    return _protectedBaseline();
+    return actionOnly ? _actionOnlyBaseline() : _protectedBaseline();
   }
 
   @override
@@ -245,8 +390,16 @@ final class _Repository implements YorksAccountsRepository {
     bool? hasEvidence,
   }) async {
     if (readError case final error?) throw error;
+    progressReads.add((
+      buildingScopeId: buildingScopeId,
+      stageKey: stageKey,
+      actionOwner: actionOwner,
+      hasEvidence: hasEvidence,
+    ));
     final progress = _protectedProgress();
-    return downgradeProgressValues
+    return actionOnly
+        ? _actionOnlyProgress()
+        : downgradeProgressValues
         ? progress.withoutProtectedValues()
         : progress;
   }
@@ -388,6 +541,47 @@ YorksAccountsProgressProjection _protectedProgress() =>
       'commands': <String, bool>{},
       'next_actions': <Object?>[],
     });
+
+const _actionOnlyCapabilities = YorksAccountsCapabilities(
+  canView: true,
+  canViewValues: false,
+  canConfigure: false,
+  canSuggest: true,
+  canConfirm: false,
+  canReview: false,
+);
+
+YorksAccountsBaselineProjection _actionOnlyBaseline() {
+  final safe = _protectedBaseline().withoutProtectedValues();
+  return YorksAccountsBaselineProjection(
+    schemaVersion: safe.schemaVersion,
+    projectId: safe.projectId,
+    baseline: safe.baseline,
+    physicalBuildings: safe.physicalBuildings,
+    stageTemplates: safe.stageTemplates,
+    buildingAllocations: safe.buildingAllocations,
+    stageAllocations: safe.stageAllocations,
+    capabilities: _actionOnlyCapabilities,
+    commands: YorksAccountsCommandAvailability.fromRpcJson(const {}),
+  );
+}
+
+YorksAccountsProgressProjection _actionOnlyProgress() {
+  final safe = _protectedProgress().withoutProtectedValues();
+  return YorksAccountsProgressProjection(
+    schemaVersion: safe.schemaVersion,
+    projectId: safe.projectId,
+    baselineRevisionId: safe.baselineRevisionId,
+    baselineRevisionNumber: safe.baselineRevisionNumber,
+    progress: safe.progress,
+    totals: safe.totals,
+    capabilities: _actionOnlyCapabilities,
+    commands: YorksAccountsCommandAvailability.fromRpcJson(const {
+      'suggest_progress': true,
+    }),
+    nextActions: safe.nextActions,
+  );
+}
 
 Map<String, dynamic> _capabilities() => {
   'can_view': true,
