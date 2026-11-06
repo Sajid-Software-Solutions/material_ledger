@@ -89,6 +89,19 @@ enum YorksAccountsWorkspaceV2Tab {
   final IconData icon;
 }
 
+/// The tab a project Accounts URL opens, including the old V1 paths that
+/// notifications still link to.
+YorksAccountsWorkspaceV2Tab yorksAccountsV2TabForPath(
+  String path,
+) => switch (path.split('/').last) {
+  'contract' => YorksAccountsWorkspaceV2Tab.contract,
+  'claims' || 'billing' => YorksAccountsWorkspaceV2Tab.claims,
+  'client-invoices' || 'receipts-pdc' => YorksAccountsWorkspaceV2Tab.invoices,
+  'supplier-bills' => YorksAccountsWorkspaceV2Tab.supplierBills,
+  'history' || 'documents' || 'activity' => YorksAccountsWorkspaceV2Tab.history,
+  _ => YorksAccountsWorkspaceV2Tab.summary,
+};
+
 /// Display-only money and percent formatting for the workspace.
 ///
 /// Grouping mirrors the existing V1 Accounts overview formatter so the two

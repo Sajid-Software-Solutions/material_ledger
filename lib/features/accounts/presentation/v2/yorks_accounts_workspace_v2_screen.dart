@@ -52,19 +52,6 @@ import '../widgets/yorks_accounts_records_views.dart'
     show showYorksAccountsDocumentUploadDialog;
 import '../widgets/yorks_accounts_supplier_action_sheets.dart';
 
-/// The tab a project Accounts URL opens, including the old V1 paths that
-/// notifications still link to.
-YorksAccountsWorkspaceV2Tab yorksAccountsV2TabForPath(
-  String path,
-) => switch (path.split('/').last) {
-  'contract' => YorksAccountsWorkspaceV2Tab.contract,
-  'claims' || 'billing' => YorksAccountsWorkspaceV2Tab.claims,
-  'client-invoices' || 'receipts-pdc' => YorksAccountsWorkspaceV2Tab.invoices,
-  'supplier-bills' => YorksAccountsWorkspaceV2Tab.supplierBills,
-  'history' || 'documents' || 'activity' => YorksAccountsWorkspaceV2Tab.history,
-  _ => YorksAccountsWorkspaceV2Tab.summary,
-};
-
 /// The workspace on its own page, for an Accountant, who has project Accounts
 /// scope but no access to the technical project shell around it.
 class YorksAccountsProjectPage extends ConsumerWidget {

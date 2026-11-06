@@ -21,7 +21,9 @@ import '../features/accounts/presentation/screens/yorks_accounts_screens.dart';
 import '../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../shared/providers/yorks_v1_identity_provider.dart';
 import '../features/accounts/presentation/screens/yorks_accounts_office_screen.dart';
-import '../features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
+import '../features/accounts/presentation/v2/accounts_v2_common.dart'
+    show yorksAccountsV2TabForPath;
+import '../features/accounts/presentation/v2/accounts_v2_deferred.dart';
 import '../features/accounts/domain/accounts_office_models.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/engineer/presentation/screens/engineer_browse_screen.dart';
@@ -2753,7 +2755,7 @@ class _ProjectAccountsRoute extends ConsumerWidget {
       yorksV1FeatureFlagsProvider.select((flags) => flags.accountsWorkspaceV2),
     );
     if (isAccountant && v2) {
-      return YorksAccountsProjectPage(
+      return YorksAccountsProjectPageDeferred(
         projectId: projectId,
         initialTab: yorksAccountsV2TabForPath(path),
       );

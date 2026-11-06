@@ -55,7 +55,7 @@ import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
 import '../../../materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../../../accounts/presentation/screens/yorks_accounts_screens.dart';
 import '../../../accounts/presentation/v2/accounts_v2_common.dart';
-import '../../../accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
+import '../../../accounts/presentation/v2/accounts_v2_deferred.dart';
 import '../widgets/yorks_v1_project_local_draft_section.dart';
 import '../../../../shared/providers/yorks_v1_project_creation_draft_provider.dart';
 
@@ -9339,7 +9339,7 @@ class _ProjectAccountsEmbed extends ConsumerWidget {
       yorksV1FeatureFlagsProvider.select((flags) => flags.accountsWorkspaceV2),
     );
     if (useV2) {
-      return YorksAccountsWorkspaceV2Screen(
+      return YorksAccountsWorkspaceV2Deferred(
         projectId: projectId,
         // V1 has no Contract tab to map from, so its deep link is read directly.
         initialTab:
