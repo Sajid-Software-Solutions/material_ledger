@@ -6738,7 +6738,7 @@ begin
       'view_project_commercial_values', v_can_values, 'view_supplier_costs', v_can_supplier),
     'steps', v_steps,
     'badges', jsonb_build_object(
-      'claims_draft', v_open_claim_status = 'draft',
+      'claims_draft', coalesce(v_open_claim_status = 'draft', false),
       'supplier_count', case when v_can_supplier then v_bills_overdue else null end),
     'attention', v_attention);
 
