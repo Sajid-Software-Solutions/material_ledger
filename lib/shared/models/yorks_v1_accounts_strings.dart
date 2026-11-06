@@ -3041,6 +3041,18 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ورک آرڈر سے۔ ہر انوائس پر استعمال ہوتا ہے۔',
       'hi': 'वर्क ऑर्डर से। हर इनवॉइस पर प्रयुक्त।',
     },
+    'v2_party_client': {
+      'en': 'Client',
+      'ar': 'العميل',
+      'ur': 'کلائنٹ',
+      'hi': 'क्लाइंट',
+    },
+    'v2_party_main_contractor': {
+      'en': 'Main contractor',
+      'ar': 'المقاول الرئيسي',
+      'ur': 'مرکزی ٹھیکیدار',
+      'hi': 'मुख्य ठेकेदार',
+    },
     'v2_contract_edit_note': {
       'en':
           'Everything here can be edited. Issued invoices keep their amounts — '

@@ -187,6 +187,45 @@ final class YorksAccountsSetupReadInvoiceSettings {
       '$invoicePrefix-${nextSequence.toString().padLeft(2, '0')}';
 }
 
+/// A contract party (client or main contractor) read from project setup.
+final class YorksAccountsSetupReadParty {
+  const YorksAccountsSetupReadParty({
+    required this.name,
+    required this.address,
+    required this.contactName,
+    required this.contactPhone,
+    required this.contactEmail,
+  });
+
+  factory YorksAccountsSetupReadParty.fromJson(Map<String, dynamic> json) {
+    return YorksAccountsSetupReadParty(
+      name: json['name'] as String?,
+      address: json['address'] as String?,
+      contactName: json['contact_name'] as String?,
+      contactPhone: json['contact_phone'] as String?,
+      contactEmail: json['contact_email'] as String?,
+    );
+  }
+
+  final String? name;
+  final String? address;
+  final String? contactName;
+  final String? contactPhone;
+  final String? contactEmail;
+
+  /// A single "Name · Phone" / "Name · Email" contact line, or null.
+  String? get contactLine {
+    final parts = <String>[
+      if (contactName != null && contactName!.isNotEmpty) contactName!,
+      if (contactPhone != null && contactPhone!.isNotEmpty)
+        contactPhone!
+      else if (contactEmail != null && contactEmail!.isNotEmpty)
+        contactEmail!,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+}
+
 final class YorksAccountsCommercialSetupRead {
   const YorksAccountsCommercialSetupRead({
     required this.projectId,
@@ -207,6 +246,8 @@ final class YorksAccountsCommercialSetupRead {
     required this.buildings,
     required this.stages,
     required this.items,
+    required this.clientParty,
+    required this.mainContractorParty,
   });
 
   factory YorksAccountsCommercialSetupRead.fromJson(Map<String, dynamic> json) {
@@ -218,6 +259,14 @@ final class YorksAccountsCommercialSetupRead {
         ? YorksAccountsDecimal.fromRpcValue(json[key], key: key)
         : null;
     final settings = json['invoice_settings'];
+    final parties = json['parties'] is Map
+        ? Map<String, dynamic>.from(json['parties'] as Map)
+        : const <String, dynamic>{};
+    YorksAccountsSetupReadParty? party(String kind) => parties[kind] is Map
+        ? YorksAccountsSetupReadParty.fromJson(
+            Map<String, dynamic>.from(parties[kind] as Map),
+          )
+        : null;
     return YorksAccountsCommercialSetupRead(
       projectId: json['project_id'] as String,
       projectReference: json['project_reference'] as String?,
@@ -249,6 +298,8 @@ final class YorksAccountsCommercialSetupRead {
       items: list(
         'items',
       ).map(YorksAccountsSetupReadItem.fromJson).toList(growable: false),
+      clientParty: party('client'),
+      mainContractorParty: party('main_contractor'),
     );
   }
 
@@ -272,6 +323,10 @@ final class YorksAccountsCommercialSetupRead {
   final List<YorksAccountsSetupReadBuilding> buildings;
   final List<YorksAccountsSetupReadStage> stages;
   final List<YorksAccountsSetupReadItem> items;
+
+  /// Contract parties from project setup (read-only); null when not set.
+  final YorksAccountsSetupReadParty? clientParty;
+  final YorksAccountsSetupReadParty? mainContractorParty;
 
   bool get hasCommercialValues =>
       capabilities.viewProjectCommercialValues && contractValue != null;

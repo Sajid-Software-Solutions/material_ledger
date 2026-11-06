@@ -226,6 +226,28 @@ class _ContractHeaderCard extends StatelessWidget {
               _Field(label: _t('v2_next_invoice_label'), value: nextInvoice),
             ],
           ),
+          if (setup.clientParty?.name != null ||
+              setup.mainContractorParty?.name != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.line),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.xl,
+              runSpacing: AppSpacing.md,
+              children: [
+                if (setup.clientParty?.name != null)
+                  _PartyField(
+                    label: _t('v2_party_client'),
+                    party: setup.clientParty!,
+                  ),
+                if (setup.mainContractorParty?.name != null)
+                  _PartyField(
+                    label: _t('v2_party_main_contractor'),
+                    party: setup.mainContractorParty!,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -264,6 +286,45 @@ class _Field extends StatelessWidget {
                   ),
         ),
       ],
+    );
+  }
+}
+
+/// A contract party column: label, name, then muted address and contact lines.
+class _PartyField extends StatelessWidget {
+  const _PartyField({required this.label, required this.party});
+
+  final String label;
+  final YorksAccountsSetupReadParty party;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTypography.bodySmall.copyWith(color: AppColors.muted);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 280),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            party.name ?? '—',
+            style: AppTypography.titleSmall.copyWith(color: AppColors.ink),
+          ),
+          if (party.address != null && party.address!.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(party.address!, style: muted),
+          ],
+          if (party.contactLine != null) ...[
+            const SizedBox(height: AppSpacing.xxs),
+            Text(party.contactLine!, style: muted),
+          ],
+        ],
+      ),
     );
   }
 }

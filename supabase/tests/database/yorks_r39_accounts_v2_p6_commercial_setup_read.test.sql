@@ -10,6 +10,9 @@ values('39d16000-0000-4000-8000-000000000001','R39-V2P6S-001','R39 V2 P6 setup r
 insert into public.v1_project_scopes(id,project_id,scope_kind,scope_code,name,is_immutable)
 values('39d16000-0000-4000-8000-000000000002','39d16000-0000-4000-8000-000000000001','building','b01','Building 01',false),
       ('39d16000-0000-4000-8000-000000000003','39d16000-0000-4000-8000-000000000001','building','b02','Building 02',false);
+insert into public.v1_project_parties(project_id,party_kind,party_name,address,party_order)
+values('39d16000-0000-4000-8000-000000000001','client','ACME Client','PO Box 1',0),
+      ('39d16000-0000-4000-8000-000000000001','main_contractor','Yorks AC','PO Box 2',0);
 insert into public.v1_project_members(project_id,member_auth_user_id,project_role,effective_from,reason,assigned_by_auth_user_id,assigned_by_role)
 values('39d16000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','project_engineer',clock_timestamp()-interval '1 day','x','10000000-0000-4000-8000-000000000004','admin'),
       ('39d16000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','site_engineer',clock_timestamp()-interval '1 day','x','10000000-0000-4000-8000-000000000004','admin');
@@ -65,6 +68,9 @@ select is((select payload->>'can_configure' from v1_r39_p6s where result_key='ad
 select is((select payload->>'contract_value' from v1_r39_p6s where result_key='admin'),'1000000.00','Contract value = 1,000,000.00');
 select is((select payload->>'currency_code' from v1_r39_p6s where result_key='admin'),'AED','Currency is AED');
 select is((select payload->'invoice_settings'->>'invoice_prefix' from v1_r39_p6s where result_key='admin'),'YRA322','Invoice prefix carried through');
+-- P6 part b: contract parties surfaced from project setup.
+select is((select payload->'parties'->'client'->>'name' from v1_r39_p6s where result_key='admin'),'ACME Client','Setup read surfaces the client party name');
+select is((select payload->'parties'->'main_contractor'->>'address' from v1_r39_p6s where result_key='admin'),'PO Box 2','Setup read surfaces the main contractor address');
 select is(
   (select jsonb_array_length((select payload from v1_r39_p6s where result_key='admin')->'buildings')),
   2,'Both buildings are returned');

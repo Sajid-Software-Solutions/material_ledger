@@ -201,6 +201,22 @@ Map<String, dynamic> _contractJson() => {
     },
   ],
   'items': <dynamic>[],
+  'parties': {
+    'client': {
+      'name': 'M/S. Larsen & Toubro Ltd',
+      'address': 'P.O. Box 23200, Abu Dhabi',
+      'contact_name': 'Eng. Rashid',
+      'contact_phone': '+971 2 555 0100',
+      'contact_email': null,
+    },
+    'main_contractor': {
+      'name': 'Yorks AC & Ref.',
+      'address': 'P.O. Box 4757, Abu Dhabi',
+      'contact_name': 'Omar',
+      'contact_phone': null,
+      'contact_email': 'omar@yorks.ae',
+    },
+  },
 };
 
 Map<String, dynamic> _workbenchJson() => {
