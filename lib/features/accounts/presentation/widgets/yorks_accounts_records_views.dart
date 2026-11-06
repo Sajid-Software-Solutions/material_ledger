@@ -706,18 +706,39 @@ class _YorksAccountsReportActionsState
   }
 }
 
+/// Adds a file to the project's Accounts documents. Returns whether it saved, or
+/// null when the person cancelled.
+Future<bool?> showYorksAccountsDocumentUploadDialog(
+  BuildContext context, {
+  required String projectId,
+  required AppLanguage language,
+  required YorksV1AccountsDocumentWorkspace workspace,
+  YorksV1AccountsDocumentType? initialType,
+}) => showDialog<bool>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) => _AccountsDocumentUploadDialog(
+    projectId: projectId,
+    language: language,
+    workspace: workspace,
+    initialType: initialType,
+  ),
+);
+
 class _AccountsDocumentUploadDialog extends ConsumerStatefulWidget {
   const _AccountsDocumentUploadDialog({
     required this.projectId,
     required this.language,
     required this.workspace,
     this.revisionOf,
+    this.initialType,
   });
 
   final String projectId;
   final AppLanguage language;
   final YorksV1AccountsDocumentWorkspace workspace;
   final YorksV1Document? revisionOf;
+  final YorksV1AccountsDocumentType? initialType;
 
   @override
   ConsumerState<_AccountsDocumentUploadDialog> createState() =>
@@ -748,7 +769,7 @@ class _AccountsDocumentUploadDialogState
       );
     } else if (widget.workspace.uploadTargets.isNotEmpty) {
       _target = widget.workspace.uploadTargets.first;
-      _type = YorksV1AccountsDocumentType.other;
+      _type = widget.initialType ?? YorksV1AccountsDocumentType.other;
     }
   }
 

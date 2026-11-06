@@ -47,6 +47,8 @@ import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
 import '../widgets/yorks_accounts_progress_action_sheet.dart';
+import '../widgets/yorks_accounts_records_views.dart'
+    show showYorksAccountsDocumentUploadDialog;
 import '../widgets/yorks_accounts_supplier_action_sheets.dart';
 
 /// The tab a project Accounts URL opens, including the old V1 paths that
@@ -414,16 +416,25 @@ class _TabChip extends StatelessWidget {
         color: selected ? AppColors.primary : AppColors.surfaceContainer,
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         child: InkWell(
+          // Selecting a chip under the pointer must not carry over its hover
+          // highlight: the theme's opaque one hid the white label until the pointer
+          // moved away. A fresh state per selection leaves nothing behind.
+          key: ValueKey<bool>(selected),
           borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
           onTap: onTap,
-          // The theme's hover colour is light; on the selected blue chip it would
-          // wash out the white label.
-          hoverColor: selected
-              ? AppColors.onPrimary.withValues(alpha: 0.08)
-              : null,
-          focusColor: selected
-              ? AppColors.onPrimary.withValues(alpha: 0.12)
-              : null,
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            final tint = selected ? AppColors.onPrimary : AppColors.ink;
+            if (states.contains(WidgetState.pressed)) {
+              return tint.withValues(alpha: 0.12);
+            }
+            if (states.contains(WidgetState.focused)) {
+              return tint.withValues(alpha: 0.12);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return tint.withValues(alpha: 0.06);
+            }
+            return null;
+          }),
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: AppSpacing.minTapTarget,
@@ -857,6 +868,14 @@ class _InvoicesBody extends ConsumerWidget {
   final String projectId;
   final AppLanguage language;
 
+  Future<void> _refreshAfterCheque(WidgetRef ref) async {
+    await ref
+        .read(yorksAccountsInvoicesControllerProvider(projectId).notifier)
+        .refresh();
+    final workspace = yorksAccountsWorkspaceControllerProvider(projectId);
+    if (ref.exists(workspace)) await ref.read(workspace.notifier).refresh();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(yorksAccountsInvoicesControllerProvider(projectId));
@@ -890,8 +909,18 @@ class _InvoicesBody extends ConsumerWidget {
           register: register,
           language: language,
           canManage: projection.capabilities.managePdc,
-          onTransition: registerController.transition,
-          onReplace: registerController.replace,
+          // A cleared cheque records a payment, so the invoice figures and the
+          // workspace change too; show them without waiting for a tab switch.
+          onTransition: (input) async {
+            final error = await registerController.transition(input);
+            if (error == null) await _refreshAfterCheque(ref);
+            return error;
+          },
+          onReplace: (input) async {
+            final error = await registerController.replace(input);
+            if (error == null) await _refreshAfterCheque(ref);
+            return error;
+          },
         );
       }
     }
@@ -1015,6 +1044,47 @@ class _HistoryBody extends ConsumerWidget {
   final String projectId;
   final AppLanguage language;
 
+  Future<void> _addFile(
+    BuildContext context,
+    YorksV1AccountsDocumentWorkspace workspace,
+  ) async {
+    final saved = await showYorksAccountsDocumentUploadDialog(
+      context,
+      projectId: projectId,
+      language: language,
+      workspace: workspace,
+    );
+    if (saved == null || !context.mounted) return;
+    _showFileMessage(
+      context,
+      language,
+      saved ? 'v2_files_saved' : 'v2_files_failed',
+    );
+  }
+
+  Future<void> _download(
+    BuildContext context,
+    WidgetRef ref,
+    YorksV1DocumentVersion version,
+  ) async {
+    try {
+      final bytes = await ref
+          .read(yorksAccountsDocumentsControllerProvider(projectId).notifier)
+          .download(version);
+      await ref
+          .read(yorksV1DocumentFileServiceProvider)
+          .saveDocument(
+            bytes: bytes,
+            fileName: version.fileName,
+            mimeType: version.mimeType,
+          );
+    } catch (_) {
+      if (context.mounted) {
+        _showFileMessage(context, language, 'v2_files_failed');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(yorksAccountsHistoryControllerProvider(projectId));
@@ -1052,8 +1122,10 @@ class _HistoryBody extends ConsumerWidget {
           name: doc.currentVersion.fileName,
           reference: doc.currentVersion.businessReference,
           uploadedBy: doc.currentVersion.uploadedByDisplayName,
+          onDownload: () => _download(context, ref, doc.currentVersion),
         ),
     ];
+    final documentsWorkspace = docsState.workspace;
     return Column(
       children: [
         if (state.hasError)
@@ -1063,11 +1135,20 @@ class _HistoryBody extends ConsumerWidget {
             projection: projection!,
             language: language,
             files: files,
+            onAddFile: documentsWorkspace?.canUpload == true
+                ? () => _addFile(context, documentsWorkspace!)
+                : null,
           ),
         ),
       ],
     );
   }
+}
+
+void _showFileMessage(BuildContext context, AppLanguage language, String key) {
+  ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text(accountsV2Text(language, key))));
 }
 
 class _ErrorState extends StatelessWidget {

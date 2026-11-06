@@ -541,14 +541,23 @@ class _MoneyFlowCard extends StatelessWidget {
                     label: Text(accountsV2Text(language, 'v2_export_csv')),
                   ),
           ),
+          Text(
+            accountsV2Text(language, 'v2_money_flow_note'),
+            style: AppTypography.bodySmall,
+          ),
           const SizedBox(height: AppSpacing.md),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
             child: SizedBox(
+              key: const ValueKey('accounts-v2-money-flow-bar'),
               height: 16,
+              width: double.infinity,
               child: totalFlex == 0
                   ? const ColoredBox(color: AppColors.surfaceContainerHigh)
                   : Row(
+                      // A childless ColoredBox takes the least height it may, so
+                      // without stretch the segments collapse and nothing paints.
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (final s in segments)
                           if (_flex(s.$2) > 0)

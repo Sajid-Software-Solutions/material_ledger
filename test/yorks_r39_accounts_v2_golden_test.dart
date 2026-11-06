@@ -419,11 +419,13 @@ Widget _historyTab() => AccountsV2HistoryTab(
       name: 'YRA322-02 tax invoice.pdf',
       reference: 'YRA322-02',
       uploadedBy: 'Omar (Accountant)',
+      onDownload: null,
     ),
     (
       name: 'Cool Air Co INV-5001.pdf',
       reference: 'INV-5001',
       uploadedBy: 'Omar (Accountant)',
+      onDownload: null,
     ),
   ],
 );

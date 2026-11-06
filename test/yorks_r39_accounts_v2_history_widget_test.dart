@@ -83,6 +83,52 @@ void _wideSurface(WidgetTester tester) {
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
+  group('history event titles', () {
+    Future<void> pump(WidgetTester tester, String eventType) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AccountsV2HistoryTab(
+                language: AppLanguage.english,
+                projection: YorksAccountsActivityProjection(
+                  projectId: 'p1',
+                  total: 1,
+                  limit: 50,
+                  offset: 0,
+                  entries: [
+                    _entry(
+                      id: '1',
+                      eventType: eventType,
+                      entityType: 'accounts_client_pdc',
+                      actor: 'Omar Acc',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+    testWidgets('a known event reads as a sentence', (tester) async {
+      await pump(tester, 'accounts.client_pdc.cleared');
+      expect(find.text('Cheque cleared'), findsOneWidget);
+      expect(find.textContaining('accounts.'), findsNothing);
+    });
+
+    testWidgets('an unknown event still never shows a raw key', (tester) async {
+      await pump(tester, 'accounts.some_future.event_name');
+      expect(find.text('Some future event name'), findsOneWidget);
+    });
+
+    test('every known event has its own text in each language', () {
+      for (final key in yorksAccountsV2HistoryEventKeys.values) {
+        for (final language in AppLanguage.values) {
+          expect(accountsV2Text(language, key), isNot(key), reason: key);
+        }
+      }
+    });
+  });
+
   const en = AppLanguage.english;
   String t(String key) => accountsV2Text(en, key);
 
@@ -94,9 +140,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('claim submitted'), findsOneWidget);
-      expect(find.text('invoice issued'), findsOneWidget);
-      expect(find.text('supplier bill approved'), findsOneWidget);
+      expect(find.text('Claim submitted'), findsOneWidget);
+      expect(find.text('Invoice issued'), findsOneWidget);
+      expect(find.text('Supplier bill approved'), findsOneWidget);
       expect(find.text(t('v2_files_title')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -111,9 +157,9 @@ void main() {
       await tester.tap(find.text(t('v2_hist_claims')));
       await tester.pumpAndSettle();
 
-      expect(find.text('claim submitted'), findsOneWidget);
-      expect(find.text('invoice issued'), findsNothing);
-      expect(find.text('supplier bill approved'), findsNothing);
+      expect(find.text('Claim submitted'), findsOneWidget);
+      expect(find.text('Invoice issued'), findsNothing);
+      expect(find.text('Supplier bill approved'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
@@ -155,7 +201,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('claim submitted'), findsOneWidget);
+      expect(find.text('Claim submitted'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

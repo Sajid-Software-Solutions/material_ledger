@@ -22,6 +22,11 @@ abstract interface class YorksAccountsSupplierRepository {
     String supplierBillId,
   );
 
+  /// Confirmed deliveries a bill on this project can cite, newest first.
+  Future<List<YorksAccountsAcceptedDelivery>> listDeliveryOptions(
+    String projectId,
+  );
+
   Future<YorksAccountsSupplierCommandResult> createBillDraft(
     YorksAccountsSupplierBillDraftInput input, {
     required String idempotencyKey,
@@ -127,6 +132,26 @@ final class YorksSupabaseAccountsSupplierRepository
       _requireId(projection.supplierBill.projectId, normalizedProjectId);
       _requireId(projection.supplierBill.supplierBillId, normalizedBillId);
       return projection;
+    });
+  }
+
+  @override
+  Future<List<YorksAccountsAcceptedDelivery>> listDeliveryOptions(
+    String projectId,
+  ) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) return _invalidInput();
+    final response = await _invoke('v1_list_supplier_bill_delivery_options', {
+      'p_project_id': normalizedProjectId,
+    });
+    return _decode(() {
+      _requireId(response['project_id'] as String? ?? '', normalizedProjectId);
+      return [
+        for (final item in response['deliveries'] as List<dynamic>)
+          YorksAccountsAcceptedDelivery.fromRpcJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+      ];
     });
   }
 

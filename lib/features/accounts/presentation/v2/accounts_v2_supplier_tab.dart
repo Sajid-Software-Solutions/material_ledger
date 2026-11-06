@@ -135,7 +135,8 @@ class AccountsV2SupplierTab extends StatelessWidget {
               projection.capabilities.approveSupplierBillPayment &&
               onPay != null,
           canApprove:
-              projection.capabilities.manageSupplierBills && onApprove != null,
+              projection.capabilities.approveSupplierBillPayment &&
+              onApprove != null,
           language: language,
           format: format,
           isOverdue: _isOverdue,
@@ -322,7 +323,11 @@ class _BillsCard extends StatelessWidget {
       bill.outstandingAmount.isPositive;
 
   bool _canApprove(YorksAccountsSupplierBill bill) =>
-      canApprove && bill.status == YorksAccountsSupplierBillStatus.draft;
+      canApprove &&
+      bill.status == YorksAccountsSupplierBillStatus.draft &&
+      // Until all three documents match the server refuses; Details says what's
+      // missing, and is where an Admin records an exception.
+      bill.matchStatus == YorksAccountsSupplierMatchStatus.matched;
 
   Future<void> _report(
     BuildContext context,

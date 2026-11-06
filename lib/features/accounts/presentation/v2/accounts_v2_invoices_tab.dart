@@ -188,7 +188,7 @@ class _KpiRow extends StatelessWidget {
       ),
       _Kpi(
         icon: Icons.verified_outlined,
-        label: accountsV2Text(language, 'v2_inv_kpi_certified'),
+        label: accountsV2Text(language, 'v2_inv_kpi_certified_excl'),
         value: format.money(certified),
       ),
       _Kpi(
@@ -452,6 +452,40 @@ class _TrackerCard extends StatelessWidget {
     if (context.mounted) await _report(context, error, 'v2_pay_saved');
   }
 
+  /// What can be done on an invoice now, the next step first. Certifying leads
+  /// until a certified amount exists; afterwards it is a correction.
+  List<_RowAction> _actionsFor(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) {
+    final certifyFirst = !inv.certifiedExVat.isPositive;
+    final certify = _canCertify(inv)
+        ? _RowAction(
+            label: _t(certifyFirst ? 'v2_inv_certify' : 'v2_inv_recertify'),
+            onPressed: () => _certify(context, inv),
+          )
+        : null;
+    return [
+      if (certify != null && certifyFirst) certify,
+      if (_canPay(inv))
+        _RowAction(
+          label: _t('v2_inv_record_payment'),
+          onPressed: () => _pay(context, inv),
+        ),
+      if (_canRecordCheque(inv))
+        _RowAction(
+          label: _t('v2_pdc_add'),
+          onPressed: () => _recordCheque(context, inv),
+        ),
+      if (_canPrint(inv))
+        _RowAction(
+          label: _t('v2_inv_view_print'),
+          onPressed: () => _print(context, inv),
+        ),
+      if (certify != null && !certifyFirst) certify,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final columns = <DataColumn>[
@@ -551,30 +585,9 @@ class _TrackerCard extends StatelessWidget {
                       ),
                       if (_showActions)
                         DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_canCertify(inv))
-                                TextButton(
-                                  onPressed: () => _certify(context, inv),
-                                  child: Text(_t('v2_inv_certify')),
-                                ),
-                              if (_canPay(inv))
-                                TextButton(
-                                  onPressed: () => _pay(context, inv),
-                                  child: Text(_t('v2_inv_record_payment')),
-                                ),
-                              if (_canRecordCheque(inv))
-                                TextButton(
-                                  onPressed: () => _recordCheque(context, inv),
-                                  child: Text(_t('v2_pdc_add')),
-                                ),
-                              if (_canPrint(inv))
-                                TextButton(
-                                  onPressed: () => _print(context, inv),
-                                  child: Text(_t('v2_inv_view_print')),
-                                ),
-                            ],
+                          _RowActions(
+                            moreLabel: _t('v2_inv_more_actions'),
+                            actions: _actionsFor(context, inv),
                           ),
                         ),
                     ],
@@ -584,6 +597,47 @@ class _TrackerCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RowAction {
+  const _RowAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+}
+
+/// The next step as a button and the rest in a menu, so a row's actions stay on
+/// screen however many apply.
+class _RowActions extends StatelessWidget {
+  const _RowActions({required this.moreLabel, required this.actions});
+
+  final String moreLabel;
+  final List<_RowAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actions.isEmpty) return const SizedBox.shrink();
+    final rest = actions.skip(1).toList(growable: false);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextButton(
+          onPressed: actions.first.onPressed,
+          child: Text(actions.first.label),
+        ),
+        if (rest.isNotEmpty)
+          PopupMenuButton<_RowAction>(
+            tooltip: moreLabel,
+            icon: const Icon(Icons.more_vert, size: 18),
+            onSelected: (action) => action.onPressed(),
+            itemBuilder: (_) => [
+              for (final action in rest)
+                PopupMenuItem(value: action, child: Text(action.label)),
+            ],
+          ),
+      ],
     );
   }
 }

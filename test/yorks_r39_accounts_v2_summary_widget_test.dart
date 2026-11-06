@@ -169,6 +169,10 @@ void main() {
     testWidgets('renders steps, KPIs, money flow, attention and heatmap', (
       tester,
     ) async {
+      // Tall enough that the lazy list builds every card.
+      tester.view.physicalSize = const Size(1280, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
       final ws = YorksAccountsWorkspace.fromJson(_workspaceJson());
       await tester.pumpWidget(
         _wrap(
@@ -188,12 +192,17 @@ void main() {
       expect(find.text('AED 17,192,000.00'), findsOneWidget);
       expect(find.text(t('v2_step_setup')), findsOneWidget);
       expect(find.text(t('v2_money_flow_title')), findsOneWidget);
+      // The bar's segments really have size; they once collapsed to nothing.
+      final segments = find.descendant(
+        of: find.byKey(const ValueKey('accounts-v2-money-flow-bar')),
+        matching: find.byType(ColoredBox),
+      );
+      expect(segments, findsWidgets);
+      expect(tester.getSize(segments.first).height, 16);
       // Attention row for the open-claim prompt + its action.
       expect(find.text(t('v2_att_no_claim')), findsOneWidget);
       expect(find.text(t('v2_action_start_claim')), findsOneWidget);
-      // Heatmap building header + stage row (below the fold in the lazy list).
-      await tester.scrollUntilVisible(find.text('Block A'), 400);
-      await tester.pumpAndSettle();
+      // Heatmap building header + stage row.
       expect(find.text('Block A'), findsOneWidget);
       expect(find.text('Material Supply'), findsWidgets);
       expect(tester.takeException(), isNull);

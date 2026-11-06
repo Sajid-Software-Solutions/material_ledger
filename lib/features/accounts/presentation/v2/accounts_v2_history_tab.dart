@@ -50,11 +50,55 @@ enum _HistFilter {
   }
 }
 
+/// Audit event types with a written title, for the timeline.
+@visibleForTesting
+const yorksAccountsV2HistoryEventKeys = <String, String>{
+  'accounts_baseline_initialized': 'v2_ev_baseline',
+  'accounts_baseline_revised': 'v2_ev_baseline_revised',
+  'accounts_progress_confirmed': 'v2_ev_progress',
+  'accounts.progress.imported': 'v2_ev_progress_imported',
+  'accounts.source_import.applied': 'v2_ev_import',
+  'accounts.client_claim.created': 'v2_ev_claim_created',
+  'accounts.client_claim.updated': 'v2_ev_claim_updated',
+  'accounts.client_claim.ready_for_accounts': 'v2_ev_claim_ready',
+  'accounts.client_claim.reopened': 'v2_ev_claim_reopened',
+  'accounts.client_claim.cancelled': 'v2_ev_claim_cancelled',
+  'accounts.client_claim.deleted': 'v2_ev_claim_deleted',
+  'accounts.client_invoice.draft_created': 'v2_ev_invoice_draft',
+  'accounts.client_invoice.draft_updated': 'v2_ev_invoice_draft_updated',
+  'accounts.client_invoice.submitted': 'v2_ev_invoice_issued',
+  'accounts.client_invoice.under_certification': 'v2_ev_invoice_under_cert',
+  'accounts.client_invoice.returned': 'v2_ev_invoice_returned',
+  'accounts.client_invoice.cancelled': 'v2_ev_invoice_cancelled',
+  'accounts.client_invoice.revision_started': 'v2_ev_invoice_revising',
+  'accounts.client_invoice.superseded': 'v2_ev_invoice_superseded',
+  'accounts.client_certification.recorded': 'v2_ev_certified',
+  'accounts.client_payment.recorded': 'v2_ev_payment',
+  'accounts.client_payment.reversed': 'v2_ev_payment_reversed',
+  'accounts.client_pdc.created': 'v2_ev_cheque_added',
+  'accounts.client_pdc.received': 'v2_ev_cheque_received',
+  'accounts.client_pdc.deposited': 'v2_ev_cheque_deposited',
+  'accounts.client_pdc.cleared': 'v2_ev_cheque_cleared',
+  'accounts.client_pdc.returned': 'v2_ev_cheque_returned',
+  'accounts.client_pdc.bounced': 'v2_ev_cheque_bounced',
+  'accounts.client_pdc.cancelled': 'v2_ev_cheque_cancelled',
+  'accounts.client_pdc.replaced': 'v2_ev_cheque_replaced',
+  'accounts.supplier_bill.created': 'v2_ev_bill_created',
+  'accounts.supplier_bill.updated': 'v2_ev_bill_updated',
+  'accounts.supplier_bill.approved': 'v2_ev_bill_approved',
+  'accounts.supplier_bill.cancelled': 'v2_ev_bill_cancelled',
+  'accounts.supplier_payment.recorded': 'v2_ev_bill_paid',
+  'accounts.supplier_payment.reversed': 'v2_ev_bill_payment_reversed',
+  'accounts.document.finalized': 'v2_ev_document',
+  'accounts.export.generated': 'v2_ev_export',
+};
+
 /// A file shown in the History Files panel (name + optional reference/uploader).
 typedef YorksAccountsHistoryFile = ({
   String name,
   String? reference,
   String? uploadedBy,
+  VoidCallback? onDownload,
 });
 
 class AccountsV2HistoryTab extends StatefulWidget {
@@ -63,6 +107,7 @@ class AccountsV2HistoryTab extends StatefulWidget {
     required this.projection,
     required this.language,
     this.files = const [],
+    this.onAddFile,
   });
 
   final YorksAccountsActivityProjection projection;
@@ -70,6 +115,9 @@ class AccountsV2HistoryTab extends StatefulWidget {
 
   /// Files attached to invoices and supplier bills, newest first.
   final List<YorksAccountsHistoryFile> files;
+
+  /// Adds a file; null for someone who can't.
+  final VoidCallback? onAddFile;
 
   @override
   State<AccountsV2HistoryTab> createState() => _AccountsV2HistoryTabState();
@@ -115,7 +163,17 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AccountsV2SectionTitle(_t('v2_files_title')),
+          Row(
+            children: [
+              Expanded(child: AccountsV2SectionTitle(_t('v2_files_title'))),
+              if (widget.onAddFile != null)
+                TextButton.icon(
+                  onPressed: widget.onAddFile,
+                  icon: const Icon(Icons.upload_file_outlined, size: 18),
+                  label: Text(_t('v2_files_add')),
+                ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.sm),
           if (fileItems.isEmpty)
             Text(_t('v2_files_empty'), style: AppTypography.bodyMedium)
@@ -256,7 +314,18 @@ class _TimelineRow extends StatelessWidget {
     return (icon: Icons.history_outlined, accent: AppColors.muted);
   }
 
-  String get _title => entry.eventType.replaceAll('_', ' ');
+  String get _title {
+    final known = yorksAccountsV2HistoryEventKeys[entry.eventType];
+    if (known != null) return accountsV2Text(language, known);
+    // An event added later still reads as words, never as a raw key.
+    final words = entry.eventType
+        .replaceFirst(RegExp(r'^accounts[._]'), '')
+        .replaceAll(RegExp(r'[._]'), ' ')
+        .trim();
+    return words.isEmpty
+        ? entry.eventType
+        : '${words[0].toUpperCase()}${words.substring(1)}';
+  }
 
   String _two(int v) => v.toString().padLeft(2, '0');
   String get _when {
@@ -376,6 +445,12 @@ class _FileRow extends StatelessWidget {
               ],
             ),
           ),
+          if (file.onDownload != null)
+            IconButton(
+              tooltip: accountsV2Text(language, 'v2_files_download'),
+              onPressed: file.onDownload,
+              icon: const Icon(Icons.download_outlined, size: 18),
+            ),
         ],
       ),
     );

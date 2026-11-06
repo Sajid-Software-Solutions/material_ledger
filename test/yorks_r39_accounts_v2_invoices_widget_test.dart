@@ -50,13 +50,14 @@ const _cmds = YorksAccountsReceivablesCommands(
 
 YorksAccountsClientInvoiceSummary _invoice({
   YorksAccountsInvoiceStatus status = YorksAccountsInvoiceStatus.certified,
+  String certified = '900000.00',
 }) => YorksAccountsClientInvoiceSummary(
   invoiceId: 'i1',
   claimId: 'c1',
   invoiceReference: 'YRA322-01',
   status: status,
   claimedExVat: _d('1000000.00'),
-  certifiedExVat: _d('900000.00'),
+  certifiedExVat: _d(certified),
   totalInclVat: _d('1050000.00'),
   amountPaidTillDate: _d('500000.00'),
   stillDue: _d('550000.00'),
@@ -308,9 +309,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text(t('v2_inv_certify')));
+      // Certified already: the next step leads, correcting it is in the menu.
+      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
+      expect(find.text(t('v2_inv_recertify')), findsNothing);
+      await tester.ensureVisible(find.byIcon(Icons.more_vert));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_inv_certify')));
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_inv_recertify')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(2), 'CERT-1');
       await tester.pumpAndSettle();
@@ -322,6 +328,34 @@ void main() {
       expect(captured!.certificationReference, 'CERT-1');
       expect(find.text(t('v2_cert_saved')), findsWidgets);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an uncertified invoice leads with Certify', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(
+              cert: true,
+              pay: true,
+              invoices: [
+                _invoice(
+                  status: YorksAccountsInvoiceStatus.submitted,
+                  certified: '0.00',
+                ),
+              ],
+            ),
+            language: en,
+            onCertify: (i) async => null,
+            onPay: (i) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_inv_certify')), findsOneWidget);
+      expect(find.text(t('v2_inv_recertify')), findsNothing);
+      expect(find.text(t('v2_inv_record_payment')), findsNothing);
     });
 
     testWidgets('view/print invokes onPrintInvoice for an issued invoice', (

@@ -371,7 +371,7 @@ class _ClaimCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           onTap: onTap,
           child: Container(
-            width: 190,
+            width: 230,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
