@@ -217,6 +217,12 @@ Map<String, dynamic> _contractJson() => {
       'contact_email': 'omar@yorks.ae',
     },
   },
+  'references': {
+    'client_trn': '100123456700003',
+    'work_order_number': 'WO-2026-0042',
+    'work_order_date': '2026-06-01',
+    'contract_number': 'N-19957.2',
+  },
 };
 
 Map<String, dynamic> _workbenchJson() => {
@@ -339,6 +345,14 @@ Widget _contractTab() => AccountsV2ContractTab(
   language: _en,
   canEdit: true,
   onSave: (_) async => null,
+  onSaveReferences:
+      ({
+        String? clientTrn,
+        String? workOrderNumber,
+        String? workOrderDate,
+        String? contractNumber,
+        int? expectedProfileVersion,
+      }) async => null,
 );
 
 Widget _claimsTab() => AccountsV2ClaimsTab(

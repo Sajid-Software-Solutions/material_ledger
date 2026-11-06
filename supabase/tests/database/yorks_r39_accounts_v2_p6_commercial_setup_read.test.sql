@@ -96,5 +96,41 @@ select is((select payload->>'has_baseline' from v1_r39_p6s where result_key='se'
 select ok((select not ((payload) ? 'contract_value') from v1_r39_p6s where result_key='se'),'Contract value omitted (not zeroed) for the site engineer');
 select ok((select not ((payload) ? 'buildings') from v1_r39_p6s where result_key='se'),'Building split omitted for the site engineer');
 
+-- P6 part c: editable contract references (write command).
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
+insert into v1_r39_p6s select 'refver0', jsonb_build_object('v',(select (payload->>'profile_version')::integer from v1_r39_p6s where result_key='admin'));
+insert into v1_r39_p6s select 'refsave', public.v1_save_accounts_contract_references(
+  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',
+  (select (payload->>'v')::integer from v1_r39_p6s where result_key='refver0'),
+  '39f90000-0000-4000-8000-0000000000c1');
+insert into v1_r39_p6s select 'refreplay', public.v1_save_accounts_contract_references(
+  '39d16000-0000-4000-8000-000000000001','TRN-9','WO-7',date '2026-06-01','C-42',
+  (select (payload->>'v')::integer from v1_r39_p6s where result_key='refver0'),
+  '39f90000-0000-4000-8000-0000000000c1');
+insert into v1_r39_p6s select 'refread', public.v1_get_project_commercial_setup('39d16000-0000-4000-8000-000000000001');
+select throws_ok(
+  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',999,'39f90000-0000-4000-8000-0000000000c2')$$,
+  '40001','R39_ACCOUNTS_VERSION_CONFLICT','References save rejects a stale expected version');
+reset role;
+
+select is((select (payload->>'record_version')::integer from v1_r39_p6s where result_key='refsave'),
+  (select (payload->>'v')::integer + 1 from v1_r39_p6s where result_key='refver0'),
+  'Saving references bumps the profile version by one');
+select is((select payload->>'replayed' from v1_r39_p6s where result_key='refreplay'),'true','Same idempotency key replays without a second write');
+select is((select (payload->>'record_version')::integer from v1_r39_p6s where result_key='refreplay'),
+  (select (payload->>'record_version')::integer from v1_r39_p6s where result_key='refsave'),
+  'Replay returns the same version (no double write)');
+select is((select payload->'references'->>'work_order_number' from v1_r39_p6s where result_key='refread'),'WO-7','Read-back returns the saved work order number');
+select is((select payload->'references'->>'client_trn' from v1_r39_p6s where result_key='refread'),'TRN-9','Read-back returns the saved client TRN');
+
+-- Role negative: a site engineer (no configure_project_commercials) cannot save.
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
+select throws_ok(
+  $$select public.v1_save_accounts_contract_references('39d16000-0000-4000-8000-000000000001','x','x',null,'x',null,'39f90000-0000-4000-8000-0000000000c3')$$,
+  '42501','R39_ACCOUNTS_ACCESS_DENIED','Site engineer without configure_project_commercials cannot save references');
+reset role;
+
 select finish();
 rollback;

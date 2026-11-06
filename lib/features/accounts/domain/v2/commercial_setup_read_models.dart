@@ -248,6 +248,10 @@ final class YorksAccountsCommercialSetupRead {
     required this.items,
     required this.clientParty,
     required this.mainContractorParty,
+    required this.clientTrn,
+    required this.workOrderNumber,
+    required this.workOrderDate,
+    required this.contractNumber,
   });
 
   factory YorksAccountsCommercialSetupRead.fromJson(Map<String, dynamic> json) {
@@ -267,6 +271,9 @@ final class YorksAccountsCommercialSetupRead {
             Map<String, dynamic>.from(parties[kind] as Map),
           )
         : null;
+    final refs = json['references'] is Map
+        ? Map<String, dynamic>.from(json['references'] as Map)
+        : const <String, dynamic>{};
     return YorksAccountsCommercialSetupRead(
       projectId: json['project_id'] as String,
       projectReference: json['project_reference'] as String?,
@@ -300,6 +307,10 @@ final class YorksAccountsCommercialSetupRead {
       ).map(YorksAccountsSetupReadItem.fromJson).toList(growable: false),
       clientParty: party('client'),
       mainContractorParty: party('main_contractor'),
+      clientTrn: refs['client_trn'] as String?,
+      workOrderNumber: refs['work_order_number'] as String?,
+      workOrderDate: refs['work_order_date'] as String?,
+      contractNumber: refs['contract_number'] as String?,
     );
   }
 
@@ -327,6 +338,12 @@ final class YorksAccountsCommercialSetupRead {
   /// Contract parties from project setup (read-only); null when not set.
   final YorksAccountsSetupReadParty? clientParty;
   final YorksAccountsSetupReadParty? mainContractorParty;
+
+  /// Editable contract references (stored on the profile).
+  final String? clientTrn;
+  final String? workOrderNumber;
+  final String? workOrderDate;
+  final String? contractNumber;
 
   bool get hasCommercialValues =>
       capabilities.viewProjectCommercialValues && contractValue != null;

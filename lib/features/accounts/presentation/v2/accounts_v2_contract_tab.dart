@@ -21,6 +21,16 @@ import '../../domain/v2/commercial_setup_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import 'accounts_v2_common.dart';
 
+/// Saves the editable contract references; null on success or an error message.
+typedef YorksSaveReferencesAction =
+    Future<String?> Function({
+      String? clientTrn,
+      String? workOrderNumber,
+      String? workOrderDate,
+      String? contractNumber,
+      int? expectedProfileVersion,
+    });
+
 class AccountsV2ContractTab extends StatefulWidget {
   const AccountsV2ContractTab({
     super.key,
@@ -28,6 +38,7 @@ class AccountsV2ContractTab extends StatefulWidget {
     required this.language,
     this.canEdit = false,
     this.onSave,
+    this.onSaveReferences,
   });
 
   final YorksAccountsCommercialSetupRead setup;
@@ -38,6 +49,9 @@ class AccountsV2ContractTab extends StatefulWidget {
 
   /// Saves the edited setup; returns null on success or an error message.
   final Future<String?> Function(YorksAccountsCommercialSetup setup)? onSave;
+
+  /// Saves the editable contract references; null on success or an error.
+  final YorksSaveReferencesAction? onSaveReferences;
 
   @override
   State<AccountsV2ContractTab> createState() => _AccountsV2ContractTabState();
@@ -95,7 +109,13 @@ class _AccountsV2ContractTabState extends State<AccountsV2ContractTab> {
         ),
         const SizedBox(height: AppSpacing.lg),
       ],
-      _ContractHeaderCard(setup: setup, language: language, format: format),
+      _ContractHeaderCard(
+        setup: setup,
+        language: language,
+        format: format,
+        canEdit: widget.canEdit,
+        onSaveReferences: widget.onSaveReferences,
+      ),
       const SizedBox(height: AppSpacing.lg),
       _BuildingsCard(setup: setup, language: language, format: format),
       const SizedBox(height: AppSpacing.lg),
@@ -181,13 +201,39 @@ class _ContractHeaderCard extends StatelessWidget {
     required this.setup,
     required this.language,
     required this.format,
+    this.canEdit = false,
+    this.onSaveReferences,
   });
 
   final YorksAccountsCommercialSetupRead setup;
   final AppLanguage language;
   final AccountsV2Format format;
+  final bool canEdit;
+  final YorksSaveReferencesAction? onSaveReferences;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  bool get _hasReferences => [
+    setup.clientTrn,
+    setup.workOrderNumber,
+    setup.workOrderDate,
+    setup.contractNumber,
+  ].any((v) => v != null && v.isNotEmpty);
+
+  Future<void> _editReferences(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ReferencesDialog(
+        setup: setup,
+        language: language,
+        onSave: onSaveReferences!,
+      ),
+    );
+    if (saved == true) {
+      messenger?.showSnackBar(SnackBar(content: Text(_t('v2_saved'))));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,8 +294,159 @@ class _ContractHeaderCard extends StatelessWidget {
               ],
             ),
           ],
+          if (_hasReferences || (canEdit && onSaveReferences != null)) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.line),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _t('v2_references_title'),
+                    style: AppTypography.labelMedium.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+                if (canEdit && onSaveReferences != null)
+                  TextButton.icon(
+                    onPressed: () => _editReferences(context),
+                    icon: const Icon(Icons.edit_outlined, size: 14),
+                    label: Text(_t('v2_edit')),
+                  ),
+              ],
+            ),
+            if (_hasReferences) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.xl,
+                runSpacing: AppSpacing.md,
+                children: [
+                  if (setup.workOrderNumber?.isNotEmpty ?? false)
+                    _Field(
+                      label: _t('v2_work_order_no'),
+                      value: setup.workOrderNumber!,
+                    ),
+                  if (setup.workOrderDate?.isNotEmpty ?? false)
+                    _Field(
+                      label: _t('v2_work_order_date'),
+                      value: setup.workOrderDate!,
+                    ),
+                  if (setup.contractNumber?.isNotEmpty ?? false)
+                    _Field(
+                      label: _t('v2_contract_no'),
+                      value: setup.contractNumber!,
+                    ),
+                  if (setup.clientTrn?.isNotEmpty ?? false)
+                    _Field(label: _t('v2_client_trn'), value: setup.clientTrn!),
+                ],
+              ),
+            ] else
+              Text(
+                _t('v2_references_empty'),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Edits the four contract references (TRN, work order no/date, contract no).
+class _ReferencesDialog extends StatefulWidget {
+  const _ReferencesDialog({
+    required this.setup,
+    required this.language,
+    required this.onSave,
+  });
+
+  final YorksAccountsCommercialSetupRead setup;
+  final AppLanguage language;
+  final YorksSaveReferencesAction onSave;
+
+  @override
+  State<_ReferencesDialog> createState() => _ReferencesDialogState();
+}
+
+class _ReferencesDialogState extends State<_ReferencesDialog> {
+  late final TextEditingController _trn;
+  late final TextEditingController _woNo;
+  late final TextEditingController _woDate;
+  late final TextEditingController _contractNo;
+  bool _saving = false;
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.setup;
+    _trn = TextEditingController(text: s.clientTrn ?? '');
+    _woNo = TextEditingController(text: s.workOrderNumber ?? '');
+    _woDate = TextEditingController(text: s.workOrderDate ?? '');
+    _contractNo = TextEditingController(text: s.contractNumber ?? '');
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_trn, _woNo, _woDate, _contractNo]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _trim(TextEditingController c) {
+    final v = c.text.trim();
+    return v.isEmpty ? null : v;
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final error = await widget.onSave(
+      clientTrn: _trim(_trn),
+      workOrderNumber: _trim(_woNo),
+      workOrderDate: _trim(_woDate),
+      contractNumber: _trim(_contractNo),
+      expectedProfileVersion: widget.setup.profileVersion,
+    );
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _saving = false);
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(_t('v2_save_failed'))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_t('v2_references_title')),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _EditField(label: _t('v2_work_order_no'), controller: _woNo),
+            _EditField(label: _t('v2_work_order_date'), controller: _woDate),
+            _EditField(label: _t('v2_contract_no'), controller: _contractNo),
+            _EditField(label: _t('v2_client_trn'), controller: _trn),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? _t('v2_saving') : _t('v2_save')),
+        ),
+      ],
     );
   }
 }

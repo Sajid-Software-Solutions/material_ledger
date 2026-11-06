@@ -50,6 +50,30 @@ final class YorksAccountsWorkspaceRepository {
     return YorksAccountsWorkbench.fromJson(json);
   }
 
+  /// Saves the editable contract references on the project profile.
+  Future<Map<String, dynamic>> saveContractReferences({
+    required String projectId,
+    String? clientTrn,
+    String? workOrderNumber,
+    String? workOrderDate,
+    String? contractNumber,
+    int? expectedVersion,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_contract_references',
+      parameters: {
+        'p_project_id': projectId,
+        'p_client_trn': clientTrn,
+        'p_work_order_number': workOrderNumber,
+        'p_work_order_date': workOrderDate,
+        'p_contract_number': contractNumber,
+        'p_expected_version': expectedVersion,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+  }
+
   /// All claims for the project (newest first) for the claim-cards row. Reuses
   /// the existing commercial-gated `v1_list_client_claims`.
   Future<YorksAccountsClaimsList> getClaimsList(String projectId) async {

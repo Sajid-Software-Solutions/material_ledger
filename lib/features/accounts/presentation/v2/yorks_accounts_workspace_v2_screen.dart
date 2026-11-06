@@ -400,6 +400,20 @@ class _ContractBody extends ConsumerWidget {
               setup: form,
               expectedProfileVersion: data.profileVersion,
             ),
+            onSaveReferences:
+                ({
+                  String? clientTrn,
+                  String? workOrderNumber,
+                  String? workOrderDate,
+                  String? contractNumber,
+                  int? expectedProfileVersion,
+                }) => controller.saveReferences(
+                  clientTrn: clientTrn,
+                  workOrderNumber: workOrderNumber,
+                  workOrderDate: workOrderDate,
+                  contractNumber: contractNumber,
+                  expectedProfileVersion: expectedProfileVersion,
+                ),
           ),
         ),
       ],

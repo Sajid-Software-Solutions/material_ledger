@@ -243,6 +243,43 @@ final class YorksAccountsContractController
       },
     );
   }
+
+  /// Saves the editable contract references (TRN, work order, contract no) on
+  /// the profile. No optimistic success; re-fetches on confirmation.
+  Future<String?> saveReferences({
+    String? clientTrn,
+    String? workOrderNumber,
+    String? workOrderDate,
+    String? contractNumber,
+    int? expectedProfileVersion,
+  }) {
+    return runCommand(
+      operation: 'save_contract_references',
+      entityId: _projectId,
+      payload: {
+        'client_trn': clientTrn,
+        'work_order_number': workOrderNumber,
+        'work_order_date': workOrderDate,
+        'contract_number': contractNumber,
+        'version': expectedProfileVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveContractReferences(
+          projectId: _projectId,
+          clientTrn: clientTrn,
+          workOrderNumber: workOrderNumber,
+          workOrderDate: workOrderDate,
+          contractNumber: contractNumber,
+          expectedVersion: expectedProfileVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
 }
 
 final yorksAccountsContractControllerProvider = StateNotifierProvider

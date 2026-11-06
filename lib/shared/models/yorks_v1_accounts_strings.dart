@@ -3053,6 +3053,42 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'مرکزی ٹھیکیدار',
       'hi': 'मुख्य ठेकेदार',
     },
+    'v2_references_title': {
+      'en': 'Contract references',
+      'ar': 'مراجع العقد',
+      'ur': 'کنٹریکٹ حوالہ جات',
+      'hi': 'कॉन्ट्रैक्ट संदर्भ',
+    },
+    'v2_references_empty': {
+      'en': 'No references added yet.',
+      'ar': 'لم تُضف مراجع بعد.',
+      'ur': 'ابھی کوئی حوالہ شامل نہیں۔',
+      'hi': 'अभी कोई संदर्भ नहीं जोड़ा गया।',
+    },
+    'v2_work_order_no': {
+      'en': 'Work order no.',
+      'ar': 'رقم أمر العمل',
+      'ur': 'ورک آرڈر نمبر',
+      'hi': 'वर्क ऑर्डर नं.',
+    },
+    'v2_work_order_date': {
+      'en': 'Work order date',
+      'ar': 'تاريخ أمر العمل',
+      'ur': 'ورک آرڈر تاریخ',
+      'hi': 'वर्क ऑर्डर तिथि',
+    },
+    'v2_contract_no': {
+      'en': 'Contract no.',
+      'ar': 'رقم العقد',
+      'ur': 'کنٹریکٹ نمبر',
+      'hi': 'कॉन्ट्रैक्ट नं.',
+    },
+    'v2_client_trn': {
+      'en': 'Client TRN',
+      'ar': 'الرقم الضريبي للعميل',
+      'ur': 'کلائنٹ TRN',
+      'hi': 'क्लाइंट TRN',
+    },
     'v2_contract_edit_note': {
       'en':
           'Everything here can be edited. Issued invoices keep their amounts — '
