@@ -3482,6 +3482,12 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'غیر ادا',
       'hi': 'अदत्त',
     },
+    'v2_sup_kpi_cost_vs_invoiced': {
+      'en': 'Cost vs invoiced',
+      'ar': 'التكلفة مقابل الفوترة',
+      'ur': 'لاگت بمقابلہ انوائسڈ',
+      'hi': 'लागत बनाम इनवॉइस',
+    },
     'v2_sup_col_bill': {
       'en': 'Bill',
       'ar': 'الفاتورة',

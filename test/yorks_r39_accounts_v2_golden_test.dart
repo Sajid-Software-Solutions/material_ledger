@@ -486,8 +486,11 @@ YorksAccountsSupplierBillsProjection _supplierProjection() =>
 Widget _invoicesTab() =>
     AccountsV2InvoicesTab(projection: _invoicesProjection(), language: _en);
 
-Widget _supplierTab() =>
-    AccountsV2SupplierTab(projection: _supplierProjection(), language: _en);
+Widget _supplierTab() => AccountsV2SupplierTab(
+  projection: _supplierProjection(),
+  language: _en,
+  invoicedTotal: YorksAccountsDecimal.parse('300000.00'),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

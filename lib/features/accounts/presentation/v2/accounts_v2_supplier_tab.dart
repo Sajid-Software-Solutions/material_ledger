@@ -37,12 +37,16 @@ class AccountsV2SupplierTab extends StatelessWidget {
     super.key,
     required this.projection,
     required this.language,
+    this.invoicedTotal,
     this.onPay,
     this.onApprove,
   });
 
   final YorksAccountsSupplierBillsProjection projection;
   final AppLanguage language;
+
+  /// Client-invoiced total (ex VAT) for the cost-vs-invoiced KPI; null hides it.
+  final YorksAccountsDecimal? invoicedTotal;
   final YorksSupplierPayAction? onPay;
   final YorksSupplierApproveAction? onApprove;
 
@@ -88,6 +92,7 @@ class AccountsV2SupplierTab extends StatelessWidget {
           paid: sum((b) => b.paidAmount),
           unpaid: sum((b) => b.outstandingAmount),
           overdueCount: overdue,
+          invoicedTotal: invoicedTotal,
         ),
         const SizedBox(height: AppSpacing.lg),
         _BillsCard(
@@ -119,6 +124,7 @@ class _KpiRow extends StatelessWidget {
     required this.paid,
     required this.unpaid,
     required this.overdueCount,
+    this.invoicedTotal,
   });
 
   final AppLanguage language;
@@ -127,9 +133,23 @@ class _KpiRow extends StatelessWidget {
   final YorksAccountsDecimal paid;
   final YorksAccountsDecimal unpaid;
   final int overdueCount;
+  final YorksAccountsDecimal? invoicedTotal;
+
+  /// Supplier cost as a percent of client-invoiced value. Display only (goes
+  /// through a double, never stored/sent); unclamped since cost may exceed
+  /// invoiced. Null when the invoiced total is unavailable or zero.
+  String? get _costVsInvoiced {
+    final invoiced = invoicedTotal;
+    if (invoiced == null || !invoiced.isPositive) return null;
+    final cost = double.tryParse(billed.canonicalText) ?? 0;
+    final inv = double.tryParse(invoiced.canonicalText) ?? 0;
+    if (inv <= 0) return null;
+    return '${(cost / inv * 100).toStringAsFixed(0)}%';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final costVsInvoiced = _costVsInvoiced;
     final tiles = <Widget>[
       _Kpi(
         icon: Icons.receipt_long_outlined,
@@ -151,10 +171,16 @@ class _KpiRow extends StatelessWidget {
             : '',
         accent: unpaid.isPositive ? AppColors.warning : null,
       ),
+      if (costVsInvoiced != null)
+        _Kpi(
+          icon: Icons.pie_chart_outline,
+          label: accountsV2Text(language, 'v2_sup_kpi_cost_vs_invoiced'),
+          value: costVsInvoiced,
+        ),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final perRow = (constraints.maxWidth / 220).floor().clamp(1, 3);
+        final perRow = (constraints.maxWidth / 220).floor().clamp(1, 4);
         const spacing = AppSpacing.md;
         final tileWidth =
             (constraints.maxWidth - spacing * (perRow - 1)) / perRow;

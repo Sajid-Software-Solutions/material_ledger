@@ -608,6 +608,13 @@ class _SupplierBody extends ConsumerWidget {
     if (state.hasError && projection == null) {
       return _ErrorState(language: language, onRetry: controller.load);
     }
+    // Client-invoiced total (ex VAT) for the "cost vs invoiced" KPI. Present
+    // only with view_project_commercial_values; null otherwise (KPI omitted).
+    final invoicedTotal = ref
+        .watch(yorksAccountsWorkspaceControllerProvider(projectId))
+        .valueOrNull
+        ?.kpis
+        ?.invoiced;
     return Column(
       children: [
         if (state.hasError)
@@ -616,6 +623,7 @@ class _SupplierBody extends ConsumerWidget {
           child: AccountsV2SupplierTab(
             projection: projection!,
             language: language,
+            invoicedTotal: invoicedTotal,
             onPay: controller.recordPayment,
             onApprove:
                 ({
