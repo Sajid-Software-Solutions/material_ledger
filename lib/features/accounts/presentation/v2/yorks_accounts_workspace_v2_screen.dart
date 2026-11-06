@@ -23,6 +23,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
@@ -580,7 +581,11 @@ class _SummaryBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && workspace == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
     // Data (possibly with a stale-data error banner on top).
     return Column(
@@ -611,7 +616,11 @@ class _ContractBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && setup == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
     final data = setup!;
     // Contract variations (VO register); empty while loading or without access.
@@ -752,7 +761,11 @@ class _ClaimsBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && workbench == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
     final data = workbench!;
     final canConfirm = data.canConfirmProgress;
@@ -928,7 +941,11 @@ class _InvoicesBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && projection == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
 
     // Cheque register: commercial, so the whole card is drawn only with
@@ -1025,7 +1042,11 @@ class _SupplierBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && projection == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
     // Client-invoiced total (ex VAT) for the "cost vs invoiced" KPI. Present
     // only with view_project_commercial_values; null otherwise (KPI omitted).
@@ -1139,7 +1160,11 @@ class _HistoryBody extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.hasError && projection == null) {
-      return _ErrorState(language: language, onRetry: controller.load);
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
     }
     // Attached files for the Files panel. This controller doesn't load itself, so
     // start it here; a failed load leaves the panel empty, as for no access.
@@ -1194,13 +1219,40 @@ void _showFileMessage(BuildContext context, AppLanguage language, String key) {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.language, required this.onRetry});
+  const _ErrorState({
+    required this.language,
+    required this.onRetry,
+    this.error,
+  });
 
   final AppLanguage language;
   final VoidCallback onRetry;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
+    // A refusal is the answer, not a failure: retrying can't change it.
+    final failure = error;
+    if (failure is YorksV1DomainException &&
+        failure.code == YorksV1DomainErrorCode.unauthorized) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 32, color: AppColors.muted),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                accountsV2Text(language, 'v2_commercial_hidden'),
+                style: AppTypography.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),

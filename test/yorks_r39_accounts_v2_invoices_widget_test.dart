@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/features/accounts/application/accounts_providers.dart';
 import 'package:material_ledger/features/accounts/application/accounts_receivables_providers.dart';
 import 'package:material_ledger/features/accounts/data/accounts_receivables_repository.dart';
@@ -182,6 +183,21 @@ final class _FakeReceivables implements YorksAccountsReceivablesRepository {
     YorksAccountsCompositeCursor? before,
     int limit = 50,
   }) async => projection;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RefusingReceivables implements YorksAccountsReceivablesRepository {
+  @override
+  Future<YorksAccountsInvoicesProjection> listInvoices(
+    String projectId, {
+    YorksAccountsInvoiceStatus? status,
+    YorksAccountsDueState? dueState,
+    YorksAccountsCompositeCursor? before,
+    int limit = 50,
+  }) async =>
+      throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -668,6 +684,47 @@ void main() {
 
       expect(find.text('YRA322-01'), findsOneWidget);
       expect(find.text('AED 1,050,000.00'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a refusal says there is no access, with nothing to retry', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          yorksV1CurrentRoleProvider.overrideWithValue(null),
+          yorksAccountsPermissionEpochProvider.overrideWithValue((
+            revision: 1,
+            trusted: true,
+            stale: false,
+            revisionSignalHealthy: true,
+          )),
+          yorksAccountsReceivablesRepositoryProvider.overrideWithValue(
+            _RefusingReceivables(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: _wrap(
+            const YorksAccountsWorkspaceV2Screen(
+              projectId: 'p1',
+              initialTab: YorksAccountsWorkspaceV2Tab.invoices,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_commercial_hidden')), findsOneWidget);
+      expect(find.text(t('v2_retry')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
