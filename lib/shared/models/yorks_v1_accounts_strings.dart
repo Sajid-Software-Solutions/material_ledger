@@ -5306,6 +5306,269 @@ abstract final class YorksV1AccountsStrings {
       'ur': "سائٹ کی پیش رفت آپ کی تصدیق کی منتظر ہے",
       'hi': "साइट की प्रगति आपकी पुष्टि की प्रतीक्षा में है",
     },
+    'v2_pdc_edit': {
+      'en': "Edit details",
+      'ar': "تعديل التفاصيل",
+      'ur': "تفصیلات میں ترمیم",
+      'hi': "विवरण संपादित करें",
+    },
+    'v2_pdc_edit_title': {
+      'en': "Edit cheque",
+      'ar': "تعديل الشيك",
+      'ur': "چیک میں ترمیم",
+      'hi': "चेक संपादित करें",
+    },
+    'v2_pdc_undo_clearing': {
+      'en': "Undo clearing",
+      'ar': "إلغاء التحصيل",
+      'ur': "کلیئرنگ واپس لیں",
+      'hi': "क्लियरिंग वापस लें",
+    },
+    'v2_pdc_bounced_after': {
+      'en': "Bounced after clearing",
+      'ar': "ارتد بعد التحصيل",
+      'ur': "کلیئرنگ کے بعد باؤنس ہوا",
+      'hi': "क्लियरिंग के बाद बाउंस हुआ",
+    },
+    'v2_pdc_returned_after': {
+      'en': "Returned after clearing",
+      'ar': "أعيد بعد التحصيل",
+      'ur': "کلیئرنگ کے بعد واپس ہوا",
+      'hi': "क्लियरिंग के बाद लौटाया गया",
+    },
+    'v2_pdc_undo_received': {
+      'en': "Not in hand yet",
+      'ar': "لم يُستلم بعد",
+      'ur': "ابھی ہاتھ میں نہیں",
+      'hi': "अभी हाथ में नहीं",
+    },
+    'v2_pdc_undo_deposited': {
+      'en': "Not deposited yet",
+      'ar': "لم يودع بعد",
+      'ur': "ابھی جمع نہیں ہوا",
+      'hi': "अभी जमा नहीं हुआ",
+    },
+    'v2_pdc_represent': {
+      'en': "Re-presented",
+      'ar': "أعيد تقديمه",
+      'ur': "دوبارہ پیش کیا گیا",
+      'hi': "पुनः प्रस्तुत किया गया",
+    },
+    'v2_pdc_restore': {
+      'en': "Restore",
+      'ar': "استعادة",
+      'ur': "بحال کریں",
+      'hi': "पुनर्स्थापित करें",
+    },
+    'v2_pdc_undo_money_hint': {
+      'en': "This takes the cheque's money back out of received.",
+      'ar': "سيؤدي هذا إلى خصم مبلغ الشيك من المستلم.",
+      'ur': "اس سے چیک کی رقم وصول شدہ سے واپس نکل جائے گی۔",
+      'hi': "इससे चेक की राशि प्राप्त राशि से वापस निकल जाएगी।",
+    },
+    'v2_pay_edit': {
+      'en': "Edit",
+      'ar': "تعديل",
+      'ur': "ترمیم",
+      'hi': "संपादित करें",
+    },
+    'v2_pay_edit_title': {
+      'en': "Edit payment",
+      'ar': "تعديل الدفعة",
+      'ur': "ادائیگی میں ترمیم",
+      'hi': "भुगतान संपादित करें",
+    },
+    'v2_pay_edit_hint': {
+      'en':
+          "The old entry stays in History, and the totals update straight away.",
+      'ar': "يبقى القيد القديم في السجل، وتُحدَّث الإجماليات فورًا.",
+      'ur': "پرانا اندراج ہسٹری میں رہتا ہے اور مجموعے فوراً اپ ڈیٹ ہوتے ہیں۔",
+      'hi':
+          "पुरानी प्रविष्टि इतिहास में रहती है और योग तुरंत अपडेट हो जाते हैं।",
+    },
+    'v2_pay_edit_cheque_hint': {
+      'en':
+          "This payment came from a cheque, so its amount follows the cheque. To change the amount, undo the clearing and edit the cheque.",
+      'ar':
+          "هذه الدفعة من شيك، لذا يتبع مبلغها الشيك. لتغيير المبلغ، ألغِ التحصيل وعدّل الشيك.",
+      'ur':
+          "یہ ادائیگی چیک سے آئی ہے، اس لیے رقم چیک کے مطابق ہے۔ رقم بدلنے کے لیے کلیئرنگ واپس لیں اور چیک میں ترمیم کریں۔",
+      'hi':
+          "यह भुगतान चेक से आया है, इसलिए राशि चेक के अनुसार है। राशि बदलने के लिए क्लियरिंग वापस लें और चेक संपादित करें।",
+    },
+    'v2_pay_edit_done': {
+      'en': "Payment updated.",
+      'ar': "تم تحديث الدفعة.",
+      'ur': "ادائیگی اپ ڈیٹ ہو گئی۔",
+      'hi': "भुगतान अपडेट हो गया।",
+    },
+    'v2_pay_reverse_reference_opt': {
+      'en': "Reversal reference (optional)",
+      'ar': "مرجع العكس (اختياري)",
+      'ur': "ریورسل حوالہ (اختیاری)",
+      'hi': "रिवर्सल संदर्भ (वैकल्पिक)",
+    },
+    'v2_pay_reverse_cheque': {
+      'en': "What happened to the cheque?",
+      'ar': "ماذا حدث للشيك؟",
+      'ur': "چیک کا کیا ہوا؟",
+      'hi': "चेक का क्या हुआ?",
+    },
+    'v2_pay_reverse_cheque_deposited': {
+      'en': "Back to deposited",
+      'ar': "العودة إلى مودع",
+      'ur': "واپس جمع شدہ",
+      'hi': "वापस जमा किया गया",
+    },
+    'v2_pay_reverse_cheque_bounced': {
+      'en': "It bounced",
+      'ar': "ارتد",
+      'ur': "یہ باؤنس ہو گیا",
+      'hi': "यह बाउंस हो गया",
+    },
+    'v2_pay_reverse_cheque_returned': {
+      'en': "It was returned",
+      'ar': "أعيد",
+      'ur': "یہ واپس کر دیا گیا",
+      'hi': "यह लौटा दिया गया",
+    },
+    'v2_cert_edit': {
+      'en': "Edit",
+      'ar': "تعديل",
+      'ur': "ترمیم",
+      'hi': "संपादित करें",
+    },
+    'v2_cert_edit_title': {
+      'en': "Edit certification",
+      'ar': "تعديل الاعتماد",
+      'ur': "سرٹیفکیشن میں ترمیم",
+      'hi': "प्रमाणन संपादित करें",
+    },
+    'v2_cert_edit_hint': {
+      'en':
+          "Enter 0 to undo it. It can't go below money already received or cheques in hand.",
+      'ar':
+          "أدخل 0 لإلغائه. لا يمكن أن يقل عن المبالغ المستلمة أو الشيكات الموجودة.",
+      'ur':
+          "واپس لینے کے لیے 0 درج کریں۔ یہ وصول شدہ رقم یا ہاتھ میں موجود چیکوں سے کم نہیں ہو سکتا۔",
+      'hi':
+          "वापस लेने के लिए 0 दर्ज करें। यह प्राप्त राशि या हाथ में मौजूद चेक से कम नहीं हो सकता।",
+    },
+    'v2_cert_edit_done': {
+      'en': "Certification updated.",
+      'ar': "تم تحديث الاعتماد.",
+      'ur': "سرٹیفکیشن اپ ڈیٹ ہو گئی۔",
+      'hi': "प्रमाणन अपडेट हो गया।",
+    },
+    'v2_inv_cancel': {
+      'en': "Cancel invoice",
+      'ar': "إلغاء الفاتورة",
+      'ur': "انوائس منسوخ کریں",
+      'hi': "चालान रद्द करें",
+    },
+    'v2_inv_cancel_hint': {
+      'en':
+          "Its claim closes with it. Undo any payments, cheques and certification first.",
+      'ar': "تُغلق مطالبتها معها. ألغِ أولًا أي دفعات وشيكات واعتماد.",
+      'ur':
+          "اس کا کلیم بھی بند ہو جائے گا۔ پہلے ادائیگیاں، چیک اور سرٹیفکیشن واپس لیں۔",
+      'hi': "इसका क्लेम भी बंद हो जाएगा। पहले भुगतान, चेक और प्रमाणन वापस लें।",
+    },
+    'v2_inv_cancel_done': {
+      'en': "Invoice cancelled.",
+      'ar': "تم إلغاء الفاتورة.",
+      'ur': "انوائس منسوخ ہو گئی۔",
+      'hi': "चालान रद्द हो गया।",
+    },
+    'v2_err_below_received': {
+      'en':
+          "That is below money already received or cheques in hand. Reverse those first.",
+      'ar': "هذا أقل من المبالغ المستلمة أو الشيكات الموجودة. اعكسها أولًا.",
+      'ur':
+          "یہ وصول شدہ رقم یا ہاتھ میں موجود چیکوں سے کم ہے۔ پہلے انہیں واپس لیں۔",
+      'hi':
+          "यह प्राप्त राशि या हाथ में मौजूद चेक से कम है। पहले उन्हें वापस लें।",
+    },
+    'v2_err_has_facts': {
+      'en': "Undo its payments, cheques and certification first.",
+      'ar': "ألغِ دفعاتها وشيكاتها واعتمادها أولًا.",
+      'ur': "پہلے اس کی ادائیگیاں، چیک اور سرٹیفکیشن واپس لیں۔",
+      'hi': "पहले इसके भुगतान, चेक और प्रमाणन वापस लें।",
+    },
+    'v2_err_match_cheque': {
+      'en': "This payment must equal its cheque. Edit the cheque instead.",
+      'ar': "يجب أن تساوي هذه الدفعة شيكها. عدّل الشيك بدلًا من ذلك.",
+      'ur':
+          "یہ ادائیگی اپنے چیک کے برابر ہونی چاہیے۔ اس کے بجائے چیک میں ترمیم کریں۔",
+      'hi':
+          "यह भुगतान अपने चेक के बराबर होना चाहिए। इसके बजाय चेक संपादित करें।",
+    },
+    'v2_err_bill_has_payments': {
+      'en': "Reverse its payments first.",
+      'ar': "اعكس دفعاتها أولًا.",
+      'ur': "پہلے اس کی ادائیگیاں واپس لیں۔",
+      'hi': "पहले इसके भुगतान वापस लें।",
+    },
+    'v2_ev_payment_corrected': {
+      'en': "Payment edited",
+      'ar': "تم تعديل الدفعة",
+      'ur': "ادائیگی میں ترمیم ہوئی",
+      'hi': "भुगतान संपादित हुआ",
+    },
+    'v2_ev_certification_corrected': {
+      'en': "Certification edited",
+      'ar': "تم تعديل الاعتماد",
+      'ur': "سرٹیفکیشن میں ترمیم ہوئی",
+      'hi': "प्रमाणन संपादित हुआ",
+    },
+    'v2_ev_cheque_edited': {
+      'en': "Cheque details edited",
+      'ar': "تم تعديل تفاصيل الشيك",
+      'ur': "چیک کی تفصیلات میں ترمیم ہوئی",
+      'hi': "चेक का विवरण संपादित हुआ",
+    },
+    'v2_ev_cheque_expected': {
+      'en': "Cheque back to expected",
+      'ar': "عاد الشيك إلى متوقع",
+      'ur': "چیک واپس متوقع میں",
+      'hi': "चेक वापस अपेक्षित में",
+    },
+    'v2_ev_supplier_payment_corrected': {
+      'en': "Supplier payment edited",
+      'ar': "تم تعديل دفعة المورد",
+      'ur': "سپلائر ادائیگی میں ترمیم ہوئی",
+      'hi': "आपूर्तिकर्ता भुगतान संपादित हुआ",
+    },
+    'v2_ev_supplier_reopened': {
+      'en': "Supplier bill reopened",
+      'ar': "أعيد فتح فاتورة المورد",
+      'ur': "سپلائر بل دوبارہ کھولا گیا",
+      'hi': "आपूर्तिकर्ता बिल फिर से खोला गया",
+    },
+    'v2_sup_edit_payment': {
+      'en': "Edit a payment",
+      'ar': "تعديل دفعة",
+      'ur': "ادائیگی میں ترمیم",
+      'hi': "भुगतान संपादित करें",
+    },
+    'v2_sup_payment_to_edit': {
+      'en': "Payment to edit",
+      'ar': "الدفعة المراد تعديلها",
+      'ur': "ترمیم کے لیے ادائیگی",
+      'hi': "संपादित करने का भुगतान",
+    },
+    'v2_sup_reopen': {
+      'en': "Reopen as draft",
+      'ar': "إعادة الفتح كمسودة",
+      'ur': "مسودے کے طور پر دوبارہ کھولیں",
+      'hi': "मसौदे के रूप में फिर से खोलें",
+    },
+    'v2_sup_reversal_reference_opt': {
+      'en': "Reversal reference (optional)",
+      'ar': "مرجع العكس (اختياري)",
+      'ur': "ریورسل حوالہ (اختیاری)",
+      'hi': "रिवर्सल संदर्भ (वैकल्पिक)",
+    },
   };
 
   static String text(AppLanguage language, String key) {

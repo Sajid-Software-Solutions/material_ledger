@@ -135,41 +135,84 @@ Map<String, dynamic> _detailInvoiceJson({required String status}) => {
   'updated_at': '2026-08-26T09:15:00Z',
 };
 
-YorksAccountsInvoiceDetailProjection _detail({required String status}) =>
-    YorksAccountsInvoiceDetailProjection.fromRpcJson({
-      'schema_version': 3,
-      'project_id': 'p1',
-      'invoice': _detailInvoiceJson(status: status),
-      'claim': _detailClaimJson(),
-      'certifications': const <Map<String, dynamic>>[],
-      'payments': const <Map<String, dynamic>>[],
-      'pdcs': const <Map<String, dynamic>>[],
-      'due_state': 'on_track',
-      'capabilities': const {
-        'view_project_commercial_values': true,
-        'prepare_client_claim': true,
-        'manage_client_invoices': true,
-        'record_client_certification': true,
-        'record_client_payment': true,
-        'manage_pdc': true,
-      },
-      'commands': const {
-        'create_claim_draft': true,
-        'edit_claim_draft': true,
-        'submit_claim_to_accounts': true,
-        'cancel_claim': true,
-        'create_invoice_draft': true,
-        'submit_invoice': true,
-        'return_invoice': true,
-        'cancel_invoice': true,
-        'record_certification': true,
-        'record_payment': true,
-        'reverse_payment': true,
-        'create_pdc': true,
-        'transition_pdc': true,
-        'replace_pdc': true,
-      },
-    });
+Map<String, dynamic> _paymentJson({
+  String id = 'pay1',
+  String? pdcId,
+  String method = 'bank_transfer',
+}) => {
+  'payment_id': id,
+  'entry_kind': 'receipt',
+  'original_payment_id': null,
+  'pdc_id': pdcId,
+  'payment_date': '2026-09-25',
+  'payment_method': method,
+  'payment_reference': 'BANK-1',
+  'amount': '1000.00',
+  'reason': null,
+  'actor_auth_user_id': null,
+  'actor_exact_role': 'accountant',
+  'created_at': '2026-09-25T10:00:00Z',
+};
+
+Map<String, dynamic> _certificationJson({
+  required String id,
+  required int revision,
+  required String reference,
+}) => {
+  'certification_id': id,
+  'revision_number': revision,
+  'certification_reference': reference,
+  'certification_date': '2026-09-20',
+  'certified_ex_vat': '5000.00',
+  'certified_vat': '250.00',
+  'certified_incl_vat': '5250.00',
+  'difference_reason': null,
+  'actor_auth_user_id': null,
+  'actor_exact_role': 'accountant',
+  'created_at': '2026-09-20T10:00:00Z',
+};
+
+YorksAccountsInvoiceDetailProjection _detail({
+  required String status,
+  List<Map<String, dynamic>> payments = const [],
+  List<Map<String, dynamic>> certifications = const [],
+}) => YorksAccountsInvoiceDetailProjection.fromRpcJson({
+  'schema_version': 3,
+  'project_id': 'p1',
+  'invoice': _detailInvoiceJson(status: status),
+  'claim': _detailClaimJson(),
+  'certifications': certifications,
+  'payments': payments,
+  'pdcs': const <Map<String, dynamic>>[],
+  'due_state': 'on_track',
+  'capabilities': const {
+    'view_project_commercial_values': true,
+    'prepare_client_claim': true,
+    'manage_client_invoices': true,
+    'record_client_certification': true,
+    'record_client_payment': true,
+    'manage_pdc': true,
+  },
+  'commands': const {
+    'create_claim_draft': true,
+    'edit_claim_draft': true,
+    'submit_claim_to_accounts': true,
+    'cancel_claim': true,
+    'create_invoice_draft': true,
+    'submit_invoice': true,
+    'return_invoice': true,
+    'cancel_invoice': true,
+    'record_certification': true,
+    'record_payment': true,
+    'reverse_payment': true,
+    'create_pdc': true,
+    'transition_pdc': true,
+    'replace_pdc': true,
+    'edit_pdc': true,
+    'correct_payment': true,
+    'correct_certification': true,
+  },
+});
 
 final class _FakeReceivables implements YorksAccountsReceivablesRepository {
   _FakeReceivables(this.projection);
@@ -613,6 +656,211 @@ void main() {
       expect(revisedVersion, 2);
       expect(revisedReason, 'Wrong quantity');
       expect(find.text(t('v2_inv_revised')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    Future<void> openDrawer(
+      WidgetTester tester,
+      YorksAccountsInvoiceDetailProjection detail, {
+      YorksReversePaymentAction? onReverse,
+      YorksCorrectPaymentAction? onCorrect,
+      YorksCorrectCertificationAction? onCorrectCertification,
+      YorksCancelInvoiceAction? onCancel,
+    }) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2InvoicesTab(
+            projection: _projection(
+              invoices: [
+                _invoice(status: YorksAccountsInvoiceStatus.partiallyPaid),
+              ],
+            ),
+            language: en,
+            onOpenDetail: (id) async => detail,
+            onReversePayment: onReverse,
+            onCorrectPayment: onCorrect,
+            onCorrectCertification: onCorrectCertification,
+            onCancelInvoice: onCancel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('YRA322-01'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('reverses a payment with only a reason typed', (tester) async {
+      YorksAccountsPaymentReversalInput? captured;
+      await openDrawer(
+        tester,
+        _detail(status: 'partially_paid', payments: [_paymentJson()]),
+        onReverse: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      await tester.tap(find.text(t('v2_pay_reverse')));
+      await tester.pumpAndSettle();
+
+      // Not from a cheque, so there is no cheque question.
+      expect(find.text(t('v2_pay_reverse_cheque')), findsNothing);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Bank recalled it',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured!.originalPaymentId, 'pay1');
+      expect(captured!.reversalReference, isEmpty);
+      expect(captured!.reason, 'Bank recalled it');
+      expect(captured!.chequeOutcome, isNull);
+      expect(find.text(t('v2_pay_reversed')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('reversing a cheque payment asks what happened to the cheque', (
+      tester,
+    ) async {
+      YorksAccountsPaymentReversalInput? captured;
+      await openDrawer(
+        tester,
+        _detail(
+          status: 'partially_paid',
+          payments: [_paymentJson(pdcId: 'pdc1', method: 'PDC')],
+        ),
+        onReverse: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      await tester.tap(find.text(t('v2_pay_reverse')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_pay_reverse_cheque')), findsOneWidget);
+      await tester.tap(find.text(t('v2_pay_reverse_cheque_deposited')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_pay_reverse_cheque_bounced')).last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Bank returned it',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured!.chequeOutcome, YorksAccountsPdcStatus.bounced);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('edits a payment, prefilled, in one step', (tester) async {
+      YorksAccountsPaymentCorrectionInput? captured;
+      await openDrawer(
+        tester,
+        _detail(status: 'partially_paid', payments: [_paymentJson()]),
+        onCorrect: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      await tester.tap(find.text(t('v2_pay_edit')));
+      await tester.pumpAndSettle();
+
+      final amount = find.widgetWithText(TextField, t('v2_pay_amount'));
+      expect(tester.widget<TextField>(amount).controller!.text, '1000');
+      await tester.enterText(amount, '1200.00');
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Amount typed wrong',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured!.originalPaymentId, 'pay1');
+      expect(captured!.amount.postgresText, '1200');
+      expect(captured!.paymentReference, 'BANK-1');
+      expect(captured!.paymentMethod, 'bank_transfer');
+      expect(find.text(t('v2_pay_edit_done')), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a cheque payment keeps its amount when edited', (
+      tester,
+    ) async {
+      await openDrawer(
+        tester,
+        _detail(
+          status: 'partially_paid',
+          payments: [_paymentJson(pdcId: 'pdc1', method: 'PDC')],
+        ),
+        onCorrect: (_) async => null,
+      );
+      await tester.tap(find.text(t('v2_pay_edit')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_pay_edit_cheque_hint')), findsOneWidget);
+      expect(find.widgetWithText(TextField, t('v2_pay_amount')), findsNothing);
+    });
+
+    testWidgets('only the latest certification can be edited', (tester) async {
+      YorksAccountsCertificationCorrectionInput? captured;
+      await openDrawer(
+        tester,
+        _detail(
+          status: 'partially_paid',
+          certifications: [
+            _certificationJson(id: 'c1', revision: 1, reference: 'CERT-1'),
+            _certificationJson(id: 'c2', revision: 2, reference: 'CERT-2'),
+          ],
+        ),
+        onCorrectCertification: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      expect(find.text(t('v2_cert_edit')), findsOneWidget);
+      await tester.tap(find.text(t('v2_cert_edit')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_cert_edit_hint')), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_cert_amount')),
+        '0',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Certified in error',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured!.certificationReference, 'CERT-2');
+      expect(captured!.certifiedExVat.isPositive, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('cancels an invoice and explains a refusal', (tester) async {
+      await openDrawer(
+        tester,
+        _detail(status: 'submitted'),
+        onCancel: (_) async => 'R39_ACCOUNTS_INVOICE_HAS_DOWNSTREAM_FACTS',
+      );
+      await tester.tap(find.text(t('v2_inv_cancel')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Wrong client',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t('v2_err_has_facts')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

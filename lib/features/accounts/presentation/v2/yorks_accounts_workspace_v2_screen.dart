@@ -939,6 +939,21 @@ class _InvoicesBody extends ConsumerWidget {
     if (ref.exists(workspace)) await ref.read(workspace.notifier).refresh();
   }
 
+  /// A payment or cancellation can move a cheque and every figure around it.
+  Future<String?> _thenRefreshAll(
+    WidgetRef ref,
+    Future<String?> Function() command,
+  ) async {
+    final error = await command();
+    if (error != null) return error;
+    await ref
+        .read(yorksAccountsPdcRegisterControllerProvider(projectId).notifier)
+        .refresh();
+    final workspace = yorksAccountsWorkspaceControllerProvider(projectId);
+    if (ref.exists(workspace)) await ref.read(workspace.notifier).refresh();
+    return null;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(yorksAccountsInvoicesControllerProvider(projectId));
@@ -988,6 +1003,11 @@ class _InvoicesBody extends ConsumerWidget {
             if (error == null) await _refreshAfterCheque(ref);
             return error;
           },
+          onEdit: (input) async {
+            final error = await registerController.edit(input);
+            if (error == null) await _refreshAfterCheque(ref);
+            return error;
+          },
         );
       }
     }
@@ -1002,7 +1022,16 @@ class _InvoicesBody extends ConsumerWidget {
             language: language,
             onCertify: controller.certify,
             onPay: controller.pay,
-            onReversePayment: controller.reversePayment,
+            onReversePayment: (input) =>
+                _thenRefreshAll(ref, () => controller.reversePayment(input)),
+            onCorrectPayment: (input) =>
+                _thenRefreshAll(ref, () => controller.correctPayment(input)),
+            onCorrectCertification: (input) => _thenRefreshAll(
+              ref,
+              () => controller.correctCertification(input),
+            ),
+            onCancelInvoice: (input) =>
+                _thenRefreshAll(ref, () => controller.cancelInvoice(input)),
             onRevise: controller.revise,
             onCreatePdc: (input) async {
               final error = await controller.createPdc(input);

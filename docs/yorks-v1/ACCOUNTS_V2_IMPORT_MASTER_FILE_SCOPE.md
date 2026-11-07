@@ -171,8 +171,8 @@ Further layout facts, verified across all four blocks of both sheets:
 | 23 Oct 2026 | Master file, `F52` (`F40` still 17,192,000) | 18,085,468 |
 
 The 893,468 difference has no explanation in the workbook (no VO or amendment
-reference). The owner chose 17,192,000 on 7 November 2026, before this timeline was
-available, so it should be reconfirmed. The importer does not hardcode either: it
+reference). The owner chose 17,192,000 on 7 November 2026 and reconfirmed it the
+same day with this timeline in view (`PRODUCT_DECISIONS.md` section 29). The importer does not hardcode either: it
 proposes the project's current value, shows the workbook's beside it, and a person
 confirms the figure. Item weights and quantities match between the two workbooks,
 so only the top-line value is affected.

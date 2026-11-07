@@ -1846,6 +1846,7 @@ explicitly here.**
 - **D1 — Who may edit Contract.** `configure_project_commercials` for Admin,
   Project Manager and Senior Mechanical Engineer; Project Engineer and Accountant
   are read-only unless explicitly granted.
+  *Superseded by section 29.*
 - **D2 — Carry progress forward on contract revision (supersedes "never carry
   forward").** A commercial-baseline revision carries confirmed and suggested
   progress forward by stable keys (building scope + stage key [+ item key]).
@@ -1959,3 +1960,44 @@ is `still_due = certified_incl_vat − paid`.
    unpaid invoices** once the rule is enabled (it does not reprint issued
    documents, so "issued invoices keep their amounts" is preserved). Confirm, or
    restrict to invoices issued after the rule is set.
+
+## 29. R39 Accounts — owner decisions of 7 November 2026
+
+**Contract value.** YRA-322 stands at **AED 17,192,000**, as in the approved V2
+prototype. Master files dated 26 September and 23 October show 18,085,468; that
+figure is not authoritative. The importer still shows a workbook's value beside
+the project's so a person confirms it.
+
+**Who may edit a contract (supersedes D1).** Project Engineer, Senior Mechanical
+Engineer, Project Manager, Admin and Accountant hold
+`configure_project_commercials` by default. "Owner" means Admin; there is no
+separate owner role. Site Engineer and Procurement do not hold it. A Project
+Engineer still needs dated membership of the project. Workshop In-Charge and
+Document Controller were not named and stay read-only.
+
+**Commercial values.** Project Engineer holds `view_project_commercial_values` by
+default. This covers Accounts figures only: `view_supplier_costs` and Material
+Request commercial columns keep their own controls, and a per-user denial still
+applies. Site Engineer and Procurement still receive none.
+
+**Easy to reverse, easy to edit.** Mistakes can be corrected across almost every
+scenario. History stays append-only: a correction adds entries, never rewrites
+one, and needs a reason and an audit event.
+
+| Record | What can be done | What still stops it |
+|---|---|---|
+| Cheque | Edit number, date, amount or bank. Step back from received or deposited. Re-present after a bounce or return. Restore after cancelling. | The amount must fit what is left to collect. Numbers stay unique. |
+| Cleared cheque | Undo clearing, or mark bounced or returned after clearing. Its receipt is reversed in the same step, and it can clear again. | Details change only after clearing is undone. |
+| Client payment | Edit in one step. Reverse with only a reason typed. Reversing a cheque's payment moves the cheque too, so the two always agree. | A cheque's payment must equal the cheque. The total cannot exceed what is certified. |
+| Certification | Lower, raise or correct it. Zero undoes it. | Never below money received plus cheques in hand, or above the claim. |
+| Client invoice | Cancel once its certification, money and cheques have been undone. | Anything still in force on it. A cancelled invoice closes its claim for good. |
+| Supplier bill | Reopen an approved or cancelled bill as a draft, then edit and approve it again. | Reverse its payments first. Taking back an approval needs approval authority. |
+| Supplier payment | Edit in one step. Reverse with only a reason typed. | The total cannot exceed the bill. |
+
+A reference from a reversed entry may be used again, because re-entering the same
+bank reference is the usual correction. Two entries in force can still never
+share a reference, and the same cheque can never have two receipts in force.
+
+**Not reversible by design.** A replaced cheque stays replaced: cancel its
+replacement and record a new cheque. A cancelled invoice stays cancelled: raise a
+new claim.

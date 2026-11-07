@@ -162,6 +162,28 @@ final class YorksAccountsSupplierController
     reconcile: () => _reconcileBill(input.supplierBillId),
   );
 
+  Future<YorksAccountsSupplierCommandResult?> correctPayment(
+    YorksAccountsSupplierPaymentCorrectionInput input,
+  ) => _projectCommand(
+    input.projectId,
+    operation: 'correct_supplier_payment',
+    entityId: input.originalPaymentId,
+    payload: input.idempotencyPayload(),
+    invoke: (key) => _repository.correctPayment(input, idempotencyKey: key),
+    reconcile: () => _reconcileBill(input.supplierBillId),
+  );
+
+  Future<YorksAccountsSupplierCommandResult?> reopenBill(
+    YorksAccountsSupplierBillCancelInput input,
+  ) => _projectCommand(
+    input.projectId,
+    operation: 'reopen_supplier_bill',
+    entityId: input.supplierBillId,
+    payload: input.idempotencyPayload(),
+    invoke: (key) => _repository.reopenBill(input, idempotencyKey: key),
+    reconcile: () => _reconcileBill(input.supplierBillId),
+  );
+
   void purgeAll() {
     state = const YorksAccountsSupplierState();
   }

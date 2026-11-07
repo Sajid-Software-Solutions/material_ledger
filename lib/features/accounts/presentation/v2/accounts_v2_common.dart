@@ -46,6 +46,10 @@ String accountsV2ErrorText(AppLanguage language, String? code) {
       'v2_err_supplier_document',
     _ when c.contains('NOT_MATCHED') => 'v2_err_not_matched',
     _ when c.contains('BELOW_CLAIMED') => 'v2_err_below_claimed',
+    _ when c.contains('BELOW_RECEIVED') => 'v2_err_below_received',
+    _ when c.contains('HAS_DOWNSTREAM_FACTS') => 'v2_err_has_facts',
+    _ when c.contains('MUST_MATCH_CHEQUE') => 'v2_err_match_cheque',
+    _ when c.contains('BILL_HAS_PAYMENTS') => 'v2_err_bill_has_payments',
     _
         when any([
           'NOT_REOPENABLE',

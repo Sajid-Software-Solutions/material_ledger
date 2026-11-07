@@ -570,7 +570,15 @@ class _DeliveryPicker extends ConsumerWidget {
   }
 }
 
-enum _SupplierAction { edit, approve, payment, reversePayment, cancel }
+enum _SupplierAction {
+  edit,
+  approve,
+  payment,
+  correctPayment,
+  reversePayment,
+  reopen,
+  cancel,
+}
 
 class _SupplierBillActionsSheet extends ConsumerStatefulWidget {
   const _SupplierBillActionsSheet({
@@ -631,11 +639,38 @@ class _SupplierBillActionsSheetState
     super.dispose();
   }
 
+  /// Payments still in force. A reversed one has nothing left to change.
+  List<YorksAccountsSupplierPayment> _activePayments(
+    YorksAccountsSupplierBillDetailProjection detail,
+  ) {
+    final reversed = {
+      for (final entry in detail.payments)
+        if (entry.entryKind == YorksAccountsSupplierPaymentEntryKind.reversal)
+          entry.originalPaymentId,
+    };
+    return [
+      for (final entry in detail.payments)
+        if (entry.entryKind == YorksAccountsSupplierPaymentEntryKind.payment &&
+            !reversed.contains(entry.paymentId))
+          entry,
+    ];
+  }
+
+  /// Fills the form from the payment being edited, so only the change is typed.
+  void _prefillFrom(YorksAccountsSupplierPayment? payment) {
+    if (payment == null) return;
+    _date.text = payment.paymentDate.postgresText;
+    _amount.text = payment.amount.canonicalText;
+    _method.text = payment.paymentMethod;
+    _reference.text = payment.paymentReference;
+  }
+
   List<_SupplierAction> _actions(
     YorksAccountsSupplierBillDetailProjection detail,
   ) {
     final bill = detail.supplierBill;
     final commands = detail.commands;
+    final active = _activePayments(detail);
     return [
       if (commands.editBill &&
           bill.status == YorksAccountsSupplierBillStatus.draft)
@@ -647,13 +682,16 @@ class _SupplierBillActionsSheetState
           bill.status == YorksAccountsSupplierBillStatus.approved &&
           bill.outstandingAmount.isPositive)
         _SupplierAction.payment,
-      if (commands.reversePayment &&
-          detail.payments.any(
-            (payment) =>
-                payment.entryKind ==
-                YorksAccountsSupplierPaymentEntryKind.payment,
-          ))
+      if (commands.correctPayment &&
+          bill.status == YorksAccountsSupplierBillStatus.approved &&
+          active.isNotEmpty)
+        _SupplierAction.correctPayment,
+      if (commands.reversePayment && active.isNotEmpty)
         _SupplierAction.reversePayment,
+      if (commands.reopenBill &&
+          bill.status != YorksAccountsSupplierBillStatus.draft &&
+          active.isEmpty)
+        _SupplierAction.reopen,
       if (commands.cancelBill &&
           bill.status != YorksAccountsSupplierBillStatus.cancelled)
         _SupplierAction.cancel,
@@ -664,7 +702,9 @@ class _SupplierBillActionsSheetState
     _SupplierAction.edit => _text('edit_supplier_bill'),
     _SupplierAction.approve => _text('approve_supplier_bill'),
     _SupplierAction.payment => _text('record_supplier_payment'),
+    _SupplierAction.correctPayment => _text('v2_sup_edit_payment'),
     _SupplierAction.reversePayment => _text('reverse_payment'),
+    _SupplierAction.reopen => _text('v2_sup_reopen'),
     _SupplierAction.cancel => _text('cancel_supplier_bill'),
   };
 
@@ -734,6 +774,29 @@ class _SupplierBillActionsSheetState
             reason: _reason.text,
           ),
         );
+      case _SupplierAction.correctPayment:
+        result = await controller.correctPayment(
+          YorksAccountsSupplierPaymentCorrectionInput(
+            projectId: widget.projectId,
+            supplierBillId: bill.supplierBillId,
+            expectedVersion: bill.recordVersion,
+            originalPaymentId: _selectedPaymentId!,
+            paymentDate: date!,
+            paymentMethod: _method.text,
+            paymentReference: _reference.text,
+            amount: amount!,
+            reason: _reason.text,
+          ),
+        );
+      case _SupplierAction.reopen:
+        result = await controller.reopenBill(
+          YorksAccountsSupplierBillCancelInput(
+            projectId: widget.projectId,
+            supplierBillId: bill.supplierBillId,
+            expectedVersion: bill.recordVersion,
+            reason: _reason.text,
+          ),
+        );
       case _SupplierAction.cancel:
         result = await controller.cancelBill(
           YorksAccountsSupplierBillCancelInput(
@@ -784,14 +847,8 @@ class _SupplierBillActionsSheetState
     final bill = detail.supplierBill;
     final actions = _actions(detail);
     _action ??= actions.firstOrNull;
-    _selectedPaymentId ??= detail.payments
-        .where(
-          (payment) =>
-              payment.entryKind ==
-              YorksAccountsSupplierPaymentEntryKind.payment,
-        )
-        .firstOrNull
-        ?.paymentId;
+    final active = _activePayments(detail);
+    _selectedPaymentId ??= active.firstOrNull?.paymentId;
     return _SheetFrame(
       title: bill.supplierInvoiceReference,
       subtitle:
@@ -830,21 +887,32 @@ class _SupplierBillActionsSheetState
                     : (value) => setState(() {
                         _action = value;
                         _error = null;
+                        if (value == _SupplierAction.correctPayment) {
+                          _prefillFrom(
+                            active
+                                .where(
+                                  (payment) =>
+                                      payment.paymentId == _selectedPaymentId,
+                                )
+                                .firstOrNull,
+                          );
+                        }
                       }),
               ),
-              if (_action == _SupplierAction.reversePayment) ...[
+              if (_action == _SupplierAction.reversePayment ||
+                  _action == _SupplierAction.correctPayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPaymentId,
                   decoration: InputDecoration(
-                    labelText: _text('payment_to_reverse'),
+                    labelText: _text(
+                      _action == _SupplierAction.correctPayment
+                          ? 'v2_sup_payment_to_edit'
+                          : 'payment_to_reverse',
+                    ),
                   ),
                   items: [
-                    for (final payment in detail.payments.where(
-                      (entry) =>
-                          entry.entryKind ==
-                          YorksAccountsSupplierPaymentEntryKind.payment,
-                    ))
+                    for (final payment in active)
                       DropdownMenuItem(
                         value: payment.paymentId,
                         child: Text(
@@ -853,11 +921,20 @@ class _SupplierBillActionsSheetState
                         ),
                       ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentId = value),
+                  onChanged: (value) => setState(() {
+                    _selectedPaymentId = value;
+                    if (_action == _SupplierAction.correctPayment) {
+                      _prefillFrom(
+                        active
+                            .where((payment) => payment.paymentId == value)
+                            .firstOrNull,
+                      );
+                    }
+                  }),
                 ),
               ],
               if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment ||
                   _action == _SupplierAction.reversePayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 AccountsV2DateField(
@@ -866,7 +943,8 @@ class _SupplierBillActionsSheetState
                   language: widget.language,
                 ),
               ],
-              if (_action == _SupplierAction.payment) ...[
+              if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _amount,
@@ -886,18 +964,28 @@ class _SupplierBillActionsSheetState
                 ),
               ],
               if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment ||
                   _action == _SupplierAction.reversePayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _reference,
                   decoration: InputDecoration(
-                    labelText: _text('payment_reference'),
+                    labelText: _text(
+                      _action == _SupplierAction.reversePayment
+                          ? 'v2_sup_reversal_reference_opt'
+                          : 'payment_reference',
+                    ),
                   ),
-                  validator: _required(widget.language),
+                  // The server picks a reversal reference when this is left blank.
+                  validator: _action == _SupplierAction.reversePayment
+                      ? null
+                      : _required(widget.language),
                 ),
               ],
               if (_action == _SupplierAction.cancel ||
                   _action == _SupplierAction.reversePayment ||
+                  _action == _SupplierAction.correctPayment ||
+                  _action == _SupplierAction.reopen ||
                   _action == _SupplierAction.payment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -905,11 +993,9 @@ class _SupplierBillActionsSheetState
                   minLines: 2,
                   maxLines: 4,
                   decoration: InputDecoration(labelText: _text('reason')),
-                  validator:
-                      _action == _SupplierAction.cancel ||
-                          _action == _SupplierAction.reversePayment
-                      ? _required(widget.language)
-                      : null,
+                  validator: _action == _SupplierAction.payment
+                      ? null
+                      : _required(widget.language),
                 ),
               ],
               if (_action == _SupplierAction.approve ||

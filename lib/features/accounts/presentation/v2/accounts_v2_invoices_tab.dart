@@ -36,6 +36,18 @@ typedef YorksReversePaymentAction =
     Future<String?> Function(YorksAccountsPaymentReversalInput input);
 
 /// Records a cheque against an invoice; returns null on success or a failure code.
+/// Edits a payment in one step; returns null on success or an error message.
+typedef YorksCorrectPaymentAction =
+    Future<String?> Function(YorksAccountsPaymentCorrectionInput input);
+
+/// Edits the latest certification; returns null on success or an error message.
+typedef YorksCorrectCertificationAction =
+    Future<String?> Function(YorksAccountsCertificationCorrectionInput input);
+
+/// Cancels an invoice; returns null on success or an error message.
+typedef YorksCancelInvoiceAction =
+    Future<String?> Function(YorksAccountsEntityActionInput input);
+
 typedef YorksCreatePdcAction =
     Future<String?> Function(YorksAccountsPdcCreateInput input);
 
@@ -55,6 +67,9 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onCorrectPayment,
+    this.onCorrectCertification,
+    this.onCancelInvoice,
     this.onRevise,
     this.onCreatePdc,
     this.onPrintInvoice,
@@ -71,6 +86,9 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksCorrectPaymentAction? onCorrectPayment;
+  final YorksCorrectCertificationAction? onCorrectCertification;
+  final YorksCancelInvoiceAction? onCancelInvoice;
 
   /// Revises an issued invoice (R.n) from the detail drawer; null hides it.
   final YorksReviseInvoiceAction? onRevise;
@@ -138,6 +156,9 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onCertify: onCertify,
         onPay: onPay,
         onReversePayment: onReversePayment,
+        onCorrectPayment: onCorrectPayment,
+        onCorrectCertification: onCorrectCertification,
+        onCancelInvoice: onCancelInvoice,
         onRevise: onRevise,
         onCreatePdc: projection.capabilities.managePdc ? onCreatePdc : null,
         onPrintInvoice: onPrintInvoice,
@@ -291,6 +312,9 @@ class _TrackerCard extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onCorrectPayment,
+    this.onCorrectCertification,
+    this.onCancelInvoice,
     this.onRevise,
     this.onCreatePdc,
     this.onPrintInvoice,
@@ -307,6 +331,9 @@ class _TrackerCard extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksCorrectPaymentAction? onCorrectPayment;
+  final YorksCorrectCertificationAction? onCorrectCertification;
+  final YorksCancelInvoiceAction? onCancelInvoice;
   final YorksReviseInvoiceAction? onRevise;
   final YorksCreatePdcAction? onCreatePdc;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
@@ -366,6 +393,9 @@ class _TrackerCard extends StatelessWidget {
         language: language,
         format: format,
         onReversePayment: onReversePayment,
+        onCorrectPayment: onCorrectPayment,
+        onCorrectCertification: onCorrectCertification,
+        onCancelInvoice: onCancelInvoice,
         onRevise: onRevise,
       ),
     );
@@ -1110,6 +1140,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
     required this.language,
     required this.format,
     this.onReversePayment,
+    this.onCorrectPayment,
+    this.onCorrectCertification,
+    this.onCancelInvoice,
     this.onRevise,
   });
 
@@ -1117,6 +1150,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
   final AppLanguage language;
   final AccountsV2Format format;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksCorrectPaymentAction? onCorrectPayment;
+  final YorksCorrectCertificationAction? onCorrectCertification;
+  final YorksCancelInvoiceAction? onCancelInvoice;
   final YorksReviseInvoiceAction? onRevise;
 
   String _t(String key) => accountsV2Text(language, key);
@@ -1143,7 +1179,6 @@ class _InvoiceDetailSheet extends StatelessWidget {
   }
 
   Future<void> _revise(BuildContext context) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final reason = await showDialog<String>(
       context: context,
       builder: (_) => _ReviseDialog(language: language),
@@ -1154,21 +1189,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
       expectedVersion: detail.invoice.recordVersion,
       reason: reason,
     );
-    if (!context.mounted) return;
-    if (error == null) {
-      // No optimistic success: close the drawer so the refreshed tracker shows
-      // the predecessor still submitted and the new successor draft claim.
-      Navigator.of(context).pop();
-    }
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t('v2_inv_revised')
-              : accountsV2ErrorText(language, error),
-        ),
-      ),
-    );
+    // No optimistic success: the drawer closes so the refreshed tracker shows
+    // the predecessor still submitted and the new successor draft claim.
+    if (context.mounted) await _finish(context, error, 'v2_inv_revised');
   }
 
   /// Payment ids that already carry a reversal entry — they cannot be reversed
@@ -1195,11 +1218,118 @@ class _InvoiceDetailSheet extends StatelessWidget {
       p.entryKind == YorksAccountsPaymentEntryKind.receipt &&
       !_reversedPaymentIds.contains(p.paymentId);
 
+  bool _canEditPayment(YorksAccountsClientPayment p) =>
+      onCorrectPayment != null &&
+      detail.commands.correctPayment &&
+      p.entryKind == YorksAccountsPaymentEntryKind.receipt &&
+      !_reversedPaymentIds.contains(p.paymentId);
+
+  /// Only the latest certification counts, so only it can be edited.
+  bool _canEditCertification(YorksAccountsClientCertification c) =>
+      onCorrectCertification != null &&
+      detail.commands.correctCertification &&
+      c.revisionNumber ==
+          detail.certifications
+              .map((other) => other.revisionNumber)
+              .reduce((a, b) => a > b ? a : b);
+
+  /// The server decides whether anything still stands in the way, and says what.
+  bool get _canCancel {
+    final status = detail.invoice.status;
+    return onCancelInvoice != null &&
+        detail.commands.cancelInvoice &&
+        status != YorksAccountsInvoiceStatus.cancelled &&
+        status != YorksAccountsInvoiceStatus.paid &&
+        status != YorksAccountsInvoiceStatus.draft;
+  }
+
+  /// Closes the drawer on success, so the refreshed tracker is what's shown. A
+  /// refusal stays over the drawer: a snackbar would sit behind it, cut off.
+  Future<void> _finish(
+    BuildContext context,
+    String? error,
+    String doneKey,
+  ) async {
+    if (!context.mounted) return;
+    if (error == null) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      Navigator.of(context).pop();
+      messenger?.showSnackBar(SnackBar(content: Text(_t(doneKey))));
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text(accountsV2ErrorText(language, error)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editPayment(
+    BuildContext context,
+    YorksAccountsClientPayment payment,
+  ) async {
+    final input = await showDialog<YorksAccountsPaymentCorrectionInput>(
+      context: context,
+      builder: (_) => _EditPaymentDialog(
+        projectId: detail.projectId,
+        invoiceId: detail.invoice.invoiceId,
+        expectedVersion: detail.invoice.recordVersion,
+        payment: payment,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onCorrectPayment!(input);
+    if (context.mounted) await _finish(context, error, 'v2_pay_edit_done');
+  }
+
+  Future<void> _editCertification(
+    BuildContext context,
+    YorksAccountsClientCertification certification,
+  ) async {
+    final input = await showDialog<YorksAccountsCertificationCorrectionInput>(
+      context: context,
+      builder: (_) => _EditCertificationDialog(
+        projectId: detail.projectId,
+        invoiceId: detail.invoice.invoiceId,
+        expectedVersion: detail.invoice.recordVersion,
+        certification: certification,
+        language: language,
+      ),
+    );
+    if (input == null) return;
+    final error = await onCorrectCertification!(input);
+    if (context.mounted) await _finish(context, error, 'v2_cert_edit_done');
+  }
+
+  Future<void> _cancelInvoice(BuildContext context) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _CancelInvoiceDialog(language: language),
+    );
+    if (reason == null) return;
+    final error = await onCancelInvoice!(
+      YorksAccountsEntityActionInput(
+        projectId: detail.projectId,
+        entityId: detail.invoice.invoiceId,
+        expectedVersion: detail.invoice.recordVersion,
+        reason: reason,
+      ),
+    );
+    if (context.mounted) await _finish(context, error, 'v2_inv_cancel_done');
+  }
+
   Future<void> _reverse(
     BuildContext context,
     YorksAccountsClientPayment payment,
   ) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     final input = await showDialog<YorksAccountsPaymentReversalInput>(
       context: context,
       builder: (_) => _ReversalDialog(
@@ -1212,21 +1342,8 @@ class _InvoiceDetailSheet extends StatelessWidget {
     );
     if (input == null) return;
     final error = await onReversePayment!(input);
-    if (!context.mounted) return;
-    if (error == null) {
-      // No optimistic success: close the drawer so the refreshed tracker is
-      // shown; the user re-opens it to see the reversal entry.
-      Navigator.of(context).pop();
-    }
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t('v2_pay_reversed')
-              : accountsV2ErrorText(language, error),
-        ),
-      ),
-    );
+    // No optimistic success: the drawer closes so the refreshed tracker is shown.
+    if (context.mounted) await _finish(context, error, 'v2_pay_reversed');
   }
 
   @override
@@ -1336,6 +1453,12 @@ class _InvoiceDetailSheet extends StatelessWidget {
                     leading: c.certificationReference,
                     trailing: format.money(c.certifiedExVat),
                     sub: c.certificationDate.toString(),
+                    action: _canEditCertification(c)
+                        ? TextButton(
+                            onPressed: () => _editCertification(context, c),
+                            child: Text(_t('v2_cert_edit')),
+                          )
+                        : null,
                   ),
               ],
             ),
@@ -1355,10 +1478,21 @@ class _InvoiceDetailSheet extends StatelessWidget {
                             tone: NexusStatusTone.warning,
                           )
                         : null,
-                    action: _canReverse(p)
-                        ? TextButton(
-                            onPressed: () => _reverse(context, p),
-                            child: Text(_t('v2_pay_reverse')),
+                    action: _canReverse(p) || _canEditPayment(p)
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (_canEditPayment(p))
+                                TextButton(
+                                  onPressed: () => _editPayment(context, p),
+                                  child: Text(_t('v2_pay_edit')),
+                                ),
+                              if (_canReverse(p))
+                                TextButton(
+                                  onPressed: () => _reverse(context, p),
+                                  child: Text(_t('v2_pay_reverse')),
+                                ),
+                            ],
                           )
                         : null,
                   ),
@@ -1381,6 +1515,22 @@ class _InvoiceDetailSheet extends StatelessWidget {
                   ),
               ],
             ),
+            if (_canCancel) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  onPressed: () => _cancelInvoice(context),
+                  icon: const Icon(Icons.block_rounded, size: 18),
+                  label: Text(_t('v2_inv_cancel')),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                _t('v2_inv_cancel_hint'),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+            ],
           ],
         ),
       ),
@@ -1573,8 +1723,11 @@ class _ReversalDialogState extends State<_ReversalDialog> {
   late final TextEditingController _date;
   final _reference = TextEditingController();
   final _reason = TextEditingController();
+  YorksAccountsPdcStatus _chequeOutcome = YorksAccountsPdcStatus.deposited;
 
   String _t(String key) => accountsV2Text(widget.language, key);
+
+  bool get _fromCheque => widget.payment.pdcId != null;
 
   @override
   void initState() {
@@ -1601,6 +1754,7 @@ class _ReversalDialogState extends State<_ReversalDialog> {
       reversalDate: date,
       reversalReference: _reference.text.trim(),
       reason: _reason.text.trim(),
+      chequeOutcome: _fromCheque ? _chequeOutcome : null,
     );
   }
 
@@ -1626,10 +1780,373 @@ class _ReversalDialogState extends State<_ReversalDialog> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
+          if (_fromCheque) ...[
+            DropdownButtonFormField<YorksAccountsPdcStatus>(
+              initialValue: _chequeOutcome,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: _t('v2_pay_reverse_cheque'),
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                DropdownMenuItem(
+                  value: YorksAccountsPdcStatus.deposited,
+                  child: Text(_t('v2_pay_reverse_cheque_deposited')),
+                ),
+                DropdownMenuItem(
+                  value: YorksAccountsPdcStatus.bounced,
+                  child: Text(_t('v2_pay_reverse_cheque_bounced')),
+                ),
+                DropdownMenuItem(
+                  value: YorksAccountsPdcStatus.returned,
+                  child: Text(_t('v2_pay_reverse_cheque_returned')),
+                ),
+              ],
+              onChanged: (value) => setState(
+                () =>
+                    _chequeOutcome = value ?? YorksAccountsPdcStatus.deposited,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           _DialogField(
-            label: _t('v2_pay_reverse_reference'),
+            label: _t('v2_pay_reverse_reason'),
+            controller: _reason,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _DialogField(
+            label: _t('v2_pay_reverse_reference_opt'),
             controller: _reference,
             onChanged: () => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Edit dialogs ────────────────────────────────────────────────────────────
+
+class _EditPaymentDialog extends StatefulWidget {
+  const _EditPaymentDialog({
+    required this.projectId,
+    required this.invoiceId,
+    required this.expectedVersion,
+    required this.payment,
+    required this.language,
+  });
+
+  final String projectId;
+  final String invoiceId;
+  final int expectedVersion;
+  final YorksAccountsClientPayment payment;
+  final AppLanguage language;
+
+  @override
+  State<_EditPaymentDialog> createState() => _EditPaymentDialogState();
+}
+
+class _EditPaymentDialogState extends State<_EditPaymentDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _date;
+  late final TextEditingController _reference;
+  final _reason = TextEditingController();
+  late String _method;
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  bool get _fromCheque => widget.payment.pdcId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final payment = widget.payment;
+    _amount = TextEditingController(text: payment.amount?.canonicalText ?? '');
+    _date = TextEditingController(text: payment.paymentDate.postgresText);
+    _reference = TextEditingController(text: payment.paymentReference);
+    _method = payment.paymentMethod;
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPaymentCorrectionInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    return YorksAccountsPaymentCorrectionInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoiceId,
+      expectedVersion: widget.expectedVersion,
+      originalPaymentId: widget.payment.paymentId,
+      paymentDate: date,
+      paymentMethod: _method,
+      paymentReference: _reference.text.trim(),
+      amount: amount,
+      reason: _reason.text.trim(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pay_edit_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _t(_fromCheque ? 'v2_pay_edit_cheque_hint' : 'v2_pay_edit_hint'),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (!_fromCheque) ...[
+              _DialogField(
+                label: _t('v2_pay_amount'),
+                controller: _amount,
+                numeric: true,
+                onChanged: () => setState(() {}),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            AccountsV2DateField(
+              label: _t('v2_pay_date'),
+              controller: _date,
+              language: widget.language,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (!_fromCheque) ...[
+              DropdownButtonFormField<String>(
+                initialValue: _method,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: _t('v2_pay_method'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'bank_transfer',
+                    child: Text(_t('v2_pay_method_bank')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'cash',
+                    child: Text(_t('v2_pay_method_cash')),
+                  ),
+                  // A method recorded some other way stays selectable.
+                  if (_method != 'bank_transfer' && _method != 'cash')
+                    DropdownMenuItem(value: _method, child: Text(_method)),
+                ],
+                onChanged: (value) =>
+                    setState(() => _method = value ?? _method),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            _DialogField(
+              label: _t('v2_pay_reference'),
+              controller: _reference,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pay_reverse_reason'),
+              controller: _reason,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditCertificationDialog extends StatefulWidget {
+  const _EditCertificationDialog({
+    required this.projectId,
+    required this.invoiceId,
+    required this.expectedVersion,
+    required this.certification,
+    required this.language,
+  });
+
+  final String projectId;
+  final String invoiceId;
+  final int expectedVersion;
+  final YorksAccountsClientCertification certification;
+  final AppLanguage language;
+
+  @override
+  State<_EditCertificationDialog> createState() =>
+      _EditCertificationDialogState();
+}
+
+class _EditCertificationDialogState extends State<_EditCertificationDialog> {
+  late final TextEditingController _amount;
+  late final TextEditingController _date;
+  late final TextEditingController _reference;
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    final certification = widget.certification;
+    _amount = TextEditingController(
+      text: certification.certifiedExVat?.canonicalText ?? '',
+    );
+    _date = TextEditingController(
+      text: certification.certificationDate.postgresText,
+    );
+    _reference = TextEditingController(
+      text: certification.certificationReference,
+    );
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _date.dispose();
+    _reference.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsCertificationCorrectionInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    return YorksAccountsCertificationCorrectionInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoiceId,
+      expectedVersion: widget.expectedVersion,
+      certificationReference: _reference.text.trim(),
+      certificationDate: date,
+      certifiedExVat: amount,
+      reason: _reason.text.trim(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_cert_edit_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _t('v2_cert_edit_hint'),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_cert_amount'),
+              controller: _amount,
+              numeric: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AccountsV2DateField(
+              label: _t('v2_cert_date'),
+              controller: _date,
+              language: widget.language,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_cert_reference'),
+              controller: _reference,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pay_reverse_reason'),
+              controller: _reason,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+class _CancelInvoiceDialog extends StatefulWidget {
+  const _CancelInvoiceDialog({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  State<_CancelInvoiceDialog> createState() => _CancelInvoiceDialogState();
+}
+
+class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog> {
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reason = _reason.text.trim();
+    return AlertDialog(
+      title: Text(_t('v2_inv_cancel')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _t('v2_inv_cancel_hint'),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           ),
           const SizedBox(height: AppSpacing.sm),
           _DialogField(
@@ -1645,7 +2162,9 @@ class _ReversalDialogState extends State<_ReversalDialog> {
           child: Text(_t('v2_cancel')),
         ),
         FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          onPressed: reason.isEmpty
+              ? null
+              : () => Navigator.of(context).pop(reason),
           child: Text(_t('v2_confirm')),
         ),
       ],

@@ -72,8 +72,8 @@ select is((select payload#>>'{steps,1,detail,claim_reference}' from v1_r39_p4a w
 
 -- Upload targets: only records this person may attach a file to.
 insert into v1_r39_p4a select 'acc_docs', public.v1_get_accounts_documents('39d19000-0000-4000-8000-000000000001',null,null,false);
-select ok(not (select payload->'upload_targets' @> '[{"entity_type":"accounts_baseline_revision"}]' from v1_r39_p4a where result_key='acc_docs'),
-  'an Accountant, who cannot configure the contract, is not offered it');
+select ok((select payload->'upload_targets' @> '[{"entity_type":"accounts_baseline_revision"}]' from v1_r39_p4a where result_key='acc_docs'),
+  'an Accountant, who can now edit the contract, is offered it');
 select ok((select payload->'upload_targets' @> '[{"entity_type":"accounts_client_claim"}]' from v1_r39_p4a where result_key='acc_docs'),
   'an Accountant is offered the claim they can attach to');
 

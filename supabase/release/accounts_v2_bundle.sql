@@ -1,7 +1,7 @@
 -- =============================================================================
 -- R39 Accounts Workspace V2 — bundled migration apply script
 -- =============================================================================
--- Generated from the 25 V2 migration files, concatenated in dependency order.
+-- Generated from the 28 V2 migration files, concatenated in dependency order.
 -- Purpose: apply all V2 database objects in ONE paste in the Supabase SQL
 -- editor, instead of running the files by hand.
 --
@@ -13,13 +13,14 @@
 --   3. Do NOT run `supabase db push` or `supabase migration repair` — the live
 --      DB has ~30 migrations not in git; leave them alone.
 --   4. Run the overlap check in docs/yorks-v1/RELEASE_ACCOUNTS_V2.md. This script
---      REPLACES 10 existing Accounts functions as well as adding V2 objects, and
+--      REPLACES 17 existing Accounts functions as well as adding V2 objects, and
 --      would overwrite any change an unknown migration made to them.
 --
 -- SAFETY:
 --   * Additive & idempotent (CREATE ... IF NOT EXISTS / OR REPLACE, ADD COLUMN
---     IF NOT EXISTS). The one DROP FUNCTION (contract-references, recreated with
---     a retention parameter) is a V2 function replacement, not a data change.
+--     IF NOT EXISTS). Two functions are dropped and recreated to change their
+--     signatures (contract references, client payment reversal), and three
+--     unique indexes are replaced. No table, column or row is dropped.
 --     Re-running the whole script is harmless.
 --   * Wrapped in a single BEGIN/COMMIT: if ANY statement fails, the entire
 --     script rolls back and the database is left exactly as it was. Fix the
@@ -39,7 +40,7 @@ BEGIN;
 
 
 -- #############################################################################
--- FILE 1 / 25 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
+-- FILE 1 / 28 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P1: dimension claim cap and single eligible source
@@ -259,7 +260,7 @@ revoke all on function public.v1_accounts_validate_claim_lines(uuid, uuid, jsonb
 
 
 -- #############################################################################
--- FILE 2 / 25 : 20261105101500_accounts_v2_p2_item_breakdown.sql
+-- FILE 2 / 28 : 20261105101500_accounts_v2_p2_item_breakdown.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 1): item-quantity billing foundation
@@ -503,7 +504,7 @@ revoke all on function public.v1_accounts_progress_eligible_amount(uuid)
 
 
 -- #############################################################################
--- FILE 3 / 25 : 20261105103000_accounts_v2_p2_save_setup.sql
+-- FILE 3 / 28 : 20261105103000_accounts_v2_p2_save_setup.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 2): save-setup command with carry-forward
@@ -800,7 +801,7 @@ grant execute on function public.v1_save_project_commercial_setup(uuid, integer,
 
 
 -- #############################################################################
--- FILE 4 / 25 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
+-- FILE 4 / 28 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 1): claim workbench read + reopen
@@ -1009,7 +1010,7 @@ grant execute on function public.v1_reopen_client_claim(uuid, uuid, integer, tex
 
 
 -- #############################################################################
--- FILE 5 / 25 : 20261105113000_accounts_v2_p3_invoice_issue.sql
+-- FILE 5 / 28 : 20261105113000_accounts_v2_p3_invoice_issue.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2a): invoice numbering, issue, document
@@ -1299,7 +1300,7 @@ revoke all on function public.v1_accounts_build_invoice_document(uuid, uuid, tex
 
 
 -- #############################################################################
--- FILE 6 / 25 : 20261105120000_accounts_v2_p3_invoice_revise.sql
+-- FILE 6 / 28 : 20261105120000_accounts_v2_p3_invoice_revise.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2b): invoice revision (R.n)
@@ -1529,7 +1530,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 7 / 25 : 20261105130000_accounts_v2_p3_save_workbench.sql
+-- FILE 7 / 28 : 20261105130000_accounts_v2_p3_save_workbench.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2c): save claim workbench
@@ -1752,7 +1753,7 @@ grant execute on function public.v1_save_claim_workbench(uuid, text, date, date,
 
 
 -- #############################################################################
--- FILE 8 / 25 : 20261105140000_accounts_v2_p4_company_settings.sql
+-- FILE 8 / 28 : 20261105140000_accounts_v2_p4_company_settings.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part a): company letterhead/bank settings (D9)
@@ -1869,7 +1870,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 9 / 25 : 20261105150000_accounts_v2_p4_workspace.sql
+-- FILE 9 / 28 : 20261105150000_accounts_v2_p4_workspace.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part b): Summary workspace projection
@@ -2085,7 +2086,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 10 / 25 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
+-- FILE 10 / 28 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part a): commercial-setup read
@@ -2268,7 +2269,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 11 / 25 : 20261105170000_accounts_v2_p8_pdc_register.sql
+-- FILE 11 / 28 : 20261105170000_accounts_v2_p8_pdc_register.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P8: project-wide cheque (PDC) register read
@@ -2346,7 +2347,7 @@ grant execute on function public.v1_list_project_client_pdcs(uuid)
 
 
 -- #############################################################################
--- FILE 12 / 25 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
+-- FILE 12 / 28 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P7 (part b): invoice document summary pages
@@ -2534,7 +2535,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 13 / 25 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
+-- FILE 13 / 28 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part c): enrich the Summary workspace steps
@@ -2806,7 +2807,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 14 / 25 : 20261106150000_accounts_v2_p3_claim_payable.sql
+-- FILE 14 / 28 : 20261106150000_accounts_v2_p3_claim_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part c): claim payable figures
@@ -2961,7 +2962,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 
 
 -- #############################################################################
--- FILE 15 / 25 : 20261106160000_accounts_v2_p6_commercial_parties.sql
+-- FILE 15 / 28 : 20261106160000_accounts_v2_p6_commercial_parties.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part b): contract parties on the setup read
@@ -3162,7 +3163,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 16 / 25 : 20261106170000_accounts_v2_p6_contract_references.sql
+-- FILE 16 / 28 : 20261106170000_accounts_v2_p6_contract_references.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part c): editable contract references
@@ -3436,7 +3437,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 17 / 25 : 20261106180000_accounts_v2_p6_retention.sql
+-- FILE 17 / 28 : 20261106180000_accounts_v2_p6_retention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part d): retention percent (display only)
@@ -3717,7 +3718,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 18 / 25 : 20261106190000_accounts_v2_p6_variations.sql
+-- FILE 18 / 28 : 20261106190000_accounts_v2_p6_variations.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part e): variations (VO) register
@@ -3845,7 +3846,7 @@ grant execute on function public.v1_save_accounts_variation(
 
 
 -- #############################################################################
--- FILE 19 / 25 : 20261106200000_accounts_v2_p6_retention_payable.sql
+-- FILE 19 / 28 : 20261106200000_accounts_v2_p6_retention_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part f): retention hold-back on payable
@@ -6318,7 +6319,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 20 / 25 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
+-- FILE 20 / 28 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part g): claim side-panel retention preview
@@ -6487,7 +6488,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 -- =============================================================================
 
 -- #############################################################################
--- FILE 21 / 25 : 20261107100000_accounts_v2_p4_workspace_attention.sql
+-- FILE 21 / 28 : 20261107100000_accounts_v2_p4_workspace_attention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4: what the workspace says needs attention
@@ -6775,7 +6776,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 22 / 25 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
+-- FILE 22 / 28 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: confirmed deliveries a supplier bill can cite
@@ -6843,7 +6844,7 @@ grant execute on function public.v1_list_supplier_bill_delivery_options(uuid)
 
 
 -- #############################################################################
--- FILE 23 / 25 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
+-- FILE 23 / 28 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: only offer records a person may attach a file to
@@ -6988,7 +6989,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 24 / 25 : 20261107113000_accounts_v2_p3_workbench_suggestions.sql
+-- FILE 24 / 28 : 20261107113000_accounts_v2_p3_workbench_suggestions.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3: show a site progress suggestion on the workbench
@@ -7157,7 +7158,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 25 / 25 : 20261107120000_accounts_v2_office_receipts_total.sql
+-- FILE 25 / 28 : 20261107120000_accounts_v2_office_receipts_total.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — office: Receipts & PDC total counts money once
@@ -7675,6 +7676,1155 @@ begin
   );
 end;
 $$;
+
+
+-- #############################################################################
+-- FILE 26 / 28 : 20261107130000_accounts_v2_owner_contract_access.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — owner decisions of 7 November 2026
+--
+-- Contract editing: Project Engineer, Senior Mechanical Engineer, Project
+-- Manager, Admin and Accountant hold configure_project_commercials by default.
+-- This supersedes working decision D1. Site Engineer and Procurement stay out.
+--
+-- Commercial values: Project Engineer holds view_project_commercial_values by
+-- default. This already held on a migrated database and is restated so a
+-- database that drifted from it comes back to the owner's decision.
+--
+-- These are role defaults: project scope, per-user denials and every record
+-- state check still apply. Additive and repeatable; no record changes.
+
+insert into public.v1_permission_role_defaults (
+  role_name, capability_key, is_granted, can_delegate
+)
+select role_name, 'configure_project_commercials', true, false
+from unnest(array[
+  'project_engineer', 'senior_mechanical_engineer', 'project_manager',
+  'accountant'
+]) as role_name
+on conflict (role_name, capability_key) do update
+set is_granted = true,
+    updated_at = clock_timestamp();
+
+insert into public.v1_permission_role_defaults (
+  role_name, capability_key, is_granted, can_delegate
+)
+values ('project_engineer', 'view_project_commercial_values', true, false)
+on conflict (role_name, capability_key) do update
+set is_granted = true,
+    updated_at = clock_timestamp();
+
+-- The role default only counts within this scope list, which held contract
+-- editing back from the engineering roles. A Project Engineer still needs dated
+-- membership of the project; Senior Mechanical Engineer and Project Manager are
+-- organization-wide. Grants on this function are unchanged.
+create or replace function public.v1_accounts_has_project_scope(
+  p_auth_user_id uuid,
+  p_project_id uuid,
+  p_capability_key text
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_exact_role text := public.v1_permission_exact_role(p_auth_user_id);
+  v_has_membership boolean := false;
+begin
+  if v_exact_role = ''
+    or p_project_id is null
+    or not coalesce(public.v1_accounts_is_capability_key(p_capability_key), false)
+    or not exists (
+      select 1 from public.v1_projects project where project.id = p_project_id
+    ) then
+    return false;
+  end if;
+
+  if v_exact_role in ('accountant', 'admin') then
+    return true;
+  end if;
+  if v_exact_role = 'procurement' then
+    return p_capability_key in ('manage_supplier_bills', 'view_supplier_costs');
+  end if;
+  if v_exact_role in ('senior_mechanical_engineer', 'project_manager') then
+    return p_capability_key in (
+      'view_project_accounts', 'view_project_commercial_values',
+      'export_accounts_registers', 'review_commercial_progress',
+      'configure_project_commercials'
+    );
+  end if;
+  if v_exact_role not in ('project_engineer', 'site_engineer') then
+    return false;
+  end if;
+
+  select exists (
+    select 1
+    from public.v1_project_members member
+    where member.project_id = p_project_id
+      and member.member_auth_user_id = p_auth_user_id
+      and member.project_role = v_exact_role
+      and member.effective_from <= clock_timestamp()
+      and (
+        member.effective_to is null
+        or member.effective_to > clock_timestamp()
+      )
+  ) into v_has_membership;
+  if not v_has_membership then
+    return false;
+  end if;
+
+  if v_exact_role = 'site_engineer' then
+    return p_capability_key in (
+      'view_project_accounts', 'suggest_billing_progress'
+    );
+  end if;
+  return p_capability_key in (
+    'view_project_accounts', 'view_project_commercial_values',
+    'confirm_billing_progress', 'prepare_client_claim',
+    'export_accounts_registers', 'configure_project_commercials'
+  );
+end;
+$$;
+
+
+-- #############################################################################
+-- FILE 27 / 28 : 20261107133000_accounts_v2_client_corrections.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — easy to reverse, easy to edit (client money)
+--
+-- Owner decision of 7 November 2026: mistakes must be easy to reverse and edit,
+-- across almost every scenario. History stays append-only: a correction adds
+-- entries and never rewrites one, and each one needs a reason and is audited.
+--
+--   Cheque     edit details; step back; re-present after a bounce; restore a
+--              cancelled one; undo clearing, which reverses its receipt.
+--   Payment    edit in one step; reversal reference is optional; reversing a
+--              cheque's receipt also moves the cheque, so the two always agree.
+--   Certified  can be lowered or undone, but never below money received or
+--              cheques in hand.
+--   Invoice    can be cancelled once everything on it has been undone.
+--
+-- A reversed reference, or a reversed cheque receipt, may be entered again. Two
+-- entries in force can still never share one; the unique indexes enforce that.
+
+alter table public.v1_accounts_client_payments
+  add column if not exists reference_sequence integer not null default 1
+    check (reference_sequence > 0),
+  add column if not exists pdc_clear_sequence integer not null default 1
+    check (pdc_clear_sequence > 0);
+
+drop index if exists public.v1_accounts_payment_reference_project_uq;
+create unique index if not exists v1_accounts_payment_reference_sequence_uq
+  on public.v1_accounts_client_payments (
+    project_id, lower(btrim(payment_reference)), reference_sequence
+  );
+
+drop index if exists public.v1_accounts_one_pdc_payment_uq;
+create unique index if not exists v1_accounts_one_pdc_clearing_uq
+  on public.v1_accounts_client_payments (pdc_id, pdc_clear_sequence)
+  where pdc_id is not null and entry_kind = 'receipt';
+
+-- Picks the next sequence only when the latest entry was reversed. Otherwise it
+-- reuses the same one, so the unique index refuses the duplicate. A race between
+-- two writers computes the same value and fails the same way.
+create or replace function public.v1_accounts_client_payment_sequences()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_latest public.v1_accounts_client_payments%rowtype;
+begin
+  select * into v_latest
+  from public.v1_accounts_client_payments payment
+  where payment.project_id = new.project_id
+    and lower(btrim(payment.payment_reference))
+      = lower(btrim(new.payment_reference))
+  order by payment.reference_sequence desc
+  limit 1;
+  if found then
+    new.reference_sequence := v_latest.reference_sequence + case
+      when v_latest.entry_kind = 'receipt' and exists (
+        select 1 from public.v1_accounts_client_payments reversal
+        where reversal.original_payment_id = v_latest.id
+      ) then 1 else 0 end;
+  end if;
+
+  if new.pdc_id is not null and new.entry_kind = 'receipt' then
+    select * into v_latest
+    from public.v1_accounts_client_payments payment
+    where payment.pdc_id = new.pdc_id and payment.entry_kind = 'receipt'
+    order by payment.pdc_clear_sequence desc
+    limit 1;
+    if found then
+      new.pdc_clear_sequence := v_latest.pdc_clear_sequence + case
+        when exists (
+          select 1 from public.v1_accounts_client_payments reversal
+          where reversal.original_payment_id = v_latest.id
+        ) then 1 else 0 end;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists v1_accounts_payment_sequences
+  on public.v1_accounts_client_payments;
+create trigger v1_accounts_payment_sequences
+  before insert on public.v1_accounts_client_payments
+  for each row execute function public.v1_accounts_client_payment_sequences();
+
+create or replace function public.v1_accounts_client_reversal_reference(
+  p_project_id uuid,
+  p_original_reference text
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_base text := 'REV-' || left(btrim(p_original_reference), 170);
+  v_candidate text := v_base;
+  v_attempt integer := 1;
+begin
+  while exists (
+    select 1 from public.v1_accounts_client_payments payment
+    where payment.project_id = p_project_id
+      and lower(btrim(payment.payment_reference)) = lower(v_candidate)
+  ) loop
+    v_attempt := v_attempt + 1;
+    v_candidate := v_base || '-' || v_attempt::text;
+  end loop;
+  return v_candidate;
+end;
+$$;
+
+create or replace function public.v1_accounts_transition_invoice(
+  p_command text,p_project_id uuid,p_invoice_id uuid,p_expected_version integer,p_target text,p_reason text,p_idempotency_key uuid
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_invoice public.v1_accounts_client_invoices%rowtype; v_payload jsonb; v_existing jsonb; v_before jsonb; v_response jsonb; v_now timestamptz:=clock_timestamp();
+begin
+  perform public.v1_accounts_require_capability(p_project_id,'manage_client_invoices');
+  if nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023'; end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'invoice_id',p_invoice_id,'expected_version',p_expected_version,'target_status',p_target,'reason',btrim(p_reason));
+  v_existing:=public.v1_idempotency_get_or_claim(p_command,p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true); end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=p_invoice_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_INVOICE_NOT_FOUND' using errcode='P0002'; end if;
+  if v_invoice.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001'; end if;
+  if p_target='under_certification' and v_invoice.status<>'submitted' then raise exception 'R39_ACCOUNTS_INVALID_INVOICE_TRANSITION' using errcode='55000'; end if;
+  if p_target='returned' and v_invoice.status not in ('submitted','under_certification') then raise exception 'R39_ACCOUNTS_INVALID_INVOICE_TRANSITION' using errcode='55000'; end if;
+  if p_target='cancelled' then
+    if v_invoice.status in ('cancelled','paid') or public.v1_accounts_invoice_certified_ex_vat(p_invoice_id)<>0
+      or public.v1_accounts_invoice_paid_amount(p_invoice_id)<>0
+      or exists(select 1 from public.v1_accounts_client_pdcs where invoice_id=p_invoice_id and status in ('expected','received','deposited','cleared')) then
+      raise exception 'R39_ACCOUNTS_INVOICE_HAS_DOWNSTREAM_FACTS' using errcode='55000'; end if;
+  end if;
+  v_before:=public.v1_accounts_invoice_snapshot(p_invoice_id);
+  update public.v1_accounts_client_invoices set status=p_target,record_version=record_version+1,updated_at=v_now,
+    returned_at=case when p_target='returned' then v_now else returned_at end,
+    returned_by_auth_user_id=case when p_target='returned' then auth.uid() else returned_by_auth_user_id end,
+    return_reason=case when p_target='returned' then btrim(p_reason) else return_reason end,
+    cancelled_at=case when p_target='cancelled' then v_now else cancelled_at end,
+    cancelled_by_auth_user_id=case when p_target='cancelled' then auth.uid() else cancelled_by_auth_user_id end,
+    cancellation_reason=case when p_target='cancelled' then btrim(p_reason) else cancellation_reason end where id=p_invoice_id;
+  if p_target='cancelled' then
+    update public.v1_accounts_client_claims set status='cancelled',record_version=record_version+1,cancelled_at=v_now,
+      cancelled_by_auth_user_id=auth.uid(),cancellation_reason=btrim(p_reason),updated_at=v_now where id=v_invoice.claim_id;
+  end if;
+  perform public.v1_write_audit_event('accounts.client_invoice.'||p_target,'accounts_client_invoice',p_invoice_id,p_project_id,v_before,public.v1_accounts_invoice_snapshot(p_invoice_id),btrim(p_reason),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',p_invoice_id,'invoice_id',p_invoice_id,'record_version',p_expected_version+1,'status',p_target,'updated_at',v_now);
+  perform public.v1_complete_idempotency(p_command,p_idempotency_key,v_response); return v_response;
+end;
+$$;
+
+create or replace function public.v1_accounts_receivables_commands(
+  p_project_id uuid
+)
+returns jsonb
+language sql stable security definer set search_path=''
+as $$
+  select jsonb_build_object(
+    'create_claim_draft', public.v1_current_user_has_capability('prepare_client_claim',p_project_id)
+      and public.v1_current_user_has_capability('view_project_commercial_values',p_project_id),
+    'edit_claim_draft', public.v1_current_user_has_capability('prepare_client_claim',p_project_id),
+    'submit_claim_to_accounts', public.v1_current_user_has_capability('prepare_client_claim',p_project_id),
+    'cancel_claim', public.v1_current_user_has_capability('prepare_client_claim',p_project_id)
+      or public.v1_current_user_has_capability('manage_client_invoices',p_project_id),
+    'create_invoice_draft', public.v1_current_user_has_capability('manage_client_invoices',p_project_id),
+    'submit_invoice', public.v1_current_user_has_capability('manage_client_invoices',p_project_id),
+    'return_invoice', public.v1_current_user_has_capability('manage_client_invoices',p_project_id),
+    'cancel_invoice', public.v1_current_user_has_capability('manage_client_invoices',p_project_id),
+    'record_certification', public.v1_current_user_has_capability('record_client_certification',p_project_id),
+    'record_payment', public.v1_current_user_has_capability('record_client_payment',p_project_id),
+    'reverse_payment', public.v1_current_user_has_capability('record_client_payment',p_project_id),
+    'create_pdc', public.v1_current_user_has_capability('manage_pdc',p_project_id),
+    'transition_pdc', public.v1_current_user_has_capability('manage_pdc',p_project_id),
+    'replace_pdc', public.v1_current_user_has_capability('manage_pdc',p_project_id),
+    'edit_pdc', public.v1_current_user_has_capability('manage_pdc',p_project_id),
+    'correct_payment', public.v1_current_user_has_capability('record_client_payment',p_project_id),
+    'correct_certification', public.v1_current_user_has_capability('record_client_certification',p_project_id)
+  );
+$$;
+
+-- Every step of a cheque can now be walked back. Moving backwards needs a reason.
+create or replace function public.v1_transition_client_pdc(
+  p_project_id uuid,p_pdc_id uuid,p_expected_version integer,p_new_status text,
+  p_action_date date,p_reason text,p_clearance_payment_reference text,p_idempotency_key uuid
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_actor uuid:=auth.uid();v_role text:=public.v1_current_role();v_exact text;
+  v_pdc public.v1_accounts_client_pdcs%rowtype;v_invoice public.v1_accounts_client_invoices%rowtype;
+  v_original public.v1_accounts_client_payments%rowtype;
+  v_payment_id uuid;v_event_id uuid;v_allowed boolean:=false;v_backward boolean:=false;v_payload jsonb;v_existing jsonb;v_response jsonb;
+  v_now timestamptz:=clock_timestamp();v_status text;v_payable numeric;
+begin
+  v_exact:=public.v1_accounts_require_capability(p_project_id,'manage_pdc');
+  if p_action_date is null or p_new_status not in ('expected','received','deposited','cleared','returned','bounced','cancelled') then
+    raise exception 'R39_ACCOUNTS_INVALID_PDC_TRANSITION' using errcode='22023';end if;
+  if p_new_status in ('returned','bounced','cancelled') and nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';end if;
+  if p_new_status='cleared' and nullif(btrim(p_clearance_payment_reference),'') is null then raise exception 'R39_ACCOUNTS_CLEARANCE_REFERENCE_REQUIRED' using errcode='22023';end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'pdc_id',p_pdc_id,'expected_version',p_expected_version,'new_status',p_new_status,
+    'action_date',p_action_date,'reason',nullif(btrim(p_reason),''),'clearance_payment_reference',nullif(btrim(p_clearance_payment_reference),''));
+  v_existing:=public.v1_idempotency_get_or_claim('v1_transition_client_pdc',p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true);end if;
+  select * into v_pdc from public.v1_accounts_client_pdcs where id=p_pdc_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_PDC_NOT_FOUND' using errcode='P0002';end if;
+  if v_pdc.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';end if;
+  v_allowed:=case v_pdc.status
+    when 'expected' then p_new_status in ('received','cancelled')
+    when 'received' then p_new_status in ('deposited','returned','bounced','cancelled','expected')
+    when 'deposited' then p_new_status in ('cleared','returned','bounced','received')
+    when 'cleared' then p_new_status in ('deposited','returned','bounced')
+    when 'returned' then p_new_status in ('received','cancelled')
+    when 'bounced' then p_new_status in ('received','cancelled')
+    when 'cancelled' then p_new_status='expected'
+    else false end;
+  if not v_allowed then raise exception 'R39_ACCOUNTS_INVALID_PDC_TRANSITION' using errcode='55000';end if;
+  v_backward:=(v_pdc.status='received' and p_new_status='expected') or (v_pdc.status='deposited' and p_new_status='received')
+    or v_pdc.status in ('cleared','returned','bounced','cancelled');
+  if v_backward and nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=v_pdc.invoice_id for update;
+  v_payable:=public.v1_accounts_invoice_certified_incl_vat(v_invoice.id)-v_invoice.retention_snapshot-public.v1_accounts_invoice_paid_amount(v_invoice.id);
+  -- A cheque coming back into play must still fit what is left to collect.
+  if v_pdc.status in ('returned','bounced','cancelled') and p_new_status in ('expected','received') then
+    if v_invoice.status in ('draft','returned','cancelled','paid') then raise exception 'R39_ACCOUNTS_INVOICE_NOT_PAYABLE' using errcode='55000';end if;
+    if v_pdc.amount>greatest(v_payable-public.v1_accounts_invoice_pdc_exposure(v_invoice.id),0) then
+      raise exception 'R39_ACCOUNTS_PDC_EXPOSURE_CAP_EXCEEDED' using errcode='23514';end if;
+  end if;
+  if p_new_status='cleared' then
+    if not public.v1_current_user_has_capability('record_client_payment',p_project_id) then raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';end if;
+    if v_pdc.amount>v_payable then raise exception 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED' using errcode='23514';end if;
+    v_payment_id:=gen_random_uuid();
+    insert into public.v1_accounts_client_payments(id,project_id,invoice_id,entry_kind,pdc_id,payment_date,payment_method,payment_reference,amount,reason,
+      actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+    values(v_payment_id,p_project_id,v_invoice.id,'receipt',p_pdc_id,p_action_date,'PDC',btrim(p_clearance_payment_reference),v_pdc.amount,
+      coalesce(nullif(btrim(p_reason),''),'PDC cleared'),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+    update public.v1_accounts_client_invoices set record_version=record_version+1,updated_at=v_now where id=v_invoice.id;
+    v_status:=public.v1_accounts_refresh_invoice_status(v_invoice.id);
+  elsif v_pdc.status='cleared' then
+    -- Undo clearing: the money it brought in comes back out in the same step.
+    if not public.v1_current_user_has_capability('record_client_payment',p_project_id) then raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';end if;
+    select payment.* into v_original from public.v1_accounts_client_payments payment
+    where payment.pdc_id=p_pdc_id and payment.entry_kind='receipt'
+      and not exists(select 1 from public.v1_accounts_client_payments reversal where reversal.original_payment_id=payment.id)
+    order by payment.pdc_clear_sequence desc limit 1 for update;
+    if not found then raise exception 'R39_ACCOUNTS_PAYMENT_NOT_REVERSIBLE' using errcode='55000';end if;
+    v_payment_id:=gen_random_uuid();
+    insert into public.v1_accounts_client_payments(id,project_id,invoice_id,entry_kind,original_payment_id,payment_date,payment_method,payment_reference,amount,reason,
+      actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+    values(v_payment_id,p_project_id,v_invoice.id,'reversal',v_original.id,p_action_date,'reversal',
+      public.v1_accounts_client_reversal_reference(p_project_id,v_original.payment_reference),v_original.amount,btrim(p_reason),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+    update public.v1_accounts_client_invoices set record_version=record_version+1,updated_at=v_now where id=v_invoice.id;
+    v_status:=public.v1_accounts_refresh_invoice_status(v_invoice.id);
+  else v_status:=v_invoice.status;end if;
+  update public.v1_accounts_client_pdcs set status=p_new_status,record_version=record_version+1,updated_at=v_now,
+    received_date=case when p_new_status='expected' then null
+      when p_new_status='received' and v_pdc.status<>'deposited' then p_action_date else received_date end,
+    action_required=p_new_status in ('returned','bounced'),last_action_reason=case when p_new_status in ('returned','bounced') then btrim(p_reason) else null end where id=p_pdc_id;
+  v_event_id:=public.v1_accounts_append_pdc_event(p_pdc_id,v_pdc.status,p_new_status,p_action_date,p_reason,v_payment_id,p_idempotency_key);
+  perform public.v1_write_audit_event('accounts.client_pdc.'||p_new_status,'accounts_client_pdc',p_pdc_id,p_project_id,
+    jsonb_build_object('status',v_pdc.status,'record_version',v_pdc.record_version),jsonb_build_object('status',p_new_status,'record_version',p_expected_version+1,'event_id',v_event_id,'linked_payment_id',v_payment_id),nullif(btrim(p_reason),''),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',p_pdc_id,'pdc_id',p_pdc_id,'invoice_id',v_invoice.id,
+    'record_version',p_expected_version+1,'status',p_new_status,'linked_payment_id',v_payment_id,'invoice_status',v_status,'updated_at',v_now);
+  perform public.v1_complete_idempotency('v1_transition_client_pdc',p_idempotency_key,v_response);return v_response;
+exception when unique_violation then raise exception 'R39_ACCOUNTS_DUPLICATE_PAYMENT_REFERENCE' using errcode='23505';
+end;
+$$;
+
+-- The reference becomes optional and the cheque stays in step with its receipt.
+drop function if exists public.v1_reverse_client_payment(uuid,uuid,integer,uuid,date,text,text,uuid);
+create or replace function public.v1_reverse_client_payment(
+  p_project_id uuid,p_invoice_id uuid,p_expected_version integer,p_original_payment_id uuid,
+  p_reversal_date date,p_reversal_reference text,p_reason text,p_idempotency_key uuid,
+  p_cheque_outcome text default null
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_actor uuid:=auth.uid();v_role text:=public.v1_current_role();v_exact text;
+  v_invoice public.v1_accounts_client_invoices%rowtype;v_original public.v1_accounts_client_payments%rowtype;v_pdc public.v1_accounts_client_pdcs%rowtype;
+  v_pdc_id uuid;v_outcome text:=coalesce(nullif(btrim(p_cheque_outcome),''),'deposited');
+  v_payment_id uuid:=gen_random_uuid();v_payload jsonb;v_existing jsonb;v_before jsonb;v_response jsonb;v_status text;v_now timestamptz:=clock_timestamp();
+begin
+  v_exact:=public.v1_accounts_require_capability(p_project_id,'record_client_payment');
+  if p_reversal_date is null or nullif(btrim(p_reason),'') is null then
+    raise exception 'R39_ACCOUNTS_PAYMENT_REVERSAL_FIELDS_REQUIRED' using errcode='22023';end if;
+  if v_outcome not in ('deposited','returned','bounced') then raise exception 'R39_ACCOUNTS_INVALID_PDC_TRANSITION' using errcode='22023';end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'invoice_id',p_invoice_id,'expected_version',p_expected_version,
+    'original_payment_id',p_original_payment_id,'reversal_date',p_reversal_date,'reversal_reference',nullif(btrim(p_reversal_reference),''),'reason',btrim(p_reason),'cheque_outcome',v_outcome);
+  v_existing:=public.v1_idempotency_get_or_claim('v1_reverse_client_payment',p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true);end if;
+  -- Cheque first, then invoice: the same order the cheque command locks them in.
+  select payment.pdc_id into v_pdc_id from public.v1_accounts_client_payments payment where payment.id=p_original_payment_id and payment.project_id=p_project_id;
+  if v_pdc_id is not null then select * into v_pdc from public.v1_accounts_client_pdcs where id=v_pdc_id for update;end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=p_invoice_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_INVOICE_NOT_FOUND' using errcode='P0002';end if;
+  if v_invoice.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';end if;
+  select * into v_original from public.v1_accounts_client_payments where id=p_original_payment_id and project_id=p_project_id and invoice_id=p_invoice_id and entry_kind='receipt' for update;
+  if not found or exists(select 1 from public.v1_accounts_client_payments where original_payment_id=p_original_payment_id) then
+    raise exception 'R39_ACCOUNTS_PAYMENT_NOT_REVERSIBLE' using errcode='55000';end if;
+  if v_pdc_id is not null and v_outcome in ('returned','bounced') and not public.v1_current_user_has_capability('manage_pdc',p_project_id) then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';end if;
+  v_before:=public.v1_accounts_invoice_snapshot(p_invoice_id);
+  insert into public.v1_accounts_client_payments(id,project_id,invoice_id,entry_kind,original_payment_id,payment_date,payment_method,payment_reference,amount,reason,
+    actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+  values(v_payment_id,p_project_id,p_invoice_id,'reversal',p_original_payment_id,p_reversal_date,'reversal',
+    coalesce(nullif(btrim(p_reversal_reference),''),public.v1_accounts_client_reversal_reference(p_project_id,v_original.payment_reference)),
+    v_original.amount,btrim(p_reason),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+  update public.v1_accounts_client_invoices set record_version=record_version+1,updated_at=v_now where id=p_invoice_id;
+  v_status:=public.v1_accounts_refresh_invoice_status(p_invoice_id);
+  if v_pdc_id is not null and v_pdc.status='cleared' then
+    update public.v1_accounts_client_pdcs set status=v_outcome,record_version=record_version+1,updated_at=v_now,
+      action_required=v_outcome in ('returned','bounced'),last_action_reason=case when v_outcome in ('returned','bounced') then btrim(p_reason) else null end where id=v_pdc_id;
+    perform public.v1_accounts_append_pdc_event(v_pdc_id,'cleared',v_outcome,p_reversal_date,p_reason,v_payment_id,p_idempotency_key);
+  end if;
+  perform public.v1_write_audit_event('accounts.client_payment.reversed','accounts_client_payment',v_payment_id,p_project_id,v_before,public.v1_accounts_invoice_snapshot(p_invoice_id),btrim(p_reason),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',v_payment_id,'payment_id',v_payment_id,'original_payment_id',p_original_payment_id,
+    'invoice_id',p_invoice_id,'invoice_record_version',p_expected_version+1,'status',v_status,'amount',v_original.amount::text,'pdc_id',v_pdc_id,'updated_at',v_now);
+  perform public.v1_complete_idempotency('v1_reverse_client_payment',p_idempotency_key,v_response);return v_response;
+exception when unique_violation then raise exception 'R39_ACCOUNTS_DUPLICATE_PAYMENT_REFERENCE' using errcode='23505';
+end;
+$$;
+
+-- Edit a payment: one reversal and one new receipt, together or not at all.
+create or replace function public.v1_correct_client_payment(
+  p_project_id uuid,p_invoice_id uuid,p_expected_version integer,p_original_payment_id uuid,
+  p_payment_date date,p_payment_method text,p_payment_reference text,p_amount text,p_reason text,p_idempotency_key uuid
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_actor uuid:=auth.uid();v_role text:=public.v1_current_role();v_exact text;
+  v_invoice public.v1_accounts_client_invoices%rowtype;v_original public.v1_accounts_client_payments%rowtype;v_pdc public.v1_accounts_client_pdcs%rowtype;
+  v_pdc_id uuid;v_amount numeric;v_method text;v_reversal_id uuid:=gen_random_uuid();v_payment_id uuid:=gen_random_uuid();
+  v_payload jsonb;v_existing jsonb;v_before jsonb;v_response jsonb;v_status text;v_now timestamptz:=clock_timestamp();
+begin
+  v_exact:=public.v1_accounts_require_capability(p_project_id,'record_client_payment');
+  if p_payment_date is null or nullif(btrim(p_payment_method),'') is null or nullif(btrim(p_payment_reference),'') is null then
+    raise exception 'R39_ACCOUNTS_PAYMENT_IDENTITY_REQUIRED' using errcode='22023';end if;
+  if nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';end if;
+  v_amount:=public.v1_accounts_parse_money_text(p_amount);if v_amount<=0 then raise exception 'R39_ACCOUNTS_INVALID_PAYMENT_AMOUNT' using errcode='22023';end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'invoice_id',p_invoice_id,'expected_version',p_expected_version,'original_payment_id',p_original_payment_id,
+    'payment_date',p_payment_date,'payment_method',btrim(p_payment_method),'payment_reference',btrim(p_payment_reference),'amount',v_amount::text,'reason',btrim(p_reason));
+  v_existing:=public.v1_idempotency_get_or_claim('v1_correct_client_payment',p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true);end if;
+  select payment.pdc_id into v_pdc_id from public.v1_accounts_client_payments payment where payment.id=p_original_payment_id and payment.project_id=p_project_id;
+  if v_pdc_id is not null then select * into v_pdc from public.v1_accounts_client_pdcs where id=v_pdc_id for update;end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=p_invoice_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_INVOICE_NOT_FOUND' using errcode='P0002';end if;
+  if v_invoice.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';end if;
+  select * into v_original from public.v1_accounts_client_payments where id=p_original_payment_id and project_id=p_project_id and invoice_id=p_invoice_id and entry_kind='receipt' for update;
+  if not found or exists(select 1 from public.v1_accounts_client_payments where original_payment_id=p_original_payment_id) then
+    raise exception 'R39_ACCOUNTS_PAYMENT_NOT_REVERSIBLE' using errcode='55000';end if;
+  -- A cheque's receipt is for exactly the cheque; change the cheque to change it.
+  v_method:=btrim(p_payment_method);
+  if v_pdc_id is not null then
+    v_method:=v_original.payment_method;
+    if v_amount<>v_pdc.amount then raise exception 'R39_ACCOUNTS_PAYMENT_MUST_MATCH_CHEQUE' using errcode='23514';end if;
+  end if;
+  if public.v1_accounts_invoice_paid_amount(p_invoice_id)-v_original.amount+v_amount
+      >public.v1_accounts_invoice_certified_incl_vat(p_invoice_id)-v_invoice.retention_snapshot then
+    raise exception 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED' using errcode='23514';end if;
+  v_before:=public.v1_accounts_invoice_snapshot(p_invoice_id);
+  insert into public.v1_accounts_client_payments(id,project_id,invoice_id,entry_kind,original_payment_id,payment_date,payment_method,payment_reference,amount,reason,
+    actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+  values(v_reversal_id,p_project_id,p_invoice_id,'reversal',p_original_payment_id,p_payment_date,'reversal',
+    public.v1_accounts_client_reversal_reference(p_project_id,v_original.payment_reference),v_original.amount,btrim(p_reason),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+  insert into public.v1_accounts_client_payments(id,project_id,invoice_id,entry_kind,pdc_id,payment_date,payment_method,payment_reference,amount,reason,
+    actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+  values(v_payment_id,p_project_id,p_invoice_id,'receipt',v_pdc_id,p_payment_date,v_method,btrim(p_payment_reference),v_amount,btrim(p_reason),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+  update public.v1_accounts_client_invoices set record_version=record_version+1,updated_at=v_now where id=p_invoice_id;
+  v_status:=public.v1_accounts_refresh_invoice_status(p_invoice_id);
+  perform public.v1_write_audit_event('accounts.client_payment.corrected','accounts_client_payment',v_payment_id,p_project_id,v_before,public.v1_accounts_invoice_snapshot(p_invoice_id),btrim(p_reason),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',v_payment_id,'payment_id',v_payment_id,'reversal_id',v_reversal_id,
+    'original_payment_id',p_original_payment_id,'invoice_id',p_invoice_id,'invoice_record_version',p_expected_version+1,'status',v_status,'amount',v_amount::text,'updated_at',v_now);
+  perform public.v1_complete_idempotency('v1_correct_client_payment',p_idempotency_key,v_response);return v_response;
+exception when unique_violation then raise exception 'R39_ACCOUNTS_DUPLICATE_PAYMENT_REFERENCE' using errcode='23505';
+end;
+$$;
+
+-- Edit a certification. Zero undoes it. It may not drop below money already in.
+create or replace function public.v1_correct_client_certification(
+  p_project_id uuid,p_invoice_id uuid,p_expected_version integer,
+  p_certification_reference text,p_certification_date date,p_certified_ex_vat text,p_reason text,p_idempotency_key uuid
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_actor uuid:=auth.uid();v_role text:=public.v1_current_role();v_exact text;
+  v_invoice public.v1_accounts_client_invoices%rowtype;v_amount numeric;v_vat numeric;v_total numeric;v_revision integer;v_cert_id uuid:=gen_random_uuid();
+  v_payload jsonb;v_existing jsonb;v_before jsonb;v_response jsonb;v_status text;v_now timestamptz:=clock_timestamp();
+begin
+  v_exact:=public.v1_accounts_require_capability(p_project_id,'record_client_certification');
+  if nullif(btrim(p_certification_reference),'') is null or p_certification_date is null then
+    raise exception 'R39_ACCOUNTS_CERTIFICATION_IDENTITY_REQUIRED' using errcode='22023';end if;
+  if nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';end if;
+  v_amount:=public.v1_accounts_parse_money_text(p_certified_ex_vat);
+  if v_amount<0 then raise exception 'R39_ACCOUNTS_INVALID_CERTIFICATION_AMOUNT' using errcode='22023';end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'invoice_id',p_invoice_id,'expected_version',p_expected_version,
+    'certification_reference',btrim(p_certification_reference),'certification_date',p_certification_date,'certified_ex_vat',v_amount::text,'reason',btrim(p_reason));
+  v_existing:=public.v1_idempotency_get_or_claim('v1_correct_client_certification',p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true);end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=p_invoice_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_INVOICE_NOT_FOUND' using errcode='P0002';end if;
+  if v_invoice.status in ('draft','returned','cancelled') then raise exception 'R39_ACCOUNTS_INVOICE_NOT_CERTIFIABLE' using errcode='55000';end if;
+  if v_invoice.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';end if;
+  if not exists(select 1 from public.v1_accounts_client_certifications where invoice_id=p_invoice_id) then
+    raise exception 'R39_ACCOUNTS_CERTIFICATION_NOT_FOUND' using errcode='P0002';end if;
+  if v_amount>v_invoice.claimed_ex_vat then raise exception 'R39_ACCOUNTS_CERTIFICATION_CAP_INVALID' using errcode='23514';end if;
+  select coalesce(max(revision_number),0)+1 into v_revision from public.v1_accounts_client_certifications where invoice_id=p_invoice_id;
+  v_vat:=round(v_amount*v_invoice.vat_rate_percent_snapshot/100,2);v_total:=v_amount+v_vat;
+  if public.v1_accounts_invoice_paid_amount(p_invoice_id)+public.v1_accounts_invoice_pdc_exposure(p_invoice_id)>greatest(v_total-v_invoice.retention_snapshot,0) then
+    raise exception 'R39_ACCOUNTS_CERTIFICATION_BELOW_RECEIVED' using errcode='23514';end if;
+  v_before:=public.v1_accounts_invoice_snapshot(p_invoice_id);
+  insert into public.v1_accounts_client_certifications(id,project_id,invoice_id,revision_number,certification_reference,
+    certification_date,certified_ex_vat,certified_vat,certified_incl_vat,difference_reason,
+    actor_auth_user_id,actor_role,actor_exact_role,idempotency_key,created_at)
+  values(v_cert_id,p_project_id,p_invoice_id,v_revision,btrim(p_certification_reference),p_certification_date,
+    v_amount,v_vat,v_total,btrim(p_reason),v_actor,v_role,v_exact,p_idempotency_key,v_now);
+  update public.v1_accounts_client_invoices set record_version=record_version+1,updated_at=v_now where id=p_invoice_id;
+  v_status:=public.v1_accounts_refresh_invoice_status(p_invoice_id);
+  perform public.v1_write_audit_event('accounts.client_certification.corrected','accounts_client_certification',v_cert_id,p_project_id,v_before,public.v1_accounts_invoice_snapshot(p_invoice_id),btrim(p_reason),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',v_cert_id,'certification_id',v_cert_id,'invoice_id',p_invoice_id,
+    'revision_number',v_revision,'invoice_record_version',p_expected_version+1,'status',v_status,'certified_ex_vat',v_amount::text,'updated_at',v_now);
+  perform public.v1_complete_idempotency('v1_correct_client_certification',p_idempotency_key,v_response);return v_response;
+end;
+$$;
+
+-- Edit a cheque's details. A cleared cheque has its clearing undone first.
+create or replace function public.v1_update_client_pdc(
+  p_project_id uuid,p_pdc_id uuid,p_expected_version integer,p_cheque_number text,
+  p_cheque_date date,p_amount text,p_bank_name text,p_reason text,p_idempotency_key uuid
+)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_old public.v1_accounts_client_pdcs%rowtype;v_invoice public.v1_accounts_client_invoices%rowtype;
+  v_amount numeric;v_payload jsonb;v_existing jsonb;v_response jsonb;v_now timestamptz:=clock_timestamp();
+begin
+  perform public.v1_accounts_require_capability(p_project_id,'manage_pdc');
+  if nullif(btrim(p_cheque_number),'') is null or p_cheque_date is null then raise exception 'R39_ACCOUNTS_PDC_REPLACEMENT_FIELDS_REQUIRED' using errcode='22023';end if;
+  if nullif(btrim(p_reason),'') is null then raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';end if;
+  v_amount:=public.v1_accounts_parse_money_text(p_amount);if v_amount<=0 then raise exception 'R39_ACCOUNTS_INVALID_PDC_AMOUNT' using errcode='22023';end if;
+  v_payload:=jsonb_build_object('project_id',p_project_id,'pdc_id',p_pdc_id,'expected_version',p_expected_version,'cheque_number',btrim(p_cheque_number),
+    'cheque_date',p_cheque_date,'amount',v_amount::text,'bank_name',nullif(btrim(p_bank_name),''),'reason',btrim(p_reason));
+  v_existing:=public.v1_idempotency_get_or_claim('v1_update_client_pdc',p_idempotency_key,v_payload);
+  if v_existing is not null then return v_existing||jsonb_build_object('replayed',true);end if;
+  select * into v_old from public.v1_accounts_client_pdcs where id=p_pdc_id and project_id=p_project_id for update;
+  if not found then raise exception 'R39_ACCOUNTS_PDC_NOT_FOUND' using errcode='P0002';end if;
+  if v_old.record_version<>p_expected_version then raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';end if;
+  if v_old.status not in ('expected','received','deposited','returned','bounced','cancelled') then raise exception 'R39_ACCOUNTS_PDC_NOT_EDITABLE' using errcode='55000';end if;
+  select * into v_invoice from public.v1_accounts_client_invoices where id=v_old.invoice_id for update;
+  if v_old.status in ('expected','received','deposited') and v_amount>greatest(public.v1_accounts_invoice_certified_incl_vat(v_old.invoice_id)-v_invoice.retention_snapshot
+      -public.v1_accounts_invoice_paid_amount(v_old.invoice_id)-public.v1_accounts_invoice_pdc_exposure(v_old.invoice_id)+v_old.amount,0) then
+    raise exception 'R39_ACCOUNTS_PDC_EXPOSURE_CAP_EXCEEDED' using errcode='23514';end if;
+  update public.v1_accounts_client_pdcs set cheque_number=btrim(p_cheque_number),cheque_date=p_cheque_date,amount=v_amount,bank_name=nullif(btrim(p_bank_name),''),
+    record_version=record_version+1,updated_at=v_now where id=p_pdc_id;
+  perform public.v1_accounts_append_pdc_event(p_pdc_id,v_old.status,v_old.status,v_now::date,p_reason,null,p_idempotency_key);
+  perform public.v1_write_audit_event('accounts.client_pdc.edited','accounts_client_pdc',p_pdc_id,p_project_id,
+    jsonb_build_object('cheque_number',v_old.cheque_number,'cheque_date',v_old.cheque_date,'amount',v_old.amount::text,'bank_name',v_old.bank_name,'record_version',v_old.record_version),
+    jsonb_build_object('cheque_number',btrim(p_cheque_number),'cheque_date',p_cheque_date,'amount',v_amount::text,'bank_name',nullif(btrim(p_bank_name),''),'record_version',p_expected_version+1),btrim(p_reason),p_idempotency_key);
+  v_response:=jsonb_build_object('schema_version',3,'replayed',false,'project_id',p_project_id,'entity_id',p_pdc_id,'pdc_id',p_pdc_id,'invoice_id',v_old.invoice_id,
+    'record_version',p_expected_version+1,'status',v_old.status,'amount',v_amount::text,'updated_at',v_now);
+  perform public.v1_complete_idempotency('v1_update_client_pdc',p_idempotency_key,v_response);return v_response;
+exception when unique_violation then raise exception 'R39_ACCOUNTS_DUPLICATE_PDC_REFERENCE' using errcode='23505';
+end;
+$$;
+
+revoke all on function public.v1_accounts_client_payment_sequences() from public,anon,authenticated;
+revoke all on function public.v1_accounts_client_reversal_reference(uuid,text) from public,anon,authenticated;
+revoke all on function public.v1_reverse_client_payment(uuid,uuid,integer,uuid,date,text,text,uuid,text) from public,anon;
+revoke all on function public.v1_correct_client_payment(uuid,uuid,integer,uuid,date,text,text,text,text,uuid) from public,anon;
+revoke all on function public.v1_correct_client_certification(uuid,uuid,integer,text,date,text,text,uuid) from public,anon;
+revoke all on function public.v1_update_client_pdc(uuid,uuid,integer,text,date,text,text,text,uuid) from public,anon;
+grant execute on function public.v1_reverse_client_payment(uuid,uuid,integer,uuid,date,text,text,uuid,text) to authenticated;
+grant execute on function public.v1_correct_client_payment(uuid,uuid,integer,uuid,date,text,text,text,text,uuid) to authenticated;
+grant execute on function public.v1_correct_client_certification(uuid,uuid,integer,text,date,text,text,uuid) to authenticated;
+grant execute on function public.v1_update_client_pdc(uuid,uuid,integer,text,date,text,text,text,uuid) to authenticated;
+
+
+-- #############################################################################
+-- FILE 28 / 28 : 20261107140000_accounts_v2_supplier_corrections.sql
+-- #############################################################################
+
+-- R39 Accounts Workspace V2 — easy to reverse, easy to edit (supplier bills)
+--
+-- Owner decision of 7 November 2026. An approved or cancelled bill can return to
+-- draft for editing once no money is left on it, and a payment can be edited in
+-- one step. The ledger stays append-only and each correction needs a reason. The
+-- approved-by rules and supplier match are unchanged: a reopened bill is approved
+-- again through the normal command.
+
+alter table public.v1_accounts_supplier_payments
+  add column if not exists reference_sequence integer not null default 1
+    check (reference_sequence > 0);
+
+drop index if exists public.v1_accounts_supplier_payment_reference_uq;
+create unique index if not exists v1_accounts_supplier_payment_reference_sequence_uq
+  on public.v1_accounts_supplier_payments (
+    project_id, lower(btrim(payment_reference)), reference_sequence
+  );
+
+create or replace function public.v1_accounts_supplier_payment_sequences()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_latest public.v1_accounts_supplier_payments%rowtype;
+begin
+  select * into v_latest
+  from public.v1_accounts_supplier_payments payment
+  where payment.project_id = new.project_id
+    and lower(btrim(payment.payment_reference))
+      = lower(btrim(new.payment_reference))
+  order by payment.reference_sequence desc
+  limit 1;
+  if found then
+    new.reference_sequence := v_latest.reference_sequence + case
+      when v_latest.entry_kind = 'payment' and exists (
+        select 1 from public.v1_accounts_supplier_payments reversal
+        where reversal.original_payment_id = v_latest.id
+      ) then 1 else 0 end;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists v1_accounts_supplier_payment_sequences
+  on public.v1_accounts_supplier_payments;
+create trigger v1_accounts_supplier_payment_sequences
+  before insert on public.v1_accounts_supplier_payments
+  for each row execute function public.v1_accounts_supplier_payment_sequences();
+
+create or replace function public.v1_accounts_supplier_reversal_reference(
+  p_project_id uuid,
+  p_original_reference text
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_base text := 'REV-' || left(btrim(p_original_reference), 170);
+  v_candidate text := v_base;
+  v_attempt integer := 1;
+begin
+  while exists (
+    select 1 from public.v1_accounts_supplier_payments payment
+    where payment.project_id = p_project_id
+      and lower(btrim(payment.payment_reference)) = lower(v_candidate)
+  ) loop
+    v_attempt := v_attempt + 1;
+    v_candidate := v_base || '-' || v_attempt::text;
+  end loop;
+  return v_candidate;
+end;
+$$;
+
+create or replace function public.v1_reverse_supplier_payment(
+  p_project_id uuid,
+  p_supplier_bill_id uuid,
+  p_expected_version integer,
+  p_original_payment_id uuid,
+  p_reversal_date date,
+  p_reversal_reference text,
+  p_reason text,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_exact text;
+  v_role text := public.v1_current_role();
+  v_bill public.v1_accounts_supplier_bills%rowtype;
+  v_original public.v1_accounts_supplier_payments%rowtype;
+  v_reversal_id uuid := gen_random_uuid();
+  v_payload jsonb;
+  v_existing jsonb;
+  v_before jsonb;
+  v_response jsonb;
+  v_now timestamptz := clock_timestamp();
+begin
+  v_exact := public.v1_accounts_require_capability(
+    p_project_id, 'approve_supplier_bill_payment'
+  );
+  if v_exact not in ('accountant', 'admin')
+    or not public.v1_current_user_has_capability(
+      'view_supplier_costs', p_project_id
+    ) then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';
+  end if;
+  if p_reversal_date is null
+    or nullif(btrim(p_reason), '') is null then
+    raise exception 'R39_ACCOUNTS_REVERSAL_IDENTITY_REQUIRED'
+      using errcode='22023';
+  end if;
+  v_payload := jsonb_build_object(
+    'project_id', p_project_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'expected_version', p_expected_version,
+    'original_payment_id', p_original_payment_id,
+    'reversal_date', p_reversal_date,
+    'reversal_reference', nullif(btrim(p_reversal_reference), ''),
+    'reason', btrim(p_reason)
+  );
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_reverse_supplier_payment', p_idempotency_key, v_payload
+  );
+  if v_existing is not null then
+    return v_existing || jsonb_build_object('replayed', true);
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'r39_supplier_bill|' || p_supplier_bill_id::text, 0
+    )
+  );
+  select * into v_bill
+  from public.v1_accounts_supplier_bills
+  where id = p_supplier_bill_id and project_id = p_project_id
+  for update;
+  if not found then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_NOT_FOUND'
+      using errcode='P0002';
+  end if;
+  if v_bill.record_version <> p_expected_version then
+    raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';
+  end if;
+  select * into v_original
+  from public.v1_accounts_supplier_payments
+  where id = p_original_payment_id
+    and project_id = p_project_id
+    and supplier_bill_id = p_supplier_bill_id
+    and entry_kind = 'payment'
+  for update;
+  if not found then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_PAYMENT_NOT_FOUND'
+      using errcode='P0002';
+  end if;
+  if exists (
+    select 1 from public.v1_accounts_supplier_payments reversal
+    where reversal.original_payment_id = p_original_payment_id
+      and reversal.entry_kind = 'reversal'
+  ) then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_PAYMENT_ALREADY_REVERSED'
+      using errcode='55000';
+  end if;
+  v_before := public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id);
+  insert into public.v1_accounts_supplier_payments (
+    id, project_id, supplier_bill_id, entry_kind, original_payment_id,
+    payment_date, payment_method, payment_reference, amount, reason,
+    actor_auth_user_id, actor_role, actor_exact_role,
+    idempotency_key, created_at
+  ) values (
+    v_reversal_id, p_project_id, p_supplier_bill_id, 'reversal',
+    p_original_payment_id, p_reversal_date, 'reversal',
+    coalesce(
+      nullif(btrim(p_reversal_reference), ''),
+      public.v1_accounts_supplier_reversal_reference(
+        p_project_id, v_original.payment_reference
+      )
+    ), v_original.amount, btrim(p_reason),
+    auth.uid(), v_role, v_exact, p_idempotency_key, v_now
+  );
+  update public.v1_accounts_supplier_bills
+  set record_version = record_version + 1, updated_at = v_now
+  where id = p_supplier_bill_id;
+  perform public.v1_write_audit_event(
+    'accounts.supplier_payment.reversed', 'accounts_supplier_payment',
+    v_reversal_id, p_project_id, v_before,
+    public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id),
+    btrim(p_reason), p_idempotency_key
+  );
+  v_response := jsonb_build_object(
+    'schema_version', 4, 'replayed', false,
+    'project_id', p_project_id, 'entity_id', v_reversal_id,
+    'reversal_id', v_reversal_id,
+    'original_payment_id', p_original_payment_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'supplier_bill_record_version', p_expected_version + 1,
+    'amount', v_original.amount::text,
+    'payment_status', public.v1_accounts_supplier_payment_status(
+      p_supplier_bill_id
+    ), 'updated_at', v_now
+  );
+  perform public.v1_complete_idempotency(
+    'v1_reverse_supplier_payment', p_idempotency_key, v_response
+  );
+  return v_response;
+exception when unique_violation then
+  raise exception 'R39_ACCOUNTS_DUPLICATE_PAYMENT_REFERENCE'
+    using errcode='23505';
+end;
+$$;
+
+create or replace function public.v1_accounts_supplier_commands(
+  p_project_id uuid,
+  p_supplier_bill_id uuid default null
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'create_bill', public.v1_current_user_has_capability(
+      'manage_supplier_bills', p_project_id
+    ),
+    'edit_bill', public.v1_current_user_has_capability(
+      'manage_supplier_bills', p_project_id
+    ) and (
+      p_supplier_bill_id is null or exists (
+        select 1 from public.v1_accounts_supplier_bills bill
+        where bill.id = p_supplier_bill_id
+          and bill.project_id = p_project_id and bill.status = 'draft'
+      )
+    ),
+    'approve_bill', public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    ),
+    'record_payment', public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    ),
+    'reverse_payment', public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    ),
+    'cancel_bill', public.v1_current_user_has_capability(
+      'manage_supplier_bills', p_project_id
+    ) or public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    ),
+    'correct_payment', public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    ),
+    'reopen_bill', public.v1_current_user_has_capability(
+      'manage_supplier_bills', p_project_id
+    ) or public.v1_current_user_has_capability(
+      'approve_supplier_bill_payment', p_project_id
+    )
+  );
+$$;
+
+create or replace function public.v1_correct_supplier_payment(
+  p_project_id uuid,
+  p_supplier_bill_id uuid,
+  p_expected_version integer,
+  p_original_payment_id uuid,
+  p_payment_date date,
+  p_payment_method text,
+  p_payment_reference text,
+  p_amount text,
+  p_reason text,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_exact text;
+  v_role text := public.v1_current_role();
+  v_bill public.v1_accounts_supplier_bills%rowtype;
+  v_original public.v1_accounts_supplier_payments%rowtype;
+  v_amount numeric;
+  v_reversal_id uuid := gen_random_uuid();
+  v_payment_id uuid := gen_random_uuid();
+  v_payload jsonb;
+  v_existing jsonb;
+  v_before jsonb;
+  v_response jsonb;
+  v_now timestamptz := clock_timestamp();
+begin
+  v_exact := public.v1_accounts_require_capability(
+    p_project_id, 'approve_supplier_bill_payment'
+  );
+  if v_exact not in ('accountant', 'admin')
+    or not public.v1_current_user_has_capability(
+      'view_supplier_costs', p_project_id
+    ) then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';
+  end if;
+  if p_payment_date is null
+    or nullif(btrim(p_payment_method), '') is null
+    or nullif(btrim(p_payment_reference), '') is null then
+    raise exception 'R39_ACCOUNTS_PAYMENT_IDENTITY_REQUIRED'
+      using errcode='22023';
+  end if;
+  if nullif(btrim(p_reason), '') is null then
+    raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';
+  end if;
+  v_amount := public.v1_accounts_parse_money_text(p_amount);
+  if v_amount <= 0 then
+    raise exception 'R39_ACCOUNTS_INVALID_PAYMENT_AMOUNT'
+      using errcode='22023';
+  end if;
+  v_payload := jsonb_build_object(
+    'project_id', p_project_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'expected_version', p_expected_version,
+    'original_payment_id', p_original_payment_id,
+    'payment_date', p_payment_date,
+    'payment_method', btrim(p_payment_method),
+    'payment_reference', btrim(p_payment_reference),
+    'amount', v_amount::text,
+    'reason', btrim(p_reason)
+  );
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_correct_supplier_payment', p_idempotency_key, v_payload
+  );
+  if v_existing is not null then
+    return v_existing || jsonb_build_object('replayed', true);
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'r39_supplier_bill|' || p_supplier_bill_id::text, 0
+    )
+  );
+  select * into v_bill
+  from public.v1_accounts_supplier_bills
+  where id = p_supplier_bill_id and project_id = p_project_id
+  for update;
+  if not found then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_NOT_FOUND'
+      using errcode='P0002';
+  end if;
+  if v_bill.status <> 'approved' then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_NOT_PAYABLE'
+      using errcode='55000';
+  end if;
+  if v_bill.record_version <> p_expected_version then
+    raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';
+  end if;
+  select * into v_original
+  from public.v1_accounts_supplier_payments
+  where id = p_original_payment_id
+    and project_id = p_project_id
+    and supplier_bill_id = p_supplier_bill_id
+    and entry_kind = 'payment'
+  for update;
+  if not found then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_PAYMENT_NOT_FOUND'
+      using errcode='P0002';
+  end if;
+  if exists (
+    select 1 from public.v1_accounts_supplier_payments reversal
+    where reversal.original_payment_id = p_original_payment_id
+  ) then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_PAYMENT_ALREADY_REVERSED'
+      using errcode='55000';
+  end if;
+  if public.v1_accounts_supplier_paid_amount(p_supplier_bill_id)
+      - v_original.amount + v_amount > v_bill.total_incl_vat then
+    raise exception 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED' using errcode='23514';
+  end if;
+  v_before := public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id);
+  insert into public.v1_accounts_supplier_payments (
+    id, project_id, supplier_bill_id, entry_kind, original_payment_id,
+    payment_date, payment_method, payment_reference, amount, reason,
+    actor_auth_user_id, actor_role, actor_exact_role,
+    idempotency_key, created_at
+  ) values (
+    v_reversal_id, p_project_id, p_supplier_bill_id, 'reversal',
+    p_original_payment_id, p_payment_date, 'reversal',
+    public.v1_accounts_supplier_reversal_reference(
+      p_project_id, v_original.payment_reference
+    ), v_original.amount, btrim(p_reason),
+    auth.uid(), v_role, v_exact, p_idempotency_key, v_now
+  );
+  insert into public.v1_accounts_supplier_payments (
+    id, project_id, supplier_bill_id, entry_kind,
+    payment_date, payment_method, payment_reference, amount, reason,
+    admin_exception_reason, actor_auth_user_id, actor_role, actor_exact_role,
+    idempotency_key, created_at
+  ) values (
+    v_payment_id, p_project_id, p_supplier_bill_id, 'payment',
+    p_payment_date, btrim(p_payment_method), btrim(p_payment_reference),
+    v_amount, btrim(p_reason), v_original.admin_exception_reason,
+    auth.uid(), v_role, v_exact, p_idempotency_key, v_now
+  );
+  update public.v1_accounts_supplier_bills
+  set record_version = record_version + 1, updated_at = v_now
+  where id = p_supplier_bill_id;
+  perform public.v1_write_audit_event(
+    'accounts.supplier_payment.corrected', 'accounts_supplier_payment',
+    v_payment_id, p_project_id, v_before,
+    public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id),
+    btrim(p_reason), p_idempotency_key
+  );
+  v_response := jsonb_build_object(
+    'schema_version', 4, 'replayed', false,
+    'project_id', p_project_id, 'entity_id', v_payment_id,
+    'payment_id', v_payment_id,
+    'original_payment_id', p_original_payment_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'supplier_bill_record_version', p_expected_version + 1,
+    'amount', v_amount::text,
+    'payment_status', public.v1_accounts_supplier_payment_status(
+      p_supplier_bill_id
+    ), 'updated_at', v_now
+  );
+  perform public.v1_complete_idempotency(
+    'v1_correct_supplier_payment', p_idempotency_key, v_response
+  );
+  return v_response;
+exception when unique_violation then
+  raise exception 'R39_ACCOUNTS_DUPLICATE_PAYMENT_REFERENCE'
+    using errcode='23505';
+end;
+$$;
+
+-- Back to draft for editing. Taking back an approval needs the approval
+-- capability; a bill that was never approved only needs bill management.
+create or replace function public.v1_reopen_supplier_bill(
+  p_project_id uuid,
+  p_supplier_bill_id uuid,
+  p_expected_version integer,
+  p_reason text,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_bill public.v1_accounts_supplier_bills%rowtype;
+  v_exact text := public.v1_permission_exact_role(auth.uid());
+  v_payload jsonb;
+  v_existing jsonb;
+  v_before jsonb;
+  v_response jsonb;
+  v_now timestamptz := clock_timestamp();
+begin
+  if nullif(btrim(p_reason), '') is null then
+    raise exception 'R39_ACCOUNTS_REASON_REQUIRED' using errcode='22023';
+  end if;
+  if not public.v1_current_user_has_capability(
+    'view_supplier_costs', p_project_id
+  ) then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';
+  end if;
+  v_payload := jsonb_build_object(
+    'project_id', p_project_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'expected_version', p_expected_version,
+    'reason', btrim(p_reason)
+  );
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_reopen_supplier_bill', p_idempotency_key, v_payload
+  );
+  if v_existing is not null then
+    return v_existing || jsonb_build_object('replayed', true);
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'r39_supplier_bill|' || p_supplier_bill_id::text, 0
+    )
+  );
+  select * into v_bill
+  from public.v1_accounts_supplier_bills
+  where id = p_supplier_bill_id and project_id = p_project_id
+  for update;
+  if not found then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_NOT_FOUND'
+      using errcode='P0002';
+  end if;
+  if v_bill.status = 'draft' then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_NOT_REOPENABLE'
+      using errcode='55000';
+  end if;
+  if v_bill.approved_at is not null then
+    perform public.v1_accounts_require_capability(
+      p_project_id, 'approve_supplier_bill_payment'
+    );
+  else
+    perform public.v1_accounts_require_capability(
+      p_project_id, 'manage_supplier_bills'
+    );
+  end if;
+  if v_exact not in ('procurement', 'accountant', 'admin') then
+    raise exception 'R39_ACCOUNTS_ACCESS_DENIED' using errcode='42501';
+  end if;
+  if v_bill.record_version <> p_expected_version then
+    raise exception 'R39_ACCOUNTS_VERSION_CONFLICT' using errcode='40001';
+  end if;
+  if public.v1_accounts_supplier_paid_amount(p_supplier_bill_id) <> 0 then
+    raise exception 'R39_ACCOUNTS_SUPPLIER_BILL_HAS_PAYMENTS'
+      using errcode='55000';
+  end if;
+  v_before := public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id);
+  update public.v1_accounts_supplier_bills
+  set status = 'draft',
+      approved_at = null, approved_by_auth_user_id = null,
+      approved_by_exact_role = null, approval_admin_exception_reason = null,
+      cancelled_at = null, cancelled_by_auth_user_id = null,
+      cancellation_reason = null,
+      record_version = record_version + 1, updated_at = v_now
+  where id = p_supplier_bill_id;
+  perform public.v1_write_audit_event(
+    'accounts.supplier_bill.reopened', 'accounts_supplier_bill',
+    p_supplier_bill_id, p_project_id, v_before,
+    public.v1_accounts_supplier_bill_snapshot(p_supplier_bill_id),
+    btrim(p_reason), p_idempotency_key
+  );
+  v_response := jsonb_build_object(
+    'schema_version', 4, 'replayed', false,
+    'project_id', p_project_id, 'entity_id', p_supplier_bill_id,
+    'supplier_bill_id', p_supplier_bill_id,
+    'record_version', p_expected_version + 1,
+    'status', 'draft',
+    'payment_status', public.v1_accounts_supplier_payment_status(
+      p_supplier_bill_id
+    ), 'updated_at', v_now
+  );
+  perform public.v1_complete_idempotency(
+    'v1_reopen_supplier_bill', p_idempotency_key, v_response
+  );
+  return v_response;
+end;
+$$;
+
+revoke all on function public.v1_accounts_supplier_payment_sequences() from public, anon, authenticated;
+revoke all on function public.v1_accounts_supplier_reversal_reference(uuid, text) from public, anon, authenticated;
+revoke all on function public.v1_correct_supplier_payment(uuid, uuid, integer, uuid, date, text, text, text, text, uuid) from public, anon;
+revoke all on function public.v1_reopen_supplier_bill(uuid, uuid, integer, text, uuid) from public, anon;
+grant execute on function public.v1_correct_supplier_payment(uuid, uuid, integer, uuid, date, text, text, text, text, uuid) to authenticated;
+grant execute on function public.v1_reopen_supplier_bill(uuid, uuid, integer, text, uuid) to authenticated;
 
 COMMIT;
 -- End of bundle. If COMMIT succeeded, all V2 migrations are applied.

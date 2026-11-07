@@ -190,7 +190,6 @@ final class YorksAccountsSupplierPaymentReversalInput {
       supplierBillId.trim().isNotEmpty &&
       expectedVersion > 0 &&
       originalPaymentId.trim().isNotEmpty &&
-      reversalReference.trim().isNotEmpty &&
       reason.trim().isNotEmpty;
 
   Map<String, Object?> idempotencyPayload() => {
@@ -227,6 +226,53 @@ final class YorksAccountsSupplierBillCancelInput {
     'project_id': projectId.trim(),
     'supplier_bill_id': supplierBillId.trim(),
     'expected_version': expectedVersion,
+    'reason': reason.trim(),
+  };
+}
+
+/// Edits a payment in one step: a reversal and a new payment, together.
+final class YorksAccountsSupplierPaymentCorrectionInput {
+  const YorksAccountsSupplierPaymentCorrectionInput({
+    required this.projectId,
+    required this.supplierBillId,
+    required this.expectedVersion,
+    required this.originalPaymentId,
+    required this.paymentDate,
+    required this.paymentMethod,
+    required this.paymentReference,
+    required this.amount,
+    required this.reason,
+  });
+
+  final String projectId;
+  final String supplierBillId;
+  final int expectedVersion;
+  final String originalPaymentId;
+  final YorksAccountsDate paymentDate;
+  final String paymentMethod;
+  final String paymentReference;
+  final YorksAccountsDecimal amount;
+  final String reason;
+
+  bool get isValid =>
+      projectId.trim().isNotEmpty &&
+      supplierBillId.trim().isNotEmpty &&
+      expectedVersion > 0 &&
+      originalPaymentId.trim().isNotEmpty &&
+      paymentMethod.trim().isNotEmpty &&
+      paymentReference.trim().isNotEmpty &&
+      amount.isPositive &&
+      reason.trim().isNotEmpty;
+
+  Map<String, Object?> idempotencyPayload() => {
+    'project_id': projectId.trim(),
+    'supplier_bill_id': supplierBillId.trim(),
+    'expected_version': expectedVersion,
+    'original_payment_id': originalPaymentId.trim(),
+    'payment_date': paymentDate.postgresText,
+    'payment_method': paymentMethod.trim(),
+    'payment_reference': paymentReference.trim(),
+    'amount': amount.postgresText,
     'reason': reason.trim(),
   };
 }

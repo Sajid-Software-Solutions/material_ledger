@@ -3,8 +3,9 @@
 /// A standalone card on the Invoices & payments tab that lists every client
 /// post-dated cheque for the project (from v1_list_project_client_pdcs) with its
 /// lifecycle status, and drives the In hand → Deposited → Cleared / Bounced /
-/// Returned transitions through the existing receivables transition command. A
-/// cheque reduces the amount due only once it clears. The whole card is drawn
+/// Returned transitions through the existing receivables transition command.
+/// Every step can be walked back and a cheque's details edited. A cheque reduces
+/// the amount due only once it clears. The whole card is drawn
 /// only for an actor with view_project_commercial_values (cheques are
 /// commercial), and the Update action only with manage_pdc.
 library;
@@ -31,6 +32,10 @@ typedef YorksPdcTransitionAction =
 typedef YorksPdcReplaceAction =
     Future<String?> Function(YorksAccountsPdcReplacementInput input);
 
+/// Edits a cheque's details; returns null on success or an error message.
+typedef YorksPdcEditAction =
+    Future<String?> Function(YorksAccountsPdcEditInput input);
+
 class AccountsV2PdcRegisterCard extends StatelessWidget {
   const AccountsV2PdcRegisterCard({
     super.key,
@@ -40,6 +45,7 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     required this.canManage,
     this.onTransition,
     this.onReplace,
+    this.onEdit,
   });
 
   final String projectId;
@@ -51,11 +57,17 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
   final bool canManage;
   final YorksPdcTransitionAction? onTransition;
   final YorksPdcReplaceAction? onReplace;
+  final YorksPdcEditAction? onEdit;
 
   String _t(String key) => accountsV2Text(language, key);
 
   bool get _showAction =>
-      canManage && (onTransition != null || onReplace != null);
+      canManage &&
+      (onTransition != null || onReplace != null || onEdit != null);
+
+  bool _hasMenu(YorksAccountsProjectPdc pdc) =>
+      (onEdit != null && pdc.canEditDetails) ||
+      (onTransition != null && pdc.nextStatuses.isNotEmpty);
 
   bool _canReplace(YorksAccountsProjectPdc pdc) =>
       onReplace != null &&
@@ -79,6 +91,27 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     );
     if (input == null) return;
     final error = await onTransition!(input);
+    if (!context.mounted) return;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? _t('v2_pdc_saved')
+              : accountsV2ErrorText(language, error),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _edit(BuildContext context, YorksAccountsProjectPdc pdc) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final input = await showDialog<YorksAccountsPdcEditInput>(
+      context: context,
+      builder: (_) =>
+          _PdcEditDialog(projectId: projectId, pdc: pdc, language: language),
+    );
+    if (input == null) return;
+    final error = await onEdit!(input);
     if (!context.mounted) return;
     messenger?.showSnackBar(
       SnackBar(
@@ -186,9 +219,7 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
           ),
       ],
       actions: [
-        if (_showAction &&
-            (_canReplace(pdc) ||
-                (onTransition != null && pdc.nextStatuses.isNotEmpty)))
+        if (_showAction && (_canReplace(pdc) || _hasMenu(pdc)))
           ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: AppSpacing.minTapTarget,
@@ -254,24 +285,68 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
   }
 
   Widget _actionCell(BuildContext context, YorksAccountsProjectPdc pdc) {
-    if (_canReplace(pdc)) {
-      return TextButton(
-        onPressed: () => _replace(context, pdc),
-        child: Text(_t('v2_pdc_replace')),
-      );
-    }
+    if (!_canReplace(pdc) && !_hasMenu(pdc)) return const Text('—');
+    return _menu(context, pdc);
+  }
+
+  /// Written for what the step means, so walking back never reads like moving on.
+  String _moveLabel(YorksAccountsProjectPdc pdc, YorksAccountsPdcStatus to) {
+    final key = switch ((pdc.status, to)) {
+      (YorksAccountsPdcStatus.cleared, YorksAccountsPdcStatus.deposited) =>
+        'v2_pdc_undo_clearing',
+      (YorksAccountsPdcStatus.cleared, YorksAccountsPdcStatus.bounced) =>
+        'v2_pdc_bounced_after',
+      (YorksAccountsPdcStatus.cleared, YorksAccountsPdcStatus.returned) =>
+        'v2_pdc_returned_after',
+      (YorksAccountsPdcStatus.received, YorksAccountsPdcStatus.expected) =>
+        'v2_pdc_undo_received',
+      (YorksAccountsPdcStatus.deposited, YorksAccountsPdcStatus.received) =>
+        'v2_pdc_undo_deposited',
+      (YorksAccountsPdcStatus.bounced, YorksAccountsPdcStatus.received) ||
+      (
+        YorksAccountsPdcStatus.returned,
+        YorksAccountsPdcStatus.received,
+      ) => 'v2_pdc_represent',
+      (YorksAccountsPdcStatus.cancelled, YorksAccountsPdcStatus.expected) =>
+        'v2_pdc_restore',
+      _ => _statusKey(to),
+    };
+    return _t(key);
+  }
+
+  Widget _menu(BuildContext context, YorksAccountsProjectPdc pdc) {
     final next = onTransition == null
         ? const <YorksAccountsPdcStatus>[]
         : pdc.nextStatuses;
-    if (next.isEmpty) return const Text('—');
-    return PopupMenuButton<YorksAccountsPdcStatus>(
-      onSelected: (target) => _transition(context, pdc, target),
+    const edit = 'edit';
+    const replace = 'replace';
+    return PopupMenuButton<String>(
+      onSelected: (choice) {
+        if (choice == edit) {
+          _edit(context, pdc);
+        } else if (choice == replace) {
+          _replace(context, pdc);
+        } else {
+          _transition(
+            context,
+            pdc,
+            next.firstWhere((target) => target.name == choice),
+          );
+        }
+      },
       itemBuilder: (_) => [
         for (final target in next)
-          PopupMenuItem<YorksAccountsPdcStatus>(
-            value: target,
-            child: Text(accountsV2Text(language, _statusKey(target))),
+          PopupMenuItem<String>(
+            value: target.name,
+            child: Text(_moveLabel(pdc, target)),
           ),
+        if (_canReplace(pdc))
+          PopupMenuItem<String>(
+            value: replace,
+            child: Text(_t('v2_pdc_replace')),
+          ),
+        if (onEdit != null && pdc.canEditDetails)
+          PopupMenuItem<String>(value: edit, child: Text(_t('v2_pdc_edit'))),
       ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -360,7 +435,11 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
   bool get _needsReason =>
       widget.target == YorksAccountsPdcStatus.returned ||
       widget.target == YorksAccountsPdcStatus.bounced ||
-      widget.target == YorksAccountsPdcStatus.cancelled;
+      widget.target == YorksAccountsPdcStatus.cancelled ||
+      widget.pdc.isBackwardMove(widget.target);
+
+  bool get _takesMoneyBack =>
+      widget.pdc.status == YorksAccountsPdcStatus.cleared;
 
   @override
   void initState() {
@@ -395,7 +474,10 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
   @override
   Widget build(BuildContext context) {
     final input = _build();
-    final valid = input != null && input.isValid;
+    final valid =
+        input != null &&
+        input.isValid &&
+        (!_needsReason || _reason.text.trim().isNotEmpty);
     return AlertDialog(
       title: Text(_t('v2_pdc_transition_title')),
       content: Column(
@@ -407,6 +489,13 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
             '${accountsV2Text(widget.language, _statusKey(widget.target))}',
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),
+          if (_takesMoneyBack) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              _t('v2_pdc_undo_money_hint'),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           AccountsV2DateField(
             label: _t('v2_pdc_action_date'),
@@ -472,6 +561,127 @@ class _Field extends StatelessWidget {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
+    );
+  }
+}
+
+// ─── Cheque edit dialog ──────────────────────────────────────────────────────
+
+class _PdcEditDialog extends StatefulWidget {
+  const _PdcEditDialog({
+    required this.projectId,
+    required this.pdc,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsProjectPdc pdc;
+  final AppLanguage language;
+
+  @override
+  State<_PdcEditDialog> createState() => _PdcEditDialogState();
+}
+
+class _PdcEditDialogState extends State<_PdcEditDialog> {
+  late final TextEditingController _cheque;
+  late final TextEditingController _date;
+  late final TextEditingController _amount;
+  late final TextEditingController _bank;
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _cheque = TextEditingController(text: widget.pdc.chequeNumber);
+    _date = TextEditingController(text: widget.pdc.chequeDate.postgresText);
+    _amount = TextEditingController(text: widget.pdc.amount.canonicalText);
+    _bank = TextEditingController(text: widget.pdc.bankName ?? '');
+  }
+
+  @override
+  void dispose() {
+    _cheque.dispose();
+    _date.dispose();
+    _amount.dispose();
+    _bank.dispose();
+    _reason.dispose();
+    super.dispose();
+  }
+
+  YorksAccountsPdcEditInput? _build() {
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    if (date == null || amount == null) return null;
+    final bank = _bank.text.trim();
+    return YorksAccountsPdcEditInput(
+      projectId: widget.projectId,
+      pdcId: widget.pdc.pdcId,
+      expectedVersion: widget.pdc.recordVersion,
+      chequeNumber: _cheque.text.trim(),
+      chequeDate: date,
+      amount: amount,
+      bankName: bank.isEmpty ? null : bank,
+      reason: _reason.text.trim(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    final valid = input != null && input.isValid;
+    return AlertDialog(
+      title: Text(_t('v2_pdc_edit_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Field(
+              label: _t('v2_pdc_col_cheque'),
+              controller: _cheque,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AccountsV2DateField(
+              label: _t('v2_pdc_col_cheque_date'),
+              controller: _date,
+              language: widget.language,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_col_amount'),
+              controller: _amount,
+              numeric: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_col_bank'),
+              controller: _bank,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _Field(
+              label: _t('v2_pdc_reason'),
+              controller: _reason,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
     );
   }
 }

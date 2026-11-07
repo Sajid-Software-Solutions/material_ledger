@@ -127,6 +127,9 @@ final class YorksAccountsReceivablesCommands {
     required this.createPdc,
     required this.transitionPdc,
     required this.replacePdc,
+    this.editPdc = false,
+    this.correctPayment = false,
+    this.correctCertification = false,
   });
 
   final bool createClaimDraft;
@@ -143,6 +146,9 @@ final class YorksAccountsReceivablesCommands {
   final bool createPdc;
   final bool transitionPdc;
   final bool replacePdc;
+  final bool editPdc;
+  final bool correctPayment;
+  final bool correctCertification;
 
   factory YorksAccountsReceivablesCommands.fromRpcJson(
     Map<String, dynamic> json,
@@ -161,6 +167,9 @@ final class YorksAccountsReceivablesCommands {
     createPdc: _requiredBool(json, 'create_pdc'),
     transitionPdc: _requiredBool(json, 'transition_pdc'),
     replacePdc: _requiredBool(json, 'replace_pdc'),
+    editPdc: json['edit_pdc'] == true,
+    correctPayment: json['correct_payment'] == true,
+    correctCertification: json['correct_certification'] == true,
   );
 }
 

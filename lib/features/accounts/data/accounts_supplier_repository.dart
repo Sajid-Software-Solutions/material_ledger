@@ -56,6 +56,18 @@ abstract interface class YorksAccountsSupplierRepository {
     YorksAccountsSupplierBillCancelInput input, {
     required String idempotencyKey,
   });
+
+  Future<YorksAccountsSupplierCommandResult> correctPayment(
+    YorksAccountsSupplierPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  });
+
+  /// Returns an approved or cancelled bill to draft. Takes the same fields as a
+  /// cancellation: the bill, its version and a reason.
+  Future<YorksAccountsSupplierCommandResult> reopenBill(
+    YorksAccountsSupplierBillCancelInput input, {
+    required String idempotencyKey,
+  });
 }
 
 final class YorksSupabaseAccountsSupplierRepository
@@ -269,6 +281,54 @@ final class YorksSupabaseAccountsSupplierRepository
     if (!input.isValid) return _invalidInput();
     return _billCommand(
       'v1_cancel_supplier_bill',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_supplier_bill_id': input.supplierBillId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      idempotencyKey,
+      expectedBillId: input.supplierBillId,
+    );
+  }
+
+  @override
+  Future<YorksAccountsSupplierCommandResult> correctPayment(
+    YorksAccountsSupplierPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _paymentCommand(
+      'v1_correct_supplier_payment',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_supplier_bill_id': input.supplierBillId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_original_payment_id': input.originalPaymentId.trim(),
+        'p_payment_date': input.paymentDate.postgresText,
+        'p_payment_method': input.paymentMethod.trim(),
+        'p_payment_reference': input.paymentReference.trim(),
+        'p_amount': input.amount.postgresText,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      input.supplierBillId,
+      idempotencyKey,
+      expectReversal: false,
+    );
+  }
+
+  @override
+  Future<YorksAccountsSupplierCommandResult> reopenBill(
+    YorksAccountsSupplierBillCancelInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _billCommand(
+      'v1_reopen_supplier_bill',
       {
         'p_project_id': input.projectId.trim(),
         'p_supplier_bill_id': input.supplierBillId.trim(),

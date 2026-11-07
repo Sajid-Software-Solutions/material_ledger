@@ -336,6 +336,7 @@ final class YorksAccountsPaymentReversalInput {
     required this.reversalDate,
     required this.reversalReference,
     required this.reason,
+    this.chequeOutcome,
   });
 
   final String projectId;
@@ -343,15 +344,20 @@ final class YorksAccountsPaymentReversalInput {
   final int expectedVersion;
   final String originalPaymentId;
   final YorksAccountsDate reversalDate;
+
+  /// Blank lets the server pick one from the original reference.
   final String reversalReference;
   final String reason;
+
+  /// Where a cheque's status goes when its payment is reversed: deposited,
+  /// returned or bounced. Null means deposited. Ignored for other payments.
+  final YorksAccountsPdcStatus? chequeOutcome;
 
   bool get isValid =>
       projectId.trim().isNotEmpty &&
       invoiceId.trim().isNotEmpty &&
       expectedVersion > 0 &&
       originalPaymentId.trim().isNotEmpty &&
-      reversalReference.trim().isNotEmpty &&
       reason.trim().isNotEmpty;
 
   Map<String, Object?> idempotencyPayload() => {
@@ -361,6 +367,135 @@ final class YorksAccountsPaymentReversalInput {
     'original_payment_id': originalPaymentId.trim(),
     'reversal_date': reversalDate.postgresText,
     'reversal_reference': reversalReference.trim(),
+    'reason': reason.trim(),
+    'cheque_outcome': chequeOutcome?.wireValue,
+  };
+}
+
+/// Edits a payment in one step: a reversal and a new receipt, together.
+final class YorksAccountsPaymentCorrectionInput {
+  const YorksAccountsPaymentCorrectionInput({
+    required this.projectId,
+    required this.invoiceId,
+    required this.expectedVersion,
+    required this.originalPaymentId,
+    required this.paymentDate,
+    required this.paymentMethod,
+    required this.paymentReference,
+    required this.amount,
+    required this.reason,
+  });
+
+  final String projectId;
+  final String invoiceId;
+  final int expectedVersion;
+  final String originalPaymentId;
+  final YorksAccountsDate paymentDate;
+  final String paymentMethod;
+  final String paymentReference;
+  final YorksAccountsDecimal amount;
+  final String reason;
+
+  bool get isValid =>
+      projectId.trim().isNotEmpty &&
+      invoiceId.trim().isNotEmpty &&
+      expectedVersion > 0 &&
+      originalPaymentId.trim().isNotEmpty &&
+      paymentMethod.trim().isNotEmpty &&
+      paymentReference.trim().isNotEmpty &&
+      amount.isPositive &&
+      reason.trim().isNotEmpty;
+
+  Map<String, Object?> idempotencyPayload() => {
+    'project_id': projectId.trim(),
+    'invoice_id': invoiceId.trim(),
+    'expected_version': expectedVersion,
+    'original_payment_id': originalPaymentId.trim(),
+    'payment_date': paymentDate.postgresText,
+    'payment_method': paymentMethod.trim(),
+    'payment_reference': paymentReference.trim(),
+    'amount': amount.postgresText,
+    'reason': reason.trim(),
+  };
+}
+
+/// Edits the latest certification. Zero undoes it.
+final class YorksAccountsCertificationCorrectionInput {
+  const YorksAccountsCertificationCorrectionInput({
+    required this.projectId,
+    required this.invoiceId,
+    required this.expectedVersion,
+    required this.certificationReference,
+    required this.certificationDate,
+    required this.certifiedExVat,
+    required this.reason,
+  });
+
+  final String projectId;
+  final String invoiceId;
+  final int expectedVersion;
+  final String certificationReference;
+  final YorksAccountsDate certificationDate;
+  final YorksAccountsDecimal certifiedExVat;
+  final String reason;
+
+  bool get isValid =>
+      projectId.trim().isNotEmpty &&
+      invoiceId.trim().isNotEmpty &&
+      expectedVersion > 0 &&
+      certificationReference.trim().isNotEmpty &&
+      !certifiedExVat.isNegative &&
+      reason.trim().isNotEmpty;
+
+  Map<String, Object?> idempotencyPayload() => {
+    'project_id': projectId.trim(),
+    'invoice_id': invoiceId.trim(),
+    'expected_version': expectedVersion,
+    'certification_reference': certificationReference.trim(),
+    'certification_date': certificationDate.postgresText,
+    'certified_ex_vat': certifiedExVat.postgresText,
+    'reason': reason.trim(),
+  };
+}
+
+/// Edits a cheque's details without changing where it is in its lifecycle.
+final class YorksAccountsPdcEditInput {
+  const YorksAccountsPdcEditInput({
+    required this.projectId,
+    required this.pdcId,
+    required this.expectedVersion,
+    required this.chequeNumber,
+    required this.chequeDate,
+    required this.amount,
+    required this.bankName,
+    required this.reason,
+  });
+
+  final String projectId;
+  final String pdcId;
+  final int expectedVersion;
+  final String chequeNumber;
+  final YorksAccountsDate chequeDate;
+  final YorksAccountsDecimal amount;
+  final String? bankName;
+  final String reason;
+
+  bool get isValid =>
+      projectId.trim().isNotEmpty &&
+      pdcId.trim().isNotEmpty &&
+      expectedVersion > 0 &&
+      chequeNumber.trim().isNotEmpty &&
+      amount.isPositive &&
+      reason.trim().isNotEmpty;
+
+  Map<String, Object?> idempotencyPayload() => {
+    'project_id': projectId.trim(),
+    'pdc_id': pdcId.trim(),
+    'expected_version': expectedVersion,
+    'cheque_number': chequeNumber.trim(),
+    'cheque_date': chequeDate.postgresText,
+    'amount': amount.postgresText,
+    'bank_name': _nullableTrimmed(bankName),
     'reason': reason.trim(),
   };
 }
@@ -441,7 +576,6 @@ final class YorksAccountsPdcTransitionInput {
     if (projectId.trim().isEmpty ||
         pdcId.trim().isEmpty ||
         expectedVersion < 1 ||
-        targetStatus == YorksAccountsPdcStatus.expected ||
         targetStatus == YorksAccountsPdcStatus.replaced) {
       return false;
     }

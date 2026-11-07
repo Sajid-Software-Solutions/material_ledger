@@ -127,7 +127,7 @@ statements previously frozen in R39 docs and are recorded explicitly.
 
 | ID | Decision | Adopted value |
 |---|---|---|
-| D1 | Who may edit Contract | `configure_project_commercials` for Admin, Project Manager, Senior Mechanical Engineer; PE/Accountant read-only unless granted |
+| D1 | Who may edit Contract | `configure_project_commercials` for Admin, Project Manager, Senior Mechanical Engineer, Project Engineer and Accountant (owner decision, 7 Nov 2026; `PRODUCT_DECISIONS.md` section 29) |
 | D2 | Carry progress forward on contract revision | **Yes**, by stable keys (building scope + stage key [+ item key]). Quantity/percent kept; anything that no longer fits is flagged `needs_review`, never silently dropped. **Supersedes the "never carry forward" stance** (that was migration safety, not a business rule) |
 | D3 | Item-quantity billing | Per-stage `measurement_mode`: `percent` (Design, T&C, Energizing) or `items` (Material Supply, Installation) |
 | D4 | Rounding | Round each **building×stage claim line** to fils; invoice gross = Σ lines; VAT on gross. (Yorks' Excel rounds only the total; confirm the fil treatment with the owner against YRA32202R.1.) |
@@ -612,8 +612,8 @@ changes need desktop and 360px evidence. Known unrelated golden drift (see
 | Action | Capability (server) | Default holders |
 |---|---|---|
 | Open Accounts tab | `view_project_accounts` | Accountant (scoped), PE, SE, Admin |
-| See money | `view_project_commercial_values` | Accountant, Admin; PE only if granted |
-| Edit Contract | `configure_project_commercials` | Admin (+ PM/SME per D1) |
+| See money | `view_project_commercial_values` | Accountant, Admin, PE, PM, SME |
+| Edit Contract | `configure_project_commercials` | Admin, PM, SME, PE, Accountant |
 | Suggest progress | `suggest_billing_progress` | SE |
 | Confirm progress | `confirm_billing_progress` | PE |
 | Save claim draft / Mark checked | `prepare_client_claim` + values | PE / PM |

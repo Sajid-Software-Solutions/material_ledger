@@ -841,6 +841,35 @@ final class YorksAccountsInvoicesController
         action: (key) => _repository.reversePayment(input, idempotencyKey: key),
       );
 
+  /// Edits a payment in one step. No optimistic success.
+  Future<String?> correctPayment(YorksAccountsPaymentCorrectionInput input) =>
+      runCommand(
+        operation: 'correct_payment',
+        entityId: input.originalPaymentId,
+        payload: input.idempotencyPayload(),
+        action: (key) => _repository.correctPayment(input, idempotencyKey: key),
+      );
+
+  /// Edits the latest certification; zero undoes it. No optimistic success.
+  Future<String?> correctCertification(
+    YorksAccountsCertificationCorrectionInput input,
+  ) => runCommand(
+    operation: 'correct_certification',
+    entityId: input.invoiceId,
+    payload: input.idempotencyPayload(),
+    action: (key) =>
+        _repository.correctCertification(input, idempotencyKey: key),
+  );
+
+  /// Cancels an invoice once everything on it has been undone.
+  Future<String?> cancelInvoice(YorksAccountsEntityActionInput input) =>
+      runCommand(
+        operation: 'cancel_invoice',
+        entityId: input.entityId,
+        payload: input.idempotencyPayload(),
+        action: (key) => _repository.cancelInvoice(input, idempotencyKey: key),
+      );
+
   /// Records a cheque against an invoice. No optimistic success.
   Future<String?> createPdc(YorksAccountsPdcCreateInput input) => runCommand(
     operation: 'create_pdc',
@@ -993,6 +1022,19 @@ final class YorksAccountsPdcRegisterController
       entityId: input.pdcId,
       payload: input.idempotencyPayload(),
       action: (key) => _receivables.transitionPdc(input, idempotencyKey: key),
+    );
+  }
+
+  /// Edits a cheque's details. No optimistic success.
+  Future<String?> edit(YorksAccountsPdcEditInput input) {
+    if (!input.isValid) {
+      return Future<String?>.value('R39_ACCOUNTS_REASON_REQUIRED');
+    }
+    return runCommand(
+      operation: 'edit_pdc',
+      entityId: input.pdcId,
+      payload: input.idempotencyPayload(),
+      action: (key) => _receivables.updatePdc(input, idempotencyKey: key),
     );
   }
 

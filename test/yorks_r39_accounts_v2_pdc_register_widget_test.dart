@@ -153,6 +153,149 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets(
+      'undoing clearing needs a reason and says the money comes back',
+      (tester) async {
+        _wideSurface(tester);
+        YorksAccountsPdcTransitionInput? captured;
+        await tester.pumpWidget(
+          _wrap(
+            AccountsV2PdcRegisterCard(
+              projectId: 'p1',
+              register: _register([
+                _pdc(status: YorksAccountsPdcStatus.cleared, recordVersion: 4),
+              ]),
+              language: en,
+              canManage: true,
+              onTransition: (i) async {
+                captured = i;
+                return null;
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(t('v2_pdc_update')));
+        await tester.pumpAndSettle();
+        expect(find.text(t('v2_pdc_bounced_after')), findsOneWidget);
+        // A cleared cheque has its clearing undone before its details change.
+        expect(find.text(t('v2_pdc_edit')), findsNothing);
+        await tester.tap(find.text(t('v2_pdc_undo_clearing')));
+        await tester.pumpAndSettle();
+
+        expect(find.text(t('v2_pdc_undo_money_hint')), findsOneWidget);
+        final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
+        expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+        await tester.enterText(find.byType(TextField).last, 'Wrong cheque');
+        await tester.pumpAndSettle();
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+
+        expect(captured!.targetStatus, YorksAccountsPdcStatus.deposited);
+        expect(captured!.reason, 'Wrong cheque');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('a bounced cheque can be re-presented or replaced', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      YorksAccountsPdcTransitionInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2PdcRegisterCard(
+            projectId: 'p1',
+            register: _register([
+              _pdc(
+                status: YorksAccountsPdcStatus.bounced,
+                recordVersion: 3,
+                actionRequired: true,
+              ),
+            ]),
+            language: en,
+            canManage: true,
+            onTransition: (i) async {
+              captured = i;
+              return null;
+            },
+            onReplace: (_) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_pdc_replace')), findsOneWidget);
+      await tester.tap(find.text(t('v2_pdc_represent')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Client asked');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+
+      expect(captured!.targetStatus, YorksAccountsPdcStatus.received);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('edits a cheque, prefilled, and only with a reason', (
+      tester,
+    ) async {
+      _wideSurface(tester);
+      YorksAccountsPdcEditInput? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2PdcRegisterCard(
+            projectId: 'p1',
+            register: _register([
+              _pdc(status: YorksAccountsPdcStatus.received, recordVersion: 2),
+            ]),
+            language: en,
+            canManage: true,
+            onTransition: (_) async => null,
+            onEdit: (i) async {
+              captured = i;
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_pdc_edit')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CHQ-001'), findsWidgets);
+      final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.enterText(find.byType(TextField).last, 'Typed it wrong');
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      expect(captured!.pdcId, 'pdc1');
+      expect(captured!.expectedVersion, 2);
+      expect(captured!.chequeNumber, 'CHQ-001');
+      expect(captured!.amount.postgresText, '52500');
+      expect(captured!.reason, 'Typed it wrong');
+      expect(tester.takeException(), isNull);
+    });
+
+    test('every state but replaced has a way out', () {
+      for (final status in YorksAccountsPdcStatus.values) {
+        final next = _pdc(status: status).nextStatuses;
+        if (status == YorksAccountsPdcStatus.replaced) {
+          expect(next, isEmpty);
+        } else {
+          expect(next, isNotEmpty, reason: status.name);
+        }
+      }
+    });
+
     testWidgets('clearing a cheque requires a clearance reference', (
       tester,
     ) async {
@@ -229,8 +372,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // A bounced cheque offers Replace, not the lifecycle menu.
-      expect(find.text(t('v2_pdc_update')), findsNothing);
+      // A bounced cheque can be replaced from the same menu as its other steps.
+      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_pdc_replace')));
       await tester.pumpAndSettle();
 
