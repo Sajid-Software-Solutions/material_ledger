@@ -11,8 +11,10 @@
 --   2. Run on STAGING first. Confirm it succeeds, walk the app, THEN run the
 --      identical script on PRODUCTION.
 --   3. Do NOT run `supabase db push` or `supabase migration repair` — the live
---      DB has ~30 migrations not in git; leave them alone. This script only
---      ADDS the V2 objects and does not touch them.
+--      DB has ~30 migrations not in git; leave them alone.
+--   4. Run the overlap check in docs/yorks-v1/RELEASE_ACCOUNTS_V2.md. This script
+--      REPLACES 10 existing Accounts functions as well as adding V2 objects, and
+--      would overwrite any change an unknown migration made to them.
 --
 -- SAFETY:
 --   * Additive & idempotent (CREATE ... IF NOT EXISTS / OR REPLACE, ADD COLUMN
