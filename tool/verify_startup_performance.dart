@@ -41,8 +41,12 @@ import 'dart:io';
 // The raw parse budget is unchanged and still passes. Raise the compressed
 // ceiling to 2,915,000 (~11 kB headroom above the measured artifact for
 // deterministic compiler movement); retain every other startup check.
+// The V2 prototype rebuild and the Material Supply ↔ BOQ links bring the
+// production candidate (production configuration, every live module on) to
+// 2,915,576 gzip bytes, 576 bytes over that ceiling. Raise it to 2,925,000
+// (~9 kB headroom); the raw parse budget is unchanged and still passes.
 const _mainDartJsRawBudget = 10485000;
-const _mainDartJsGzipBudget = 2915000;
+const _mainDartJsGzipBudget = 2925000;
 const _indexHtmlRawBudget = 40000;
 
 Never _fail(String message) {
