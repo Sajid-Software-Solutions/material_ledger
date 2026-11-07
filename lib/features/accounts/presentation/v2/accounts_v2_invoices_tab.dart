@@ -1,11 +1,14 @@
-/// R39 Accounts Workspace V2 — Invoices & payments tab (P6, read view).
+/// R39 Accounts Workspace V2 — Invoices & payments tab.
 ///
 /// Shows the client invoice tracker from the existing v1_list_client_invoices
 /// projection: the five KPIs (invoiced incl VAT, certified, received, cheques
 /// in hand, still due) and a per-invoice table (ex/incl VAT, certified, due,
 /// received, balance, status). Monetary content is drawn only with
-/// view_project_commercial_values. The cheque (PDC) register, the invoice
-/// drawer and the certification/payment actions are a later P6 increment.
+/// view_project_commercial_values. Tapping an invoice opens the detail drawer
+/// (certifications, payments with reversal, cheques), and certify / record
+/// payment run from the row. The drawer also offers Revise (R.n) while the
+/// invoice is still revisable — before any certification, net payment or active
+/// PDC (D7); the server re-checks on `v1_revise_client_invoice`.
 library;
 
 import 'package:flutter/material.dart';
@@ -32,6 +35,18 @@ typedef YorksPayAction =
 typedef YorksReversePaymentAction =
     Future<String?> Function(YorksAccountsPaymentReversalInput input);
 
+/// Records a cheque against an invoice; returns null on success or a failure code.
+typedef YorksCreatePdcAction =
+    Future<String?> Function(YorksAccountsPdcCreateInput input);
+
+/// Revises an issued invoice (R.n); returns null on success or an error message.
+typedef YorksReviseInvoiceAction =
+    Future<String?> Function({
+      required String invoiceId,
+      required int expectedVersion,
+      required String reason,
+    });
+
 class AccountsV2InvoicesTab extends StatelessWidget {
   const AccountsV2InvoicesTab({
     super.key,
@@ -40,6 +55,8 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onRevise,
+    this.onCreatePdc,
     this.onPrintInvoice,
     this.onOpenDetail,
     this.trailing,
@@ -54,6 +71,12 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+
+  /// Revises an issued invoice (R.n) from the detail drawer; null hides it.
+  final YorksReviseInvoiceAction? onRevise;
+
+  /// Records a cheque; shown only with manage_pdc.
+  final YorksCreatePdcAction? onCreatePdc;
 
   /// Fetches + renders the invoice PDF and opens the print/preview; returns
   /// null on success or an error message.
@@ -115,6 +138,8 @@ class AccountsV2InvoicesTab extends StatelessWidget {
         onCertify: onCertify,
         onPay: onPay,
         onReversePayment: onReversePayment,
+        onRevise: onRevise,
+        onCreatePdc: projection.capabilities.managePdc ? onCreatePdc : null,
         onPrintInvoice: onPrintInvoice,
         onOpenDetail: onOpenDetail,
       ),
@@ -157,69 +182,86 @@ class _KpiRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final tiles = <Widget>[
       _Kpi(
+        icon: Icons.receipt_long_outlined,
         label: accountsV2Text(language, 'v2_inv_kpi_invoiced'),
         value: format.money(invoiced),
       ),
       _Kpi(
-        label: accountsV2Text(language, 'v2_inv_kpi_certified'),
+        icon: Icons.verified_outlined,
+        label: accountsV2Text(language, 'v2_inv_kpi_certified_excl'),
         value: format.money(certified),
       ),
       _Kpi(
+        icon: Icons.payments_outlined,
         label: accountsV2Text(language, 'v2_kpi_received'),
         value: format.money(received),
         accent: AppColors.success,
       ),
       _Kpi(
+        icon: Icons.account_balance_outlined,
         label: accountsV2Text(language, 'v2_inv_kpi_cheques'),
         value: format.money(cheques),
         accent: AppColors.purple,
       ),
       _Kpi(
+        icon: Icons.schedule_outlined,
         label: accountsV2Text(language, 'v2_inv_kpi_due'),
         value: format.money(due),
         accent: due.isPositive ? AppColors.warning : null,
       ),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final perRow = (constraints.maxWidth / 200).floor().clamp(1, 5);
-        const spacing = AppSpacing.md;
-        final tileWidth =
-            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
-          ],
-        );
-      },
-    );
+    return AccountsV2KpiGrid(tiles: tiles);
   }
 }
 
 class _Kpi extends StatelessWidget {
-  const _Kpi({required this.label, required this.value, this.accent});
+  const _Kpi({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.accent,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
   final Color? accent;
 
   @override
   Widget build(BuildContext context) {
+    final tint = accent ?? AppColors.primary;
     return AccountsV2Card(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: tint),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             value,
             style: AppTypography.titleMedium.copyWith(
@@ -249,6 +291,8 @@ class _TrackerCard extends StatelessWidget {
     this.onCertify,
     this.onPay,
     this.onReversePayment,
+    this.onRevise,
+    this.onCreatePdc,
     this.onPrintInvoice,
     this.onOpenDetail,
   });
@@ -263,13 +307,42 @@ class _TrackerCard extends StatelessWidget {
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksReviseInvoiceAction? onRevise;
+  final YorksCreatePdcAction? onCreatePdc;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
   final Future<YorksAccountsInvoiceDetailProjection?> Function(
     String invoiceId,
   )?
   onOpenDetail;
 
-  bool get _showActions => canCertify || canPay || onPrintInvoice != null;
+  bool get _showActions =>
+      canCertify || canPay || onCreatePdc != null || onPrintInvoice != null;
+
+  /// Mirrors v1_create_client_pdc: open invoices with a certified amount. The
+  /// server re-checks this and the remaining-exposure cap.
+  bool _canRecordCheque(YorksAccountsClientInvoiceSummary inv) =>
+      onCreatePdc != null &&
+      inv.certifiedExVat.isPositive &&
+      !const {
+        YorksAccountsInvoiceStatus.draft,
+        YorksAccountsInvoiceStatus.returned,
+        YorksAccountsInvoiceStatus.cancelled,
+        YorksAccountsInvoiceStatus.paid,
+      }.contains(inv.status);
+
+  Future<void> _recordCheque(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) async {
+    final input = await showDialog<YorksAccountsPdcCreateInput>(
+      context: context,
+      builder: (_) =>
+          _ChequeDialog(projectId: projectId, invoice: inv, language: language),
+    );
+    if (input == null) return;
+    final error = await onCreatePdc!(input);
+    if (context.mounted) await _report(context, error, 'v2_pdc_saved');
+  }
 
   Future<void> _openDetail(
     BuildContext context,
@@ -293,6 +366,7 @@ class _TrackerCard extends StatelessWidget {
         language: language,
         format: format,
         onReversePayment: onReversePayment,
+        onRevise: onRevise,
       ),
     );
   }
@@ -340,7 +414,9 @@ class _TrackerCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }
@@ -376,6 +452,40 @@ class _TrackerCard extends StatelessWidget {
     if (context.mounted) await _report(context, error, 'v2_pay_saved');
   }
 
+  /// What can be done on an invoice now, the next step first. Certifying leads
+  /// until a certified amount exists; afterwards it is a correction.
+  List<_RowAction> _actionsFor(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) {
+    final certifyFirst = !inv.certifiedExVat.isPositive;
+    final certify = _canCertify(inv)
+        ? _RowAction(
+            label: _t(certifyFirst ? 'v2_inv_certify' : 'v2_inv_recertify'),
+            onPressed: () => _certify(context, inv),
+          )
+        : null;
+    return [
+      if (certify != null && certifyFirst) certify,
+      if (_canPay(inv))
+        _RowAction(
+          label: _t('v2_inv_record_payment'),
+          onPressed: () => _pay(context, inv),
+        ),
+      if (_canRecordCheque(inv))
+        _RowAction(
+          label: _t('v2_pdc_add'),
+          onPressed: () => _recordCheque(context, inv),
+        ),
+      if (_canPrint(inv))
+        _RowAction(
+          label: _t('v2_inv_view_print'),
+          onPressed: () => _print(context, inv),
+        ),
+      if (certify != null && !certifyFirst) certify,
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final columns = <DataColumn>[
@@ -401,108 +511,213 @@ class _TrackerCard extends StatelessWidget {
         children: [
           AccountsV2SectionTitle(_t('v2_tab_invoices')),
           const SizedBox(height: AppSpacing.sm),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: AppSpacing.xl,
-              headingRowHeight: 36,
-              dataRowMinHeight: 40,
-              dataRowMaxHeight: 52,
-              columns: columns,
-              rows: [
-                for (final inv in invoices)
-                  DataRow(
-                    cells: [
-                      DataCell(
-                        onOpenDetail == null
-                            ? Text(
-                                inv.invoiceReference,
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              )
-                            : InkWell(
-                                onTap: () => _openDetail(context, inv),
-                                child: Text(
-                                  inv.invoiceReference,
-                                  style: AppTypography.bodyMedium.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w700,
-                                    decoration: TextDecoration.underline,
-                                    decorationColor: AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                      ),
-                      DataCell(Text(inv.submissionDate?.toString() ?? '—')),
-                      if (canValues) ...[
-                        DataCell(
-                          Text(
-                            format.money(inv.claimedExVat, withCurrency: false),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            format.money(inv.totalInclVat, withCurrency: false),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            format.money(
-                              inv.certifiedExVat,
-                              withCurrency: false,
-                            ),
-                          ),
-                        ),
-                      ],
-                      DataCell(_DueCell(inv: inv, language: language)),
-                      if (canValues) ...[
-                        DataCell(
-                          Text(
-                            format.money(
-                              inv.amountPaidTillDate,
-                              withCurrency: false,
-                            ),
-                          ),
-                        ),
-                        DataCell(
-                          Text(format.money(inv.stillDue, withCurrency: false)),
-                        ),
-                      ],
-                      DataCell(
-                        _StatusChip(status: inv.status, language: language),
-                      ),
-                      if (_showActions)
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_canCertify(inv))
-                                TextButton(
-                                  onPressed: () => _certify(context, inv),
-                                  child: Text(_t('v2_inv_certify')),
-                                ),
-                              if (_canPay(inv))
-                                TextButton(
-                                  onPressed: () => _pay(context, inv),
-                                  child: Text(_t('v2_inv_record_payment')),
-                                ),
-                              if (_canPrint(inv))
-                                TextButton(
-                                  onPressed: () => _print(context, inv),
-                                  child: Text(_t('v2_inv_view_print')),
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
+                return Column(
+                  children: [
+                    for (final inv in invoices) _invoiceCard(context, inv),
+                  ],
+                );
+              }
+              return _table(context, columns);
+            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _invoiceCard(
+    BuildContext context,
+    YorksAccountsClientInvoiceSummary inv,
+  ) {
+    final reference = Text(
+      inv.invoiceReference,
+      style: AppTypography.bodyMedium.copyWith(
+        color: onOpenDetail == null ? AppColors.ink : AppColors.primary,
+        fontWeight: FontWeight.w700,
+        decoration: onOpenDetail == null ? null : TextDecoration.underline,
+        decorationColor: AppColors.primary,
+      ),
+    );
+    Widget amount(YorksAccountsDecimal value) => Text(
+      format.money(value),
+      style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+    );
+    return AccountsV2RecordCard(
+      title: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: onOpenDetail == null
+            ? reference
+            : InkWell(
+                onTap: () => _openDetail(context, inv),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: AppSpacing.minTapTarget,
+                  ),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: 1,
+                    child: reference,
+                  ),
+                ),
+              ),
+      ),
+      status: _StatusChip(status: inv.status, language: language),
+      facts: [
+        (_t('v2_inv_col_due'), _DueCell(inv: inv, language: language)),
+        if (canValues) ...[
+          (_t('v2_inv_col_incl'), amount(inv.totalInclVat)),
+          (_t('v2_inv_kpi_certified_excl'), amount(inv.certifiedExVat)),
+          (_t('v2_kpi_received'), amount(inv.amountPaidTillDate)),
+          (_t('v2_inv_col_balance'), amount(inv.stillDue)),
+        ],
+      ],
+      actions: [
+        if (_showActions)
+          _RowActions(
+            moreLabel: _t('v2_inv_more_actions'),
+            actions: _actionsFor(context, inv),
+          ),
+      ],
+    );
+  }
+
+  Widget _table(BuildContext context, List<DataColumn> columns) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: AppSpacing.md,
+            horizontalMargin: AppSpacing.md,
+            headingRowHeight: 36,
+            dataRowMinHeight: 40,
+            dataRowMaxHeight: 52,
+            columns: columns,
+            rows: [
+              for (final inv in invoices)
+                DataRow(
+                  cells: [
+                    DataCell(
+                      onOpenDetail == null
+                          ? Text(
+                              inv.invoiceReference,
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : InkWell(
+                              onTap: () => _openDetail(context, inv),
+                              child: Text(
+                                inv.invoiceReference,
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                    ),
+                    DataCell(Text(inv.submissionDate?.toString() ?? '—')),
+                    if (canValues) ...[
+                      DataCell(
+                        Text(
+                          format.money(inv.claimedExVat, withCurrency: false),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          format.money(inv.totalInclVat, withCurrency: false),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          format.money(inv.certifiedExVat, withCurrency: false),
+                        ),
+                      ),
+                    ],
+                    DataCell(_DueCell(inv: inv, language: language)),
+                    if (canValues) ...[
+                      DataCell(
+                        Text(
+                          format.money(
+                            inv.amountPaidTillDate,
+                            withCurrency: false,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(format.money(inv.stillDue, withCurrency: false)),
+                      ),
+                    ],
+                    DataCell(
+                      _StatusChip(status: inv.status, language: language),
+                    ),
+                    if (_showActions)
+                      DataCell(
+                        _RowActions(
+                          moreLabel: _t('v2_inv_more_actions'),
+                          actions: _actionsFor(context, inv),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RowAction {
+  const _RowAction({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+}
+
+/// The next step as a button and the rest in a menu, so a row's actions stay on
+/// screen however many apply.
+class _RowActions extends StatelessWidget {
+  const _RowActions({required this.moreLabel, required this.actions});
+
+  final String moreLabel;
+  final List<_RowAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actions.isEmpty) return const SizedBox.shrink();
+    final rest = actions.skip(1).toList(growable: false);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: TextButton(
+            onPressed: actions.first.onPressed,
+            child: Text(
+              actions.first.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        if (rest.isNotEmpty)
+          PopupMenuButton<_RowAction>(
+            tooltip: moreLabel,
+            icon: const Icon(Icons.more_vert, size: 18),
+            onSelected: (action) => action.onPressed(),
+            itemBuilder: (_) => [
+              for (final action in rest)
+                PopupMenuItem(value: action, child: Text(action.label)),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -516,8 +731,11 @@ class _DueCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overdue = inv.dueState == YorksAccountsDueState.overdue;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xxs,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           inv.dueDate?.toString() ?? '—',
@@ -525,10 +743,8 @@ class _DueCell extends StatelessWidget {
             color: overdue ? AppColors.error : AppColors.inkSecondary,
           ),
         ),
-        if (overdue) ...[
-          const SizedBox(width: AppSpacing.xs),
+        if (overdue)
           StatusChip.error(accountsV2Text(language, 'v2_inv_overdue')),
-        ],
       ],
     );
   }
@@ -694,10 +910,10 @@ class _CertifyDialogState extends State<_CertifyDialog> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_cert_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -803,10 +1019,10 @@ class _PayDialogState extends State<_PayDialog> {
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_pay_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -861,14 +1077,12 @@ class _DialogField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.numeric = false,
-    this.hint,
     this.onChanged,
   });
 
   final String label;
   final TextEditingController controller;
   final bool numeric;
-  final String? hint;
   final VoidCallback? onChanged;
 
   @override
@@ -881,7 +1095,6 @@ class _DialogField extends StatelessWidget {
       onChanged: onChanged == null ? null : (_) => onChanged!(),
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -897,14 +1110,66 @@ class _InvoiceDetailSheet extends StatelessWidget {
     required this.language,
     required this.format,
     this.onReversePayment,
+    this.onRevise,
   });
 
   final YorksAccountsInvoiceDetailProjection detail;
   final AppLanguage language;
   final AccountsV2Format format;
   final YorksReversePaymentAction? onReversePayment;
+  final YorksReviseInvoiceAction? onRevise;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  /// D7: an issued invoice may be revised (R.n) only before any certification,
+  /// net payment or active PDC. The server re-checks; this only gates the UI.
+  bool get _canRevise {
+    if (onRevise == null) return false;
+    final inv = detail.invoice;
+    final revisableStatus =
+        inv.status == YorksAccountsInvoiceStatus.submitted ||
+        inv.status == YorksAccountsInvoiceStatus.underCertification;
+    if (!revisableStatus) return false;
+    if (detail.certifications.isNotEmpty) return false;
+    if (inv.paidAmount?.isPositive ?? false) return false;
+    final hasActivePdc = detail.pdcs.any(
+      (p) => const {
+        YorksAccountsPdcStatus.expected,
+        YorksAccountsPdcStatus.received,
+        YorksAccountsPdcStatus.deposited,
+      }.contains(p.status),
+    );
+    return !hasActivePdc;
+  }
+
+  Future<void> _revise(BuildContext context) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReviseDialog(language: language),
+    );
+    if (reason == null) return;
+    final error = await onRevise!(
+      invoiceId: detail.invoice.invoiceId,
+      expectedVersion: detail.invoice.recordVersion,
+      reason: reason,
+    );
+    if (!context.mounted) return;
+    if (error == null) {
+      // No optimistic success: close the drawer so the refreshed tracker shows
+      // the predecessor still submitted and the new successor draft claim.
+      Navigator.of(context).pop();
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          error == null
+              ? _t('v2_inv_revised')
+              : accountsV2ErrorText(language, error),
+        ),
+      ),
+    );
+  }
 
   /// Payment ids that already carry a reversal entry — they cannot be reversed
   /// again (the server enforces one reversal per receipt).
@@ -913,6 +1178,15 @@ class _InvoiceDetailSheet extends StatelessWidget {
       if (p.entryKind == YorksAccountsPaymentEntryKind.reversal &&
           p.originalPaymentId != null)
         p.originalPaymentId!,
+  };
+
+  /// Written label for a stored method; anything else keeps its recorded text.
+  String _methodLabel(String method) => switch (method) {
+    'bank_transfer' => _t('v2_pay_method_bank'),
+    'cash' => _t('v2_pay_method_cash'),
+    'PDC' => _t('v2_pay_method_cheque'),
+    'reversal' => _t('v2_pay_reversal'),
+    _ => method,
   };
 
   bool _canReverse(YorksAccountsClientPayment p) =>
@@ -947,7 +1221,9 @@ class _InvoiceDetailSheet extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pay_reversed') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pay_reversed')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );
@@ -984,30 +1260,72 @@ class _InvoiceDetailSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.md),
-            Row(
+            // Wraps on a phone, where three amounts can't share a line unclipped.
+            Wrap(
+              spacing: AppSpacing.xl,
+              runSpacing: AppSpacing.sm,
               children: [
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_total'),
-                    value: format.money(invoice.totalInclVatSnapshot),
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_total'),
+                  value: format.money(invoice.totalInclVatSnapshot),
                 ),
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_received'),
-                    value: format.money(invoice.paidAmount),
-                    accent: AppColors.success,
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_received'),
+                  value: format.money(invoice.paidAmount),
+                  accent: AppColors.success,
                 ),
-                Expanded(
-                  child: _MiniKpi(
-                    label: _t('v2_inv_detail_balance'),
-                    value: format.money(invoice.stillDue),
-                    accent: AppColors.warning,
-                  ),
+                _MiniKpi(
+                  label: _t('v2_inv_detail_balance'),
+                  value: format.money(invoice.stillDue),
+                  accent: invoice.stillDue?.isPositive == true
+                      ? AppColors.warning
+                      : null,
                 ),
               ],
             ),
+            if (invoice.retentionSnapshot?.isPositive == true) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 14,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    _t('v2_inv_detail_retention'),
+                    style: AppTypography.labelMedium.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    format.money(invoice.retentionSnapshot),
+                    style: AppTypography.labelLarge.copyWith(
+                      color: AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_canRevise) ...[
+              const SizedBox(height: AppSpacing.md),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: OutlinedButton.icon(
+                  onPressed: () => _revise(context),
+                  icon: const Icon(Icons.edit_note_outlined, size: 16),
+                  label: Text(_t('v2_inv_revise')),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                _t('v2_inv_revise_hint'),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             _DetailSection(
               title: _t('v2_inv_certifications'),
@@ -1030,7 +1348,7 @@ class _InvoiceDetailSheet extends StatelessWidget {
                   _DetailRow(
                     leading: p.paymentReference,
                     trailing: format.money(p.amount),
-                    sub: '${p.paymentDate} · ${p.paymentMethod}',
+                    sub: '${p.paymentDate} · ${_methodLabel(p.paymentMethod)}',
                     chip: p.entryKind == YorksAccountsPaymentEntryKind.reversal
                         ? StatusChip(
                             label: _t('v2_pay_reversal'),
@@ -1301,10 +1619,10 @@ class _ReversalDialogState extends State<_ReversalDialog> {
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _DialogField(
+          AccountsV2DateField(
             label: _t('v2_pay_reverse_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1328,6 +1646,191 @@ class _ReversalDialogState extends State<_ReversalDialog> {
         ),
         FilledButton(
           onPressed: valid ? () => Navigator.of(context).pop(input) : null,
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Record cheque dialog ────────────────────────────────────────────────────
+
+class _ChequeDialog extends StatefulWidget {
+  const _ChequeDialog({
+    required this.projectId,
+    required this.invoice,
+    required this.language,
+  });
+
+  final String projectId;
+  final YorksAccountsClientInvoiceSummary invoice;
+  final AppLanguage language;
+
+  @override
+  State<_ChequeDialog> createState() => _ChequeDialogState();
+}
+
+class _ChequeDialogState extends State<_ChequeDialog> {
+  final _number = TextEditingController();
+  late final TextEditingController _date;
+  late final TextEditingController _amount;
+  final _bank = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void initState() {
+    super.initState();
+    _date = TextEditingController(text: accountsV2TodayIso());
+    final open = widget.invoice.stillDue - widget.invoice.pdcExposure;
+    _amount = TextEditingController(
+      text: open.isPositive ? open.canonicalText : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_number, _date, _amount, _bank]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  YorksAccountsPdcCreateInput? _build() {
+    final amount = YorksAccountsDecimal.tryParse(_amount.text.trim());
+    final date = YorksAccountsDate.tryParse(_date.text.trim());
+    if (amount == null || date == null) return null;
+    final bank = _bank.text.trim();
+    final input = YorksAccountsPdcCreateInput(
+      projectId: widget.projectId,
+      invoiceId: widget.invoice.invoiceId,
+      expectedVersion: widget.invoice.recordVersion,
+      chequeNumber: _number.text.trim(),
+      chequeDate: date,
+      amount: amount,
+      bankName: bank.isEmpty ? null : bank,
+    );
+    return input.isValid ? input : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _build();
+    return AlertDialog(
+      title: Text(_t('v2_pdc_add_title')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${widget.invoice.invoiceReference} · ${_t('v2_pdc_add_hint')}',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_add_number'),
+              controller: _number,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            AccountsV2DateField(
+              label: _t('v2_pdc_col_cheque_date'),
+              controller: _date,
+              language: widget.language,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_col_amount'),
+              controller: _amount,
+              numeric: true,
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _DialogField(
+              label: _t('v2_pdc_col_bank'),
+              controller: _bank,
+              onChanged: () => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: input == null
+              ? null
+              : () => Navigator.of(context).pop(input),
+          child: Text(_t('v2_confirm')),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Revise (R.n) dialog ─────────────────────────────────────────────────────
+
+/// Captures the required reason for revising an issued invoice (R.n).
+class _ReviseDialog extends StatefulWidget {
+  const _ReviseDialog({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  State<_ReviseDialog> createState() => _ReviseDialogState();
+}
+
+class _ReviseDialogState extends State<_ReviseDialog> {
+  final _reason = TextEditingController();
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _reason.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: Text(_t('v2_inv_revise_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _t('v2_inv_revise_hint'),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _reason,
+            autofocus: true,
+            minLines: 1,
+            maxLines: 3,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: _t('v2_inv_revise_reason'),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2_cancel')),
+        ),
+        FilledButton(
+          onPressed: valid
+              ? () => Navigator.of(context).pop(_reason.text.trim())
+              : null,
           child: Text(_t('v2_confirm')),
         ),
       ],

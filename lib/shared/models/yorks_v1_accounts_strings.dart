@@ -2698,6 +2698,49 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'ادائیگی وصول کریں',
       'hi': 'भुगतान प्राप्त करें',
     },
+    'v2_badge_draft': {
+      'en': 'Draft',
+      'ar': 'مسودة',
+      'ur': 'مسودہ',
+      'hi': 'ड्राफ्ट',
+    },
+    'v2_buildings': {
+      'en': 'buildings',
+      'ar': 'مبانٍ',
+      'ur': 'عمارتیں',
+      'hi': 'इमारतें',
+    },
+    'v2_stages': {'en': 'stages', 'ar': 'مراحل', 'ur': 'مراحل', 'hi': 'चरण'},
+    'v2_in_progress': {
+      'en': 'in progress',
+      'ar': 'قيد التنفيذ',
+      'ur': 'جاری',
+      'hi': 'जारी',
+    },
+    'v2_issued': {
+      'en': 'issued',
+      'ar': 'صادرة',
+      'ur': 'جاری شدہ',
+      'hi': 'जारी',
+    },
+    'v2_latest': {
+      'en': 'latest',
+      'ar': 'الأحدث',
+      'ur': 'تازہ ترین',
+      'hi': 'नवीनतम',
+    },
+    'v2_received_in': {
+      'en': 'in',
+      'ar': 'محصّل',
+      'ur': 'وصول',
+      'hi': 'प्राप्त',
+    },
+    'v2_to_come': {
+      'en': 'to come',
+      'ar': 'المتبقّي',
+      'ur': 'باقی',
+      'hi': 'शेष',
+    },
     'v2_kpi_contract': {
       'en': 'Contract value',
       'ar': 'قيمة العقد',
@@ -2960,18 +3003,6 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'دوبارہ کوشش',
       'hi': 'पुनः प्रयास',
     },
-    'v2_coming_soon': {
-      'en': 'Coming soon',
-      'ar': 'قريباً',
-      'ur': 'جلد آ رہا ہے',
-      'hi': 'जल्द आ रहा है',
-    },
-    'v2_coming_soon_body': {
-      'en': 'This section is being rebuilt and will appear here shortly.',
-      'ar': 'يتم إعادة بناء هذا القسم وسيظهر هنا قريباً.',
-      'ur': 'یہ سیکشن دوبارہ تیار ہو رہا ہے اور جلد یہاں نظر آئے گا۔',
-      'hi': 'यह सेक्शन फिर से बनाया जा रहा है और जल्द यहाँ दिखेगा।',
-    },
     'v2_commercial_hidden': {
       'en': "You don't have access to commercial values on this project.",
       'ar': 'ليس لديك صلاحية الاطلاع على القيم التجارية لهذا المشروع.',
@@ -2991,6 +3022,135 @@ abstract final class YorksV1AccountsStrings {
       'ar': 'العقد',
       'ur': 'کنٹریکٹ',
       'hi': 'कॉन्ट्रैक्ट',
+    },
+    'v2_contract_subtitle': {
+      'en': 'From the work order. Used on every invoice.',
+      'ar': 'من أمر العمل. يُستخدم في كل فاتورة.',
+      'ur': 'ورک آرڈر سے۔ ہر انوائس پر استعمال ہوتا ہے۔',
+      'hi': 'वर्क ऑर्डर से। हर इनवॉइस पर प्रयुक्त।',
+    },
+    'v2_party_client': {
+      'en': 'Client',
+      'ar': 'العميل',
+      'ur': 'کلائنٹ',
+      'hi': 'क्लाइंट',
+    },
+    'v2_party_main_contractor': {
+      'en': 'Main contractor',
+      'ar': 'المقاول الرئيسي',
+      'ur': 'مرکزی ٹھیکیدار',
+      'hi': 'मुख्य ठेकेदार',
+    },
+    'v2_references_title': {
+      'en': 'Contract references',
+      'ar': 'مراجع العقد',
+      'ur': 'کنٹریکٹ حوالہ جات',
+      'hi': 'कॉन्ट्रैक्ट संदर्भ',
+    },
+    'v2_references_empty': {
+      'en': 'No references added yet.',
+      'ar': 'لم تُضف مراجع بعد.',
+      'ur': 'ابھی کوئی حوالہ شامل نہیں۔',
+      'hi': 'अभी कोई संदर्भ नहीं जोड़ा गया।',
+    },
+    'v2_work_order_no': {
+      'en': 'Work order no.',
+      'ar': 'رقم أمر العمل',
+      'ur': 'ورک آرڈر نمبر',
+      'hi': 'वर्क ऑर्डर नं.',
+    },
+    'v2_work_order_date': {
+      'en': 'Work order date',
+      'ar': 'تاريخ أمر العمل',
+      'ur': 'ورک آرڈر تاریخ',
+      'hi': 'वर्क ऑर्डर तिथि',
+    },
+    'v2_contract_no': {
+      'en': 'Contract no.',
+      'ar': 'رقم العقد',
+      'ur': 'کنٹریکٹ نمبر',
+      'hi': 'कॉन्ट्रैक्ट नं.',
+    },
+    'v2_client_trn': {
+      'en': 'Client TRN',
+      'ar': 'الرقم الضريبي للعميل',
+      'ur': 'کلائنٹ TRN',
+      'hi': 'क्लाइंट TRN',
+    },
+    'v2_retention_label': {
+      'en': 'Retention %',
+      'ar': 'نسبة الاحتجاز %',
+      'ur': 'ریٹینشن %',
+      'hi': 'रिटेंशन %',
+    },
+    'v2_variations_title': {
+      'en': 'Variations',
+      'ar': 'التغييرات',
+      'ur': 'ویری ایشنز',
+      'hi': 'वैरिएशन',
+    },
+    'v2_variations_empty': {
+      'en': 'No variations yet.',
+      'ar': 'لا توجد تغييرات بعد.',
+      'ur': 'ابھی کوئی ویری ایشن نہیں۔',
+      'hi': 'अभी कोई वैरिएशन नहीं।',
+    },
+    'v2_add_variation': {
+      'en': 'Add variation',
+      'ar': 'إضافة تغيير',
+      'ur': 'ویری ایشن شامل کریں',
+      'hi': 'वैरिएशन जोड़ें',
+    },
+    'v2_vo_number': {
+      'en': 'VO no.',
+      'ar': 'رقم أمر التغيير',
+      'ur': 'VO نمبر',
+      'hi': 'VO नं.',
+    },
+    'v2_vo_description': {
+      'en': 'Description',
+      'ar': 'الوصف',
+      'ur': 'تفصیل',
+      'hi': 'विवरण',
+    },
+    'v2_vo_amount': {'en': 'Amount', 'ar': 'المبلغ', 'ur': 'رقم', 'hi': 'राशि'},
+    'v2_vo_status': {
+      'en': 'Status',
+      'ar': 'الحالة',
+      'ur': 'اسٹیٹس',
+      'hi': 'स्थिति',
+    },
+    'v2_vo_status_pending': {
+      'en': 'Pending',
+      'ar': 'قيد الانتظار',
+      'ur': 'زیر التوا',
+      'hi': 'लंबित',
+    },
+    'v2_vo_status_approved': {
+      'en': 'Approved',
+      'ar': 'معتمد',
+      'ur': 'منظور شدہ',
+      'hi': 'स्वीकृत',
+    },
+    'v2_vo_status_rejected': {
+      'en': 'Rejected',
+      'ar': 'مرفوض',
+      'ur': 'مسترد',
+      'hi': 'अस्वीकृत',
+    },
+    'v2_contract_edit_note': {
+      'en':
+          'Everything here can be edited. Issued invoices keep their amounts — '
+          'changes apply from the next claim and are recorded in History.',
+      'ar':
+          'كل شيء هنا قابل للتعديل. تحتفظ الفواتير الصادرة بمبالغها — تُطبَّق '
+          'التغييرات من المطالبة التالية وتُسجَّل في السجل.',
+      'ur':
+          'یہاں ہر چیز میں ترمیم ہو سکتی ہے۔ جاری شدہ انوائسز اپنی رقوم برقرار '
+          'رکھتی ہیں — تبدیلیاں اگلے کلیم سے لاگو ہوتی ہیں اور ہسٹری میں درج ہوتی ہیں۔',
+      'hi':
+          'यहाँ सब कुछ संपादित किया जा सकता है। जारी इनवॉइस अपनी राशि रखते हैं — '
+          'परिवर्तन अगले क्लेम से लागू होते हैं और हिस्ट्री में दर्ज होते हैं।',
     },
     'v2_contract_value': {
       'en': 'Contract value (excl. VAT)',
@@ -3189,6 +3349,36 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'مجموعی (بدون VAT)',
       'hi': 'सकल (VAT रहित)',
     },
+    'v2_claim_vat': {
+      'en': 'VAT',
+      'ar': 'ضريبة القيمة المضافة',
+      'ur': 'VAT',
+      'hi': 'VAT',
+    },
+    'v2_claim_net_payable': {
+      'en': 'Net payable (incl. VAT)',
+      'ar': 'صافي المستحق (شامل الضريبة)',
+      'ur': 'قابلِ ادائیگی خالص (بشمول VAT)',
+      'hi': 'देय शुद्ध (VAT सहित)',
+    },
+    'v2_claim_of_contract': {
+      'en': 'This claim · of contract',
+      'ar': 'هذه المطالبة · من العقد',
+      'ur': 'یہ کلیم · کنٹریکٹ کا',
+      'hi': 'यह क्लेम · कॉन्ट्रैक्ट का',
+    },
+    'v2_claim_retention_preview': {
+      'en': 'Retention (preview)',
+      'ar': 'المبلغ المحتجز (معاينة)',
+      'ur': 'روکی گئی رقم (پیش منظر)',
+      'hi': 'रोकी गई राशि (पूर्वावलोकन)',
+    },
+    'v2_claim_net_after_retention': {
+      'en': 'Payable after retention',
+      'ar': 'المستحق بعد الاحتجاز',
+      'ur': 'روکی گئی رقم کے بعد قابلِ ادائیگی',
+      'hi': 'रोक के बाद देय',
+    },
     'v2_col_eligible': {
       'en': 'Eligible',
       'ar': 'المستحق',
@@ -3246,10 +3436,10 @@ abstract final class YorksV1AccountsStrings {
       'hi': 'प्रमाणित',
     },
     'v2_inv_kpi_cheques': {
-      'en': 'Cheques in hand',
-      'ar': 'شيكات في اليد',
-      'ur': 'ہاتھ میں چیکس',
-      'hi': 'हाथ में चेक',
+      'en': 'Cheques not yet cleared',
+      'ar': 'شيكات لم تُحصَّل بعد',
+      'ur': 'چیک جو ابھی کلیئر نہیں ہوئے',
+      'hi': 'चेक जो अभी क्लियर नहीं हुए',
     },
     'v2_inv_kpi_due': {
       'en': 'Still due',
@@ -3401,6 +3591,12 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'غیر ادا',
       'hi': 'अदत्त',
     },
+    'v2_sup_kpi_cost_vs_invoiced': {
+      'en': 'Cost vs invoiced',
+      'ar': 'التكلفة مقابل الفوترة',
+      'ur': 'لاگت بمقابلہ انوائسڈ',
+      'hi': 'लागत बनाम इनवॉइस',
+    },
     'v2_sup_col_bill': {
       'en': 'Bill',
       'ar': 'الفاتورة',
@@ -3537,14 +3733,11 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'فائلیں',
       'hi': 'फाइलें',
     },
-    'v2_files_pending': {
-      'en':
-          'Files attached to invoices and supplier bills will be listed here with their reference.',
-      'ar': 'الملفات المرفقة بالفواتير وفواتير الموردين ستُعرض هنا مع مرجعها.',
-      'ur':
-          'انوائسز اور سپلائر بلز کے ساتھ منسلک فائلیں یہاں ان کے حوالے کے ساتھ دکھائی جائیں گی۔',
-      'hi':
-          'इनवॉइस और सप्लायर बिल से जुड़ी फाइलें यहाँ उनके संदर्भ के साथ दिखेंगी।',
+    'v2_files_empty': {
+      'en': 'No files attached yet.',
+      'ar': 'لا توجد ملفات مرفقة بعد.',
+      'ur': 'ابھی کوئی فائل منسلک نہیں۔',
+      'hi': 'अभी कोई फ़ाइल संलग्न नहीं।',
     },
 
     // ─── Editing (commands) ────────────────────────────────────────────────
@@ -3570,15 +3763,6 @@ abstract final class YorksV1AccountsStrings {
           'محفوظ نہیں ہو سکا۔ آپ کی تبدیلیاں لاگو نہیں ہوئیں — دوبارہ کوشش کریں۔',
       'hi':
           'सहेजा नहीं जा सका। आपके बदलाव लागू नहीं हुए — कृपया पुनः प्रयास करें।',
-    },
-    'v2_edit_items_blocked': {
-      'en':
-          'This contract uses item-quantity stages. Editing those from here is coming soon.',
-      'ar': 'يستخدم هذا العقد مراحل بكميات البنود. تعديلها من هنا قريباً.',
-      'ur':
-          'یہ کنٹریکٹ آئٹم مقدار اسٹیجز استعمال کرتا ہے۔ انہیں یہاں سے ترمیم جلد آ رہی ہے۔',
-      'hi':
-          'यह कॉन्ट्रैक्ट आइटम-मात्रा स्टेज उपयोग करता है। उन्हें यहाँ से संपादित करना जल्द आ रहा है।',
     },
     'v2_edit_note': {
       'en':
@@ -3700,6 +3884,40 @@ abstract final class YorksV1AccountsStrings {
       'ur': 'دیکھیں / پرنٹ',
       'hi': 'देखें / प्रिंट',
     },
+    'v2_inv_revise': {
+      'en': 'Revise (R.n)',
+      'ar': 'مراجعة (R.n)',
+      'ur': 'نظرِ ثانی (R.n)',
+      'hi': 'संशोधन (R.n)',
+    },
+    'v2_inv_revise_title': {
+      'en': 'Revise invoice',
+      'ar': 'مراجعة الفاتورة',
+      'ur': 'انوائس پر نظرِ ثانی',
+      'hi': 'इनवॉइस संशोधित करें',
+    },
+    'v2_inv_revise_hint': {
+      'en':
+          'Creates a successor draft claim. The current invoice stays submitted until the revision is issued.',
+      'ar':
+          'يُنشئ مطالبة مسودة لاحقة. تبقى الفاتورة الحالية مُقدَّمة حتى تصدر المراجعة.',
+      'ur':
+          'ایک متبادل مسودہ کلیم بناتا ہے۔ موجودہ انوائس اُس وقت تک جمع شدہ رہتی ہے جب تک نظرِ ثانی جاری نہ ہو۔',
+      'hi':
+          'एक उत्तरवर्ती ड्राफ्ट क्लेम बनाता है। वर्तमान इनवॉइस संशोधन जारी होने तक सबमिटेड रहती है।',
+    },
+    'v2_inv_revise_reason': {
+      'en': 'Reason for revision',
+      'ar': 'سبب المراجعة',
+      'ur': 'نظرِ ثانی کی وجہ',
+      'hi': 'संशोधन का कारण',
+    },
+    'v2_inv_revised': {
+      'en': 'Revision started',
+      'ar': 'بدأت المراجعة',
+      'ur': 'نظرِ ثانی شروع ہو گئی',
+      'hi': 'संशोधन शुरू हुआ',
+    },
     'v2_inv_pdf_failed': {
       'en': "Couldn't open the invoice PDF — please try again.",
       'ar': 'تعذّر فتح ملف الفاتورة — يرجى المحاولة مرة أخرى.',
@@ -3723,6 +3941,12 @@ abstract final class YorksV1AccountsStrings {
       'ar': 'الرصيد',
       'ur': 'بیلنس',
       'hi': 'शेष',
+    },
+    'v2_inv_detail_retention': {
+      'en': 'Retention held',
+      'ar': 'المبلغ المحتجز',
+      'ur': 'روکی گئی رقم',
+      'hi': 'रोकी गई राशि',
     },
     'v2_inv_certifications': {
       'en': 'Certifications',
@@ -4112,19 +4336,12 @@ abstract final class YorksV1AccountsStrings {
       'hi': 'वृद्धि दर्ज करने के लिए कम से कम एक दस्तावेज़ संलग्न करें।',
     },
     'v2_evidence_none_available': {
-      'en': 'No documents available to attach.',
-      'ar': 'لا توجد مستندات متاحة للإرفاق.',
-      'ur': 'منسلک کرنے کے لیے کوئی دستاویز دستیاب نہیں۔',
-      'hi': 'संलग्न करने के लिए कोई दस्तावेज़ उपलब्ध नहीं।',
-    },
-    'v2_progress_items_readonly': {
-      'en':
-          'Item-quantity stages are recorded in the full workbench (coming soon).',
-      'ar': 'مراحل كميات البنود تُسجَّل في مساحة العمل الكاملة (قريباً).',
+      'en': 'No documents on this project yet. Upload one to attach it.',
+      'ar': 'لا توجد مستندات في هذا المشروع بعد. ارفع مستنداً لإرفاقه.',
       'ur':
-          'آئٹم مقدار اسٹیجز مکمل ورک بینچ میں ریکارڈ ہوتے ہیں (جلد آ رہا ہے)۔',
+          'اس پروجیکٹ میں ابھی کوئی دستاویز نہیں۔ منسلک کرنے کے لیے ایک اپ لوڈ کریں۔',
       'hi':
-          'आइटम-मात्रा स्टेज पूर्ण वर्कबेंच में दर्ज होते हैं (जल्द आ रहा है)।',
+          'इस प्रोजेक्ट में अभी कोई दस्तावेज़ नहीं है। संलग्न करने के लिए एक अपलोड करें।',
     },
     'v2_progress_no_percent_cells': {
       'en': 'No lump-sum stages to record here.',
@@ -4149,6 +4366,945 @@ abstract final class YorksV1AccountsStrings {
       'ar': 'محدد',
       'ur': 'منتخب',
       'hi': 'चयनित',
+    },
+    'v2_max': {
+      'en': 'Max',
+      'ar': 'الحد الأقصى',
+      'ur': 'زیادہ سے زیادہ',
+      'hi': 'अधिकतम',
+    },
+    'v2_progress_changes': {
+      'en': 'Pending changes',
+      'ar': 'تغييرات معلقة',
+      'ur': 'زیر التواء تبدیلیاں',
+      'hi': 'लंबित परिवर्तन',
+    },
+    'v2_import_master': {
+      'en': 'Import Master File',
+      'ar': 'استيراد الملف الرئيسي',
+      'ur': 'ماسٹر فائل درآمد کریں',
+      'hi': 'मास्टर फ़ाइल आयात करें',
+    },
+    'v2_close': {
+      'en': 'Close',
+      'ar': 'إغلاق',
+      'ur': 'بند کریں',
+      'hi': 'बंद करें',
+    },
+    'v2_import_preview_title': {
+      'en': 'Import preview',
+      'ar': 'معاينة الاستيراد',
+      'ur': 'درآمد کا پیش منظر',
+      'hi': 'आयात पूर्वावलोकन',
+    },
+    'v2_import_file_value': {
+      'en': 'In workbook',
+      'ar': 'في الملف',
+      'ur': 'فائل میں',
+      'hi': 'वर्कबुक में',
+    },
+    'v2_import_items': {
+      'en': 'items',
+      'ar': 'بنود',
+      'ur': 'آئٹمز',
+      'hi': 'आइटम',
+    },
+    'v2_import_no_items': {
+      'en': 'No items found in the workbook.',
+      'ar': 'لم يتم العثور على بنود في الملف.',
+      'ur': 'فائل میں کوئی آئٹم نہیں ملا۔',
+      'hi': 'वर्कबुक में कोई आइटम नहीं मिला।',
+    },
+    'v2_import_failed': {
+      'en':
+          "Couldn't read that workbook — check it's the Project Master File (.xlsx).",
+      'ar': 'تعذّر قراءة الملف — تأكد أنه الملف الرئيسي للمشروع (.xlsx).',
+      'ur':
+          'فائل نہیں پڑھی جا سکی — یقینی بنائیں کہ یہ پروجیکٹ ماسٹر فائل (.xlsx) ہے۔',
+      'hi':
+          'वह वर्कबुक नहीं पढ़ी जा सकी — जाँचें कि यह प्रोजेक्ट मास्टर फ़ाइल (.xlsx) है।',
+    },
+    'v2_err_conflict': {
+      'en':
+          "Someone else changed this just now. The latest values are on screen — please check them and try again.",
+      'ar':
+          "قام شخص آخر بتغيير هذا للتو. أحدث القيم معروضة الآن — يرجى التحقق منها والمحاولة مرة أخرى.",
+      'ur':
+          "کسی اور نے ابھی اسے تبدیل کیا ہے۔ تازہ ترین اقدار اسکرین پر ہیں — براہ کرم جانچ کر دوبارہ کوشش کریں۔",
+      'hi':
+          "किसी और ने अभी इसे बदला है। नवीनतम मान स्क्रीन पर हैं — कृपया जाँचकर पुनः प्रयास करें।",
+    },
+    'v2_err_denied': {
+      'en':
+          "You don't have permission to do this. Ask an administrator if you need access.",
+      'ar':
+          "ليس لديك إذن للقيام بذلك. اطلب من المسؤول إذا كنت بحاجة إلى الوصول.",
+      'ur':
+          "آپ کو یہ کرنے کی اجازت نہیں ہے۔ رسائی درکار ہو تو منتظم سے رابطہ کریں۔",
+      'hi':
+          "आपको यह करने की अनुमति नहीं है। पहुँच चाहिए तो व्यवस्थापक से कहें।",
+    },
+    'v2_err_over_due': {
+      'en':
+          "That amount is more than what is still due on this invoice or bill.",
+      'ar': "هذا المبلغ أكبر مما تبقى مستحقاً على هذه الفاتورة.",
+      'ur': "یہ رقم اس انوائس یا بل پر باقی واجب الادا رقم سے زیادہ ہے۔",
+      'hi': "यह राशि इस इनवॉइस या बिल पर शेष देय राशि से अधिक है।",
+    },
+    'v2_err_over_claim': {
+      'en': "That is more than can be claimed for this stage and building.",
+      'ar': "هذا أكثر مما يمكن المطالبة به لهذه المرحلة والمبنى.",
+      'ur': "یہ اس مرحلے اور عمارت کے لیے قابلِ دعویٰ رقم سے زیادہ ہے۔",
+      'hi': "यह इस चरण और भवन के लिए दावा योग्य राशि से अधिक है।",
+    },
+    'v2_err_duplicate': {
+      'en':
+          "That reference number is already used in this project. Please use a different one.",
+      'ar':
+          "رقم المرجع هذا مستخدم بالفعل في هذا المشروع. يرجى استخدام رقم آخر.",
+      'ur':
+          "یہ حوالہ نمبر اس پروجیکٹ میں پہلے سے استعمال ہو چکا ہے۔ براہ کرم دوسرا استعمال کریں۔",
+      'hi':
+          "यह संदर्भ संख्या इस प्रोजेक्ट में पहले से उपयोग में है। कृपया दूसरी उपयोग करें।",
+    },
+    'v2_err_settings_required': {
+      'en':
+          "Set the invoice prefix on the Contract tab first, or type an invoice number here.",
+      'ar':
+          "عيّن بادئة الفاتورة في تبويب العقد أولاً، أو اكتب رقم الفاتورة هنا.",
+      'ur':
+          "پہلے کنٹریکٹ ٹیب پر انوائس پری فکس سیٹ کریں، یا یہاں انوائس نمبر لکھیں۔",
+      'hi':
+          "पहले अनुबंध टैब पर इनवॉइस उपसर्ग सेट करें, या यहाँ इनवॉइस संख्या लिखें।",
+    },
+    'v2_err_not_revisable': {
+      'en':
+          "This invoice can no longer be revised because it has a certification, payment or active cheque.",
+      'ar':
+          "لم يعد من الممكن مراجعة هذه الفاتورة لوجود اعتماد أو دفعة أو شيك نشط.",
+      'ur':
+          "اس انوائس پر اب نظرِ ثانی نہیں ہو سکتی کیونکہ اس پر تصدیق، ادائیگی یا فعال چیک موجود ہے۔",
+      'hi':
+          "इस इनवॉइस में प्रमाणन, भुगतान या सक्रिय चेक होने के कारण अब संशोधन नहीं हो सकता।",
+    },
+    'v2_err_revision_open': {
+      'en':
+          "A revision of this invoice is already open. Finish or remove it first.",
+      'ar': "توجد مراجعة مفتوحة لهذه الفاتورة بالفعل. أكملها أو احذفها أولاً.",
+      'ur':
+          "اس انوائس کی نظرِ ثانی پہلے سے کھلی ہے۔ پہلے اسے مکمل کریں یا ہٹائیں۔",
+      'hi': "इस इनवॉइस का संशोधन पहले से खुला है। पहले उसे पूरा करें या हटाएँ।",
+    },
+    'v2_err_evidence': {
+      'en': "Attach at least one supporting document for this increase.",
+      'ar': "أرفق مستنداً داعماً واحداً على الأقل لهذه الزيادة.",
+      'ur': "اس اضافے کے لیے کم از کم ایک معاون دستاویز منسلک کریں۔",
+      'hi': "इस वृद्धि के लिए कम से कम एक सहायक दस्तावेज़ संलग्न करें।",
+    },
+    'v2_err_stage_items': {
+      'en':
+          "The item weights must add up to the stage's share for each building. Please check them.",
+      'ar':
+          "يجب أن يساوي مجموع أوزان البنود حصة المرحلة لكل مبنى. يرجى التحقق منها.",
+      'ur':
+          "آئٹم کے وزن کا مجموعہ ہر عمارت کے لیے مرحلے کے حصے کے برابر ہونا چاہیے۔ براہ کرم جانچیں۔",
+      'hi':
+          "आइटम भार का योग प्रत्येक भवन के लिए चरण के हिस्से के बराबर होना चाहिए। कृपया जाँचें।",
+    },
+    'v2_err_allocations': {
+      'en': "Building and stage shares must each add up to 100%.",
+      'ar': "يجب أن يساوي مجموع حصص المباني والمراحل 100% لكل منهما.",
+      'ur': "عمارتوں اور مراحل کے حصوں کا مجموعہ الگ الگ 100% ہونا چاہیے۔",
+      'hi': "भवन और चरण के हिस्सों का योग अलग-अलग 100% होना चाहिए।",
+    },
+    'v2_err_supplier_document': {
+      'en': "This bill needs its supplier invoice document attached first.",
+      'ar': "تحتاج هذه الفاتورة إلى إرفاق مستند فاتورة المورد أولاً.",
+      'ur': "اس بل کے لیے پہلے سپلائر انوائس کی دستاویز منسلک کریں۔",
+      'hi': "इस बिल के लिए पहले आपूर्तिकर्ता इनवॉइस दस्तावेज़ संलग्न करें।",
+    },
+    'v2_err_not_matched': {
+      'en':
+          "This bill can't be approved until its PO, delivery and invoice match, or a reason is recorded.",
+      'ar':
+          "لا يمكن اعتماد هذه الفاتورة حتى تتطابق أمر الشراء والتسليم والفاتورة أو يُسجَّل سبب.",
+      'ur':
+          "یہ بل منظور نہیں ہو سکتا جب تک PO، ڈیلیوری اور انوائس میل نہ کھائیں یا وجہ درج نہ ہو۔",
+      'hi':
+          "PO, डिलीवरी और इनवॉइस मिलने या कारण दर्ज होने तक यह बिल स्वीकृत नहीं हो सकता।",
+    },
+    'v2_err_below_claimed': {
+      'en':
+          "Progress can't go below what has already been claimed for this stage.",
+      'ar': "لا يمكن أن يقل التقدم عما تمت المطالبة به بالفعل لهذه المرحلة.",
+      'ur':
+          "پیشرفت اس مرحلے کے لیے پہلے سے دعویٰ شدہ مقدار سے کم نہیں ہو سکتی۔",
+      'hi':
+          "प्रगति इस चरण के लिए पहले से दावा की गई मात्रा से कम नहीं हो सकती।",
+    },
+    'v2_err_state': {
+      'en':
+          "This record has moved on and can't take that action any more. The latest status is on screen.",
+      'ar':
+          "انتقل هذا السجل إلى حالة أخرى ولا يمكن تنفيذ هذا الإجراء. أحدث حالة معروضة الآن.",
+      'ur':
+          "یہ ریکارڈ آگے بڑھ چکا ہے اور اب یہ عمل نہیں ہو سکتا۔ تازہ ترین حالت اسکرین پر ہے۔",
+      'hi':
+          "यह रिकॉर्ड आगे बढ़ चुका है और अब यह कार्रवाई नहीं हो सकती। नवीनतम स्थिति स्क्रीन पर है।",
+    },
+    'v2_err_invalid': {
+      'en':
+          "Some of the details aren't valid. Please check the values and try again.",
+      'ar': "بعض التفاصيل غير صالحة. يرجى التحقق من القيم والمحاولة مرة أخرى.",
+      'ur':
+          "کچھ تفصیلات درست نہیں ہیں۔ براہ کرم اقدار جانچ کر دوبارہ کوشش کریں۔",
+      'hi': "कुछ विवरण मान्य नहीं हैं। कृपया मान जाँचकर पुनः प्रयास करें।",
+    },
+    'v2_err_offline': {
+      'en':
+          "Couldn't reach the server. Nothing was saved — please check your connection and try again.",
+      'ar':
+          "تعذّر الوصول إلى الخادم. لم يُحفظ شيء — يرجى التحقق من الاتصال والمحاولة مرة أخرى.",
+      'ur':
+          "سرور تک رسائی نہیں ہو سکی۔ کچھ محفوظ نہیں ہوا — کنکشن جانچ کر دوبارہ کوشش کریں۔",
+      'hi':
+          "सर्वर तक नहीं पहुँच सके। कुछ सहेजा नहीं गया — कृपया कनेक्शन जाँचकर पुनः प्रयास करें।",
+    },
+    'v2_edit_items_blocked': {
+      'en':
+          "This contract's item lists differ between buildings, so it can't be edited here. Contact an administrator to align them.",
+      'ar':
+          "تختلف قوائم بنود هذا العقد بين المباني، لذا لا يمكن تعديله هنا. اتصل بالمسؤول لتوحيدها.",
+      'ur':
+          "اس کنٹریکٹ کی آئٹم فہرستیں عمارتوں میں مختلف ہیں، اس لیے یہاں ترمیم نہیں ہو سکتی۔ انہیں یکساں کرنے کے لیے منتظم سے رابطہ کریں۔",
+      'hi':
+          "इस अनुबंध की आइटम सूचियाँ भवनों में भिन्न हैं, इसलिए इसे यहाँ संपादित नहीं किया जा सकता। उन्हें एक समान करने के लिए व्यवस्थापक से संपर्क करें।",
+    },
+    'v2_first_title': {
+      'en': "Set up this project's contract",
+      'ar': "إعداد عقد هذا المشروع",
+      'ur': "اس پروجیکٹ کا کنٹریکٹ ترتیب دیں",
+      'hi': "इस प्रोजेक्ट का अनुबंध सेट करें",
+    },
+    'v2_first_body': {
+      'en':
+          "Enter the contract value, how it splits across buildings and billing stages. Progress, claims and invoices all start from here.",
+      'ar':
+          "أدخل قيمة العقد وكيفية توزيعها على المباني ومراحل الفوترة. يبدأ التقدم والمطالبات والفواتير من هنا.",
+      'ur':
+          "کنٹریکٹ کی قیمت درج کریں اور یہ کہ وہ عمارتوں اور بلنگ مراحل میں کیسے تقسیم ہوتی ہے۔ پیشرفت، کلیم اور انوائس سب یہیں سے شروع ہوتے ہیں۔",
+      'hi':
+          "अनुबंध मूल्य दर्ज करें और यह भवनों व बिलिंग चरणों में कैसे बँटता है। प्रगति, दावे और इनवॉइस यहीं से शुरू होते हैं।",
+    },
+    'v2_first_start': {
+      'en': "Set up contract",
+      'ar': "إعداد العقد",
+      'ur': "کنٹریکٹ ترتیب دیں",
+      'hi': "अनुबंध सेट करें",
+    },
+    'v2_first_no_access': {
+      'en':
+          "This project's contract hasn't been set up yet. Ask someone who manages project commercials to set it up.",
+      'ar':
+          "لم يتم إعداد عقد هذا المشروع بعد. اطلب من مسؤول الشؤون التجارية للمشروع إعداده.",
+      'ur':
+          "اس پروجیکٹ کا کنٹریکٹ ابھی ترتیب نہیں دیا گیا۔ پروجیکٹ کے کمرشل امور دیکھنے والے سے کہیں۔",
+      'hi':
+          "इस प्रोजेक्ट का अनुबंध अभी सेट नहीं हुआ है। प्रोजेक्ट के वाणिज्यिक मामले देखने वाले से कहें।",
+    },
+    'v2_first_no_buildings': {
+      'en':
+          "Add the project's buildings first, then come back to set up the contract.",
+      'ar': "أضف مباني المشروع أولاً، ثم عد لإعداد العقد.",
+      'ur':
+          "پہلے پروجیکٹ کی عمارتیں شامل کریں، پھر کنٹریکٹ ترتیب دینے کے لیے واپس آئیں۔",
+      'hi': "पहले प्रोजेक्ट के भवन जोड़ें, फिर अनुबंध सेट करने के लिए लौटें।",
+    },
+    'v2_split_evenly': {
+      'en': "Split evenly",
+      'ar': "تقسيم بالتساوي",
+      'ur': "برابر تقسیم کریں",
+      'hi': "समान रूप से बाँटें",
+    },
+    'v2_stages_standard': {
+      'en': "Use Yorks standard",
+      'ar': "استخدام معيار يوركس",
+      'ur': "یارکس معیار استعمال کریں",
+      'hi': "यॉर्क्स मानक उपयोग करें",
+    },
+    'v2_stage_add': {
+      'en': "Add stage",
+      'ar': "إضافة مرحلة",
+      'ur': "مرحلہ شامل کریں",
+      'hi': "चरण जोड़ें",
+    },
+    'v2_stage_name': {
+      'en': "Stage name",
+      'ar': "اسم المرحلة",
+      'ur': "مرحلے کا نام",
+      'hi': "चरण का नाम",
+    },
+    'v2_stage_by_items': {
+      'en': "Bill by item quantities",
+      'ar': "الفوترة حسب كميات البنود",
+      'ur': "آئٹم مقدار کے حساب سے بل",
+      'hi': "आइटम मात्रा के अनुसार बिल",
+    },
+    'v2_item_add': {
+      'en': "Add item",
+      'ar': "إضافة بند",
+      'ur': "آئٹم شامل کریں",
+      'hi': "आइटम जोड़ें",
+    },
+    'v2_remove': {'en': "Remove", 'ar': "إزالة", 'ur': "ہٹائیں", 'hi': "हटाएँ"},
+    'v2_items_same_note': {
+      'en':
+          "The same item list applies to every building. Weight is the % of the total contract per building.",
+      'ar':
+          "تنطبق قائمة البنود نفسها على كل مبنى. الوزن هو نسبة العقد الإجمالي لكل مبنى.",
+      'ur':
+          "ایک ہی آئٹم فہرست ہر عمارت پر لاگو ہوتی ہے۔ وزن فی عمارت کل کنٹریکٹ کا فیصد ہے۔",
+      'hi':
+          "एक ही आइटम सूची हर भवन पर लागू होती है। भार प्रति भवन कुल अनुबंध का % है।",
+    },
+    'v2_check_item_weights': {
+      'en': "item weights",
+      'ar': "أوزان البنود",
+      'ur': "آئٹم کے وزن",
+      'hi': "आइटम भार",
+    },
+    'v2_check_items_equal_buildings': {
+      'en': "Item stages need every building to have the same share",
+      'ar': "تتطلب مراحل البنود أن يكون لكل مبنى الحصة نفسها",
+      'ur': "آئٹم مراحل کے لیے ہر عمارت کا حصہ یکساں ہونا ضروری ہے",
+      'hi': "आइटम चरणों के लिए हर भवन का हिस्सा समान होना चाहिए",
+    },
+    'v2_check_vat': {
+      'en': "VAT rate",
+      'ar': "معدل ضريبة القيمة المضافة",
+      'ur': "VAT کی شرح",
+      'hi': "VAT दर",
+    },
+    'v2_invoice_numbering_empty': {
+      'en':
+          "No invoice numbering yet. Set a prefix so invoice numbers are generated automatically.",
+      'ar':
+          "لا يوجد ترقيم للفواتير بعد. عيّن بادئة لإنشاء أرقام الفواتير تلقائياً.",
+      'ur':
+          "ابھی انوائس نمبرنگ نہیں ہے۔ پری فکس سیٹ کریں تاکہ انوائس نمبر خودکار بنیں۔",
+      'hi':
+          "अभी इनवॉइस क्रमांकन नहीं है। उपसर्ग सेट करें ताकि इनवॉइस संख्या स्वतः बने।",
+    },
+    'v2_invoice_prefix_label': {
+      'en': "Invoice prefix",
+      'ar': "بادئة الفاتورة",
+      'ur': "انوائس پری فکس",
+      'hi': "इनवॉइस उपसर्ग",
+    },
+    'v2_import_review_note': {
+      'en':
+          "Saving creates a new contract revision. Confirmed progress carries forward, and issued invoices keep their amounts.",
+      'ar':
+          "يؤدي الحفظ إلى إنشاء مراجعة جديدة للعقد. يُرحَّل التقدم المؤكد وتحتفظ الفواتير الصادرة بمبالغها.",
+      'ur':
+          "محفوظ کرنے سے کنٹریکٹ کی نئی نظرِ ثانی بنتی ہے۔ تصدیق شدہ پیشرفت آگے منتقل ہوتی ہے اور جاری انوائس کی رقم برقرار رہتی ہے۔",
+      'hi':
+          "सहेजने से अनुबंध का नया संशोधन बनता है। पुष्ट प्रगति आगे जाती है और जारी इनवॉइस की राशि बनी रहती है।",
+    },
+    'v2_import_use_workbook': {
+      'en': "Use workbook value",
+      'ar': "استخدام قيمة الملف",
+      'ur': "فائل کی قیمت استعمال کریں",
+      'hi': "वर्कबुक का मान उपयोग करें",
+    },
+    'v2_import_default_unit': {
+      'en': "Unit for items with none",
+      'ar': "وحدة للبنود التي بلا وحدة",
+      'ur': "بغیر یونٹ والے آئٹمز کے لیے یونٹ",
+      'hi': "बिना इकाई वाले आइटम की इकाई",
+    },
+    'v2_import_confirm': {
+      'en': "Import and save",
+      'ar': "استيراد وحفظ",
+      'ur': "درآمد کریں اور محفوظ کریں",
+      'hi': "आयात करें और सहेजें",
+    },
+    'v2_import_saved': {
+      'en': "Contract updated from the workbook",
+      'ar': "تم تحديث العقد من الملف",
+      'ur': "فائل سے کنٹریکٹ اپ ڈیٹ ہو گیا",
+      'hi': "वर्कबुक से अनुबंध अपडेट हुआ",
+    },
+    'v2_import_blocked': {
+      'en':
+          "Fix the problems marked below in the workbook, then import it again.",
+      'ar': "أصلح المشكلات المحددة أدناه في الملف، ثم استورده مرة أخرى.",
+      'ur': "نیچے نشان زد مسائل فائل میں درست کریں، پھر دوبارہ درآمد کریں۔",
+      'hi': "नीचे चिह्नित समस्याएँ वर्कबुक में ठीक करें, फिर दोबारा आयात करें।",
+    },
+    'v2_import_issue_summary_missing': {
+      'en':
+          "No summary sheet was found, so this doesn't look like a Project Master File.",
+      'ar':
+          "لم يتم العثور على ورقة ملخص، لذا لا يبدو هذا ملفاً رئيسياً للمشروع.",
+      'ur': "کوئی خلاصہ شیٹ نہیں ملی، اس لیے یہ پروجیکٹ ماسٹر فائل نہیں لگتی۔",
+      'hi':
+          "कोई सारांश शीट नहीं मिली, इसलिए यह प्रोजेक्ट मास्टर फ़ाइल नहीं लगती।",
+    },
+    'v2_import_issue_summary_unreadable': {
+      'en':
+          "The summary sheet doesn't list buildings and stages in the expected layout.",
+      'ar': "لا تعرض ورقة الملخص المباني والمراحل بالتنسيق المتوقع.",
+      'ur': "خلاصہ شیٹ میں عمارتیں اور مراحل متوقع ترتیب میں نہیں ہیں۔",
+      'hi': "सारांश शीट में भवन और चरण अपेक्षित प्रारूप में नहीं हैं।",
+    },
+    'v2_import_issue_building_code_missing': {
+      'en': "Building \"{building}\" has no code in brackets, like (DF3W).",
+      'ar': "المبنى \"{building}\" ليس له رمز بين قوسين مثل (DF3W).",
+      'ur': "عمارت \"{building}\" کا بریکٹ میں کوڈ نہیں، جیسے (DF3W)۔",
+      'hi': "भवन \"{building}\" का कोष्ठक में कोड नहीं है, जैसे (DF3W)।",
+    },
+    'v2_import_issue_building_unmatched': {
+      'en':
+          "Building \"{building}\" doesn't match any building on this project.",
+      'ar': "المبنى \"{building}\" لا يطابق أي مبنى في هذا المشروع.",
+      'ur': "عمارت \"{building}\" اس پروجیکٹ کی کسی عمارت سے نہیں ملتی۔",
+      'hi': "भवन \"{building}\" इस प्रोजेक्ट के किसी भवन से मेल नहीं खाता।",
+    },
+    'v2_import_issue_stage_unmapped': {
+      'en': "\"{stage}\" isn't a billing stage this import recognises.",
+      'ar': "\"{stage}\" ليست مرحلة فوترة يتعرف عليها هذا الاستيراد.",
+      'ur': "\"{stage}\" ایسا بلنگ مرحلہ نہیں جسے یہ درآمد پہچانتی ہو۔",
+      'hi': "\"{stage}\" ऐसा बिलिंग चरण नहीं जिसे यह आयात पहचानता हो।",
+    },
+    'v2_import_issue_stage_items_missing': {
+      'en': "No items were found for {stage}.",
+      'ar': "لم يتم العثور على بنود لـ {stage}.",
+      'ur': "{stage} کے لیے کوئی آئٹم نہیں ملا۔",
+      'hi': "{stage} के लिए कोई आइटम नहीं मिला।",
+    },
+    'v2_import_issue_contract_value_mismatch': {
+      'en':
+          "The workbook says {file}, but this project's contract is {current}. Check which is right before saving.",
+      'ar':
+          "يذكر الملف {file}، لكن عقد هذا المشروع {current}. تحقق من الصحيح قبل الحفظ.",
+      'ur':
+          "فائل میں {file} ہے لیکن اس پروجیکٹ کا کنٹریکٹ {current} ہے۔ محفوظ کرنے سے پہلے درست قیمت جانچیں۔",
+      'hi':
+          "वर्कबुक में {file} है, पर इस प्रोजेक्ट का अनुबंध {current} है। सहेजने से पहले सही मान जाँचें।",
+    },
+    'v2_import_issue_building_value_inconsistent': {
+      'en':
+          "In the workbook, {building} states {stated} while the workbook total is {total}.",
+      'ar':
+          "في الملف، يذكر {building} القيمة {stated} بينما إجمالي الملف {total}.",
+      'ur':
+          "فائل میں {building} پر {stated} درج ہے جبکہ فائل کا کل {total} ہے۔",
+      'hi':
+          "वर्कबुक में {building} पर {stated} है जबकि वर्कबुक का कुल {total} है।",
+    },
+    'v2_import_issue_item_units_missing': {
+      'en':
+          "This workbook has no units column. Choose a unit below; you can change any item later.",
+      'ar':
+          "لا يحتوي هذا الملف على عمود وحدات. اختر وحدة أدناه؛ يمكنك تغيير أي بند لاحقاً.",
+      'ur':
+          "اس فائل میں یونٹ کا کالم نہیں۔ نیچے یونٹ منتخب کریں؛ بعد میں کوئی بھی آئٹم بدل سکتے ہیں۔",
+      'hi':
+          "इस वर्कबुक में इकाई कॉलम नहीं है। नीचे इकाई चुनें; बाद में कोई भी आइटम बदल सकते हैं।",
+    },
+    'v2_import_issue_item_without_weight': {
+      'en': "{item} ({building}) has no weight and no weighted sub-items.",
+      'ar': "{item} ({building}) ليس له وزن ولا بنود فرعية موزونة.",
+      'ur': "{item} ({building}) کا نہ وزن ہے نہ وزن والے ذیلی آئٹم۔",
+      'hi': "{item} ({building}) का न भार है न भार वाले उप-आइटम।",
+    },
+    'v2_import_issue_item_unreadable': {
+      'en': "The quantity or weight of {item} ({building}) couldn't be read.",
+      'ar': "تعذّرت قراءة كمية أو وزن {item} ({building}).",
+      'ur': "{item} ({building}) کی مقدار یا وزن نہیں پڑھا جا سکا۔",
+      'hi': "{item} ({building}) की मात्रा या भार नहीं पढ़ा जा सका।",
+    },
+    'v2_import_issue_item_weights_mismatch': {
+      'en':
+          "Item weights for {building} add up to {have}, but the stage share is {need}.",
+      'ar': "مجموع أوزان بنود {building} هو {have}، لكن حصة المرحلة {need}.",
+      'ur':
+          "{building} کے آئٹم وزن کا مجموعہ {have} ہے لیکن مرحلے کا حصہ {need} ہے۔",
+      'hi':
+          "{building} के आइटम भार का योग {have} है, पर चरण का हिस्सा {need} है।",
+    },
+    'v2_import_issue_item_sets_differ': {
+      'en':
+          "{building} has different items from the other buildings, and one list applies to all of them.",
+      'ar':
+          "يحتوي {building} على بنود مختلفة عن المباني الأخرى، وتنطبق قائمة واحدة عليها جميعاً.",
+      'ur':
+          "{building} کے آئٹم دوسری عمارتوں سے مختلف ہیں، جبکہ ایک ہی فہرست سب پر لاگو ہوتی ہے۔",
+      'hi':
+          "{building} के आइटम अन्य भवनों से भिन्न हैं, जबकि एक ही सूची सब पर लागू होती है।",
+    },
+    'v2_import_issue_item_number_duplicate': {
+      'en': "An item number is repeated in {building}.",
+      'ar': "يتكرر رقم بند في {building}.",
+      'ur': "{building} میں ایک آئٹم نمبر دہرایا گیا ہے۔",
+      'hi': "{building} में एक आइटम संख्या दोहराई गई है।",
+    },
+    'v2_import_issue_item_building_unknown': {
+      'en':
+          "Items were found for \"{building}\", which isn't in the summary sheet.",
+      'ar':
+          "تم العثور على بنود لـ \"{building}\"، وهو غير موجود في ورقة الملخص.",
+      'ur': "\"{building}\" کے آئٹم ملے، جو خلاصہ شیٹ میں نہیں۔",
+      'hi': "\"{building}\" के आइटम मिले, जो सारांश शीट में नहीं है।",
+    },
+    'v2_pdc_add': {
+      'en': "Record cheque",
+      'ar': "تسجيل شيك",
+      'ur': "چیک درج کریں",
+      'hi': "चेक दर्ज करें",
+    },
+    'v2_pdc_add_title': {
+      'en': "Record a cheque",
+      'ar': "تسجيل شيك",
+      'ur': "ایک چیک درج کریں",
+      'hi': "एक चेक दर्ज करें",
+    },
+    'v2_pdc_add_number': {
+      'en': "Cheque number",
+      'ar': "رقم الشيك",
+      'ur': "چیک نمبر",
+      'hi': "चेक संख्या",
+    },
+    'v2_pdc_add_hint': {
+      'en':
+          "A cheque reduces the amount due only when it clears. It needs a certified amount first.",
+      'ar':
+          "يخفض الشيك المبلغ المستحق فقط عند تحصيله. ويتطلب مبلغاً معتمداً أولاً.",
+      'ur':
+          "چیک واجب الادا رقم صرف کلیئر ہونے پر کم کرتا ہے۔ اس کے لیے پہلے تصدیق شدہ رقم درکار ہے۔",
+      'hi':
+          "चेक देय राशि केवल क्लियर होने पर घटाता है। इसके लिए पहले प्रमाणित राशि चाहिए।",
+    },
+    'v2_pick_date': {
+      'en': "Pick a date",
+      'ar': "اختر تاريخاً",
+      'ur': "تاریخ منتخب کریں",
+      'hi': "तारीख चुनें",
+    },
+    'v2_sup_add_bill': {
+      'en': "Add bill",
+      'ar': "إضافة فاتورة",
+      'ur': "بل شامل کریں",
+      'hi': "बिल जोड़ें",
+    },
+    'v2_sup_open_bill': {
+      'en': "Details",
+      'ar': "التفاصيل",
+      'ur': "تفصیلات",
+      'hi': "विवरण",
+    },
+    'v2_claim_preview': {
+      'en': "Preview invoice",
+      'ar': "معاينة الفاتورة",
+      'ur': "انوائس کا پیش منظر",
+      'hi': "इनवॉइस पूर्वावलोकन",
+    },
+    'v2_cell_update_progress': {
+      'en': "Update progress",
+      'ar': "تحديث التقدم",
+      'ur': "پیشرفت اپ ڈیٹ کریں",
+      'hi': "प्रगति अपडेट करें",
+    },
+    'v2_evidence_upload': {
+      'en': "Upload document",
+      'ar': "رفع مستند",
+      'ur': "دستاویز اپ لوڈ کریں",
+      'hi': "दस्तावेज़ अपलोड करें",
+    },
+    'v2_evidence_upload_failed': {
+      'en': "Couldn't upload that file. Please try again.",
+      'ar': "تعذّر رفع هذا الملف. يرجى المحاولة مرة أخرى.",
+      'ur': "یہ فائل اپ لوڈ نہیں ہو سکی۔ براہ کرم دوبارہ کوشش کریں۔",
+      'hi': "वह फ़ाइल अपलोड नहीं हो सकी। कृपया पुनः प्रयास करें।",
+    },
+    'v2_all_projects': {
+      'en': "All projects",
+      'ar': "كل المشاريع",
+      'ur': "تمام پروجیکٹس",
+      'hi': "सभी प्रोजेक्ट",
+    },
+    'v2_inv_more_actions': {
+      'en': "More actions",
+      'ar': "إجراءات أخرى",
+      'ur': "مزید اقدامات",
+      'hi': "और कार्रवाइयाँ",
+    },
+    'v2_inv_recertify': {
+      'en': "Correct certification",
+      'ar': "تصحيح الاعتماد",
+      'ur': "تصدیق درست کریں",
+      'hi': "प्रमाणन सुधारें",
+    },
+    'v2_inv_kpi_certified_excl': {
+      'en': "Certified (excl. VAT)",
+      'ar': "المعتمد (بدون الضريبة)",
+      'ur': "تصدیق شدہ (VAT کے بغیر)",
+      'hi': "प्रमाणित (VAT के बिना)",
+    },
+    'v2_att_claim_draft': {
+      'en': "A claim is waiting to be checked",
+      'ar': "مطالبة بانتظار المراجعة",
+      'ur': "ایک کلیم جانچ کا منتظر ہے",
+      'hi': "एक दावा जाँच की प्रतीक्षा में है",
+    },
+    'v2_ev_baseline': {
+      'en': "Contract set up",
+      'ar': "تم إعداد العقد",
+      'ur': "معاہدہ ترتیب دیا گیا",
+      'hi': "अनुबंध स्थापित किया गया",
+    },
+    'v2_ev_baseline_revised': {
+      'en': "Contract changed",
+      'ar': "تم تعديل العقد",
+      'ur': "معاہدہ تبدیل کیا گیا",
+      'hi': "अनुबंध बदला गया",
+    },
+    'v2_ev_progress': {
+      'en': "Progress confirmed",
+      'ar': "تم تأكيد التقدم",
+      'ur': "پیش رفت کی تصدیق ہوئی",
+      'hi': "प्रगति की पुष्टि हुई",
+    },
+    'v2_ev_progress_imported': {
+      'en': "Progress imported",
+      'ar': "تم استيراد التقدم",
+      'ur': "پیش رفت درآمد کی گئی",
+      'hi': "प्रगति आयात की गई",
+    },
+    'v2_ev_import': {
+      'en': "Master file imported",
+      'ar': "تم استيراد الملف الرئيسي",
+      'ur': "ماسٹر فائل درآمد کی گئی",
+      'hi': "मास्टर फ़ाइल आयात की गई",
+    },
+    'v2_ev_claim_created': {
+      'en': "Claim started",
+      'ar': "بدأت المطالبة",
+      'ur': "کلیم شروع ہوا",
+      'hi': "दावा शुरू हुआ",
+    },
+    'v2_ev_claim_updated': {
+      'en': "Claim changed",
+      'ar': "تم تعديل المطالبة",
+      'ur': "کلیم تبدیل ہوا",
+      'hi': "दावा बदला गया",
+    },
+    'v2_ev_claim_ready': {
+      'en': "Claim checked and sent to Accounts",
+      'ar': "تمت مراجعة المطالبة وإرسالها إلى الحسابات",
+      'ur': "کلیم جانچ کر اکاؤنٹس کو بھیجا گیا",
+      'hi': "दावा जाँचकर लेखा को भेजा गया",
+    },
+    'v2_ev_claim_reopened': {
+      'en': "Claim sent back to draft",
+      'ar': "أعيدت المطالبة إلى المسودة",
+      'ur': "کلیم مسودے میں واپس بھیجا گیا",
+      'hi': "दावा मसौदे में वापस भेजा गया",
+    },
+    'v2_ev_claim_cancelled': {
+      'en': "Claim cancelled",
+      'ar': "أُلغيت المطالبة",
+      'ur': "کلیم منسوخ ہوا",
+      'hi': "दावा रद्द किया गया",
+    },
+    'v2_ev_claim_deleted': {
+      'en': "Claim draft removed",
+      'ar': "حُذفت مسودة المطالبة",
+      'ur': "کلیم کا مسودہ ہٹایا گیا",
+      'hi': "दावे का मसौदा हटाया गया",
+    },
+    'v2_ev_invoice_draft': {
+      'en': "Invoice prepared",
+      'ar': "تم إعداد الفاتورة",
+      'ur': "انوائس تیار کی گئی",
+      'hi': "चालान तैयार किया गया",
+    },
+    'v2_ev_invoice_draft_updated': {
+      'en': "Invoice draft changed",
+      'ar': "تم تعديل مسودة الفاتورة",
+      'ur': "انوائس کا مسودہ تبدیل ہوا",
+      'hi': "चालान का मसौदा बदला गया",
+    },
+    'v2_ev_invoice_issued': {
+      'en': "Invoice issued",
+      'ar': "صدرت الفاتورة",
+      'ur': "انوائس جاری کی گئی",
+      'hi': "चालान जारी किया गया",
+    },
+    'v2_ev_invoice_under_cert': {
+      'en': "Invoice under certification",
+      'ar': "الفاتورة قيد الاعتماد",
+      'ur': "انوائس زیر تصدیق ہے",
+      'hi': "चालान प्रमाणन में है",
+    },
+    'v2_ev_invoice_returned': {
+      'en': "Invoice returned by the client",
+      'ar': "أعاد العميل الفاتورة",
+      'ur': "کلائنٹ نے انوائس واپس کی",
+      'hi': "ग्राहक ने चालान लौटाया",
+    },
+    'v2_ev_invoice_cancelled': {
+      'en': "Invoice cancelled",
+      'ar': "أُلغيت الفاتورة",
+      'ur': "انوائس منسوخ ہوئی",
+      'hi': "चालान रद्द किया गया",
+    },
+    'v2_ev_invoice_revising': {
+      'en': "Invoice revision started",
+      'ar': "بدأت مراجعة الفاتورة",
+      'ur': "انوائس کی نظرثانی شروع ہوئی",
+      'hi': "चालान का संशोधन शुरू हुआ",
+    },
+    'v2_ev_invoice_superseded': {
+      'en': "Invoice replaced by a revision",
+      'ar': "حلت مراجعة محل الفاتورة",
+      'ur': "نظرثانی نے انوائس کی جگہ لی",
+      'hi': "संशोधन ने चालान की जगह ली",
+    },
+    'v2_ev_certified': {
+      'en': "Certification recorded",
+      'ar': "تم تسجيل الاعتماد",
+      'ur': "تصدیق درج ہوئی",
+      'hi': "प्रमाणन दर्ज किया गया",
+    },
+    'v2_ev_payment': {
+      'en': "Payment recorded",
+      'ar': "تم تسجيل الدفعة",
+      'ur': "ادائیگی درج ہوئی",
+      'hi': "भुगतान दर्ज किया गया",
+    },
+    'v2_ev_payment_reversed': {
+      'en': "Payment reversed",
+      'ar': "تم عكس الدفعة",
+      'ur': "ادائیگی واپس ہوئی",
+      'hi': "भुगतान वापस किया गया",
+    },
+    'v2_ev_cheque_added': {
+      'en': "Cheque recorded",
+      'ar': "تم تسجيل الشيك",
+      'ur': "چیک درج ہوا",
+      'hi': "चेक दर्ज किया गया",
+    },
+    'v2_ev_cheque_received': {
+      'en': "Cheque in hand",
+      'ar': "الشيك في اليد",
+      'ur': "چیک موصول ہوا",
+      'hi': "चेक प्राप्त हुआ",
+    },
+    'v2_ev_cheque_deposited': {
+      'en': "Cheque deposited",
+      'ar': "تم إيداع الشيك",
+      'ur': "چیک جمع کرایا گیا",
+      'hi': "चेक जमा किया गया",
+    },
+    'v2_ev_cheque_cleared': {
+      'en': "Cheque cleared",
+      'ar': "تم تحصيل الشيك",
+      'ur': "چیک کلیئر ہوا",
+      'hi': "चेक क्लियर हुआ",
+    },
+    'v2_ev_cheque_returned': {
+      'en': "Cheque returned",
+      'ar': "أُعيد الشيك",
+      'ur': "چیک واپس ہوا",
+      'hi': "चेक लौटाया गया",
+    },
+    'v2_ev_cheque_bounced': {
+      'en': "Cheque bounced",
+      'ar': "ارتد الشيك",
+      'ur': "چیک باؤنس ہوا",
+      'hi': "चेक बाउंस हुआ",
+    },
+    'v2_ev_cheque_cancelled': {
+      'en': "Cheque cancelled",
+      'ar': "أُلغي الشيك",
+      'ur': "چیک منسوخ ہوا",
+      'hi': "चेक रद्द किया गया",
+    },
+    'v2_ev_cheque_replaced': {
+      'en': "Cheque replaced",
+      'ar': "تم استبدال الشيك",
+      'ur': "چیک تبدیل ہوا",
+      'hi': "चेक बदला गया",
+    },
+    'v2_ev_bill_created': {
+      'en': "Supplier bill added",
+      'ar': "أضيفت فاتورة مورد",
+      'ur': "سپلائر بل شامل ہوا",
+      'hi': "आपूर्तिकर्ता बिल जोड़ा गया",
+    },
+    'v2_ev_bill_updated': {
+      'en': "Supplier bill changed",
+      'ar': "تم تعديل فاتورة المورد",
+      'ur': "سپلائر بل تبدیل ہوا",
+      'hi': "आपूर्तिकर्ता बिल बदला गया",
+    },
+    'v2_ev_bill_approved': {
+      'en': "Supplier bill approved",
+      'ar': "تمت الموافقة على فاتورة المورد",
+      'ur': "سپلائر بل منظور ہوا",
+      'hi': "आपूर्तिकर्ता बिल स्वीकृत हुआ",
+    },
+    'v2_ev_bill_cancelled': {
+      'en': "Supplier bill cancelled",
+      'ar': "أُلغيت فاتورة المورد",
+      'ur': "سپلائر بل منسوخ ہوا",
+      'hi': "आपूर्तिकर्ता बिल रद्द हुआ",
+    },
+    'v2_ev_bill_paid': {
+      'en': "Supplier payment recorded",
+      'ar': "تم تسجيل دفعة المورد",
+      'ur': "سپلائر کی ادائیگی درج ہوئی",
+      'hi': "आपूर्तिकर्ता भुगतान दर्ज हुआ",
+    },
+    'v2_ev_bill_payment_reversed': {
+      'en': "Supplier payment reversed",
+      'ar': "تم عكس دفعة المورد",
+      'ur': "سپلائر کی ادائیگی واپس ہوئی",
+      'hi': "आपूर्तिकर्ता भुगतान वापस हुआ",
+    },
+    'v2_ev_document': {
+      'en': "File added",
+      'ar': "أضيف ملف",
+      'ur': "فائل شامل ہوئی",
+      'hi': "फ़ाइल जोड़ी गई",
+    },
+    'v2_ev_export': {
+      'en': "Report exported",
+      'ar': "تم تصدير التقرير",
+      'ur': "رپورٹ برآمد ہوئی",
+      'hi': "रिपोर्ट निर्यात की गई",
+    },
+    'v2_files_add': {
+      'en': "Add file",
+      'ar': "إضافة ملف",
+      'ur': "فائل شامل کریں",
+      'hi': "फ़ाइल जोड़ें",
+    },
+    'v2_files_download': {
+      'en': "Download",
+      'ar': "تنزيل",
+      'ur': "ڈاؤن لوڈ",
+      'hi': "डाउनलोड",
+    },
+    'v2_files_saved': {
+      'en': "File saved",
+      'ar': "تم حفظ الملف",
+      'ur': "فائل محفوظ ہوئی",
+      'hi': "फ़ाइल सहेजी गई",
+    },
+    'v2_files_failed': {
+      'en': "That file could not be saved. Please try again.",
+      'ar': "تعذر حفظ الملف. حاول مرة أخرى.",
+      'ur': "فائل محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔",
+      'hi': "फ़ाइल सहेजी नहीं जा सकी। फिर से प्रयास करें।",
+    },
+    'v2_money_flow_note': {
+      'en': "All amounts exclude VAT",
+      'ar': "جميع المبالغ بدون ضريبة القيمة المضافة",
+      'ur': "تمام رقوم VAT کے بغیر ہیں",
+      'hi': "सभी राशियाँ VAT के बिना हैं",
+    },
+    'v2_sup_pick_none': {
+      'en': "Not linked yet",
+      'ar': "غير مرتبط بعد",
+      'ur': "ابھی منسلک نہیں",
+      'hi': "अभी जुड़ा नहीं",
+    },
+    'v2_sup_pick_document': {
+      'en': "Document",
+      'ar': "مستند",
+      'ur': "دستاویز",
+      'hi': "दस्तावेज़",
+    },
+    'v2_sup_pick_delivery': {
+      'en': "Confirmed delivery",
+      'ar': "تسليم مؤكد",
+      'ur': "تصدیق شدہ ترسیل",
+      'hi': "पुष्ट डिलीवरी",
+    },
+    'v2_sup_no_deliveries': {
+      'en': "No confirmed delivery on this project yet.",
+      'ar': "لا يوجد تسليم مؤكد في هذا المشروع بعد.",
+      'ur': "اس پروجیکٹ پر ابھی کوئی تصدیق شدہ ترسیل نہیں۔",
+      'hi': "इस परियोजना पर अभी कोई पुष्ट डिलीवरी नहीं।",
+    },
+    'v2_sup_add_document': {
+      'en': "Add a file",
+      'ar': "إضافة ملف",
+      'ur': "فائل شامل کریں",
+      'hi': "फ़ाइल जोड़ें",
+    },
+    'v2_sup_due_before': {
+      'en': "The due date can't be before the bill date.",
+      'ar': "لا يمكن أن يسبق تاريخ الاستحقاق تاريخ الفاتورة.",
+      'ur': "واجب الادا تاریخ بل کی تاریخ سے پہلے نہیں ہو سکتی۔",
+      'hi': "देय तिथि बिल की तिथि से पहले नहीं हो सकती।",
+    },
+    'v2_sup_linked': {
+      'en': "Linked",
+      'ar': "مرتبط",
+      'ur': "منسلک",
+      'hi': "जुड़ा हुआ",
+    },
+    'v2_pay_method_cheque': {
+      'en': "Cheque",
+      'ar': "شيك",
+      'ur': "چیک",
+      'hi': "चेक",
+    },
+    'v2_sup_save_first': {
+      'en': "Save the draft first, then you can add a new file here.",
+      'ar': "احفظ المسودة أولاً، ثم يمكنك إضافة ملف جديد هنا.",
+      'ur': "پہلے مسودہ محفوظ کریں، پھر یہاں نئی فائل شامل کر سکتے ہیں۔",
+      'hi': "पहले मसौदा सहेजें, फिर यहाँ नई फ़ाइल जोड़ सकते हैं।",
+    },
+    'v2_sup_po_needs_reference': {
+      'en': "File linked; add the PO / LPO reference",
+      'ar': "الملف مرتبط؛ أضف مرجع أمر الشراء",
+      'ur': "فائل منسلک ہے؛ PO / LPO حوالہ شامل کریں",
+      'hi': "फ़ाइल जुड़ी है; PO / LPO संदर्भ जोड़ें",
+    },
+    'v2_sup_po_needs_file': {
+      'en': "add the PO / LPO file",
+      'ar': "أضف ملف أمر الشراء",
+      'ur': "PO / LPO فائل شامل کریں",
+      'hi': "PO / LPO फ़ाइल जोड़ें",
+    },
+    'v2_cell_suggested': {
+      'en': "Suggested",
+      'ar': "مقترح",
+      'ur': "تجویز کردہ",
+      'hi': "सुझाया गया",
+    },
+    'v2_cell_use_suggestion': {
+      'en': "Use this",
+      'ar': "استخدم هذا",
+      'ur': "یہ استعمال کریں",
+      'hi': "यह उपयोग करें",
+    },
+    'v2_cell_saved': {
+      'en': "Progress update saved",
+      'ar': "تم حفظ تحديث التقدم",
+      'ur': "پیش رفت کی تازہ کاری محفوظ ہوئی",
+      'hi': "प्रगति अपडेट सहेजा गया",
+    },
+    'v2_att_progress_suggested': {
+      'en': "Site progress is waiting for your confirmation",
+      'ar': "تقدم الموقع بانتظار تأكيدك",
+      'ur': "سائٹ کی پیش رفت آپ کی تصدیق کی منتظر ہے",
+      'hi': "साइट की प्रगति आपकी पुष्टि की प्रतीक्षा में है",
     },
   };
 

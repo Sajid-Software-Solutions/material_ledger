@@ -14,15 +14,19 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart'
     show sharedPreferencesProvider;
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../../shared/services/yorks_v1_critical_command_key_store.dart';
 import '../../data/accounts_receivables_repository.dart';
 import '../../data/accounts_records_repository.dart';
+import '../../data/accounts_repository.dart' show YorksAccountsRepository;
 import '../../data/accounts_supplier_repository.dart';
 import '../../data/v2/accounts_workspace_repository.dart';
 import '../../data/v2/client_invoice_document_builder.dart';
+import '../../domain/accounts_models.dart'
+    show YorksAccountsBaselineProjection, YorksAccountsProgressProjection;
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
@@ -30,7 +34,9 @@ import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
+import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_providers.dart';
@@ -53,6 +59,12 @@ YorksV1CriticalCommandKeyStore _commandKeys(Ref ref) =>
       preferences: ref.watch(sharedPreferencesProvider),
       actorAuthUserId: ref.watch(yorksV1AuthUserIdProvider) ?? '',
     );
+
+/// The reason a command failed: the server's own code when it sent one (read by
+/// `accountsV2ErrorText`), otherwise the domain category.
+String _commandFailureCode(Object error) => error is YorksV1DomainException
+    ? (error.serverMessage ?? error.code.name)
+    : YorksV1DomainErrorCode.serverRejected.name;
 
 /// Shared command runner for the editable V2 controllers. It wraps a critical
 /// command in a persisted idempotency lease (so a retry after an ambiguous
@@ -88,7 +100,7 @@ mixin _AccountsCommandRunner<T> on StateNotifier<AsyncValue<T>> {
       // Keep the lease (a retry reuses the key) and re-fetch so a conflict
       // leaves the current server state on screen, not the stale projection.
       await refresh();
-      return error.toString();
+      return _commandFailureCode(error);
     }
   }
 }
@@ -242,7 +254,99 @@ final class YorksAccountsContractController
       },
     );
   }
+
+  /// Saves invoice numbering. No optimistic success; re-fetches on confirmation.
+  Future<String?> saveInvoiceSettings({
+    required String invoicePrefix,
+    String? scopeLine,
+    String? attentionName,
+    String? billToPartyId,
+    int? expectedVersion,
+  }) {
+    return runCommand(
+      operation: 'save_invoice_settings',
+      entityId: _projectId,
+      payload: {
+        'prefix': invoicePrefix,
+        'scope_line': scopeLine,
+        'attention': attentionName,
+        'bill_to': billToPartyId,
+        'version': expectedVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveInvoiceSettings(
+          projectId: _projectId,
+          invoicePrefix: invoicePrefix,
+          scopeLine: scopeLine,
+          attentionName: attentionName,
+          billToPartyId: billToPartyId,
+          expectedVersion: expectedVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
+
+  /// Saves the editable contract references (TRN, work order, contract no) on
+  /// the profile. No optimistic success; re-fetches on confirmation.
+  Future<String?> saveReferences({
+    String? clientTrn,
+    String? workOrderNumber,
+    String? workOrderDate,
+    String? contractNumber,
+    String? retentionPercent,
+    int? expectedProfileVersion,
+  }) {
+    return runCommand(
+      operation: 'save_contract_references',
+      entityId: _projectId,
+      payload: {
+        'client_trn': clientTrn,
+        'work_order_number': workOrderNumber,
+        'work_order_date': workOrderDate,
+        'contract_number': contractNumber,
+        'retention_percent': retentionPercent,
+        'version': expectedProfileVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveContractReferences(
+          projectId: _projectId,
+          clientTrn: clientTrn,
+          workOrderNumber: workOrderNumber,
+          workOrderDate: workOrderDate,
+          contractNumber: contractNumber,
+          retentionPercent: retentionPercent,
+          expectedVersion: expectedProfileVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
 }
+
+/// The project's physical buildings and the default stage template, which a
+/// first contract needs because the setup read has none until a baseline exists.
+/// An unavailable read yields empty lists; the screen then explains what's needed.
+final yorksAccountsContractOptionsProvider = FutureProvider.autoDispose
+    .family<YorksAccountsBaselineProjection?, String>((ref, projectId) async {
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      try {
+        return await ref
+            .watch(yorksAccountsRepositoryProvider)
+            .getBaseline(projectId);
+      } catch (_) {
+        return null;
+      }
+    });
 
 final yorksAccountsContractControllerProvider = StateNotifierProvider
     .autoDispose
@@ -268,10 +372,12 @@ final class YorksAccountsWorkbenchController
   YorksAccountsWorkbenchController({
     required YorksAccountsWorkspaceRepository? repository,
     required YorksAccountsReceivablesRepository receivablesRepository,
+    required YorksAccountsRepository progressRepository,
     required this.commandKeys,
     required String projectId,
   }) : _repository = repository,
        _receivables = receivablesRepository,
+       _progress = progressRepository,
        _projectId = projectId,
        super(const AsyncValue.loading()) {
     load();
@@ -279,9 +385,15 @@ final class YorksAccountsWorkbenchController
 
   final YorksAccountsWorkspaceRepository? _repository;
   final YorksAccountsReceivablesRepository _receivables;
+  final YorksAccountsRepository _progress;
   @override
   final YorksV1CriticalCommandKeyStore commandKeys;
   final String _projectId;
+
+  /// The claim the workbench is viewing. `null` is the open draft (the default
+  /// v1_get_claim_workbench behaviour); a value loads that historical claim.
+  String? _activeClaimId;
+  String? get activeClaimId => _activeClaimId;
 
   @override
   Future<void> load() async {
@@ -291,6 +403,13 @@ final class YorksAccountsWorkbenchController
 
   @override
   Future<void> refresh() => _fetch();
+
+  /// Switches the workbench to a specific claim (or back to the open draft when
+  /// `claimId` is null) and reloads it.
+  Future<void> selectClaim(String? claimId) {
+    _activeClaimId = claimId;
+    return load();
+  }
 
   Future<void> _fetch() async {
     final repository = _repository;
@@ -303,7 +422,10 @@ final class YorksAccountsWorkbenchController
       return;
     }
     try {
-      final workbench = await repository.getClaimWorkbench(_projectId);
+      final workbench = await repository.getClaimWorkbench(
+        _projectId,
+        claimId: _activeClaimId,
+      );
       if (!mounted) return;
       state = AsyncValue<YorksAccountsWorkbench>.data(workbench);
     } catch (error, stackTrace) {
@@ -396,6 +518,28 @@ final class YorksAccountsWorkbenchController
     },
   );
 
+  /// The progress projection behind the single-cell update sheet. Pure read.
+  Future<YorksAccountsProgressProjection?> fetchProgress() async {
+    try {
+      return await _progress.listProgress(_projectId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Renders the invoice a checked claim would produce, without issuing it. Pure
+  /// read; returns null if the backend is unavailable or the render fails.
+  Future<Uint8List?> buildInvoicePreview(String claimId) async {
+    final repository = _repository;
+    if (repository == null) return null;
+    try {
+      final doc = await repository.previewInvoiceDocument(_projectId, claimId);
+      return await YorksClientInvoiceDocumentBuilder.build(doc.document);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Issues the client invoice for a checked claim (allocates the number,
   /// submits and freezes the document snapshot server-side). No optimistic
   /// success; re-fetches on confirmation. The persisted idempotency lease means
@@ -446,6 +590,174 @@ final yorksAccountsWorkbenchControllerProvider = StateNotifierProvider
         receivablesRepository: ref.watch(
           yorksAccountsReceivablesRepositoryProvider,
         ),
+        progressRepository: ref.watch(yorksAccountsRepositoryProvider),
+        commandKeys: _commandKeys(ref),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the project's claims (newest first) for the Progress & claims
+/// claim-cards row, reusing the commercial-gated v1_list_client_claims. Read
+/// only; an access-denied error simply yields no cards row in the UI.
+final class YorksAccountsClaimsListController
+    extends StateNotifier<AsyncValue<YorksAccountsClaimsList>> {
+  YorksAccountsClaimsListController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  final String _projectId;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsClaimsList>.loading();
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final list = await repository.getClaimsList(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.data(list);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsClaimsList>.error(error, stackTrace);
+    }
+  }
+
+  Future<void> refresh() => load();
+}
+
+final yorksAccountsClaimsListControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsClaimsListController,
+      AsyncValue<YorksAccountsClaimsList>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsClaimsListController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the contract variations (VO register) and creates/edits them. The
+/// register is display-only (no contract-value side effects).
+final class YorksAccountsVariationsController
+    extends StateNotifier<AsyncValue<YorksAccountsVariationsList>>
+    with _AccountsCommandRunner<YorksAccountsVariationsList> {
+  YorksAccountsVariationsController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required this.commandKeys,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  @override
+  final YorksV1CriticalCommandKeyStore commandKeys;
+  final String _projectId;
+
+  @override
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsVariationsList>.loading();
+    await _fetch();
+  }
+
+  @override
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final list = await repository.getVariations(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.data(list);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsVariationsList>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+
+  /// Creates (variationId null) or edits a variation. No optimistic success;
+  /// the register re-fetches on the server's confirmation.
+  Future<String?> saveVariation({
+    String? variationId,
+    required String voNumber,
+    String? description,
+    String? amount,
+    required String status,
+    int? expectedVersion,
+  }) {
+    return runCommand(
+      operation: 'save_variation',
+      entityId: variationId ?? 'new',
+      payload: {
+        'variation_id': variationId,
+        'vo_number': voNumber,
+        'description': description,
+        'amount': amount,
+        'status': status,
+        'version': expectedVersion,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveVariation(
+          projectId: _projectId,
+          variationId: variationId,
+          voNumber: voNumber,
+          description: description,
+          amount: amount,
+          status: status,
+          expectedVersion: expectedVersion,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
+}
+
+final yorksAccountsVariationsControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsVariationsController,
+      AsyncValue<YorksAccountsVariationsList>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsVariationsController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         commandKeys: _commandKeys(ref),
         projectId: projectId,
       );
@@ -528,6 +840,40 @@ final class YorksAccountsInvoicesController
         payload: input.idempotencyPayload(),
         action: (key) => _repository.reversePayment(input, idempotencyKey: key),
       );
+
+  /// Records a cheque against an invoice. No optimistic success.
+  Future<String?> createPdc(YorksAccountsPdcCreateInput input) => runCommand(
+    operation: 'create_pdc',
+    entityId: input.invoiceId,
+    payload: input.idempotencyPayload(),
+    action: (key) => _repository.createPdc(input, idempotencyKey: key),
+  );
+
+  /// Revises an issued invoice (R.n): clones a successor draft claim from the
+  /// predecessor while the predecessor invoice stays submitted. The server
+  /// (v1_revise_client_invoice) rejects it once a certification, net payment or
+  /// active PDC exists (D7). No optimistic success; the tracker re-fetches on
+  /// the server's confirmation. Returns null on success or an error message.
+  Future<String?> revise({
+    required String invoiceId,
+    required int expectedVersion,
+    required String reason,
+  }) => runCommand(
+    operation: 'revise_invoice',
+    entityId: invoiceId,
+    payload: {'version': expectedVersion, 'reason': reason},
+    action: (key) async {
+      final workspace = _workspace;
+      if (workspace == null) throw StateError('accounts_backend_unavailable');
+      await workspace.reviseInvoice(
+        projectId: _projectId,
+        invoiceId: invoiceId,
+        expectedVersion: expectedVersion,
+        reason: reason,
+        idempotencyKey: key,
+      );
+    },
+  );
 
   /// Fetches the full invoice detail (invoice, certifications, payments and
   /// cheques) for the drawer. Pure read; returns null on failure.

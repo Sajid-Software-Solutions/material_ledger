@@ -589,7 +589,7 @@ changes need desktop and 360px evidence. Known unrelated golden drift (see
 | Contract form + setup check | `v1_get_project_commercial_baseline` + settings; save `v1_save_project_commercial_setup` | `ContractTab`, `SetupCheckPanel` |
 | Yorks standard 10/50/30/5/5 | protected stage template (T01) | button pre-fills stages |
 | Item breakdown tables | `v1_accounts_baseline_stage_items` | `ItemBreakdownTable` |
-| Import Master File | extended source import (P2) | dialog → upload → preview → confirm |
+| Import Master File | extended source import (P2) | dialog → upload → preview → confirm (scoped in [`ACCOUNTS_V2_IMPORT_MASTER_FILE_SCOPE.md`](ACCOUNTS_V2_IMPORT_MASTER_FILE_SCOPE.md)) |
 | Claim cards | `v1_list_client_claims` | `ClaimCardsRow` |
 | Stage / building tiles | `v1_get_claim_workbench` | `StageTiles`, `BuildingTiles` |
 | Item grid, "Max", purple site chips | workbench rows + `site_evidence` | `ItemClaimGrid`, `LumpClaimGrid` |

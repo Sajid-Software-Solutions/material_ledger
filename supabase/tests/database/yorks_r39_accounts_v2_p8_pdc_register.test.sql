@@ -98,5 +98,19 @@ select throws_ok(
   '42501','R39_ACCOUNTS_ACCESS_DENIED','Site engineer without commercial values is denied the cheque register');
 reset role;
 
+-- Clearing the cheque records a receipt. The office total must count that money
+-- once, although both the cheque and the receipt are listed.
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
+select public.v1_transition_client_pdc('39d17000-0000-4000-8000-000000000001',(select (payload->>'pdc_id')::uuid from v1_r39_p8 where result_key='pdc'),1,'received',date '2026-09-15',null,null,'39f98000-0000-4000-8000-000000000081');
+select public.v1_transition_client_pdc('39d17000-0000-4000-8000-000000000001',(select (payload->>'pdc_id')::uuid from v1_r39_p8 where result_key='pdc'),2,'deposited',date '2026-09-16',null,null,'39f98000-0000-4000-8000-000000000082');
+select public.v1_transition_client_pdc('39d17000-0000-4000-8000-000000000001',(select (payload->>'pdc_id')::uuid from v1_r39_p8 where result_key='pdc'),3,'cleared',date '2026-09-17',null,'BANK-1','39f98000-0000-4000-8000-000000000083');
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000013","role":"authenticated","app_metadata":{"role":"accountant","app_user_id":"usr-local-accountant"}}',true);
+insert into v1_r39_p8 select 'office_all', public.v1_get_accounts_office_register('client_payments','R39',null,100,0);
+insert into v1_r39_p8 select 'office_cleared', public.v1_get_accounts_office_register('client_payments','R39','cleared',100,0);
+reset role;
+select is((select (payload->'summary'->>'amount')::numeric from v1_r39_p8 where result_key='office_all'),52500.00::numeric,'A cleared cheque and its receipt count once in the office total');
+select is((select (payload->'summary'->>'amount')::numeric from v1_r39_p8 where result_key='office_cleared'),52500.00::numeric,'A list filtered to cleared cheques adds them up');
+
 select finish();
 rollback;

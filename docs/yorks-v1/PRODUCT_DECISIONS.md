@@ -1910,3 +1910,52 @@ explicitly here.**
 - **D14 — Variations.** V2 registers approved variations (which raise the
   contract value shown on Summary) but does not yet bill them; VO billing is a
   later decision.
+
+## 28. R39 Accounts — retention hold-back on client payable (RESOLVED 2026-11-06)
+
+**Status: RESOLVED (owner sign-off 2026-11-06).** The rule below (R-1…R-5) is
+adopted as proposed. On the one open scope choice, the owner chose **only
+invoices issued after the rule is set** are affected (question 3, option "only
+new"): retention is captured as a **per-invoice snapshot at issue**
+(`retention_snapshot` on `v1_accounts_client_invoices`, default 0), so existing
+issued invoices keep their current due unchanged and a new invoice freezes its
+retention from the profile's retention % at the moment of issue. The claim
+side-panel shows the net-after-retention as a *preview* using the profile's
+current retention %. Release of retention remains out of scope (R-3). (Section 23 D14 anticipated variations raising
+the contract value; per the 2026-11-06 owner choice, variations shipped as a
+**register only** and retention shipped as **display only** — both "A". This
+section is the retention "B".)
+
+**Today (decision A, shipped):** a retention % is stored on the project
+commercial profile and shown on the Contract card. It does **not** affect any
+claim, invoice, certification, payment or KPI figure. The receivables invariant
+is `still_due = certified_incl_vat − paid`.
+
+**Proposed rule (B).**
+- **R-1 Basis.** Retention withheld = `retention% × claim gross (ex VAT)`,
+  rounded once to fils. VAT is charged on the full work value and is **not**
+  reduced by retention (standard UAE practice).
+- **R-2 Effect.** Retention is a hold-back, not a discount. The amount the client
+  still owes on an issued invoice becomes
+  `max(certified_incl_vat − retention_withheld − paid, 0)`. Payment validation,
+  PDC exposure and the due-state all use this retention-reduced figure.
+- **R-3 Release.** Releasing retention (at practical completion / end of the
+  defects-liability period) is **out of scope** here. V2 only tracks the
+  cumulative "retention held" for display; a release workflow is a later
+  decision.
+- **R-4 Readers changed.** One new helper `v1_accounts_invoice_retention(invoice)`
+  feeds: the claim side-panel net payable, the invoice tracker "still due" /
+  due-state, the payment cap, PDC exposure, and the Summary "client still owes"
+  KPI. A new "Retention held" figure is surfaced on the Invoices tab.
+- **R-5 Invariant change.** `still_due = certified − retention − paid`,
+  everywhere, through the single helper (no reader computes it inline).
+
+**Open questions for the owner (block implementation):**
+1. **Basis** — confirm R-1 (retention on the ex-VAT work value, VAT unreduced).
+2. **Scope of effect** — confirm R-2 reduces the *current collectible due* only;
+   release (R-3) stays out of scope.
+3. **Already-issued invoices** — retention is a live collection figure, not part
+   of the frozen invoice document. Proposed: it applies to the live due of **all
+   unpaid invoices** once the rule is enabled (it does not reprint issued
+   documents, so "issued invoices keep their amounts" is preserved). Confirm, or
+   restrict to invoices issued after the rule is set.

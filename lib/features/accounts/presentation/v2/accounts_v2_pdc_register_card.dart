@@ -83,7 +83,9 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pdc_saved')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );
@@ -108,7 +110,9 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_pdc_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_pdc_saved')
+              : accountsV2ErrorText(language, error),
         ),
       ),
     );
@@ -134,65 +138,115 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
               child: Text(_t('v2_pdc_empty'), style: AppTypography.bodyMedium),
             )
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: AppSpacing.xl,
-                headingRowHeight: 36,
-                dataRowMinHeight: 40,
-                dataRowMaxHeight: 56,
-                columns: [
-                  DataColumn(label: Text(_t('v2_pdc_col_cheque'))),
-                  DataColumn(label: Text(_t('v2_pdc_col_invoice'))),
-                  DataColumn(label: Text(_t('v2_pdc_col_bank'))),
-                  DataColumn(label: Text(_t('v2_pdc_col_cheque_date'))),
-                  DataColumn(
-                    label: Text(_t('v2_pdc_col_amount')),
-                    numeric: true,
-                  ),
-                  DataColumn(label: Text(_t('v2_pdc_col_status'))),
-                  if (_showAction)
-                    DataColumn(label: Text(_t('v2_pdc_col_action'))),
-                ],
-                rows: [
-                  for (final pdc in register.pdcs)
-                    DataRow(
-                      cells: [
-                        DataCell(
-                          Text(
-                            pdc.chequeNumber,
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(pdc.invoiceReference)),
-                        DataCell(Text(pdc.bankName ?? '—')),
-                        DataCell(Text(pdc.chequeDate.postgresText)),
-                        DataCell(
-                          Text(format.money(pdc.amount, withCurrency: false)),
-                        ),
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              PdcStatusChip(
-                                status: pdc.status,
-                                language: language,
-                              ),
-                              if (pdc.actionRequired) ...[
-                                const SizedBox(width: AppSpacing.xs),
-                                StatusChip.warning(_t('v2_pdc_needs_action')),
-                              ],
-                            ],
-                          ),
-                        ),
-                        if (_showAction) DataCell(_actionCell(context, pdc)),
-                      ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
+                  return Column(
+                    children: [
+                      for (final pdc in register.pdcs)
+                        _chequeCard(context, pdc, format),
+                    ],
+                  );
+                }
+                return _table(context, format);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chequeCard(
+    BuildContext context,
+    YorksAccountsProjectPdc pdc,
+    AccountsV2Format format,
+  ) {
+    Widget plain(String text) => Text(
+      text,
+      style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+    );
+    return AccountsV2RecordCard(
+      title: Text(
+        pdc.chequeNumber,
+        style: AppTypography.bodyMedium.copyWith(
+          color: AppColors.ink,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      status: PdcStatusChip(status: pdc.status, language: language),
+      facts: [
+        (_t('v2_pdc_col_invoice'), plain(pdc.invoiceReference)),
+        (_t('v2_pdc_col_bank'), plain(pdc.bankName ?? '—')),
+        (_t('v2_pdc_col_cheque_date'), plain(pdc.chequeDate.postgresText)),
+        (_t('v2_pdc_col_amount'), plain(format.money(pdc.amount))),
+        if (pdc.actionRequired)
+          (
+            _t('v2_pdc_col_status'),
+            StatusChip.warning(_t('v2_pdc_needs_action')),
+          ),
+      ],
+      actions: [
+        if (_showAction &&
+            (_canReplace(pdc) ||
+                (onTransition != null && pdc.nextStatuses.isNotEmpty)))
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppSpacing.minTapTarget,
+            ),
+            child: Center(widthFactor: 1, child: _actionCell(context, pdc)),
+          ),
+      ],
+    );
+  }
+
+  Widget _table(BuildContext context, AccountsV2Format format) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columnSpacing: AppSpacing.xl,
+        headingRowHeight: 36,
+        dataRowMinHeight: 40,
+        dataRowMaxHeight: 56,
+        columns: [
+          DataColumn(label: Text(_t('v2_pdc_col_cheque'))),
+          DataColumn(label: Text(_t('v2_pdc_col_invoice'))),
+          DataColumn(label: Text(_t('v2_pdc_col_bank'))),
+          DataColumn(label: Text(_t('v2_pdc_col_cheque_date'))),
+          DataColumn(label: Text(_t('v2_pdc_col_amount')), numeric: true),
+          DataColumn(label: Text(_t('v2_pdc_col_status'))),
+          if (_showAction) DataColumn(label: Text(_t('v2_pdc_col_action'))),
+        ],
+        rows: [
+          for (final pdc in register.pdcs)
+            DataRow(
+              cells: [
+                DataCell(
+                  Text(
+                    pdc.chequeNumber,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
                     ),
-                ],
-              ),
+                  ),
+                ),
+                DataCell(Text(pdc.invoiceReference)),
+                DataCell(Text(pdc.bankName ?? '—')),
+                DataCell(Text(pdc.chequeDate.postgresText)),
+                DataCell(Text(format.money(pdc.amount, withCurrency: false))),
+                DataCell(
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PdcStatusChip(status: pdc.status, language: language),
+                      if (pdc.actionRequired) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        StatusChip.warning(_t('v2_pdc_needs_action')),
+                      ],
+                    ],
+                  ),
+                ),
+                if (_showAction) DataCell(_actionCell(context, pdc)),
+              ],
             ),
         ],
       ),
@@ -354,10 +408,10 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),
           const SizedBox(height: AppSpacing.sm),
-          _Field(
+          AccountsV2DateField(
             label: _t('v2_pdc_action_date'),
             controller: _date,
-            hint: 'YYYY-MM-DD',
+            language: widget.language,
             onChanged: () => setState(() {}),
           ),
           if (_needsClearance) ...[
@@ -396,14 +450,12 @@ class _Field extends StatelessWidget {
   const _Field({
     required this.label,
     required this.controller,
-    this.hint,
     this.numeric = false,
     this.onChanged,
   });
 
   final String label;
   final TextEditingController controller;
-  final String? hint;
   final bool numeric;
   final VoidCallback? onChanged;
 
@@ -417,7 +469,6 @@ class _Field extends StatelessWidget {
       onChanged: onChanged == null ? null : (_) => onChanged!(),
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         border: const OutlineInputBorder(),
         isDense: true,
       ),
@@ -509,10 +560,10 @@ class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.sm),
-            _Field(
+            AccountsV2DateField(
               label: _t('v2_pdc_replace_date'),
               controller: _date,
-              hint: 'YYYY-MM-DD',
+              language: widget.language,
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.sm),

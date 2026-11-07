@@ -10,6 +10,8 @@ import 'package:material_ledger/features/accounts/domain/accounts_receivables_mo
 import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/accounts_workspace_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
+import 'package:material_ledger/features/accounts/domain/v2/claims_list_models.dart';
+import 'package:material_ledger/features/accounts/domain/v2/variations_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
@@ -35,11 +37,32 @@ Map<String, dynamic> _summaryJson() => {
     'view_supplier_costs': true,
   },
   'steps': [
-    {'key': 'setup', 'state': 'done'},
-    {'key': 'progress', 'state': 'done'},
-    {'key': 'invoice', 'state': 'current'},
-    {'key': 'paid', 'state': ''},
+    {
+      'key': 'setup',
+      'state': 'done',
+      'detail': {
+        'contract_value': '17192000.00',
+        'building_count': 4,
+        'stage_count': 5,
+      },
+    },
+    {
+      'key': 'progress',
+      'state': 'done',
+      'detail': {'claim_reference': 'Claim #03', 'claim_gross': '27507.00'},
+    },
+    {
+      'key': 'invoice',
+      'state': 'current',
+      'detail': {'issued_count': 2, 'latest_reference': 'YRA32202R.1'},
+    },
+    {
+      'key': 'paid',
+      'state': '',
+      'detail': {'received': '1000000.00', 'to_come': '17051600.00'},
+    },
   ],
+  'badges': {'claims_draft': true, 'supplier_count': 2},
   'attention': [
     {
       'severity': 'pri',
@@ -179,6 +202,29 @@ Map<String, dynamic> _contractJson() => {
     },
   ],
   'items': <dynamic>[],
+  'parties': {
+    'client': {
+      'name': 'M/S. Larsen & Toubro Ltd',
+      'address': 'P.O. Box 23200, Abu Dhabi',
+      'contact_name': 'Eng. Rashid',
+      'contact_phone': '+971 2 555 0100',
+      'contact_email': null,
+    },
+    'main_contractor': {
+      'name': 'Yorks AC & Ref.',
+      'address': 'P.O. Box 4757, Abu Dhabi',
+      'contact_name': 'Omar',
+      'contact_phone': null,
+      'contact_email': 'omar@yorks.ae',
+    },
+  },
+  'references': {
+    'client_trn': '100123456700003',
+    'work_order_number': 'WO-2026-0042',
+    'work_order_date': '2026-06-01',
+    'contract_number': 'N-19957.2',
+    'retention_percent': '10.0000',
+  },
 };
 
 Map<String, dynamic> _workbenchJson() => {
@@ -186,7 +232,7 @@ Map<String, dynamic> _workbenchJson() => {
   'project_id': 'p1',
   'baseline_revision_id': 'rev1',
   'baseline_revision_number': 1,
-  'capabilities': {'view_project_commercial_values': true, 'can_confirm': true},
+  'capabilities': {'can_view_values': true, 'can_confirm': true},
   'commands': <String, dynamic>{},
   'cells': [
     {
@@ -232,6 +278,10 @@ Map<String, dynamic> _workbenchJson() => {
     'claim_period_start': '2026-08-01',
     'claim_period_end': '2026-08-25',
     'claimed_ex_vat': '1504300.00',
+    'vat_amount': '75215.00',
+    'net_payable': '1579515.00',
+    'contract_value': '17192000.00',
+    'this_claim_percent': '8.8',
     'lines': [
       {'progress_entry_id': 'pe-material'},
     ],
@@ -295,16 +345,89 @@ Widget _summaryTab() => AccountsV2SummaryTab(
 Widget _contractTab() => AccountsV2ContractTab(
   setup: YorksAccountsCommercialSetupRead.fromJson(_contractJson()),
   language: _en,
+  canEdit: true,
+  onSave: (_) async => null,
+  onSaveReferences:
+      ({
+        String? clientTrn,
+        String? workOrderNumber,
+        String? workOrderDate,
+        String? contractNumber,
+        String? retentionPercent,
+        int? expectedProfileVersion,
+      }) async => null,
+  variations: [
+    YorksAccountsVariation.fromJson(const {
+      'variation_id': 'v1',
+      'vo_number': 'VO-01',
+      'description': 'Extra ductwork to Block C',
+      'amount': '45000.00',
+      'status': 'approved',
+      'record_version': 1,
+    }),
+    YorksAccountsVariation.fromJson(const {
+      'variation_id': 'v2',
+      'vo_number': 'VO-02',
+      'description': 'Revised BMS controls',
+      'amount': '12000.00',
+      'status': 'pending',
+      'record_version': 1,
+    }),
+  ],
+  onSaveVariation:
+      ({
+        String? variationId,
+        required String voNumber,
+        String? description,
+        String? amount,
+        required String status,
+        int? expectedVersion,
+      }) async => null,
 );
 
 Widget _claimsTab() => AccountsV2ClaimsTab(
   workbench: YorksAccountsWorkbench.fromJson(_workbenchJson()),
   language: _en,
+  claims: [
+    YorksAccountsClaimSummary.fromJson(const {
+      'claim_id': 'c1',
+      'claim_reference': 'YRA322-CLM-02',
+      'status': 'draft',
+      'claim_period_start': '2026-08-01',
+      'claim_period_end': '2026-08-25',
+      'claimed_ex_vat': '1504300.00',
+      'record_version': 2,
+    }),
+    YorksAccountsClaimSummary.fromJson(const {
+      'claim_id': 'c0',
+      'claim_reference': 'YRA322-CLM-01',
+      'status': 'invoiced',
+      'claim_period_start': '2026-07-01',
+      'claim_period_end': '2026-07-25',
+      'claimed_ex_vat': '1000000.00',
+      'record_version': 3,
+    }),
+  ],
+  onSelectClaim: (_) {},
 );
 
 Widget _historyTab() => AccountsV2HistoryTab(
   projection: YorksAccountsActivityProjection.fromRpcJson(_historyJson()),
   language: _en,
+  files: const [
+    (
+      name: 'YRA322-02 tax invoice.pdf',
+      reference: 'YRA322-02',
+      uploadedBy: 'Omar (Accountant)',
+      onDownload: null,
+    ),
+    (
+      name: 'Cool Air Co INV-5001.pdf',
+      reference: 'INV-5001',
+      uploadedBy: 'Omar (Accountant)',
+      onDownload: null,
+    ),
+  ],
 );
 
 YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);
@@ -437,8 +560,11 @@ YorksAccountsSupplierBillsProjection _supplierProjection() =>
 Widget _invoicesTab() =>
     AccountsV2InvoicesTab(projection: _invoicesProjection(), language: _en);
 
-Widget _supplierTab() =>
-    AccountsV2SupplierTab(projection: _supplierProjection(), language: _en);
+Widget _supplierTab() => AccountsV2SupplierTab(
+  projection: _supplierProjection(),
+  language: _en,
+  invoicedTotal: YorksAccountsDecimal.parse('300000.00'),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

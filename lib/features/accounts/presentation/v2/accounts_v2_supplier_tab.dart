@@ -1,4 +1,4 @@
-/// R39 Accounts Workspace V2 — Supplier bills tab (P6, read view).
+/// R39 Accounts Workspace V2 — Supplier bills tab.
 ///
 /// Shows the supplier bills from the existing v1_list_supplier_bills
 /// projection: the KPIs (billed incl VAT, paid, unpaid with an overdue count)
@@ -37,14 +37,26 @@ class AccountsV2SupplierTab extends StatelessWidget {
     super.key,
     required this.projection,
     required this.language,
+    this.invoicedTotal,
     this.onPay,
     this.onApprove,
+    this.onAddBill,
+    this.onOpenBill,
   });
 
   final YorksAccountsSupplierBillsProjection projection;
   final AppLanguage language;
+
+  /// Client-invoiced total (ex VAT) for the cost-vs-invoiced KPI; null hides it.
+  final YorksAccountsDecimal? invoicedTotal;
   final YorksSupplierPayAction? onPay;
   final YorksSupplierApproveAction? onApprove;
+
+  /// Opens the add-bill form; null when the actor can't create bills.
+  final VoidCallback? onAddBill;
+
+  /// Opens a bill's full details and actions (match, approve, pay, reverse).
+  final ValueChanged<YorksAccountsSupplierBill>? onOpenBill;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -62,10 +74,31 @@ class AccountsV2SupplierTab extends StatelessWidget {
     if (!projection.capabilities.viewSupplierCosts) {
       return _Notice(icon: Icons.lock_outline, message: _t('v2_sup_no_access'));
     }
+    final addBill = onAddBill == null
+        ? null
+        : Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: FilledButton.icon(
+              onPressed: onAddBill,
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(_t('v2_sup_add_bill')),
+            ),
+          );
     if (projection.items.isEmpty) {
-      return _Notice(
-        icon: Icons.local_shipping_outlined,
-        message: _t('v2_sup_empty'),
+      return Column(
+        children: [
+          if (addBill != null)
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: addBill,
+            ),
+          Expanded(
+            child: _Notice(
+              icon: Icons.local_shipping_outlined,
+              message: _t('v2_sup_empty'),
+            ),
+          ),
+        ],
       );
     }
 
@@ -81,6 +114,10 @@ class AccountsV2SupplierTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
+        if (addBill != null) ...[
+          addBill,
+          const SizedBox(height: AppSpacing.md),
+        ],
         _KpiRow(
           language: language,
           format: format,
@@ -88,6 +125,7 @@ class AccountsV2SupplierTab extends StatelessWidget {
           paid: sum((b) => b.paidAmount),
           unpaid: sum((b) => b.outstandingAmount),
           overdueCount: overdue,
+          invoicedTotal: invoicedTotal,
         ),
         const SizedBox(height: AppSpacing.lg),
         _BillsCard(
@@ -97,11 +135,13 @@ class AccountsV2SupplierTab extends StatelessWidget {
               projection.capabilities.approveSupplierBillPayment &&
               onPay != null,
           canApprove:
-              projection.capabilities.manageSupplierBills && onApprove != null,
+              projection.capabilities.approveSupplierBillPayment &&
+              onApprove != null,
           language: language,
           format: format,
           isOverdue: _isOverdue,
           onPay: onPay,
+          onOpenBill: onOpenBill,
           onApprove: onApprove,
         ),
       ],
@@ -119,6 +159,7 @@ class _KpiRow extends StatelessWidget {
     required this.paid,
     required this.unpaid,
     required this.overdueCount,
+    this.invoicedTotal,
   });
 
   final AppLanguage language;
@@ -127,20 +168,37 @@ class _KpiRow extends StatelessWidget {
   final YorksAccountsDecimal paid;
   final YorksAccountsDecimal unpaid;
   final int overdueCount;
+  final YorksAccountsDecimal? invoicedTotal;
+
+  /// Supplier cost as a percent of client-invoiced value. Display only (goes
+  /// through a double, never stored/sent); unclamped since cost may exceed
+  /// invoiced. Null when the invoiced total is unavailable or zero.
+  String? get _costVsInvoiced {
+    final invoiced = invoicedTotal;
+    if (invoiced == null || !invoiced.isPositive) return null;
+    final cost = double.tryParse(billed.canonicalText) ?? 0;
+    final inv = double.tryParse(invoiced.canonicalText) ?? 0;
+    if (inv <= 0) return null;
+    return '${(cost / inv * 100).toStringAsFixed(0)}%';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final costVsInvoiced = _costVsInvoiced;
     final tiles = <Widget>[
       _Kpi(
+        icon: Icons.receipt_long_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_billed'),
         value: format.money(billed),
       ),
       _Kpi(
+        icon: Icons.payments_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_paid'),
         value: format.money(paid),
         accent: AppColors.success,
       ),
       _Kpi(
+        icon: Icons.account_balance_wallet_outlined,
         label: accountsV2Text(language, 'v2_sup_kpi_unpaid'),
         value: format.money(unpaid),
         caption: overdueCount > 0
@@ -148,33 +206,27 @@ class _KpiRow extends StatelessWidget {
             : '',
         accent: unpaid.isPositive ? AppColors.warning : null,
       ),
+      if (costVsInvoiced != null)
+        _Kpi(
+          icon: Icons.pie_chart_outline,
+          label: accountsV2Text(language, 'v2_sup_kpi_cost_vs_invoiced'),
+          value: costVsInvoiced,
+        ),
     ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final perRow = (constraints.maxWidth / 220).floor().clamp(1, 3);
-        const spacing = AppSpacing.md;
-        final tileWidth =
-            (constraints.maxWidth - spacing * (perRow - 1)) / perRow;
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            for (final tile in tiles) SizedBox(width: tileWidth, child: tile),
-          ],
-        );
-      },
-    );
+    return AccountsV2KpiGrid(tiles: tiles);
   }
 }
 
 class _Kpi extends StatelessWidget {
   const _Kpi({
+    required this.icon,
     required this.label,
     required this.value,
     this.caption = '',
     this.accent,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final String caption;
@@ -182,19 +234,39 @@ class _Kpi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint = accent ?? AppColors.primary;
     return AccountsV2Card(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 16, color: tint),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             value,
             style: AppTypography.titleMedium.copyWith(
@@ -227,6 +299,7 @@ class _BillsCard extends StatelessWidget {
     required this.isOverdue,
     this.onPay,
     this.onApprove,
+    this.onOpenBill,
   });
 
   final String projectId;
@@ -238,8 +311,9 @@ class _BillsCard extends StatelessWidget {
   final bool Function(YorksAccountsSupplierBill) isOverdue;
   final YorksSupplierPayAction? onPay;
   final YorksSupplierApproveAction? onApprove;
+  final ValueChanged<YorksAccountsSupplierBill>? onOpenBill;
 
-  bool get _showActions => canPay || canApprove;
+  bool get _showActions => canPay || canApprove || onOpenBill != null;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -249,7 +323,11 @@ class _BillsCard extends StatelessWidget {
       bill.outstandingAmount.isPositive;
 
   bool _canApprove(YorksAccountsSupplierBill bill) =>
-      canApprove && bill.status == YorksAccountsSupplierBillStatus.draft;
+      canApprove &&
+      bill.status == YorksAccountsSupplierBillStatus.draft &&
+      // Until all three documents match the server refuses; Details says what's
+      // missing, and is where an Admin records an exception.
+      bill.matchStatus == YorksAccountsSupplierMatchStatus.matched;
 
   Future<void> _report(
     BuildContext context,
@@ -259,7 +337,9 @@ class _BillsCard extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }
@@ -317,97 +397,172 @@ class _BillsCard extends StatelessWidget {
         children: [
           AccountsV2SectionTitle(_t('v2_tab_supplier_bills')),
           const SizedBox(height: AppSpacing.sm),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: AppSpacing.xl,
-              headingRowHeight: 36,
-              dataRowMinHeight: 42,
-              dataRowMaxHeight: 56,
-              columns: [
-                DataColumn(label: Text(_t('v2_sup_col_bill'))),
-                DataColumn(label: Text(_t('v2_sup_col_supplier'))),
-                DataColumn(label: Text(_t('v2_sup_col_linked'))),
-                DataColumn(label: Text(_t('v2_sup_col_date'))),
-                DataColumn(label: Text(_t('v2_inv_col_incl')), numeric: true),
-                DataColumn(label: Text(_t('v2_sup_kpi_paid')), numeric: true),
-                DataColumn(
-                  label: Text(_t('v2_inv_col_balance')),
-                  numeric: true,
-                ),
-                DataColumn(label: Text(_t('v2_inv_col_status'))),
-                if (_showActions) DataColumn(label: Text(_t('v2_inv_actions'))),
-              ],
-              rows: [
-                for (final bill in bills)
-                  DataRow(
-                    cells: [
-                      DataCell(
-                        Text(
-                          bill.supplierInvoiceReference,
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.ink,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(bill.supplierName)),
-                      DataCell(_LinkedCell(bill: bill, language: language)),
-                      DataCell(Text(bill.invoiceDate.toString())),
-                      DataCell(
-                        Text(
-                          format.money(bill.totalInclVat, withCurrency: false),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          format.money(bill.paidAmount, withCurrency: false),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          format.money(
-                            bill.outstandingAmount,
-                            withCurrency: false,
-                          ),
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: isOverdue(bill)
-                                ? AppColors.error
-                                : AppColors.ink,
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        _PaymentStatusChip(
-                          status: bill.paymentStatus,
-                          language: language,
-                        ),
-                      ),
-                      if (_showActions)
-                        DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_canApprove(bill))
-                                TextButton(
-                                  onPressed: () => _approve(context, bill),
-                                  child: Text(_t('v2_sup_approve')),
-                                ),
-                              if (_canPay(bill))
-                                TextButton(
-                                  onPressed: () => _pay(context, bill),
-                                  child: Text(_t('v2_inv_record_payment')),
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
+                return Column(
+                  children: [
+                    for (final bill in bills) _billCard(context, bill),
+                  ],
+                );
+              }
+              return _table(context);
+            },
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _actionsFor(
+    BuildContext context,
+    YorksAccountsSupplierBill bill,
+  ) => [
+    if (onOpenBill != null)
+      TextButton(
+        onPressed: () => onOpenBill!(bill),
+        child: Text(_t('v2_sup_open_bill')),
+      ),
+    if (_canApprove(bill))
+      TextButton(
+        onPressed: () => _approve(context, bill),
+        child: Text(_t('v2_sup_approve')),
+      ),
+    if (_canPay(bill))
+      TextButton(
+        onPressed: () => _pay(context, bill),
+        child: Text(_t('v2_inv_record_payment')),
+      ),
+  ];
+
+  Widget _billCard(BuildContext context, YorksAccountsSupplierBill bill) {
+    Widget amount(YorksAccountsDecimal value, {Color? color}) => Text(
+      format.money(value),
+      style: AppTypography.bodyMedium.copyWith(color: color ?? AppColors.ink),
+    );
+    return AccountsV2RecordCard(
+      title: Text(
+        bill.supplierInvoiceReference,
+        style: AppTypography.bodyMedium.copyWith(
+          color: AppColors.ink,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      status: _PaymentStatusChip(
+        status: bill.paymentStatus,
+        language: language,
+      ),
+      facts: [
+        (
+          _t('v2_sup_col_supplier'),
+          Text(
+            bill.supplierName,
+            maxLines: 2,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          ),
+        ),
+        (_t('v2_sup_col_linked'), _LinkedCell(bill: bill, language: language)),
+        (
+          _t('v2_sup_col_date'),
+          Text(
+            bill.invoiceDate.toString(),
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          ),
+        ),
+        (_t('v2_inv_col_incl'), amount(bill.totalInclVat)),
+        (_t('v2_sup_kpi_paid'), amount(bill.paidAmount)),
+        (
+          _t('v2_inv_col_balance'),
+          amount(
+            bill.outstandingAmount,
+            color: isOverdue(bill) ? AppColors.error : null,
+          ),
+        ),
+      ],
+      actions: _showActions ? _actionsFor(context, bill) : const [],
+    );
+  }
+
+  Widget _table(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: AppSpacing.xl,
+            headingRowHeight: 36,
+            dataRowMinHeight: 42,
+            dataRowMaxHeight: 56,
+            columns: [
+              DataColumn(label: Text(_t('v2_sup_col_bill'))),
+              DataColumn(label: Text(_t('v2_sup_col_supplier'))),
+              DataColumn(label: Text(_t('v2_sup_col_linked'))),
+              DataColumn(label: Text(_t('v2_sup_col_date'))),
+              DataColumn(label: Text(_t('v2_inv_col_incl')), numeric: true),
+              DataColumn(label: Text(_t('v2_sup_kpi_paid')), numeric: true),
+              DataColumn(label: Text(_t('v2_inv_col_balance')), numeric: true),
+              DataColumn(label: Text(_t('v2_inv_col_status'))),
+              if (_showActions) DataColumn(label: Text(_t('v2_inv_actions'))),
+            ],
+            rows: [
+              for (final bill in bills)
+                DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        bill.supplierInvoiceReference,
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(bill.supplierName)),
+                    DataCell(_LinkedCell(bill: bill, language: language)),
+                    DataCell(Text(bill.invoiceDate.toString())),
+                    DataCell(
+                      Text(
+                        format.money(bill.totalInclVat, withCurrency: false),
+                      ),
+                    ),
+                    DataCell(
+                      Text(format.money(bill.paidAmount, withCurrency: false)),
+                    ),
+                    DataCell(
+                      Text(
+                        format.money(
+                          bill.outstandingAmount,
+                          withCurrency: false,
+                        ),
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: isOverdue(bill)
+                              ? AppColors.error
+                              : AppColors.ink,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      _PaymentStatusChip(
+                        status: bill.paymentStatus,
+                        language: language,
+                      ),
+                    ),
+                    if (_showActions)
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: _actionsFor(context, bill),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -586,10 +741,11 @@ class _SupplierPayDialogState extends State<_SupplierPayDialog> {
             decoration: deco(_t('v2_pay_amount')),
           ),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_pay_date'),
             controller: _date,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_pay_date'), hint: 'YYYY-MM-DD'),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
           DropdownButtonFormField<String>(

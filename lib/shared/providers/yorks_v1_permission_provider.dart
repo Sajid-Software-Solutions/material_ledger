@@ -209,6 +209,7 @@ extension YorksV1HybridPermissionStateAccess
     if (!capability.catalog.requiresProjectAccess) {
       return capability.authoritativeEffective == true;
     }
+    if (confirmed.accountantHoldsAccountsCapability(capability)) return true;
     // A module entry point is visible when the actor is authoritatively
     // allowed on at least one project they can actually access. An explicit
     // project grant never widens membership and a grant for an inaccessible

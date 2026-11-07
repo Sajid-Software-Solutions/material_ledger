@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_accounts_strings.dart';
+import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/providers/yorks_v1_documents_provider.dart';
 import '../../application/accounts_controller.dart';
 import '../../application/accounts_providers.dart';
 import '../../domain/accounts_decimal.dart';
@@ -56,7 +58,7 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _percentController;
   late final TextEditingController _evidenceController;
-  late final TextEditingController _documentIdsController;
+  late final Set<String> _evidenceDocumentIds;
   late final TextEditingController _reasonController;
   late _ProgressAction _action;
   String? _localError;
@@ -99,9 +101,7 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
     _evidenceController = TextEditingController(
       text: widget.entry.evidenceSummary ?? '',
     );
-    _documentIdsController = TextEditingController(
-      text: widget.entry.evidenceDocumentIds.join(', '),
-    );
+    _evidenceDocumentIds = {...widget.entry.evidenceDocumentIds};
     _reasonController = TextEditingController();
   }
 
@@ -109,7 +109,6 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
   void dispose() {
     _percentController.dispose();
     _evidenceController.dispose();
-    _documentIdsController.dispose();
     _reasonController.dispose();
     super.dispose();
   }
@@ -159,11 +158,7 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
         expectedVersion: widget.entry.recordVersion,
         percent: percent,
         evidenceSummary: _evidenceController.text.trim(),
-        evidenceDocumentIds: _documentIdsController.text
-            .split(',')
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
-            .toList(growable: false),
+        evidenceDocumentIds: _evidenceDocumentIds.toList(growable: false),
         reason: reason,
       );
       result = _action == _ProgressAction.suggest
@@ -306,12 +301,15 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              TextFormField(
-                                controller: _documentIdsController,
-                                decoration: InputDecoration(
-                                  labelText: _text('document_references'),
-                                  helperText: _text('document_ids_helper'),
-                                ),
+                              _EvidenceFiles(
+                                projectId: widget.projectId,
+                                language: widget.language,
+                                selected: _evidenceDocumentIds,
+                                onToggle: (id, on) => setState(() {
+                                  on
+                                      ? _evidenceDocumentIds.add(id)
+                                      : _evidenceDocumentIds.remove(id);
+                                }),
                               ),
                             ],
                             const SizedBox(height: AppSpacing.md),
@@ -344,6 +342,67 @@ class _ProgressActionSheetState extends ConsumerState<_ProgressActionSheet> {
                 ),
               ),
       ),
+    );
+  }
+}
+
+/// Files on the project this progress can rest on, chosen by name. Evidence the
+/// server accepts is operational, so that is what is offered.
+class _EvidenceFiles extends ConsumerWidget {
+  const _EvidenceFiles({
+    required this.projectId,
+    required this.language,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final String projectId;
+  final AppLanguage language;
+  final Set<String> selected;
+  final void Function(String id, bool on) onToggle;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final documents =
+        (ref
+                    .watch(yorksV1DocumentWorkspaceProvider(projectId))
+                    .valueOrNull
+                    ?.documents ??
+                const <YorksV1Document>[])
+            .where(
+              (document) =>
+                  !document.isArchived &&
+                  document.classification ==
+                      YorksV1DocumentClassification.operational,
+            )
+            .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          YorksV1AccountsStrings.text(language, 'v2_progress_evidence'),
+          style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (documents.isEmpty)
+          Text(
+            YorksV1AccountsStrings.text(language, 'v2_files_empty'),
+            style: AppTypography.bodySmall,
+          )
+        else
+          Wrap(
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
+            children: [
+              for (final document in documents)
+                FilterChip(
+                  label: Text(document.currentVersion.fileName),
+                  selected: selected.contains(document.id),
+                  onSelected: (on) => onToggle(document.id, on),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

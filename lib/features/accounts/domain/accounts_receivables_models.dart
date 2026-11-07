@@ -418,6 +418,7 @@ final class YorksAccountsClientInvoice {
     required this.paidAmount,
     required this.stillDue,
     required this.pdcExposure,
+    required this.retentionSnapshot,
     required this.createdByAuthUserId,
     required this.createdByExactRole,
     required this.createdAt,
@@ -446,6 +447,11 @@ final class YorksAccountsClientInvoice {
   final YorksAccountsDecimal? paidAmount;
   final YorksAccountsDecimal? stillDue;
   final YorksAccountsDecimal? pdcExposure;
+
+  /// Retention held back from this invoice's payable (frozen at issue). This is
+  /// a commercial figure: never a reduction the actor cannot see. Null when the
+  /// actor lacks commercial access; `0` when no retention policy applies.
+  final YorksAccountsDecimal? retentionSnapshot;
   final String? createdByAuthUserId;
   final String? createdByExactRole;
   final DateTime createdAt;
@@ -513,6 +519,11 @@ final class YorksAccountsClientInvoice {
       paidAmount: _protectedMoney(json, 'paid_amount', canViewValues),
       stillDue: _protectedMoney(json, 'still_due', canViewValues),
       pdcExposure: _protectedMoney(json, 'pdc_exposure', canViewValues),
+      retentionSnapshot: _protectedMoney(
+        json,
+        'retention_snapshot',
+        canViewValues,
+      ),
       createdByAuthUserId: _optionalString(json['created_by_auth_user_id']),
       createdByExactRole: _optionalString(json['created_by_exact_role']),
       createdAt: _requiredDateTime(json, 'created_at'),
@@ -550,6 +561,7 @@ final class YorksAccountsClientInvoice {
         paidAmount: null,
         stillDue: null,
         pdcExposure: null,
+        retentionSnapshot: null,
         createdByAuthUserId: createdByAuthUserId,
         createdByExactRole: createdByExactRole,
         createdAt: createdAt,

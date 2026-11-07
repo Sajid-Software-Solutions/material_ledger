@@ -60,6 +60,39 @@ void main() {
     );
   });
 
+  group('Accountant project Accounts links', () {
+    bool? resolver(
+      String capabilityKey, {
+      required bool legacyAllowed,
+      bool requireWrite = false,
+      bool organizationSummary = false,
+      String? projectId,
+    }) => true;
+
+    for (final (name, v2, expected) in const [
+      ('with V2 on opens the project', true, true),
+      ('with V2 off stays on the office', false, false),
+    ]) {
+      testWidgets(name, (tester) async {
+        final router = _router(
+          userRole: UserRole.accountant,
+          exactRole: YorksV1Role.accountant,
+          accountsEnabled: true,
+          accountsWorkspaceV2: v2,
+          resolver: resolver,
+        );
+        addTearDown(router.dispose);
+        await _mount(tester, router, YorksV1Role.accountant);
+        final target = RoutePaths.yorksV1ProjectAccountsInvoicesPath('p1');
+        await _go(tester, router, target);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          expected ? target : RoutePaths.yorksV1Accounts,
+        );
+      });
+    }
+  });
+
   testWidgets(
     'Procurement generic project Accounts opens supplier-only route',
     (tester) async {
@@ -282,6 +315,7 @@ GoRouter _router({
   required YorksV1Role exactRole,
   required bool accountsEnabled,
   YorksV1HybridPermissionResolver? resolver,
+  bool accountsWorkspaceV2 = false,
 }) => createAppRouter(
   isOnboarded: true,
   isLoggedIn: true,
@@ -303,6 +337,7 @@ GoRouter _router({
   yorksV1ReturnsDocumentsEnabled: true,
   yorksV1DocumentsEnabled: true,
   yorksV1AccountsEnabled: accountsEnabled,
+  yorksV1AccountsWorkspaceV2Enabled: accountsWorkspaceV2,
   yorksV1Role: exactRole,
   yorksV1PermissionResolver: resolver ?? _allowAccounts,
 );

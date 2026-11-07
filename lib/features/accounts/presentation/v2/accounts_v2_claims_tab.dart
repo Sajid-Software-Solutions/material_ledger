@@ -1,11 +1,18 @@
-/// R39 Accounts Workspace V2 — Progress & claims tab (P6, read view).
+/// R39 Accounts Workspace V2 — Progress & claims tab.
 ///
 /// Shows the claim workbench (`v1_get_claim_workbench`): the current open claim
 /// (reference, pipeline status, period, gross) and the confirmed progress by
 /// building × stage, with the per-item breakdown for items-mode cells. Monetary
-/// columns are drawn only with view_project_commercial_values. Confirming
-/// progress, editing claim lines and issuing the invoice are a later P6
-/// increment; this slice presents the current position read-only.
+/// columns are drawn only with view_project_commercial_values.
+///
+/// Recording progress rebuilds the single open draft claim server-side
+/// (`v1_save_claim_workbench`); Mark checked, Issue and Back to draft drive the
+/// claim lifecycle from the side panel. The editor follows the prototype's fast
+/// claim-building affordances: a per-row **Max** fill (100% / full quantity), an
+/// exact live change delta per row, a pending-changes count, and Enter moving to
+/// the next field. Deltas are exact `YorksAccountsDecimal` percentages/quantities
+/// (not money), so they are correct for the progress-recorder role too; the
+/// server computes the claimed amounts on save.
 library;
 
 import 'package:flutter/material.dart';
@@ -17,6 +24,7 @@ import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
 import 'accounts_v2_common.dart';
 
 /// Reopens a checked claim to draft; returns null on success or an error.
@@ -60,9 +68,14 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onReopen,
     this.onIssue,
     this.onMarkChecked,
+    this.onPreviewInvoice,
+    this.onUpdateCell,
+    this.onUploadEvidence,
     this.onSaveWorkbench,
     this.canRecordProgress = false,
     this.evidenceDocuments = const [],
+    this.claims = const [],
+    this.onSelectClaim,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -70,9 +83,25 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
   final YorksReopenClaimAction? onMarkChecked;
+
+  /// Renders the invoice this claim would produce; null on success or an error.
+  final Future<String?> Function(String claimId)? onPreviewInvoice;
   final YorksSaveWorkbenchAction? onSaveWorkbench;
+
+  /// Suggests or confirms one cell, for people who can't prepare a claim.
+  final ValueChanged<YorksAccountsWorkbenchCell>? onUpdateCell;
+
+  /// Picks and uploads a project document; returns its id, or null if cancelled.
+  /// Throws when the upload fails.
+  final Future<String?> Function()? onUploadEvidence;
   final bool canRecordProgress;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+
+  /// All claims for the project (newest first) for the claim-cards row.
+  final List<YorksAccountsClaimSummary> claims;
+
+  /// Switches the workbench to a claim card; null is a no-op (no row shown).
+  final ValueChanged<String>? onSelectClaim;
 
   @override
   State<AccountsV2ClaimsTab> createState() => _AccountsV2ClaimsTabState();
@@ -81,8 +110,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
 class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   bool _editing = false;
 
-  bool get _canValues =>
-      widget.workbench.capabilities['view_project_commercial_values'] == true;
+  bool get _canValues => widget.workbench.canViewValues;
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
@@ -109,6 +137,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         cells: _orderedCells,
         language: widget.language,
         evidenceDocuments: widget.evidenceDocuments,
+        onUploadEvidence: widget.onUploadEvidence,
         onCancel: () => setState(() => _editing = false),
         onSave:
             ({
@@ -170,6 +199,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           canValues: _canValues,
           language: language,
           format: format,
+          onUpdateCell: widget.onUpdateCell,
         ),
         const SizedBox(height: AppSpacing.lg),
       ],
@@ -200,7 +230,23 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       onReopen: onReopen,
       onIssue: onIssue,
       onMarkChecked: widget.onMarkChecked,
+      onPreviewInvoice: widget.onPreviewInvoice,
     );
+
+    // The claim-cards row (navigate between claims). Shown only when the claims
+    // list loaded with claims and a selection handler is wired.
+    final onSelectClaim = widget.onSelectClaim;
+    final activeClaimId = workbench.claim?['claim_id'] as String?;
+    final cardsRow = (widget.claims.isNotEmpty && onSelectClaim != null)
+        ? _ClaimCardsRow(
+            claims: widget.claims,
+            activeClaimId: activeClaimId,
+            language: language,
+            format: format,
+            canValues: _canValues,
+            onSelect: onSelectClaim,
+          )
+        : null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -209,6 +255,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
+              if (cardsRow != null) ...[
+                cardsRow,
+                const SizedBox(height: AppSpacing.lg),
+              ],
               aside,
               const SizedBox(height: AppSpacing.lg),
               ...grid,
@@ -218,6 +268,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         return ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
+            if (cardsRow != null) ...[
+              cardsRow,
+              const SizedBox(height: AppSpacing.lg),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -238,6 +292,136 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   }
 }
 
+// ─── Claim cards row ─────────────────────────────────────────────────────────
+
+/// Horizontal row of claim cards; tapping one switches the workbench to it.
+class _ClaimCardsRow extends StatelessWidget {
+  const _ClaimCardsRow({
+    required this.claims,
+    required this.activeClaimId,
+    required this.language,
+    required this.format,
+    required this.canValues,
+    required this.onSelect,
+  });
+
+  final List<YorksAccountsClaimSummary> claims;
+  final String? activeClaimId;
+  final AppLanguage language;
+  final AccountsV2Format format;
+  final bool canValues;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final claim in claims)
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.md),
+                child: _ClaimCard(
+                  claim: claim,
+                  active: claim.claimId == activeClaimId,
+                  language: language,
+                  format: format,
+                  canValues: canValues,
+                  onTap: () => onSelect(claim.claimId),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClaimCard extends StatelessWidget {
+  const _ClaimCard({
+    required this.claim,
+    required this.active,
+    required this.language,
+    required this.format,
+    required this.canValues,
+    required this.onTap,
+  });
+
+  final YorksAccountsClaimSummary claim;
+  final bool active;
+  final AppLanguage language;
+  final AccountsV2Format format;
+  final bool canValues;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final period = claim.periodStart ?? '—';
+    return Semantics(
+      button: true,
+      selected: active,
+      child: Material(
+        color: active
+            ? AppColors.blueContainer
+            : AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          onTap: onTap,
+          child: Container(
+            width: 230,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: active ? AppColors.primary : AppColors.line,
+                width: active ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // On its own line: a generated reference is too long to share one
+                // with the status chip without being cut off.
+                Text(
+                  claim.reference,
+                  style: AppTypography.titleSmall.copyWith(
+                    color: AppColors.ink,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                _ClaimStatusChip(status: claim.status, language: language),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  period,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+                if (canValues) ...[
+                  const SizedBox(height: AppSpacing.xxs),
+                  Text(
+                    format.money(claim.grossExVat),
+                    style: AppTypography.titleSmall.copyWith(
+                      color: AppColors.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Claim side panel ────────────────────────────────────────────────────────
 
 class _ClaimSidePanel extends StatelessWidget {
@@ -249,6 +433,7 @@ class _ClaimSidePanel extends StatelessWidget {
     this.onReopen,
     this.onIssue,
     this.onMarkChecked,
+    this.onPreviewInvoice,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -258,8 +443,18 @@ class _ClaimSidePanel extends StatelessWidget {
   final YorksReopenClaimAction? onReopen;
   final YorksIssueInvoiceAction? onIssue;
   final YorksReopenClaimAction? onMarkChecked;
+  final Future<String?> Function(String claimId)? onPreviewInvoice;
 
   String _t(String key) => accountsV2Text(language, key);
+
+  Future<void> _preview(BuildContext context, String claimId) async {
+    final error = await onPreviewInvoice!(claimId);
+    if (context.mounted && error != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(_t('v2_inv_pdf_failed'))));
+    }
+  }
 
   Future<void> _report(
     BuildContext context,
@@ -269,7 +464,9 @@ class _ClaimSidePanel extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(
       SnackBar(
-        content: Text(error == null ? _t(okKey) : _t('v2_action_failed')),
+        content: Text(
+          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
+        ),
       ),
     );
   }
@@ -344,7 +541,15 @@ class _ClaimSidePanel extends StatelessWidget {
           children: [
             AccountsV2SectionTitle(_t('v2_claim_title')),
             const SizedBox(height: AppSpacing.sm),
-            Text(_t('v2_claims_no_claim'), style: AppTypography.bodyMedium),
+            // Only someone who can confirm progress is told it starts a claim.
+            Text(
+              _t(
+                workbench.canConfirmProgress
+                    ? 'v2_claims_no_claim'
+                    : 'v2_att_no_claim',
+              ),
+              style: AppTypography.bodyMedium,
+            ),
           ],
         ),
       );
@@ -359,6 +564,28 @@ class _ClaimSidePanel extends StatelessWidget {
     final gross = YorksAccountsDecimal.tryParse(
       claim['claimed_ex_vat'] as String? ?? '',
     );
+    // Server-computed payable figures (commercial only; added in P3 part c).
+    final vat = YorksAccountsDecimal.tryParse(
+      claim['vat_amount'] as String? ?? '',
+    );
+    final net = YorksAccountsDecimal.tryParse(
+      claim['net_payable'] as String? ?? '',
+    );
+    final thisClaimPercent = claim['this_claim_percent'] as String?;
+    // §28 R-1/R-4 preview: retention the profile would currently hold back, and
+    // the net payable after it. Commercial only; absent until a retention % is
+    // set, so the panel renders the plain net payable when retention is zero.
+    final retentionPercent = YorksAccountsDecimal.tryParse(
+      claim['retention_percent'] as String? ?? '',
+    );
+    final retentionPreview = YorksAccountsDecimal.tryParse(
+      claim['retention_preview'] as String? ?? '',
+    );
+    final netAfterRetention = YorksAccountsDecimal.tryParse(
+      claim['net_payable_after_retention'] as String? ?? '',
+    );
+    final showRetention =
+        retentionPreview != null && retentionPreview.isPositive;
     final lineCount = (claim['lines'] as List?)?.length ?? 0;
     final claimId = claim['claim_id'] as String?;
     final version = (claim['record_version'] as num?)?.toInt() ?? 1;
@@ -393,12 +620,37 @@ class _ClaimSidePanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _PanelRow(label: _t('v2_claim_period'), value: period),
           _PanelRow(label: _t('v2_claim_lines'), value: '$lineCount'),
-          if (canValues)
-            _PanelRow(
-              label: _t('v2_claim_gross'),
-              value: format.money(gross),
-              emphasize: true,
-            ),
+          if (canValues) ...[
+            _PanelRow(label: _t('v2_claim_gross'), value: format.money(gross)),
+            if (vat != null)
+              _PanelRow(label: _t('v2_claim_vat'), value: format.money(vat)),
+            if (net != null)
+              _PanelRow(
+                label: _t('v2_claim_net_payable'),
+                value: format.money(net),
+                emphasize: !showRetention,
+              ),
+            if (showRetention) ...[
+              _PanelRow(
+                label: retentionPercent != null
+                    ? '${_t('v2_claim_retention_preview')} · '
+                          '${format.percent(retentionPercent)}'
+                    : _t('v2_claim_retention_preview'),
+                value: '− ${format.money(retentionPreview)}',
+              ),
+              if (netAfterRetention != null)
+                _PanelRow(
+                  label: _t('v2_claim_net_after_retention'),
+                  value: format.money(netAfterRetention),
+                  emphasize: true,
+                ),
+            ],
+            if (thisClaimPercent != null)
+              _PanelRow(
+                label: _t('v2_claim_of_contract'),
+                value: '$thisClaimPercent%',
+              ),
+          ],
           if (showIssue || showReopen || showMark) ...[
             const SizedBox(height: AppSpacing.md),
             const Divider(height: 1, color: AppColors.line),
@@ -412,6 +664,17 @@ class _ClaimSidePanel extends StatelessWidget {
                   label: Text(_t('v2_claim_mark_checked')),
                 ),
               ),
+            if (showIssue && onPreviewInvoice != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _preview(context, claimId),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: Text(_t('v2_claim_preview')),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             if (showIssue)
               SizedBox(
                 width: double.infinity,
@@ -562,7 +825,10 @@ class _StageSection extends StatelessWidget {
     required this.canValues,
     required this.language,
     required this.format,
+    this.onUpdateCell,
   });
+
+  final ValueChanged<YorksAccountsWorkbenchCell>? onUpdateCell;
 
   final String title;
   final List<YorksAccountsWorkbenchCell> cells;
@@ -585,6 +851,16 @@ class _StageSection extends StatelessWidget {
               language: language,
               format: format,
             ),
+            if (onUpdateCell != null && !cell.isItemsMode)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: () => onUpdateCell!(cell),
+                  child: Text(
+                    accountsV2Text(language, 'v2_cell_update_progress'),
+                  ),
+                ),
+              ),
             if (cell.isItemsMode && cell.items.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(
@@ -608,6 +884,20 @@ class _StageSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String _suggestionText(
+  AppLanguage language,
+  AccountsV2Format format,
+  YorksAccountsWorkbenchCell cell,
+) {
+  final by = cell.suggestedBy;
+  final what =
+      '${accountsV2Text(language, 'v2_cell_suggested')} '
+      '${format.percent(cell.suggestedPercent)}';
+  return by == null || by.isEmpty
+      ? what
+      : '$what · ${accountsV2Text(language, 'v2_hist_by')} $by';
 }
 
 class _CellRow extends StatelessWidget {
@@ -640,6 +930,13 @@ class _CellRow extends StatelessWidget {
                   accountsV2Text(language, 'v2_mode_items'),
                   style: AppTypography.labelSmall.copyWith(
                     color: AppColors.muted,
+                  ),
+                ),
+              if (cell.suggestedPercent != null)
+                Text(
+                  _suggestionText(language, format, cell),
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.warning,
                   ),
                 ),
             ],
@@ -675,34 +972,71 @@ class _CellRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Fixed money columns need ~430px; stack them below on a narrow tab.
-          final narrow = constraints.maxWidth < 440;
-          if (!narrow) {
-            return Row(
-              children: [
-                Expanded(child: nameAndPercent),
-                ...moneyCols,
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              nameAndPercent,
-              if (moneyCols.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xxs),
-                  child: Wrap(
-                    spacing: AppSpacing.lg,
-                    runSpacing: AppSpacing.xs,
-                    children: moneyCols,
-                  ),
-                ),
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Fixed money columns need ~430px; stack them below on a narrow tab.
+              final narrow = constraints.maxWidth < 440;
+              if (!narrow) {
+                return Row(
+                  children: [
+                    Expanded(child: nameAndPercent),
+                    ...moneyCols,
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  nameAndPercent,
+                  if (moneyCols.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xxs),
+                      child: Wrap(
+                        spacing: AppSpacing.lg,
+                        runSpacing: AppSpacing.xs,
+                        children: moneyCols,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // Invoiced-so-far progress for this building x stage (claimed of
+          // eligible). Display-only ratio; the amounts stay decimal strings.
+          if (canValues && (cell.eligible?.isPositive ?? false)) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _ClaimProgressBar(
+              ratio: format.ratio(cell.claimed, cell.eligible),
+              over: cell.overClaimed,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A thin invoiced-progress bar for a claim cell (claimed of eligible).
+class _ClaimProgressBar extends StatelessWidget {
+  const _ClaimProgressBar({required this.ratio, required this.over});
+
+  final double ratio;
+  final bool over;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      child: LinearProgressIndicator(
+        value: ratio.clamp(0.0, 1.0),
+        minHeight: 6,
+        backgroundColor: AppColors.surfaceContainer,
+        valueColor: AlwaysStoppedAnimation<Color>(
+          over ? AppColors.error : AppColors.primary,
+        ),
       ),
     );
   }
@@ -958,26 +1292,25 @@ class _IssueDialogState extends State<_IssueDialog> {
     final valid =
         _datePattern.hasMatch(_invoiceDate.text.trim()) &&
         _datePattern.hasMatch(_submissionDate.text.trim());
-    InputDecoration deco(String label) => InputDecoration(
-      labelText: label,
-      hintText: 'YYYY-MM-DD',
-      border: const OutlineInputBorder(),
-    );
+    InputDecoration deco(String label) =>
+        InputDecoration(labelText: label, border: const OutlineInputBorder());
     return AlertDialog(
       title: Text(_t('v2_claim_issue')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_claim_invoice_date'),
             controller: _invoiceDate,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_claim_invoice_date')),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
-          TextField(
+          AccountsV2DateField(
+            label: _t('v2_claim_submission_date'),
             controller: _submissionDate,
-            onChanged: (_) => setState(() {}),
-            decoration: deco(_t('v2_claim_submission_date')),
+            language: widget.language,
+            onChanged: () => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
@@ -1020,11 +1353,13 @@ class _ProgressEditor extends StatefulWidget {
     required this.evidenceDocuments,
     required this.onCancel,
     required this.onSave,
+    this.onUploadEvidence,
   });
 
   final List<YorksAccountsWorkbenchCell> cells;
   final AppLanguage language;
   final List<YorksAccountsEvidenceDoc> evidenceDocuments;
+  final Future<String?> Function()? onUploadEvidence;
   final VoidCallback onCancel;
   final YorksSaveWorkbenchAction onSave;
 
@@ -1041,6 +1376,22 @@ class _ProgressEditorState extends State<_ProgressEditor> {
   final _reason = TextEditingController();
   final Set<String> _evidence = {};
   bool _saving = false;
+  bool _uploading = false;
+
+  /// Uploads a document and selects it, since it was added to be attached.
+  Future<void> _uploadEvidence() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    setState(() => _uploading = true);
+    try {
+      final id = await widget.onUploadEvidence!();
+      if (mounted && id != null) setState(() => _evidence.add(id));
+    } catch (_) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(_t('v2_evidence_upload_failed'))),
+      );
+    }
+    if (mounted) setState(() => _uploading = false);
+  }
 
   static final _datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
 
@@ -1155,7 +1506,9 @@ class _ProgressEditorState extends State<_ProgressEditor> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(
-          error == null ? _t('v2_progress_saved') : _t('v2_action_failed'),
+          error == null
+              ? _t('v2_progress_saved')
+              : accountsV2ErrorText(widget.language, error),
         ),
       ),
     );
@@ -1180,18 +1533,18 @@ class _ProgressEditorState extends State<_ProgressEditor> {
               Row(
                 children: [
                   Expanded(
-                    child: _ProgressField(
+                    child: AccountsV2DateField(
                       label: _t('v2_progress_period_start'),
                       controller: _start,
-                      hint: 'YYYY-MM-DD',
+                      language: widget.language,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: _ProgressField(
+                    child: AccountsV2DateField(
                       label: _t('v2_progress_period_end'),
                       controller: _end,
-                      hint: 'YYYY-MM-DD',
+                      language: widget.language,
                     ),
                   ),
                 ],
@@ -1220,37 +1573,14 @@ class _ProgressEditorState extends State<_ProgressEditor> {
                       language: widget.language,
                     )
                   else
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.xs,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${c.buildingName} · ${c.stageLabel ?? c.stageKey}',
-                              style: AppTypography.bodyMedium.copyWith(
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: TextField(
-                              controller: _pct[c.progressEntryId],
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              textAlign: TextAlign.end,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                suffixText: '%',
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
+                    _PercentCellEditor(
+                      cell: c,
+                      controller: _pct[c.progressEntryId]!,
+                      language: widget.language,
+                      // The suggestion's evidence comes with it, so it needn't be
+                      // chosen again.
+                      onUseSuggestion: () => setState(
+                        () => _evidence.addAll(c.suggestedEvidenceDocumentIds),
                       ),
                     ),
             ],
@@ -1262,6 +1592,8 @@ class _ProgressEditorState extends State<_ProgressEditor> {
           selected: _evidence,
           language: widget.language,
           required: needsEvidence,
+          uploading: _uploading,
+          onUpload: widget.onUploadEvidence == null ? null : _uploadEvidence,
           onToggle: (id, on) => setState(() {
             if (on) {
               _evidence.add(id);
@@ -1278,6 +1610,26 @@ class _ProgressEditorState extends State<_ProgressEditor> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
+        if (entries.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  '${_t('v2_progress_changes')}: ${entries.length}',
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Row(
           children: [
             FilledButton(
@@ -1311,7 +1663,12 @@ class _EvidencePicker extends StatelessWidget {
     required this.language,
     required this.required,
     required this.onToggle,
+    this.uploading = false,
+    this.onUpload,
   });
+
+  final bool uploading;
+  final VoidCallback? onUpload;
 
   final List<YorksAccountsEvidenceDoc> documents;
   final Set<String> selected;
@@ -1349,6 +1706,14 @@ class _EvidencePicker extends StatelessWidget {
                   ),
               ],
             ),
+          if (onUpload != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: uploading ? null : onUpload,
+              icon: const Icon(Icons.upload_file_outlined, size: 16),
+              label: Text(accountsV2Text(language, 'v2_evidence_upload')),
+            ),
+          ],
           if (required) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -1363,15 +1728,10 @@ class _EvidencePicker extends StatelessWidget {
 }
 
 class _ProgressField extends StatelessWidget {
-  const _ProgressField({
-    required this.label,
-    required this.controller,
-    this.hint,
-  });
+  const _ProgressField({required this.label, required this.controller});
 
   final String label;
   final TextEditingController controller;
-  final String? hint;
 
   @override
   Widget build(BuildContext context) {
@@ -1379,7 +1739,6 @@ class _ProgressField extends StatelessWidget {
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
-        hintText: hint,
         isDense: true,
         border: const OutlineInputBorder(),
       ),
@@ -1421,62 +1780,254 @@ class _ItemsCellEditor extends StatelessWidget {
             ],
           ),
           for (final item in cell.items)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: AppSpacing.md,
-                top: AppSpacing.xxs,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            item.itemLabel,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.ink,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (item.needsReview) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          StatusChip.warning(
-                            accountsV2Text(language, 'v2_needs_review'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 120,
-                    child: TextField(
-                      controller: controllers[item.stageItemId],
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      textAlign: TextAlign.end,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        suffixText: item.unitCode,
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  SizedBox(
-                    width: 64,
-                    child: Text(
-                      '/ ${item.quantity.displayText(maximumFractionDigits: 2)}',
-                      style: AppTypography.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
+            _ItemQtyRow(
+              item: item,
+              controller: controllers[item.stageItemId]!,
+              language: language,
             ),
         ],
       ),
     );
   }
+}
+
+/// One editable item-quantity row: label, needs-review flag, live quantity
+/// delta, a Max button (fill to the full quantity) and the quantity field.
+class _ItemQtyRow extends StatelessWidget {
+  const _ItemQtyRow({
+    required this.item,
+    required this.controller,
+    required this.language,
+  });
+
+  final YorksAccountsWorkbenchItem item;
+  final TextEditingController controller;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = _progressDelta(
+      item.confirmedQty,
+      controller.text,
+      ' ${item.unitCode}',
+    );
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.md, top: AppSpacing.xxs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    item.itemLabel,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.ink,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (item.needsReview) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  StatusChip.warning(
+                    accountsV2Text(language, 'v2_needs_review'),
+                  ),
+                ],
+                if (delta != null) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  _DeltaChip(delta: delta),
+                ],
+              ],
+            ),
+          ),
+          _MaxButton(
+            language: language,
+            onTap: () => _setField(controller, item.quantity.canonicalText),
+          ),
+          SizedBox(
+            width: 120,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: InputDecoration(
+                isDense: true,
+                suffixText: item.unitCode,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          SizedBox(
+            width: 64,
+            child: Text(
+              '/ ${item.quantity.displayText(maximumFractionDigits: 2)}',
+              style: AppTypography.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One editable lump-sum (percent-mode) cell: building · stage, live percent
+/// delta, a Max button (fill to 100%) and the percent field.
+class _PercentCellEditor extends StatelessWidget {
+  const _PercentCellEditor({
+    required this.cell,
+    required this.controller,
+    required this.language,
+    required this.onUseSuggestion,
+  });
+
+  final YorksAccountsWorkbenchCell cell;
+  final TextEditingController controller;
+  final AppLanguage language;
+  final VoidCallback onUseSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = _progressDelta(cell.confirmedPercent, controller.text, '%');
+    final suggested = cell.suggestedPercent;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${cell.buildingName} · ${cell.stageLabel ?? cell.stageKey}',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+                if (suggested != null)
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        _suggestionText(
+                          language,
+                          const AccountsV2Format(),
+                          cell,
+                        ),
+                        style: AppTypography.labelSmall.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          _setField(controller, suggested.canonicalText);
+                          onUseSuggestion();
+                        },
+                        child: Text(
+                          accountsV2Text(language, 'v2_cell_use_suggestion'),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          if (delta != null) ...[
+            _DeltaChip(delta: delta),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          _MaxButton(
+            language: language,
+            onTap: () => _setField(controller, '100'),
+          ),
+          SizedBox(
+            width: 120,
+            child: TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              textAlign: TextAlign.end,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+              decoration: const InputDecoration(
+                isDense: true,
+                suffixText: '%',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact chip showing a signed progress delta (green up, amber down).
+class _DeltaChip extends StatelessWidget {
+  const _DeltaChip({required this.delta});
+
+  final ({String text, bool increase}) delta;
+
+  @override
+  Widget build(BuildContext context) {
+    return delta.increase
+        ? StatusChip.success(delta.text)
+        : StatusChip.warning(delta.text);
+  }
+}
+
+/// A dense "Max" button that fills a field to its ceiling (100% / full qty).
+class _MaxButton extends StatelessWidget {
+  const _MaxButton({required this.language, required this.onTap});
+
+  final AppLanguage language;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(accountsV2Text(language, 'v2_max')),
+    );
+  }
+}
+
+/// Sets a field's text and places the caret at the end (used by Max).
+void _setField(TextEditingController controller, String value) {
+  controller.value = TextEditingValue(
+    text: value,
+    selection: TextSelection.collapsed(offset: value.length),
+  );
+}
+
+/// The exact signed change between a confirmed value and the typed value, with
+/// a unit suffix, or null when unchanged or unparseable. Exact
+/// [YorksAccountsDecimal] arithmetic — never a money figure, so it is correct
+/// for the progress-recorder role without commercial access.
+({String text, bool increase})? _progressDelta(
+  YorksAccountsDecimal current,
+  String typedText,
+  String suffix,
+) {
+  final typed = YorksAccountsDecimal.tryParse(typedText.trim());
+  if (typed == null) return null;
+  final cmp = typed.compareTo(current);
+  if (cmp == 0) return null;
+  final increase = cmp > 0;
+  final magnitude = increase ? (typed - current) : (current - typed);
+  final sign = increase ? '+' : '−';
+  return (
+    text: '$sign${magnitude.displayText(maximumFractionDigits: 4)}$suffix',
+    increase: increase,
+  );
 }
