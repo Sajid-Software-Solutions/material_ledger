@@ -80,7 +80,9 @@ void _wideSurface(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
 
 void main() {
   group('history event titles', () {
@@ -143,18 +145,50 @@ void main() {
       expect(find.text('Claim submitted'), findsOneWidget);
       expect(find.text('Invoice issued'), findsOneWidget);
       expect(find.text('Supplier bill approved'), findsOneWidget);
-      expect(find.text(t('v2_files_title')), findsOneWidget);
+      expect(find.text(t('v2h_activity')), findsOneWidget);
+      expect(find.text(t('v2h_append_only')), findsOneWidget);
+      expect(find.text(t('v2h_register')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('filter segments narrow the timeline', (tester) async {
+    testWidgets('the search finds an entry by person or words', (tester) async {
+      _wideSurface(tester);
+      await tester.pumpWidget(
+        _wrap(AccountsV2HistoryTab(projection: _projection(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2h_search')),
+        'invoice',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Invoice issued'), findsOneWidget);
+      expect(find.text('Claim submitted'), findsNothing);
+    });
+
+    testWidgets('lays out at 360px', (tester) async {
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        _wrap(AccountsV2HistoryTab(projection: _projection(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Claim submitted'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the record type narrows the timeline', (tester) async {
       _wideSurface(tester);
       await tester.pumpWidget(
         _wrap(AccountsV2HistoryTab(projection: _projection(), language: en)),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(t('v2_hist_claims')));
+      await tester.tap(find.text(t('v2h_all')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2h_claims')).last);
       await tester.pumpAndSettle();
 
       expect(find.text('Claim submitted'), findsOneWidget);
@@ -191,10 +225,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: _wrap(
-            const YorksAccountsWorkspaceV2Screen(
-              projectId: 'p1',
-              initialTab: YorksAccountsWorkspaceV2Tab.history,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.history,
+              ),
             ),
           ),
         ),

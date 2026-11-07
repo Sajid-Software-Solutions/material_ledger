@@ -1,30 +1,44 @@
-/// R39 Accounts Workspace V2 — Summary tab (P6).
+/// R39 Accounts Workspace V2 — Overview tab, laid out as the approved prototype.
 ///
-/// Renders the Summary projection (`v1_get_project_accounts_workspace`):
-/// the four-step strip, KPI tiles, the contract money-flow bar, the
-/// needs-attention list, the cash position and the building × stage heatmap.
-/// Commercial blocks are absent (not zeroed) when the actor lacks the
-/// capability, so each is drawn only when its model is present.
+/// Four steps, six KPI tiles, then two rows of three cards: Needs Attention,
+/// Commercial progress by building, Client collections; Position by building,
+/// Where the money stands, Contract snapshot. Server projections supply every
+/// figure; percentages and the attention wording are worked out here for
+/// display only.
 library;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
-import '../../../../core/constants/app_typography.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
-import '../../domain/accounts_decimal.dart';
+import '../../domain/accounts_receivables_inputs.dart';
+import '../../domain/accounts_receivables_models.dart';
+import '../../domain/accounts_supplier_models.dart';
 import '../../domain/v2/accounts_workspace_models.dart';
+import '../../domain/v2/claims_list_models.dart';
+import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/pdc_register_models.dart';
 import 'accounts_v2_common.dart';
+import 'kit/accounts_v2_kit.dart';
+import 'kit/accounts_v2_setup_checks.dart';
 
-/// Maps a workspace step key to the tab it jumps to.
+/// Where a Needs Attention button leads.
+final class AccountsV2OverviewTarget {
+  const AccountsV2OverviewTarget(this.tab, {this.invoiceId, this.billId});
+
+  final YorksAccountsWorkspaceV2Tab tab;
+
+  /// Opens this invoice's drawer on the Invoices tab.
+  final String? invoiceId;
+
+  /// Opens this bill on the Supplier bills tab.
+  final String? billId;
+}
+
+/// Maps a workspace step key to the tab it opens.
 YorksAccountsWorkspaceV2Tab _tabForStep(String stepKey) => switch (stepKey) {
   'setup' => YorksAccountsWorkspaceV2Tab.contract,
   'progress' => YorksAccountsWorkspaceV2Tab.claims,
-  'invoice' => YorksAccountsWorkspaceV2Tab.invoices,
-  'paid' => YorksAccountsWorkspaceV2Tab.invoices,
-  _ => YorksAccountsWorkspaceV2Tab.summary,
+  _ => YorksAccountsWorkspaceV2Tab.invoices,
 };
 
 class AccountsV2SummaryTab extends StatelessWidget {
@@ -32,660 +46,884 @@ class AccountsV2SummaryTab extends StatelessWidget {
     super.key,
     required this.workspace,
     required this.language,
-    required this.format,
     required this.onOpenTab,
-    required this.onAttentionAction,
+    required this.onOpenTarget,
     required this.onOpenCell,
-    this.onExportCsv,
+    this.setup,
+    this.invoices,
+    this.cheques,
+    this.bills,
+    this.claims,
+    this.today,
   });
 
   final YorksAccountsWorkspace workspace;
   final AppLanguage language;
-  final AccountsV2Format format;
   final ValueChanged<YorksAccountsWorkspaceV2Tab> onOpenTab;
-  final ValueChanged<YorksAccountsWorkspaceAttention> onAttentionAction;
+  final ValueChanged<AccountsV2OverviewTarget> onOpenTarget;
   final void Function(String stageKey, String buildingScopeId) onOpenCell;
-  final VoidCallback? onExportCsv;
+
+  /// Each list is null when it is still loading or the person cannot see it;
+  /// the Overview then falls back to the server's summary lines.
+  final YorksAccountsCommercialSetupRead? setup;
+  final List<YorksAccountsClientInvoiceSummary>? invoices;
+  final List<YorksAccountsProjectPdc>? cheques;
+  final List<YorksAccountsSupplierBill>? bills;
+  final List<YorksAccountsClaimSummary>? claims;
+
+  /// Fixed in tests; today otherwise.
+  final DateTime? today;
+
+  String _t(String key) => accountsV2Text(language, key);
+
+  /// "#03" for a claim, by its place among the live claims (oldest first), as
+  /// the prototype numbers them; the reference when the list isn't loaded.
+  String _claimLabel(String? claimId, String? reference) {
+    final live = [
+      for (final c in (claims ?? const <YorksAccountsClaimSummary>[]).reversed)
+        if (c.status != 'cancelled') c,
+    ];
+    final i = live.indexWhere(
+      (c) =>
+          c.claimId == claimId ||
+          (reference != null && c.reference == reference),
+    );
+    if (i < 0) return reference ?? '';
+    return '#${(i + 1).toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final kpis = workspace.kpis;
-    final moneyFlow = workspace.moneyFlow;
-    final cash = workspace.cash;
-    final heatmap = workspace.heatmap;
-
     final children = <Widget>[
-      _StepStrip(
+      _Flow(
         steps: workspace.steps,
         language: language,
-        format: format,
+        setupToFix: setup == null
+            ? 0
+            : accountsV2SetupChecks(setup!).where((c) => !c.ok).length,
+        claimsRecorded: claims?.length,
+        claimLabel: _claimLabel,
         onTap: (step) => onOpenTab(_tabForStep(step.key)),
       ),
-      const SizedBox(height: AppSpacing.lg),
     ];
-
     if (kpis != null) {
-      children
-        ..add(
-          _KpiRow(
-            kpis: kpis,
-            supplier: workspace.supplier,
-            language: language,
-            format: format,
-          ),
-        )
-        ..add(const SizedBox(height: AppSpacing.lg));
-      if (moneyFlow != null) {
-        children
-          ..add(
-            _MoneyFlowCard(
-              moneyFlow: moneyFlow,
-              contractValue: kpis.contractValue,
-              language: language,
-              format: format,
-              onExportCsv: onExportCsv,
-            ),
-          )
-          ..add(const SizedBox(height: AppSpacing.lg));
-      }
+      children.add(_kpiRow(kpis));
     } else {
-      children
-        ..add(
-          _NoCommercialCard(
-            workspace: workspace,
-            language: language,
-            onSetup: () => onOpenTab(YorksAccountsWorkspaceV2Tab.contract),
-          ),
-        )
-        ..add(const SizedBox(height: AppSpacing.lg));
-    }
-
-    children
-      ..add(
-        _AttentionCard(
-          attention: workspace.attention,
-          language: language,
-          onAction: onAttentionAction,
-        ),
-      )
-      ..add(const SizedBox(height: AppSpacing.lg));
-
-    if (cash != null) {
-      children
-        ..add(_CashCard(cash: cash, language: language, format: format))
-        ..add(const SizedBox(height: AppSpacing.lg));
-    }
-
-    if (heatmap.isNotEmpty && kpis != null) {
       children.add(
-        _HeatmapCard(
-          cells: heatmap,
-          language: language,
-          format: format,
-          onOpenCell: onOpenCell,
+        AccountsV2Panel(
+          child: AccountsV2Empty(
+            icon: workspace.hasBaseline ? 'shield' : 'doc',
+            title: workspace.hasBaseline
+                ? _t('v2_commercial_hidden')
+                : _t('v2_no_baseline_title'),
+            body: workspace.hasBaseline ? null : _t('v2_no_baseline_body'),
+            action: workspace.hasBaseline
+                ? null
+                : AccountsV2Button(
+                    label: _t('v2_step_setup'),
+                    onPressed: () =>
+                        onOpenTab(YorksAccountsWorkspaceV2Tab.contract),
+                  ),
+          ),
         ),
       );
     }
-
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      children: children,
+    children.add(
+      _ThreeUp(
+        children: [
+          _AttentionCard(
+            items: _attention(),
+            language: language,
+            onOpen: onOpenTarget,
+          ),
+          if (kpis != null) _BuildingProgressCard(this),
+          if (kpis != null) _CollectionsCard(this),
+        ],
+      ),
     );
+    if (kpis != null) {
+      children.add(
+        _ThreeUp(
+          children: [
+            _PositionCard(this),
+            _MoneyCard(this),
+            _SnapshotCard(this),
+          ],
+        ),
+      );
+    }
+    return AccountsV2Stack(children: children);
+  }
+
+  // ─── KPIs ──────────────────────────────────────────────────────────────────
+
+  Widget _kpiRow(YorksAccountsWorkspaceKpis kpis) {
+    final contract = v2Number(kpis.contractValue);
+    final invoiced = v2Number(kpis.invoiced);
+    final overdue = (invoices ?? const <YorksAccountsClientInvoiceSummary>[])
+        .where((i) => i.dueState == YorksAccountsDueState.overdue);
+    final overdueAmount = overdue.fold<double>(
+      0,
+      (a, i) => a + v2Number(i.stillDue),
+    );
+    final supplier = workspace.supplier;
+    return AccountsV2KpiRow(
+      children: [
+        AccountsV2KpiCard(
+          icon: 'doc',
+          label: _t('v2_kpi_contract'),
+          value: v2Money(contract, digits: 0),
+          caption:
+              '${_t('v2o_excl_vat')} · '
+              '${v2Money(v2Number(kpis.contractInclVat), digits: 0)} '
+              '${_t('v2o_with_vat')}',
+        ),
+        AccountsV2KpiCard(
+          icon: 'receipt',
+          label: _t('v2_kpi_invoiced'),
+          value: v2Money(invoiced, digits: 0),
+          caption:
+              '${_t('v2o_excl_vat')} · '
+              '${v2Pct(contract > 0 ? invoiced / contract * 100 : 0)} '
+              '${_t('v2_of_contract')}',
+        ),
+        AccountsV2KpiCard(
+          icon: 'coins',
+          tone: AccountsV2Tone.green,
+          label: _t('v2_kpi_received'),
+          value: v2Money(v2Number(kpis.received), digits: 0),
+          caption: _t('v2o_cleared_incl_vat'),
+        ),
+        AccountsV2KpiCard(
+          icon: 'cheque',
+          tone: AccountsV2Tone.vio,
+          label: _t('v2o_cheques_in_hand'),
+          value: v2Money(v2Number(kpis.chequesInHand), digits: 0),
+          caption: _t('v2o_counted_when_cleared'),
+        ),
+        AccountsV2KpiCard(
+          icon: 'clock',
+          tone: AccountsV2Tone.org,
+          label: _t('v2o_still_due'),
+          value: v2Money(v2Number(kpis.outstanding), digits: 0),
+          valueTone: overdue.isEmpty
+              ? AccountsV2ValueTone.plain
+              : AccountsV2ValueTone.bad,
+          caption: overdue.isEmpty
+              ? _t('v2o_nothing_overdue')
+              : '${v2Money(overdueAmount, digits: 0)} ${_t('v2o_overdue')}',
+        ),
+        if (supplier != null)
+          AccountsV2KpiCard(
+            icon: 'archive',
+            tone: supplier.overdueCount > 0
+                ? AccountsV2Tone.red
+                : AccountsV2Tone.blue,
+            label: _t('v2_kpi_supplier_unpaid'),
+            value: v2Money(v2Number(supplier.unpaid), digits: 0),
+            valueTone: supplier.overdueCount > 0
+                ? AccountsV2ValueTone.bad
+                : AccountsV2ValueTone.plain,
+            caption:
+                '${supplier.overdueCount} ${_t('v2o_overdue')} · '
+                '${v2Money(v2Number(supplier.billed), digits: 0)} '
+                '${_t('v2o_billed')}',
+          ),
+      ],
+    );
+  }
+
+  // ─── Needs Attention ───────────────────────────────────────────────────────
+
+  List<_Attention> _attention() {
+    final items = <_Attention>[];
+    final now = today ?? DateTime.now();
+    String money(Object? v) => v2Money(v2Number(v));
+    String days(int n) => n == 1 ? _t('v2o_day') : _t('v2o_days');
+
+    // Contract setup.
+    if (setup != null) {
+      for (final check in accountsV2SetupChecks(setup!)) {
+        if (check.ok) continue;
+        items.add(
+          _Attention(
+            severity: _Severity.bad,
+            icon: 'alert',
+            title:
+                '${_t('v2o_setup_prefix')} '
+                '${accountsV2SetupCheckTitle(language, check).toLowerCase()}',
+            detail: accountsV2SetupCheckDetail(language, check),
+            button: _t('v2_action_open_contract'),
+            target: const AccountsV2OverviewTarget(
+              YorksAccountsWorkspaceV2Tab.contract,
+            ),
+          ),
+        );
+      }
+    } else {
+      items.addAll(_serverLines(const {'setup_incomplete'}));
+    }
+
+    // Cheques.
+    if (cheques != null) {
+      for (final pdc in cheques!) {
+        final target = AccountsV2OverviewTarget(
+          YorksAccountsWorkspaceV2Tab.invoices,
+          invoiceId: pdc.invoiceId,
+        );
+        final dd = v2DaysFromToday(pdc.chequeDate.postgresText, today: now);
+        final forInvoice =
+            '${money(pdc.amount.canonicalText)} ${_t('v2o_for')} '
+            '${pdc.invoiceReference}';
+        switch (pdc.status) {
+          case YorksAccountsPdcStatus.expected:
+          case YorksAccountsPdcStatus.received:
+            items.add(
+              dd <= 0
+                  ? _Attention(
+                      severity: _Severity.warn,
+                      icon: 'cheque',
+                      title:
+                          '${_t('v2o_deposit_cheque')} ${pdc.chequeNumber} — '
+                          '${_t('v2o_it_is_due')}',
+                      detail:
+                          '$forInvoice · ${_t('v2o_cheque_date')} '
+                          '${v2Date(pdc.chequeDate.postgresText)}',
+                      button: _t('v2_action_open_invoice'),
+                      target: target,
+                    )
+                  : _Attention(
+                      severity: _Severity.pri,
+                      icon: 'cheque',
+                      title:
+                          '${_t('v2o_cheque')} ${pdc.chequeNumber} '
+                          '${_t('v2o_in_hand_deposit_on')} '
+                          '${v2Date(pdc.chequeDate.postgresText)}',
+                      detail:
+                          '$forInvoice · $dd ${days(dd)} ${_t('v2o_to_go')} · '
+                          '${_t('v2o_counted_received_when_cleared')}',
+                      button: _t('v2_action_open_invoice'),
+                      target: target,
+                    ),
+            );
+          case YorksAccountsPdcStatus.deposited:
+            items.add(
+              _Attention(
+                severity: _Severity.pri,
+                icon: 'cheque',
+                title:
+                    '${_t('v2o_cheque')} ${pdc.chequeNumber} '
+                    '${_t('v2o_deposited_confirm')}',
+                detail: forInvoice,
+                button: _t('v2_action_open_invoice'),
+                target: target,
+              ),
+            );
+          case YorksAccountsPdcStatus.bounced:
+            items.add(
+              _Attention(
+                severity: _Severity.bad,
+                icon: 'cheque',
+                title:
+                    '${_t('v2o_cheque')} ${pdc.chequeNumber} '
+                    '${_t('v2o_bounced')}',
+                detail: '$forInvoice — ${_t('v2o_follow_up')}',
+                button: _t('v2_action_open_invoice'),
+                target: target,
+              ),
+            );
+          case YorksAccountsPdcStatus.cleared:
+          case YorksAccountsPdcStatus.replaced:
+          case YorksAccountsPdcStatus.returned:
+          case YorksAccountsPdcStatus.cancelled:
+            break;
+        }
+      }
+    } else {
+      items.addAll(_serverLines(const {'cheques_in_hand'}));
+    }
+
+    // Invoices.
+    if (invoices != null) {
+      for (final inv in invoices!) {
+        if (const {
+          YorksAccountsInvoiceStatus.draft,
+          YorksAccountsInvoiceStatus.returned,
+          YorksAccountsInvoiceStatus.cancelled,
+        }.contains(inv.status)) {
+          continue;
+        }
+        final paid = inv.status == YorksAccountsInvoiceStatus.paid;
+        final target = AccountsV2OverviewTarget(
+          YorksAccountsWorkspaceV2Tab.invoices,
+          invoiceId: inv.invoiceId,
+        );
+        final due = inv.dueDate?.postgresText;
+        final dd = v2DaysFromToday(due, today: now);
+        if (inv.dueState == YorksAccountsDueState.overdue) {
+          items.add(
+            _Attention(
+              severity: _Severity.bad,
+              icon: 'alert',
+              title:
+                  '${inv.invoiceReference} ${_t('v2o_overdue_by')} ${-dd} '
+                  '${days(-dd)}',
+              detail:
+                  '${_t('v2o_balance')} ${money(inv.stillDue.canonicalText)} · '
+                  '${_t('v2o_was_due')} ${v2Date(due)}'
+                  '${inv.pdcExposure.isPositive ? ' · ${_t('v2o_cheque_in_hand')}' : ''}',
+              button: _t('v2o_record_payment'),
+              target: target,
+            ),
+          );
+        } else if (!paid &&
+            due != null &&
+            dd <= 14 &&
+            !inv.pdcExposure.isPositive) {
+          items.add(
+            _Attention(
+              severity: _Severity.warn,
+              icon: 'clock',
+              title:
+                  '${inv.invoiceReference} ${_t('v2o_due_in')} $dd ${days(dd)}',
+              detail:
+                  '${_t('v2o_balance')} ${money(inv.stillDue.canonicalText)} · '
+                  '${_t('v2o_due')} ${v2Date(due)}',
+              button: _t('v2_action_open_invoice'),
+              target: target,
+            ),
+          );
+        }
+        if (inv.certifiedExVat.isZero && !paid) {
+          final submitted = inv.submissionDate?.postgresText;
+          final ago = -v2DaysFromToday(submitted, today: now);
+          items.add(
+            _Attention(
+              severity: _Severity.pri,
+              icon: 'shield',
+              title:
+                  '${inv.invoiceReference} '
+                  '${_t('v2o_waiting_certification')}',
+              detail:
+                  '${_t('v2o_submitted')} ${v2Date(submitted)} · $ago '
+                  '${days(ago)} ${_t('v2o_ago')}',
+              button: _t('v2_action_certify'),
+              target: target,
+            ),
+          );
+        }
+      }
+    } else {
+      items.addAll(
+        _serverLines(const {'invoice_overdue', 'awaiting_certification'}),
+      );
+    }
+
+    // The claim in progress.
+    if (claims != null) {
+      final open = claims!.where(
+        (c) => c.status == 'draft' || c.status == 'ready_for_accounts',
+      );
+      final suggested = workspace.attention
+          .where((a) => a.kind == 'progress_suggested')
+          .fold<int>(
+            0,
+            (n, a) => n + ((a.params['count'] as num?) ?? 0).toInt(),
+          );
+      const target = AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.claims,
+      );
+      if (open.isNotEmpty) {
+        final claim = open.first;
+        final gross = v2Number(claim.grossExVat);
+        final checked = claim.status == 'ready_for_accounts';
+        final site = suggested > 0
+            ? ' · $suggested ${_t('v2o_site_records_waiting')}'
+            : '';
+        items.add(
+          _Attention(
+            severity: gross > 0.004 ? _Severity.ok : _Severity.pri,
+            icon: 'chart',
+            title: gross > 0.004
+                ? '${_t('v2o_claim')} ${_claimLabel(claim.claimId, claim.reference)} '
+                      '${_t('v2o_has')} ${v2Money(gross)} '
+                      '${_t('v2o_ready_to_invoice')}'
+                : '${_t('v2o_claim')} ${_claimLabel(claim.claimId, claim.reference)} '
+                      '${_t('v2o_is_empty')}',
+            detail:
+                (checked
+                    ? _t('v2o_checked_ready')
+                    : _t('v2o_draft_unchecked')) +
+                site,
+            button: _t('v2_action_open_claim'),
+            target: target,
+          ),
+        );
+      } else if (claims!.isNotEmpty || workspace.kpis != null) {
+        items.add(
+          _Attention(
+            severity: _Severity.pri,
+            icon: 'chart',
+            title: _t('v2_att_no_claim'),
+            detail: _t('v2o_start_next_claim'),
+            button: _t('v2_action_start_claim'),
+            target: target,
+          ),
+        );
+      }
+    } else {
+      items.addAll(
+        _serverLines(const {
+          'claim_ready',
+          'claim_draft',
+          'claim_empty',
+          'no_claim',
+          'progress_suggested',
+        }),
+      );
+    }
+
+    // Supplier bills.
+    if (bills != null) {
+      for (final bill in bills!) {
+        if (bill.status == YorksAccountsSupplierBillStatus.cancelled) continue;
+        final open = bill.outstandingAmount.isPositive;
+        final target = AccountsV2OverviewTarget(
+          YorksAccountsWorkspaceV2Tab.supplierBills,
+          billId: bill.supplierBillId,
+        );
+        final due = bill.dueDate.postgresText;
+        if (open && v2DaysFromToday(due, today: now) < 0) {
+          items.add(
+            _Attention(
+              severity: _Severity.warn,
+              icon: 'box',
+              title:
+                  '${_t('v2o_supplier_bill')} ${bill.supplierInvoiceReference} '
+                  '${_t('v2o_overdue')}',
+              detail:
+                  '${bill.supplierName} · '
+                  '${money(bill.outstandingAmount.canonicalText)} '
+                  '${_t('v2o_unpaid')} · ${_t('v2o_due')} ${v2Date(due)}',
+              button: _t('v2o_open_bill'),
+              target: target,
+            ),
+          );
+        }
+        if (open && bill.acceptedDelivery == null) {
+          items.add(
+            _Attention(
+              severity: _Severity.warn,
+              icon: 'truck',
+              title:
+                  '${bill.supplierInvoiceReference} '
+                  '${_t('v2o_no_delivery_linked')}',
+              detail: '${bill.supplierName} · ${_t('v2o_confirm_arrived')}',
+              button: _t('v2o_check_bill'),
+              target: target,
+            ),
+          );
+        }
+      }
+    } else {
+      items.addAll(_serverLines(const {'supplier_overdue'}));
+    }
+
+    items.sort((a, b) => a.severity.index.compareTo(b.severity.index));
+    return items;
+  }
+
+  /// The server's summary lines for the kinds the Overview could not work out
+  /// itself (the person cannot see those records, or they are still loading).
+  Iterable<_Attention> _serverLines(Set<String> kinds) sync* {
+    for (final item in workspace.attention) {
+      if (!kinds.contains(item.kind)) continue;
+      final count = item.params['count'];
+      final title = accountsV2Text(language, 'v2_att_${item.kind}');
+      yield _Attention(
+        severity: switch (item.severity) {
+          'bad' => _Severity.bad,
+          'warn' => _Severity.warn,
+          'ok' => _Severity.ok,
+          _ => _Severity.pri,
+        },
+        icon: switch (item.kind) {
+          'cheques_in_hand' => 'cheque',
+          'supplier_overdue' => 'box',
+          'setup_incomplete' || 'invoice_overdue' => 'alert',
+          'awaiting_certification' => 'shield',
+          _ => 'chart',
+        },
+        title: count is num && count > 0 ? '$title ($count)' : title,
+        detail: '',
+        button: item.actionKey == null
+            ? null
+            : accountsV2Text(language, 'v2_action_${item.actionKey}'),
+        target: AccountsV2OverviewTarget(switch (item.actionKey) {
+          'open_contract' => YorksAccountsWorkspaceV2Tab.contract,
+          'open_claim' || 'start_claim' => YorksAccountsWorkspaceV2Tab.claims,
+          'open_supplier_bills' => YorksAccountsWorkspaceV2Tab.supplierBills,
+          _ => YorksAccountsWorkspaceV2Tab.invoices,
+        }),
+      );
+    }
   }
 }
 
-// ─── Step strip ────────────────────────────────────────────────────────────
+/// The setup check's heading, e.g. "Buildings add up to 100%".
+String accountsV2SetupCheckTitle(AppLanguage language, AccountsV2SetupCheck c) {
+  String t(String key) => accountsV2Text(language, key);
+  return switch (c.kind) {
+    AccountsV2SetupCheckKind.contractValue => t('v2o_check_contract'),
+    AccountsV2SetupCheckKind.buildings => t('v2o_check_buildings'),
+    AccountsV2SetupCheckKind.stages => t('v2o_check_stages'),
+    AccountsV2SetupCheckKind.items =>
+      '${c.stageName ?? ''}: ${t('v2o_check_items')}',
+  };
+}
 
-class _StepStrip extends StatelessWidget {
-  const _StepStrip({
+/// The setup check's line beneath, e.g. "Currently 100.00%".
+String accountsV2SetupCheckDetail(
+  AppLanguage language,
+  AccountsV2SetupCheck c,
+) {
+  String t(String key) => accountsV2Text(language, key);
+  String totals(double current) {
+    final off = (current - 100).abs();
+    final base = '${t('v2o_currently')} ${v2Pct(current, 2)}';
+    if (off < 0.005) return base;
+    return '$base — ${current < 100 ? t('v2o_missing') : t('v2o_over_by')} '
+        '${v2Pct(off, 2)}';
+  }
+
+  final shortfall = c.ok
+      ? ''
+      : ' (${c.shortfallAmount > 0 ? t('v2o_short') : t('v2o_over')} '
+            '${t('v2o_by')} ${v2Money(c.shortfallAmount.abs())})';
+  return switch (c.kind) {
+    AccountsV2SetupCheckKind.contractValue =>
+      c.ok ? v2Money(c.current) : t('v2o_enter_contract_value'),
+    AccountsV2SetupCheckKind.buildings => totals(c.current),
+    AccountsV2SetupCheckKind.stages => totals(c.current),
+    AccountsV2SetupCheckKind.items =>
+      '${t('v2o_items')} ${v2Fmt(c.current, 3)}% ${t('v2_of_contract')} · '
+          '${t('v2o_needed')} ${v2Fmt(c.needed, 3)}% '
+          '${t('v2o_per_building')}$shortfall',
+  };
+}
+
+// ─── Flow steps ──────────────────────────────────────────────────────────────
+
+class _Flow extends StatelessWidget {
+  const _Flow({
     required this.steps,
     required this.language,
-    required this.format,
+    required this.setupToFix,
+    required this.claimsRecorded,
+    required this.claimLabel,
     required this.onTap,
   });
 
   final List<YorksAccountsWorkspaceStep> steps;
   final AppLanguage language;
-  final AccountsV2Format format;
+  final int setupToFix;
+  final int? claimsRecorded;
+  final String Function(String? claimId, String? reference) claimLabel;
   final ValueChanged<YorksAccountsWorkspaceStep> onTap;
 
-  static const _icons = <String, IconData>{
-    'setup': Icons.tune_outlined,
-    'progress': Icons.timeline_outlined,
-    'invoice': Icons.receipt_long_outlined,
-    'paid': Icons.payments_outlined,
+  String _t(String key) => accountsV2Text(language, key);
+
+  String _detail(YorksAccountsWorkspaceStep step) {
+    final d = step.detail;
+    switch (step.key) {
+      case 'setup':
+        if (!step.isDone && setupToFix > 0) {
+          return '$setupToFix ${_t('v2o_items_to_complete')}';
+        }
+        if (d?.contractValue == null) return '';
+        return '${v2Money(v2Number(d!.contractValue), digits: 0)} · '
+            '${d.buildingCount ?? 0} ${_t('v2_buildings')} · '
+            '${d.stageCount ?? 0} ${_t('v2_stages')}';
+      case 'progress':
+        if (d?.claimReference != null) {
+          final gross = d!.claimGross == null
+              ? ''
+              : ' · ${v2Money(v2Number(d.claimGross), digits: 0)}';
+          return '${_t('v2o_claim')} ${claimLabel(null, d.claimReference)} '
+              '${_t('v2_in_progress')}$gross';
+        }
+        return '${claimsRecorded ?? 0} ${_t('v2o_claims_recorded')}';
+      case 'invoice':
+        final count = d?.issuedCount ?? 0;
+        if (count == 0) return _t('v2o_nothing_issued');
+        final latest = d?.latestReference;
+        return '$count ${_t('v2_issued')}'
+            '${latest == null ? '' : ' · ${_t('v2_latest')} $latest'}';
+      case 'paid':
+        if (d?.received == null || d?.toCome == null) return '';
+        return '${v2Money(v2Number(d!.received), digits: 0)} '
+            '${_t('v2_received_in')} · '
+            '${v2Money(v2Number(d.toCome), digits: 0)} ${_t('v2_to_come')}';
+    }
+    return '';
+  }
+
+  String _title(String key) => switch (key) {
+    'setup' => _t('v2_step_setup'),
+    'progress' => _t('v2_step_progress'),
+    'invoice' => _t('v2_step_invoice'),
+    _ => _t('v2_step_paid'),
   };
 
   @override
   Widget build(BuildContext context) {
-    return AccountsV2Card(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < AppSpacing.compactBreakpoint;
-          final tiles = <Widget>[];
-          for (var i = 0; i < steps.length; i++) {
-            tiles.add(
-              Expanded(
-                child: _StepTile(
-                  step: steps[i],
-                  icon: _icons[steps[i].key] ?? Icons.circle_outlined,
-                  language: language,
-                  format: format,
-                  onTap: () => onTap(steps[i]),
-                ),
-              ),
-            );
-            if (!compact && i < steps.length - 1) {
-              tiles.add(const _StepConnector());
-            }
-          }
-          return compact
-              ? Column(
-                  children: [
-                    for (var i = 0; i < steps.length; i++) ...[
-                      _StepTile(
-                        step: steps[i],
-                        icon: _icons[steps[i].key] ?? Icons.circle_outlined,
-                        language: language,
-                        format: format,
-                        onTap: () => onTap(steps[i]),
-                        dense: true,
-                      ),
-                      if (i < steps.length - 1)
-                        const SizedBox(height: AppSpacing.xs),
-                    ],
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: tiles,
-                );
-        },
-      ),
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final compact = AccountsV2Breakpoints.isCompact(context);
+    final columns = phone ? 1 : (compact ? 2 : 4);
+    final tiles = <Widget>[
+      for (final (i, step) in steps.indexed)
+        _StepTile(
+          number: i + 1,
+          title: _title(step.key),
+          detail: _detail(step),
+          done: step.isDone,
+          current: step.isCurrent,
+          rightRule: columns > 1 && (i + 1) % columns != 0,
+          bottomRule: i < steps.length - columns,
+          onTap: () => onTap(step),
+        ),
+    ];
+    return AccountsV2Panel(
+      child: AccountsV2Grid(columns: columns, gap: 0, children: tiles),
     );
   }
 }
 
-class _StepConnector extends StatelessWidget {
-  const _StepConnector();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 2,
-      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-      color: AppColors.line,
-    );
-  }
-}
-
-class _StepTile extends StatelessWidget {
+class _StepTile extends StatefulWidget {
   const _StepTile({
-    required this.step,
-    required this.icon,
-    required this.language,
-    required this.format,
+    required this.number,
+    required this.title,
+    required this.detail,
+    required this.done,
+    required this.current,
+    required this.rightRule,
+    required this.bottomRule,
     required this.onTap,
-    this.dense = false,
   });
 
-  final YorksAccountsWorkspaceStep step;
-  final IconData icon;
-  final AppLanguage language;
-  final AccountsV2Format format;
+  final int number;
+  final String title;
+  final String detail;
+  final bool done;
+  final bool current;
+  final bool rightRule;
+  final bool bottomRule;
   final VoidCallback onTap;
-  final bool dense;
 
-  /// The prototype's second line: status + figures, composed from the gated
-  /// step detail. Returns null when the figures are absent (no commercial
-  /// access, or nothing to show yet) so the tile stays label-only.
-  String? _detailText() {
-    final d = step.detail;
-    if (d == null) return null;
-    switch (step.key) {
-      case 'setup':
-        if (d.contractValue == null) return null;
-        return '${format.money(d.contractValue!)} · '
-            '${d.buildingCount ?? 0} ${accountsV2Text(language, 'v2_buildings')} · '
-            '${d.stageCount ?? 0} ${accountsV2Text(language, 'v2_stages')}';
-      case 'progress':
-        if (d.claimReference == null || d.claimGross == null) return null;
-        return '${d.claimReference} ${accountsV2Text(language, 'v2_in_progress')} · '
-            '${format.money(d.claimGross!)}';
-      case 'invoice':
-        final count = d.issuedCount ?? 0;
-        if (count == 0) return null;
-        final base = '$count ${accountsV2Text(language, 'v2_issued')}';
-        final latest = d.latestReference;
-        return latest == null
-            ? base
-            : '$base · ${accountsV2Text(language, 'v2_latest')} $latest';
-      case 'paid':
-        if (d.received == null || d.toCome == null) return null;
-        return '${format.money(d.received!)} ${accountsV2Text(language, 'v2_received_in')} · '
-            '${format.money(d.toCome!)} ${accountsV2Text(language, 'v2_to_come')}';
-      default:
-        return null;
-    }
-  }
+  @override
+  State<_StepTile> createState() => _StepTileState();
+}
+
+class _StepTileState extends State<_StepTile> {
+  bool _hover = false;
 
   @override
   Widget build(BuildContext context) {
-    final Color accent;
-    final Color background;
-    if (step.isDone) {
-      accent = AppColors.success;
-      background = AppColors.successContainer;
-    } else if (step.isCurrent) {
-      accent = AppColors.primary;
-      background = AppColors.blueContainer;
-    } else {
-      accent = AppColors.muted;
-      background = AppColors.surfaceContainer;
-    }
-    final label = accountsV2Text(language, 'v2_step_${step.key}');
-    final detail = _detailText();
-    return Semantics(
-      button: true,
-      label: detail == null ? label : '$label. $detail',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: AppSpacing.sm,
-            horizontal: AppSpacing.sm,
+    final (bg, fg) = widget.done
+        ? (AccountsV2Colors.ok50, AccountsV2Colors.ok)
+        : widget.current
+        ? (AccountsV2Colors.pri, Colors.white)
+        : (AccountsV2Colors.neu, AccountsV2Colors.neuText);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            color: _hover ? AccountsV2Colors.rowHover : Colors.transparent,
+            border: Border(
+              right: widget.rightRule
+                  ? const BorderSide(color: AccountsV2Colors.line2)
+                  : BorderSide.none,
+              bottom: widget.bottomRule
+                  ? const BorderSide(color: AccountsV2Colors.line2)
+                  : BorderSide.none,
+            ),
           ),
           child: Row(
-            mainAxisSize: dense ? MainAxisSize.max : MainAxisSize.min,
-            mainAxisAlignment: dense
-                ? MainAxisAlignment.start
-                : MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: background,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: step.isDone
-                    ? Icon(Icons.check, size: 16, color: accent)
-                    : Icon(icon, size: 16, color: accent),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: AppTypography.titleSmall.copyWith(
-                        color: step.state.isEmpty
-                            ? AppColors.muted
-                            : AppColors.ink,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (detail != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        detail,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.muted,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── KPI row ─────────────────────────────────────────────────────────────
-
-class _KpiRow extends StatelessWidget {
-  const _KpiRow({
-    required this.kpis,
-    required this.supplier,
-    required this.language,
-    required this.format,
-  });
-
-  final YorksAccountsWorkspaceKpis kpis;
-  final YorksAccountsWorkspaceSupplier? supplier;
-  final AppLanguage language;
-  final AccountsV2Format format;
-
-  @override
-  Widget build(BuildContext context) {
-    final invoicedRatio = format.ratio(kpis.invoiced, kpis.contractValue);
-    final tiles = <Widget>[
-      _KpiTile(
-        icon: Icons.description_outlined,
-        title: accountsV2Text(language, 'v2_kpi_contract'),
-        value: format.money(kpis.contractValue),
-        caption:
-            '${format.money(kpis.contractInclVat)} ${accountsV2Text(language, 'v2_incl_vat')}',
-      ),
-      _KpiTile(
-        icon: Icons.receipt_long_outlined,
-        title: accountsV2Text(language, 'v2_kpi_invoiced'),
-        value: format.money(kpis.invoiced),
-        caption:
-            '${format.percentOfRatio(invoicedRatio)} ${accountsV2Text(language, 'v2_of_contract')} · ${accountsV2Text(language, 'v2_excl_vat')}',
-      ),
-      _KpiTile(
-        icon: Icons.payments_outlined,
-        title: accountsV2Text(language, 'v2_kpi_received'),
-        value: format.money(kpis.received),
-        caption: accountsV2Text(language, 'v2_cleared_money'),
-        accent: AppColors.success,
-      ),
-      _KpiTile(
-        icon: Icons.account_balance_wallet_outlined,
-        title: accountsV2Text(language, 'v2_kpi_outstanding'),
-        value: format.money(kpis.outstanding),
-        caption: kpis.chequesInHand.isPositive
-            ? '${format.money(kpis.chequesInHand)} ${accountsV2Text(language, 'v2_plus_cheques')}'
-            : accountsV2Text(language, 'v2_incl_vat'),
-        accent: kpis.outstanding.isPositive ? AppColors.warning : null,
-      ),
-    ];
-    if (supplier != null) {
-      tiles.add(
-        _KpiTile(
-          icon: Icons.local_shipping_outlined,
-          title: accountsV2Text(language, 'v2_kpi_supplier_unpaid'),
-          value: format.money(supplier!.unpaid),
-          caption: supplier!.overdueCount > 0
-              ? '${supplier!.overdueCount} ${accountsV2Text(language, 'v2_overdue_count_suffix')}'
-              : '',
-          accent: supplier!.overdueCount > 0 ? AppColors.error : null,
-        ),
-      );
-    }
-
-    return AccountsV2KpiGrid(tiles: tiles);
-  }
-}
-
-class _KpiTile extends StatelessWidget {
-  const _KpiTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.caption,
-    this.accent,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-  final String caption;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = accent ?? AppColors.primary;
-    return AccountsV2Card(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
             children: [
               Container(
                 width: 28,
                 height: 28,
-                decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 16, color: tint),
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                child: widget.done
+                    ? AccountsV2Icon('check', size: 15, color: fg)
+                    : Text(
+                        '${widget.number}',
+                        style: v2Style(
+                          12.5,
+                          weight: FontWeight.w700,
+                          color: fg,
+                          height: 1,
+                        ),
+                      ),
               ),
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.labelMedium.copyWith(
-                    color: AppColors.muted,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: v2Style(13, weight: FontWeight.w700),
+                    ),
+                    if (widget.detail.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Tooltip(
+                          message: widget.detail,
+                          waitDuration: const Duration(milliseconds: 600),
+                          child: Text(
+                            widget.detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: v2Style(12, color: AccountsV2Colors.ink2),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            style: AppTypography.titleMedium.copyWith(
-              color: accent ?? AppColors.ink,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (caption.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              caption,
-              style: AppTypography.bodySmall,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─── Money-flow bar ────────────────────────────────────────────────────────
+// ─── Three-up rows ───────────────────────────────────────────────────────────
 
-class _MoneyFlowCard extends StatelessWidget {
-  const _MoneyFlowCard({
-    required this.moneyFlow,
-    required this.contractValue,
-    required this.language,
-    required this.format,
-    this.onExportCsv,
-  });
+/// `.ov3`: 1.66 : 1 : 1 when wide; the first card on its own row and the other
+/// two side by side below 1320px; one column below 760px.
+class _ThreeUp extends StatelessWidget {
+  const _ThreeUp({required this.children});
 
-  final YorksAccountsWorkspaceMoneyFlow moneyFlow;
-  final YorksAccountsDecimal contractValue;
-  final AppLanguage language;
-  final AccountsV2Format format;
-  final VoidCallback? onExportCsv;
-
-  int _flex(YorksAccountsDecimal value) {
-    final r = format.ratio(value, contractValue);
-    return (r * 1000).round();
-  }
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final segments = <(_FlowKind, YorksAccountsDecimal)>[
-      (_FlowKind.paid, moneyFlow.paid),
-      (_FlowKind.invoicedWaiting, moneyFlow.invoicedWaiting),
-      (_FlowKind.doneNotInvoiced, moneyFlow.doneNotInvoiced),
-      (_FlowKind.remaining, moneyFlow.remaining),
-    ];
-    final totalFlex = segments.fold<int>(0, (a, s) => a + _flex(s.$2));
-    return AccountsV2Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    if (children.length == 1) return children.first;
+    if (AccountsV2Breakpoints.isNarrow(context)) {
+      return AccountsV2Stack(children: children);
+    }
+    if (!AccountsV2Breakpoints.isWide(context)) {
+      return AccountsV2Stack(
         children: [
-          AccountsV2SectionTitle(
-            accountsV2Text(language, 'v2_money_flow_title'),
-            trailing: onExportCsv == null
-                ? null
-                : TextButton.icon(
-                    onPressed: onExportCsv,
-                    icon: const Icon(Icons.download_outlined, size: 16),
-                    label: Text(accountsV2Text(language, 'v2_export_csv')),
-                  ),
-          ),
-          Text(
-            accountsV2Text(language, 'v2_money_flow_note'),
-            style: AppTypography.bodySmall,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-            child: SizedBox(
-              key: const ValueKey('accounts-v2-money-flow-bar'),
-              height: 16,
-              width: double.infinity,
-              child: totalFlex == 0
-                  ? const ColoredBox(color: AppColors.surfaceContainerHigh)
-                  : Row(
-                      // A childless ColoredBox takes the least height it may, so
-                      // without stretch the segments collapse and nothing paints.
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final s in segments)
-                          if (_flex(s.$2) > 0)
-                            Expanded(
-                              flex: _flex(s.$2),
-                              child: ColoredBox(color: s.$1.color),
-                            ),
-                      ],
-                    ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.lg,
-            runSpacing: AppSpacing.sm,
-            children: [
-              for (final s in segments)
-                _FlowLegend(
-                  color: s.$1.color,
-                  label: accountsV2Text(language, s.$1.labelKey),
-                  value: format.money(s.$2),
-                ),
-            ],
-          ),
+          children.first,
+          AccountsV2Grid(columns: 2, children: children.sublist(1)),
         ],
-      ),
+      );
+    }
+    return AccountsV2Grid(
+      columns: children.length,
+      flexes: children.length == 3 ? const [166, 100, 100] : null,
+      children: children,
     );
   }
 }
 
-enum _FlowKind {
-  paid('v2_flow_paid', AppColors.success),
-  invoicedWaiting('v2_flow_invoiced_waiting', AppColors.primary),
-  doneNotInvoiced('v2_flow_done_not_invoiced', AppColors.warning),
-  remaining('v2_flow_remaining', AppColors.lineStrong);
+// ─── Needs Attention ─────────────────────────────────────────────────────────
 
-  const _FlowKind(this.labelKey, this.color);
-  final String labelKey;
-  final Color color;
-}
+enum _Severity { bad, warn, pri, ok }
 
-class _FlowLegend extends StatelessWidget {
-  const _FlowLegend({
-    required this.color,
-    required this.label,
-    required this.value,
+final class _Attention {
+  const _Attention({
+    required this.severity,
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.target,
+    this.button,
   });
 
-  final Color color;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text(label, style: AppTypography.bodySmall),
-        const SizedBox(width: AppSpacing.xs),
-        Text(
-          value,
-          style: AppTypography.labelLarge.copyWith(
-            color: AppColors.ink,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
-    );
-  }
+  final _Severity severity;
+  final String icon;
+  final String title;
+  final String detail;
+  final String? button;
+  final AccountsV2OverviewTarget target;
 }
-
-// ─── Attention list ──────────────────────────────────────────────────────
 
 class _AttentionCard extends StatelessWidget {
   const _AttentionCard({
-    required this.attention,
+    required this.items,
     required this.language,
-    required this.onAction,
+    required this.onOpen,
   });
 
-  final List<YorksAccountsWorkspaceAttention> attention;
+  final List<_Attention> items;
   final AppLanguage language;
-  final ValueChanged<YorksAccountsWorkspaceAttention> onAction;
+  final ValueChanged<AccountsV2OverviewTarget> onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return AccountsV2Card(
+    String t(String key) => accountsV2Text(language, key);
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final bad = items.any((a) => a.severity == _Severity.bad);
+    final count =
+        '${items.length} '
+        '${items.length == 1 ? t('v2o_item') : t('v2o_items_word')}';
+    return AccountsV2Panel(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountsV2SectionTitle(
-            accountsV2Text(language, 'v2_attention_title'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (attention.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.check_circle_outline,
-                    size: 18,
-                    color: AppColors.success,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      accountsV2Text(language, 'v2_attention_empty'),
-                      style: AppTypography.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            for (final item in attention) ...[
-              _AttentionRow(
-                item: item,
-                language: language,
-                onAction: () => onAction(item),
+          AccountsV2CardHead(
+            icon: 'clip',
+            title: t('v2_attention_title'),
+            subtitle: t('v2o_attention_sub'),
+            actions: [
+              AccountsV2Chip(
+                count,
+                tone: bad ? AccountsV2ChipTone.bad : AccountsV2ChipTone.pri,
               ),
             ],
+          ),
+          AccountsV2CardBody(
+            child: items.isEmpty
+                ? AccountsV2Empty(
+                    icon: 'check',
+                    title: t('v2o_nothing_needs_attention'),
+                  )
+                : Column(
+                    children: [
+                      for (final (i, item) in items.indexed)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          decoration: BoxDecoration(
+                            border: i == 0
+                                ? null
+                                : const Border(
+                                    top: BorderSide(
+                                      color: AccountsV2Colors.line2,
+                                    ),
+                                  ),
+                          ),
+                          child: _AttentionRow(
+                            item: item,
+                            phone: phone,
+                            onOpen: () => onOpen(item.target),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -695,307 +933,488 @@ class _AttentionCard extends StatelessWidget {
 class _AttentionRow extends StatelessWidget {
   const _AttentionRow({
     required this.item,
-    required this.language,
-    required this.onAction,
+    required this.phone,
+    required this.onOpen,
   });
 
-  final YorksAccountsWorkspaceAttention item;
-  final AppLanguage language;
-  final VoidCallback onAction;
+  final _Attention item;
+  final bool phone;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
     final tone = switch (item.severity) {
-      'bad' => NexusStatusTone.danger,
-      'warn' => NexusStatusTone.warning,
-      'ok' => NexusStatusTone.success,
-      _ => NexusStatusTone.info,
+      _Severity.bad => AccountsV2Tone.red,
+      _Severity.warn => AccountsV2Tone.org,
+      _Severity.ok => AccountsV2Tone.green,
+      _Severity.pri => AccountsV2Tone.blue,
     };
-    final palette = NexusStatusPalette.forTone(tone);
-    final title = accountsV2Text(language, 'v2_att_${item.kind}');
-    final count = item.params['count'];
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: palette.foreground,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              count is num && count > 0 ? '$title ($count)' : title,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
-            ),
-          ),
-          if (item.actionKey != null) ...[
-            const SizedBox(width: AppSpacing.sm),
-            TextButton(
-              onPressed: onAction,
-              child: Text(
-                accountsV2Text(language, 'v2_action_${item.actionKey}'),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Cash position ─────────────────────────────────────────────────────────
-
-class _CashCard extends StatelessWidget {
-  const _CashCard({
-    required this.cash,
-    required this.language,
-    required this.format,
-  });
-
-  final YorksAccountsWorkspaceCash cash;
-  final AppLanguage language;
-  final AccountsV2Format format;
-
-  @override
-  Widget build(BuildContext context) {
-    return AccountsV2Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AccountsV2SectionTitle(accountsV2Text(language, 'v2_cash_title')),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Expanded(
-                child: _CashCell(
-                  label: accountsV2Text(language, 'v2_cash_received'),
-                  value: format.money(cash.received),
-                  color: AppColors.success,
-                ),
-              ),
-              Expanded(
-                child: _CashCell(
-                  label: accountsV2Text(language, 'v2_cash_paid_suppliers'),
-                  value: format.money(cash.paidToSuppliers),
-                  color: AppColors.warning,
-                ),
-              ),
-              Expanded(
-                child: _CashCell(
-                  label: accountsV2Text(language, 'v2_cash_net'),
-                  value: format.money(cash.net),
-                  color: cash.net.isNegative ? AppColors.error : AppColors.ink,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CashCell extends StatelessWidget {
-  const _CashCell({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+    final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.bodySmall),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          value,
-          style: AppTypography.titleSmall.copyWith(
-            color: color,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Text(item.title, style: v2Style(13, weight: FontWeight.w700)),
+        if (item.detail.isNotEmpty)
+          Text(item.detail, style: v2Style(12, color: AccountsV2Colors.ink2)),
+      ],
+    );
+    final button = item.button == null
+        ? null
+        : AccountsV2Button(
+            label: item.button!,
+            size: AccountsV2ButtonSize.small,
+            onPressed: onOpen,
+          );
+    return Row(
+      children: [
+        AccountsV2IconTile(
+          icon: item.icon,
+          tone: tone,
+          size: 38,
+          radius: 10,
+          iconSize: 18,
         ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: phone && button != null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [text, const SizedBox(height: 8), button],
+                )
+              : text,
+        ),
+        if (!phone && button != null) ...[const SizedBox(width: 12), button],
       ],
     );
   }
 }
 
-// ─── Heatmap ─────────────────────────────────────────────────────────────
+// ─── Commercial progress by building ─────────────────────────────────────────
 
-class _HeatmapCard extends StatelessWidget {
-  const _HeatmapCard({
-    required this.cells,
-    required this.language,
-    required this.format,
-    required this.onOpenCell,
-  });
+class _BuildingProgressCard extends StatelessWidget {
+  const _BuildingProgressCard(this.tab);
 
-  final List<YorksAccountsWorkspaceHeatmapCell> cells;
-  final AppLanguage language;
-  final AccountsV2Format format;
-  final void Function(String stageKey, String buildingScopeId) onOpenCell;
+  final AccountsV2SummaryTab tab;
 
   @override
   Widget build(BuildContext context) {
-    // Ordered unique stages and buildings by first appearance.
-    final stageKeys = <String>[];
-    final stageLabels = <String, String>{};
-    final buildingIds = <String>[];
-    final buildingNames = <String, String>{};
-    final byCell = <String, YorksAccountsWorkspaceHeatmapCell>{};
-    for (final c in cells) {
-      if (!stageKeys.contains(c.stageKey)) {
-        stageKeys.add(c.stageKey);
-        stageLabels[c.stageKey] = c.stageLabel ?? c.stageKey;
+    String t(String key) => accountsV2Text(tab.language, key);
+    final kpis = tab.workspace.kpis!;
+    // Buildings in their first-seen order, each summed over its stages.
+    final order = <String>[];
+    final names = <String, String>{};
+    final invoiced = <String, double>{};
+    final value = <String, double>{};
+    for (final cell in tab.workspace.heatmap) {
+      final id = cell.buildingScopeId;
+      if (!names.containsKey(id)) {
+        order.add(id);
+        names[id] = cell.buildingName;
       }
-      if (!buildingIds.contains(c.buildingScopeId)) {
-        buildingIds.add(c.buildingScopeId);
-        buildingNames[c.buildingScopeId] = c.buildingName;
-      }
-      byCell['${c.stageKey}|${c.buildingScopeId}'] = c;
+      invoiced[id] = (invoiced[id] ?? 0) + v2Number(cell.invoicedAmount);
+      value[id] = (value[id] ?? 0) + v2Number(cell.stageValue);
     }
-
-    return AccountsV2Card(
+    final contract = v2Number(kpis.contractValue);
+    final total = v2Number(kpis.invoiced);
+    return AccountsV2Panel(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountsV2SectionTitle(accountsV2Text(language, 'v2_heatmap_title')),
-          const SizedBox(height: AppSpacing.md),
-          if (stageKeys.isEmpty || buildingIds.isEmpty)
-            Text(
-              accountsV2Text(language, 'v2_heatmap_empty'),
-              style: AppTypography.bodyMedium,
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const SizedBox(width: 150),
-                      for (final b in buildingIds)
-                        _HeatHeader(buildingNames[b] ?? b),
-                    ],
+          AccountsV2CardHead(
+            icon: 'chart',
+            title: t('v2o_progress_by_building'),
+            subtitle: t('v2o_invoiced_so_far'),
+          ),
+          AccountsV2CardBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final id in order)
+                  _BuildingBar(
+                    name: names[id]!,
+                    percent: (value[id] ?? 0) > 0
+                        ? (invoiced[id] ?? 0) / value[id]! * 100
+                        : 0,
+                    tooltip:
+                        '${names[id]}: ${v2Money(invoiced[id] ?? 0)} '
+                        '${t('v2o_of')} ${v2Money(value[id] ?? 0)}',
                   ),
-                  for (final stage in stageKeys)
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 150,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.xs,
-                            ),
-                            child: Text(
-                              stageLabels[stage] ?? stage,
-                              style: AppTypography.bodyMedium.copyWith(
-                                color: AppColors.ink,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        for (final b in buildingIds)
-                          _HeatCell(
-                            cell: byCell['$stage|$b'],
-                            format: format,
-                            onTap: () => onOpenCell(stage, b),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
+                AccountsV2KeyValue(
+                  label: t('v2o_all_buildings'),
+                  value:
+                      '${v2Money(total, digits: 0)} · '
+                      '${v2Pct(contract > 0 ? total / contract * 100 : 0)}',
+                  sum: true,
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _HeatHeader extends StatelessWidget {
-  const _HeatHeader(this.name);
+class _BuildingBar extends StatelessWidget {
+  const _BuildingBar({
+    required this.name,
+    required this.percent,
+    required this.tooltip,
+  });
+
   final String name;
+  final double percent;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 96,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xxs,
-          vertical: AppSpacing.xs,
-        ),
-        child: Text(
-          name,
-          style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    final label = v2Style(
+      10.5,
+      weight: FontWeight.w700,
+      color: AccountsV2Colors.mut,
+      height: 1.2,
+    );
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 500),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 38),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 72,
+              child: Text(
+                name.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: label,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: AccountsV2Bar(
+                height: 26,
+                radius: 5,
+                segments: [(percent / 100, AccountsV2Colors.pri)],
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 46,
+              child: Text(
+                v2Pct(percent),
+                textAlign: TextAlign.right,
+                style: label,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _HeatCell extends StatelessWidget {
-  const _HeatCell({
-    required this.cell,
-    required this.format,
-    required this.onTap,
-  });
+// ─── Client collections ──────────────────────────────────────────────────────
+
+class _CollectionsCard extends StatelessWidget {
+  const _CollectionsCard(this.tab);
+
+  final AccountsV2SummaryTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    String t(String key) => accountsV2Text(tab.language, key);
+    final kpis = tab.workspace.kpis!;
+    final cash = tab.workspace.cash;
+    final invoiced = tab.invoices
+        ?.where(
+          (i) =>
+              i.status != YorksAccountsInvoiceStatus.cancelled &&
+              i.status != YorksAccountsInvoiceStatus.draft,
+        )
+        .fold<double>(0, (a, i) => a + v2Number(i.totalInclVat));
+    return AccountsV2Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(icon: 'wallet', title: t('v2o_collections')),
+          AccountsV2CardBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (invoiced != null)
+                  AccountsV2KeyValue(
+                    label: t('v2o_invoiced_incl_vat'),
+                    value: v2Money(invoiced),
+                  ),
+                AccountsV2KeyValue(
+                  label: t('v2o_received_cleared'),
+                  value: v2Money(v2Number(kpis.received)),
+                  tone: AccountsV2ValueTone.ok,
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_still_due'),
+                  value: v2Money(v2Number(kpis.outstanding)),
+                  tone: AccountsV2ValueTone.bad,
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_cheques_pdc'),
+                  value: v2Money(v2Number(kpis.chequesInHand)),
+                  tone: AccountsV2ValueTone.vio,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 6),
+                  child: AccountsV2Note(child: Text(t('v2o_held_cheques'))),
+                ),
+                if (cash != null) ...[
+                  AccountsV2KeyValue(
+                    label: t('v2_cash_paid_suppliers'),
+                    value: '− ${v2Money(v2Number(cash.paidToSuppliers))}',
+                  ),
+                  AccountsV2KeyValue(
+                    label: t('v2o_net_cash'),
+                    value: v2Money(v2Number(cash.net)),
+                    sum: true,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Position by building ────────────────────────────────────────────────────
+
+class _PositionCard extends StatelessWidget {
+  const _PositionCard(this.tab);
+
+  final AccountsV2SummaryTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    String t(String key) => accountsV2Text(tab.language, key);
+    final cells = tab.workspace.heatmap;
+    final buildings = <String, String>{};
+    final stages = <String, String>{};
+    final stageValue = <String, double>{};
+    final stageInvoiced = <String, double>{};
+    for (final c in cells) {
+      buildings.putIfAbsent(c.buildingScopeId, () => c.buildingName);
+      stages.putIfAbsent(c.stageKey, () => c.stageLabel ?? c.stageKey);
+      stageValue[c.stageKey] =
+          (stageValue[c.stageKey] ?? 0) + v2Number(c.stageValue);
+      stageInvoiced[c.stageKey] =
+          (stageInvoiced[c.stageKey] ?? 0) + v2Number(c.invoicedAmount);
+    }
+    final contract = v2Number(tab.workspace.kpis?.contractValue);
+    YorksAccountsWorkspaceHeatmapCell? cell(String s, String b) {
+      for (final c in cells) {
+        if (c.stageKey == s && c.buildingScopeId == b) return c;
+      }
+      return null;
+    }
+
+    final head = v2Style(
+      11,
+      weight: FontWeight.w700,
+      color: AccountsV2Colors.mut,
+      letterSpacing: .44,
+      height: 1.4,
+    );
+    Widget table(double? width) {
+      Widget stageColumn(Widget child) => Expanded(child: child);
+      return SizedBox(
+        width: width,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 6),
+              child: Row(
+                children: [
+                  stageColumn(
+                    Text(t('v2o_billing_stage').toUpperCase(), style: head),
+                  ),
+                  for (final name in buildings.values)
+                    SizedBox(
+                      width: 76,
+                      child: Text(
+                        name.toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: head,
+                      ),
+                    ),
+                  SizedBox(
+                    width: 112,
+                    child: Text(
+                      t('v2o_invoiced').toUpperCase(),
+                      textAlign: TextAlign.right,
+                      style: head,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final entry in stages.entries)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    stageColumn(
+                      Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.value.toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: v2Style(
+                                11.5,
+                                weight: FontWeight.w700,
+                                color: AccountsV2Colors.priInk,
+                              ),
+                            ),
+                            Text(
+                              '${v2Pct(contract > 0 ? (stageValue[entry.key] ?? 0) / contract * 100 : 0, 0)} · '
+                              '${v2Money(stageValue[entry.key] ?? 0, digits: 0)}',
+                              style: v2Style(12, color: AccountsV2Colors.mut),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    for (final b in buildings.keys)
+                      SizedBox(
+                        width: 76,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: _HeatCell(
+                            cell: cell(entry.key, b),
+                            onTap: () => tab.onOpenCell(entry.key, b),
+                          ),
+                        ),
+                      ),
+                    SizedBox(
+                      width: 112,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            v2Fmt(stageInvoiced[entry.key] ?? 0, 0),
+                            style: v2Style(
+                              12.5,
+                              weight: FontWeight.w700,
+                              tabular: true,
+                            ),
+                          ),
+                          Text(
+                            v2Pct(
+                              (stageValue[entry.key] ?? 0) > 0
+                                  ? (stageInvoiced[entry.key] ?? 0) /
+                                        stageValue[entry.key]! *
+                                        100
+                                  : 0,
+                              0,
+                            ),
+                            style: v2Style(12, color: AccountsV2Colors.mut),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return AccountsV2Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(
+            icon: 'hier',
+            title: t('v2o_position_by_building'),
+            subtitle: t('v2o_position_sub'),
+          ),
+          AccountsV2CardBody(
+            // Side by side with other cards the table takes the card width;
+            // stacked on a narrow window it scrolls sideways when it must.
+            child: cells.isEmpty
+                ? AccountsV2Empty(icon: 'hier', title: t('v2_heatmap_empty'))
+                : AccountsV2Breakpoints.isNarrow(context)
+                ? LayoutBuilder(
+                    builder: (context, c) {
+                      final minimum = buildings.length * 76 + 112 + 150.0;
+                      if (c.maxWidth >= minimum) return table(null);
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(width: minimum, child: table(null)),
+                      );
+                    },
+                  )
+                : table(null),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeatCell extends StatefulWidget {
+  const _HeatCell({required this.cell, required this.onTap});
 
   final YorksAccountsWorkspaceHeatmapCell? cell;
-  final AccountsV2Format format;
   final VoidCallback onTap;
 
   @override
+  State<_HeatCell> createState() => _HeatCellState();
+}
+
+class _HeatCellState extends State<_HeatCell> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final cell = this.cell;
-    final percentValue =
-        double.tryParse(cell?.invoicedPercent.canonicalText ?? '') ?? 0;
-    final alpha = (percentValue / 100).clamp(0.0, 1.0);
-    final fill = Color.alphaBlend(
-      AppColors.primary.withValues(alpha: alpha * 0.85),
-      AppColors.surfaceContainerLowest,
-    );
-    final textColor = alpha > 0.5 ? Colors.white : AppColors.ink;
-    return Padding(
-      padding: const EdgeInsets.all(2),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        onTap: cell == null ? null : onTap,
+    final cell = widget.cell;
+    final value = v2Number(cell?.stageValue);
+    final q = value > 0 ? v2Number(cell?.invoicedAmount) / value * 100 : 0.0;
+    final done = q >= 99.99;
+    final bg = done
+        ? AccountsV2Colors.heatDone
+        : q > 0
+        ? AccountsV2Colors.pri.withValues(alpha: .08 + q / 100 * .26)
+        : AccountsV2Colors.heatEmpty;
+    final fg = done
+        ? AccountsV2Colors.ok
+        : q > 0
+        ? AccountsV2Colors.priInk
+        : AccountsV2Colors.mut2;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
         child: Container(
-          width: 92,
-          height: 34,
+          height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: cell == null ? AppColors.surfaceContainer : fill,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            border: Border.all(color: AppColors.line),
+            color: bg,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: _hover
+                ? const [
+                    BoxShadow(color: AccountsV2Colors.pri100, spreadRadius: 2),
+                  ]
+                : null,
           ),
           child: Text(
-            // Label shows the real invoiced percent (which can exceed 100% on
-            // an over-claim); only the fill uses the clamped alpha.
-            cell == null ? '—' : '${percentValue.toStringAsFixed(0)}%',
-            style: AppTypography.labelLarge.copyWith(
-              color: cell == null ? AppColors.muted : textColor,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            q > 0 ? v2Pct(q, 0) : '—',
+            style: v2Style(12, weight: FontWeight.w700, color: fg, height: 1),
           ),
         ),
       ),
@@ -1003,61 +1422,174 @@ class _HeatCell extends StatelessWidget {
   }
 }
 
-// ─── No-commercial / no-baseline card ────────────────────────────────────
+// ─── Where the money stands ──────────────────────────────────────────────────
 
-class _NoCommercialCard extends StatelessWidget {
-  const _NoCommercialCard({
-    required this.workspace,
-    required this.language,
-    required this.onSetup,
-  });
+class _MoneyCard extends StatelessWidget {
+  const _MoneyCard(this.tab);
 
-  final YorksAccountsWorkspace workspace;
-  final AppLanguage language;
-  final VoidCallback onSetup;
+  final AccountsV2SummaryTab tab;
 
   @override
   Widget build(BuildContext context) {
-    final noBaseline = !workspace.hasBaseline;
-    final canConfigure = workspace.capabilities.viewProjectAccounts;
-    return AccountsV2Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    String t(String key) => accountsV2Text(tab.language, key);
+    final flow = tab.workspace.moneyFlow;
+    final total = v2Number(tab.workspace.kpis?.contractValue);
+    final paid = v2Number(flow?.paid);
+    final waiting = v2Number(flow?.invoicedWaiting);
+    final ready = v2Number(flow?.doneNotInvoiced);
+    final remaining = v2Number(flow?.remaining);
+    double share(double v) => total > 0 ? v / total : 0;
+    Widget legend(Color color, String label, double v) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AccountsV2Colors.line2)),
+      ),
+      child: Row(
         children: [
-          Row(
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: v2Style(12.5, color: AccountsV2Colors.mut),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Icon(
-                noBaseline ? Icons.description_outlined : Icons.lock_outline,
-                size: 20,
-                color: AppColors.primary,
+              Text(
+                v2Money(v, digits: 0),
+                style: v2Style(12, weight: FontWeight.w700, tabular: true),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  noBaseline
-                      ? accountsV2Text(language, 'v2_no_baseline_title')
-                      : accountsV2Text(language, 'v2_commercial_hidden'),
-                  style: AppTypography.titleSmall.copyWith(
-                    color: AppColors.ink,
-                  ),
+              Text(
+                v2Pct(share(v) * 100),
+                style: v2Style(
+                  10.5,
+                  weight: FontWeight.w500,
+                  color: AccountsV2Colors.mut,
                 ),
               ),
             ],
           ),
-          if (noBaseline) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              accountsV2Text(language, 'v2_no_baseline_body'),
-              style: AppTypography.bodyMedium,
+        ],
+      ),
+    );
+    return AccountsV2Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(
+            icon: 'spark',
+            title: t('v2o_money_title'),
+            subtitle: t('v2o_money_sub'),
+          ),
+          AccountsV2CardBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 10),
+                  child: AccountsV2Bar(
+                    height: 26,
+                    radius: 6,
+                    segments: [
+                      (share(paid), AccountsV2Colors.ok),
+                      (share(waiting), AccountsV2Colors.pri),
+                      (share(ready), AccountsV2Colors.priLight),
+                    ],
+                  ),
+                ),
+                legend(AccountsV2Colors.ok, t('v2_flow_paid'), paid),
+                legend(AccountsV2Colors.pri, t('v2o_flow_waiting'), waiting),
+                legend(AccountsV2Colors.priLight, t('v2o_flow_ready'), ready),
+                legend(
+                  AccountsV2Colors.lineS,
+                  t('v2_flow_remaining'),
+                  remaining,
+                ),
+              ],
             ),
-            if (canConfigure) ...[
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                onPressed: onSetup,
-                child: Text(accountsV2Text(language, 'v2_step_setup')),
-              ),
-            ],
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Contract snapshot ───────────────────────────────────────────────────────
+
+class _SnapshotCard extends StatelessWidget {
+  const _SnapshotCard(this.tab);
+
+  final AccountsV2SummaryTab tab;
+
+  @override
+  Widget build(BuildContext context) {
+    String t(String key) => accountsV2Text(tab.language, key);
+    final setup = tab.setup;
+    final client =
+        setup?.clientParty?.name ?? setup?.mainContractorParty?.name ?? '—';
+    final stages = setup?.stages ?? const <YorksAccountsSetupReadStage>[];
+    final terms = setup?.paymentTermsDays;
+    final vat = setup?.vatRatePercent;
+    return AccountsV2Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(icon: 'doc', title: t('v2o_snapshot')),
+          AccountsV2CardBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AccountsV2KeyValue(label: t('v2o_client'), value: client),
+                AccountsV2KeyValue(
+                  label: t('v2o_work_order'),
+                  value: setup?.workOrderNumber ?? '—',
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_physical_buildings'),
+                  value: '${setup?.buildings.length ?? 0}',
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2_stages_title'),
+                  value: stages.isEmpty
+                      ? '—'
+                      : stages
+                            .map(
+                              (s) => v2Pct(
+                                v2Number(s.allocationPercent.canonicalText),
+                                0,
+                              ),
+                            )
+                            .join(' / '),
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_payment_terms'),
+                  value: terms == null
+                      ? '—'
+                      : '$terms ${t('v2o_days_from_submission')}',
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_vat_rate'),
+                  value: vat == null
+                      ? '—'
+                      : v2Pct(v2Number(vat.canonicalText), 0),
+                ),
+                AccountsV2KeyValue(
+                  label: t('v2o_next_invoice'),
+                  value: setup?.invoiceSettings?.nextInvoiceNumber ?? '—',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

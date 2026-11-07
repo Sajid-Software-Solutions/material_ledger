@@ -40,6 +40,7 @@ String accountsV2ErrorText(AppLanguage language, String? code) {
     _ when c.contains('REVISION_ALREADY_OPEN') => 'v2_err_revision_open',
     _ when c.contains('EVIDENCE') => 'v2_err_evidence',
     _ when c.contains('INVALID_STAGE_ITEMS') => 'v2_err_stage_items',
+    _ when c.contains('INVALID_MATERIAL_LINK') => 'v2_err_material_link',
     _ when any(['INVALID_BUILDING_ALLOCATIONS', 'INVALID_STAGE_ALLOCATIONS']) =>
       'v2_err_allocations',
     _ when any(['SUPPLIER_INVOICE_DOCUMENT', 'SUPPLIER_DOCUMENT']) =>

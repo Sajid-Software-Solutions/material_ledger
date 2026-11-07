@@ -231,6 +231,8 @@ final class YorksAccountsCommercialSetupRead {
   const YorksAccountsCommercialSetupRead({
     required this.projectId,
     required this.projectReference,
+    this.jobContractReference,
+    this.projectSite,
     required this.projectName,
     required this.hasBaseline,
     required this.canConfigure,
@@ -279,6 +281,8 @@ final class YorksAccountsCommercialSetupRead {
     return YorksAccountsCommercialSetupRead(
       projectId: json['project_id'] as String,
       projectReference: json['project_reference'] as String?,
+      jobContractReference: json['job_contract_reference'] as String?,
+      projectSite: json['project_site'] as String?,
       projectName: json['project_name'] as String?,
       hasBaseline: json['has_baseline'] == true,
       canConfigure: json['can_configure'] == true,
@@ -319,6 +323,10 @@ final class YorksAccountsCommercialSetupRead {
 
   final String projectId;
   final String? projectReference;
+
+  /// From project creation: the job/contract reference and the site.
+  final String? jobContractReference;
+  final String? projectSite;
   final String? projectName;
   final bool hasBaseline;
   final bool canConfigure;

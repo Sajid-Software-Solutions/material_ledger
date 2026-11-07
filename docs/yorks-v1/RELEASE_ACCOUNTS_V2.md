@@ -13,7 +13,7 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   PDC · Supplier Bills · Documents · Activity.
 - V2 tabs: Summary · Contract · Progress & claims · Invoices & payments ·
   Supplier bills · History. PR #54 merged the first version; PR #55 adds the
-  later features and fixes, and the bundle grows from 12 to 28 migrations.
+  later features and fixes, and the bundle grows from 12 to 30 migrations.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.
@@ -34,7 +34,7 @@ of the live schema. Because of that:
   is separate.
 
 **Apply `supabase/release/accounts_v2_bundle.sql` by hand instead.** It holds all
-28 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
+30 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
 rolls the whole script back.
 
 A database may already have some of the V2 migrations, for example the first 12.
@@ -42,7 +42,7 @@ That is fine: apply the whole bundle anyway.
 
 ## What the bundle changes
 
-- **Adds** 6 tables, 30 functions, and columns and indexes that use
+- **Adds** 7 tables, 36 functions, and columns and indexes that use
   `IF NOT EXISTS`.
 - **Replaces 17 functions that existed before V2**, which V1 Accounts and the
   office rely on. Payment recording, cheque steps, reversals, invoice cancelling,
@@ -60,6 +60,29 @@ That is fine: apply the whole bundle anyway.
   Engineer, Project Manager and Accountant can edit contracts as soon as it runs,
   with the flag on or off. Everyone who can reverse or correct money can use the
   new commands (`PRODUCT_DECISIONS.md` section 29).
+- **Hides claim amounts from people without commercial access.** The claim
+  workbench stops returning the claim total and each claim line's amounts to
+  anyone who can read Accounts but not commercial values, such as a Site
+  Engineer. Before this, they received them.
+- **Returns more for the rebuilt Accounts screens**
+  (`20261107150000_accounts_v2_workbench_claim_values.sql`): progress done before
+  each claim and in it, per building, stage and item; who prepared and checked a
+  claim; the invoice a claim produced; each invoice's latest certification date,
+  last receipt date, the invoice a revision replaces and whether a revision is
+  being prepared; and the project's job/contract reference and site for the
+  Contract tab. Money among these is returned only with commercial access.
+- **Links Material Supply items to BOQ folders** (last migration,
+  `20261107160000_accounts_v2_material_boq_links.sql`, owner request of
+  7 November 2026). A new table records which BOQ folders of a building stand
+  for a contract item; it starts empty, so nothing changes until someone links
+  a folder. `v1_get_accounts_material_sources` returns each building's folders
+  and, per linked item, the good quantity received on confirmed receipt reviews
+  less confirmed returns. `v1_save_accounts_material_boq_links` replaces the
+  links with a reason and an audit event, for anyone who can edit contracts.
+  Common / All Buildings, Workshop Materials and archived folders cannot be
+  linked. The read returns quantities and delivery numbers only, never money,
+  so anyone who can read Accounts sees it (an Accountant included: folder names
+  and quantities). BOQ, request, dispatch and receipt tables are only read.
 - **Changes figures straight away.** For example, the office Receipts & PDC total
   stops counting a cleared cheque twice, and retention can reduce client payable
   (`PRODUCT_DECISIONS.md` §28).
@@ -75,7 +98,7 @@ That is fine: apply the whole bundle anyway.
 
 | Test | Result |
 |---|---|
-| Run on a database built from the 186 migrations before V2 (a local stand-in replaced `pg_cron`) | Succeeds; all 810 public functions match a normally migrated database |
+| Run on a database built from the 186 migrations before V2 (a local stand-in replaced `pg_cron`) | Succeeds; all 816 public functions match a normally migrated database |
 | Run a second time on that database | Succeeds; functions unchanged |
 | Run on a fully migrated database, then rolled back | Succeeds; functions unchanged |
 
@@ -189,6 +212,12 @@ functions and the wider contract-editing access stay in their new form, and ther
 them, restore the backup from step 2. That also loses anything written after the
 backup, so decide before real work has been recorded on the new version.
 
+The BOQ links migration alone can be removed without a backup: drop
+`v1_save_accounts_material_boq_links`, `v1_get_accounts_material_sources`,
+`v1_accounts_boq_number`, `v1_accounts_unit_key` and the
+`v1_accounts_material_boq_links` table. Nothing else refers to them; the links
+are lost, the audit events stay.
+
 ## Not in this release (optional, post-launch)
 
 - **Item-level invoice pages.** The real Yorks invoice also prints per-building
@@ -201,19 +230,21 @@ backup, so decide before real work has been recorded on the new version.
 - **Phone layout.** The per-item contract table scrolls sideways, and KPI tiles
   are tall.
 
-## Gates (local, 7 November 2026, with the owner decisions)
+## Gates (local, 7 November 2026, with the owner decisions, the prototype rebuild and the BOQ links)
 
 | Check | Result |
 |---|---|
 | `flutter analyze` | Clean |
-| `flutter test` | 2,671 pass, 4 skipped, **2 fail** |
-| `supabase db reset` + `supabase test db` | 140 files, 3,889 tests pass |
+| `flutter test` | 2,702 pass, 4 skipped, **2 fail** |
+| `supabase db reset` + `supabase test db` | 141 files, 3,951 tests pass |
 | Web build with startup budget | Passes |
 | APK with CI ephemeral signing | Builds; not a release artifact |
 
 - The 2 failures are the R38.4 property and rental register goldens in
   `test/yorks_v1_rental_test.dart`. They also fail at `c6755f5`, before these
-  fixes, and need their own resolution.
+  fixes, and need their own resolution: the saved images predate a lease that
+  now expires within the alert window (31 Dec 2026), so they change with the
+  date.
 - **GitHub CI has not checked this work.** The Flutter quality gate has no runs on
   this branch, and its latest run in the repository is from 3 October 2026.
 - A properly signed Android lane is still required for an Android release.

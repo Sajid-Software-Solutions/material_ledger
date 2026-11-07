@@ -15,7 +15,6 @@ import 'package:material_ledger/features/accounts/domain/v2/variations_models.da
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
-import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_contract_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_history_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_invoices_tab.dart';
@@ -336,10 +335,10 @@ Map<String, dynamic> _historyJson() => {
 Widget _summaryTab() => AccountsV2SummaryTab(
   workspace: YorksAccountsWorkspace.fromJson(_summaryJson()),
   language: _en,
-  format: const AccountsV2Format(),
   onOpenTab: (_) {},
-  onAttentionAction: (_) {},
+  onOpenTarget: (_) {},
   onOpenCell: (_, _) {},
+  today: DateTime(2026, 11, 7),
 );
 
 Widget _contractTab() => AccountsV2ContractTab(
@@ -420,12 +419,14 @@ Widget _historyTab() => AccountsV2HistoryTab(
       reference: 'YRA322-02',
       uploadedBy: 'Omar (Accountant)',
       onDownload: null,
+      id: null,
     ),
     (
       name: 'Cool Air Co INV-5001.pdf',
       reference: 'INV-5001',
       uploadedBy: 'Omar (Accountant)',
       onDownload: null,
+      id: null,
     ),
   ],
 );
@@ -594,7 +595,12 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light,
-            home: Scaffold(body: tab.value()),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: tab.value(),
+              ),
+            ),
           ),
         );
         await tester.pumpAndSettle();

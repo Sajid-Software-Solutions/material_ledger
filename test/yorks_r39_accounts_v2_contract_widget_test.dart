@@ -11,6 +11,7 @@ import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_mod
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_contract_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -173,7 +174,9 @@ void _wideSurface(WidgetTester tester) {
 }
 
 Widget _wrap(Widget child) {
-  return MaterialApp(home: Scaffold(body: child));
+  return MaterialApp(
+    home: Scaffold(body: SingleChildScrollView(child: child)),
+  );
 }
 
 void main() {
@@ -191,16 +194,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('AED 1,000,000.00'), findsWidgets);
+      expect(find.text('AED 1,000,000'), findsWidgets);
       expect(find.text(t('v2_buildings_title')), findsWidgets);
       expect(find.text('Building 01'), findsWidgets);
-      expect(find.text('AED 500,000.00'), findsWidgets);
-      expect(find.text('Material Supply'), findsOneWidget);
-      expect(find.text(t('v2_mode_items')), findsOneWidget);
-      expect(find.text('AHU units'), findsOneWidget);
-      expect(find.text('AED 250,000.00'), findsOneWidget);
-      expect(find.text(t('v2_setup_check_title')), findsOneWidget);
-      expect(find.text(t('v2_how_amounts_title')), findsOneWidget);
+      expect(find.textContaining('500,000'), findsWidgets);
+      expect(find.text('Material Supply'), findsWidgets);
+      expect(find.text(t('v2c_mode_items')), findsWidgets);
+      // The item breakdown lists the item, read-only without edit access.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is TextField && w.controller?.text == 'AHU units',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('250,000'), findsWidgets);
+      expect(find.text(t('v2c_setup_check')), findsWidgets);
+      expect(find.text(t('v2c_how_title')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -217,8 +226,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_commercial_hidden')), findsOneWidget);
-      expect(find.text('AED 1,000,000.00'), findsNothing);
-      expect(find.text(t('v2_setup_check_title')), findsNothing);
+      expect(find.textContaining('1,000,000'), findsNothing);
+      expect(find.text(t('v2c_setup_check')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });
@@ -245,16 +254,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_edit')), findsOneWidget);
-      await tester.tap(find.text(t('v2_edit')));
+      // Everything is editable in place; a change brings up the save bar.
+      expect(find.textContaining(t('v2c_edit_note_a')), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2c_terms_days')),
+        '60',
+      );
       await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_contract_edit_note')), findsOneWidget);
-      await tester.tap(find.text(t('v2_save')));
+      expect(find.text(t('v2c_unsaved')), findsOneWidget);
+      final save = find.widgetWithText(AccountsV2Button, t('v2c_save_changes'));
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
       await tester.pumpAndSettle();
 
       expect(captured, isNotNull);
       expect(captured!.contractValue, YorksAccountsDecimal.parse('1000000.00'));
+      expect(captured!.paymentTermsDays, 60);
       expect(captured!.buildingTotal, YorksAccountsDecimal.hundred);
       expect(captured!.stageTotal, YorksAccountsDecimal.hundred);
       expect(
@@ -302,8 +318,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('AED 1,000,000.00'), findsWidgets);
-      expect(find.text(t('v2_setup_check_title')), findsOneWidget);
+      expect(find.text('AED 1,000,000'), findsWidgets);
+      expect(find.text(t('v2c_setup_check')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });

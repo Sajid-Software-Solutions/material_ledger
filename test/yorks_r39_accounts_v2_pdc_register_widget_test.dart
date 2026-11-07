@@ -5,6 +5,7 @@ import 'package:material_ledger/features/accounts/domain/accounts_receivables_in
 import 'package:material_ledger/features/accounts/domain/v2/pdc_register_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_pdc_register_card.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 
 YorksAccountsProjectPdc _pdc({
@@ -42,7 +43,13 @@ void _wideSurface(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
+
+/// The row's "⋯" menu: every move that is not the next step.
+Finder _menu() =>
+    find.byWidgetPredicate((w) => w is AccountsV2Icon && w.name == 'dots');
 
 void main() {
   const en = AppLanguage.english;
@@ -66,13 +73,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_pdc_register_title')), findsOneWidget);
+      expect(find.text(t('v2i_pdc_title')), findsOneWidget);
       expect(find.text('CHQ-001'), findsOneWidget);
       expect(find.text('YRA32201'), findsOneWidget);
       expect(find.text('52,500.00'), findsOneWidget);
-      // A freshly recorded cheque is "Expected" (in hand, not yet deposited).
-      expect(find.text(t('v2_pdc_expected')), findsWidgets);
-      expect(find.text(t('v2_pdc_update')), findsOneWidget);
+      // A cheque recorded before it arrives is "Expected"; its next step leads.
+      expect(find.text(t('v2i_ps_expected')), findsWidgets);
+      expect(find.text(t('v2i_mark_received')), findsOneWidget);
+      expect(_menu(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -91,7 +99,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_pdc_empty')), findsOneWidget);
+      expect(find.text(t('v2i_no_records')), findsOneWidget);
+      expect(find.text(t('v2i_pdc_empty_body')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -110,7 +119,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(t('v2_pdc_update')), findsNothing);
+      expect(find.text(t('v2i_mark_received')), findsNothing);
+      expect(_menu(), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
@@ -137,10 +147,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(t('v2_pdc_update')));
-      await tester.pumpAndSettle();
-      // Move to Deposited (a received cheque's first option, no extra fields).
-      await tester.tap(find.text(t('v2_pdc_deposited')).last);
+      // An in-hand cheque's next step is Mark deposited, right on the row.
+      expect(find.text(t('v2i_ps_inhand')), findsOneWidget);
+      await tester.tap(find.text(t('v2i_mark_deposited')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
@@ -176,7 +185,8 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text(t('v2_pdc_update')));
+        expect(find.text(t('v2i_done')), findsOneWidget);
+        await tester.tap(_menu());
         await tester.pumpAndSettle();
         expect(find.text(t('v2_pdc_bounced_after')), findsOneWidget);
         // A cleared cheque has its clearing undone before its details change.
@@ -226,10 +236,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.tap(_menu());
       await tester.pumpAndSettle();
       expect(find.text(t('v2_pdc_replace')), findsOneWidget);
-      await tester.tap(find.text(t('v2_pdc_represent')));
+      // Close the menu; Re-presented is the row's own button.
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2i_represented')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).last, 'Client asked');
       await tester.pumpAndSettle();
@@ -264,7 +277,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.tap(_menu());
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_pdc_edit')));
       await tester.pumpAndSettle();
@@ -319,9 +332,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(t('v2_pdc_update')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_pdc_cleared')).last);
+      await tester.tap(find.text(t('v2i_cleared_btn')));
       await tester.pumpAndSettle();
 
       // Confirm is disabled until the clearance reference is filled.
@@ -373,7 +384,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // A bounced cheque can be replaced from the same menu as its other steps.
-      await tester.tap(find.text(t('v2_pdc_update')));
+      await tester.tap(_menu());
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_pdc_replace')));
       await tester.pumpAndSettle();

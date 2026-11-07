@@ -648,6 +648,10 @@ final class YorksAccountsClientInvoiceSummary {
     required this.dueState,
     required this.recordVersion,
     required this.updatedAt,
+    this.certificationDate,
+    this.lastReceiptDate,
+    this.replacesReference,
+    this.revisionInProgress = false,
   });
 
   final String invoiceId;
@@ -665,6 +669,17 @@ final class YorksAccountsClientInvoiceSummary {
   final YorksAccountsDueState? dueState;
   final int recordVersion;
   final DateTime updatedAt;
+
+  /// The latest certification and the last receipt still standing, for the
+  /// tracker's Certified column and "days late / on time".
+  final YorksAccountsDate? certificationDate;
+  final YorksAccountsDate? lastReceiptDate;
+
+  /// The invoice this revision replaces, if it is one.
+  final String? replacesReference;
+
+  /// A revision of this invoice is being prepared.
+  final bool revisionInProgress;
 
   factory YorksAccountsClientInvoiceSummary.fromRpcJson(
     Map<String, dynamic> json,
@@ -696,6 +711,10 @@ final class YorksAccountsClientInvoiceSummary {
       dueState: dueState,
       recordVersion: _requiredInt(json, 'record_version'),
       updatedAt: _requiredDateTime(json, 'updated_at'),
+      certificationDate: _optionalDate(json['certification_date']),
+      lastReceiptDate: _optionalDate(json['last_receipt_date']),
+      replacesReference: json['replaces_reference'] as String?,
+      revisionInProgress: json['revision_in_progress'] == true,
     );
   }
 }

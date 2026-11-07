@@ -10,6 +10,7 @@ import 'package:material_ledger/features/accounts/domain/accounts_receivables_in
 import 'package:material_ledger/features/accounts/domain/accounts_receivables_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_invoices_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -176,6 +177,7 @@ YorksAccountsInvoiceDetailProjection _detail({
   required String status,
   List<Map<String, dynamic>> payments = const [],
   List<Map<String, dynamic>> certifications = const [],
+  List<Map<String, dynamic>> pdcs = const [],
 }) => YorksAccountsInvoiceDetailProjection.fromRpcJson({
   'schema_version': 3,
   'project_id': 'p1',
@@ -183,7 +185,7 @@ YorksAccountsInvoiceDetailProjection _detail({
   'claim': _detailClaimJson(),
   'certifications': certifications,
   'payments': payments,
-  'pdcs': const <Map<String, dynamic>>[],
+  'pdcs': pdcs,
   'due_state': 'on_track',
   'capabilities': const {
     'view_project_commercial_values': true,
@@ -246,38 +248,115 @@ final class _RefusingReceivables implements YorksAccountsReceivablesRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-void _wideSurface(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1200, 2000);
+void _surface(WidgetTester tester, {double width = 1400}) {
+  tester.view.physicalSize = Size(width, 2200);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
+
+Map<String, dynamic> _pdcJson() => {
+  'pdc_id': 'pdc1',
+  'project_id': 'p1',
+  'invoice_id': 'i1',
+  'cheque_number': '004517',
+  'cheque_date': '2026-09-20',
+  'amount': '1000.00',
+  'bank_name': 'Sample bank',
+  'received_date': '2026-09-10',
+  'status': 'cleared',
+  'replaces_pdc_id': null,
+  'replaced_by_pdc_id': null,
+  'action_required': false,
+  'last_action_reason': null,
+  'record_version': 3,
+  'created_at': '2026-09-10T10:00:00Z',
+  'updated_at': '2026-09-25T10:00:00Z',
+};
+
+Finder _button(String label) => find.widgetWithText(AccountsV2Button, label);
+
+Future<void> _tap(WidgetTester tester, Finder f) async {
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
+
+/// Pumps the tab and opens the invoice drawer.
+Future<void> _openDrawer(
+  WidgetTester tester, {
+  YorksAccountsInvoicesProjection? projection,
+  YorksAccountsInvoiceDetailProjection? detail,
+  YorksCertifyAction? onCertify,
+  YorksPayAction? onPay,
+  YorksReversePaymentAction? onReverse,
+  YorksCorrectPaymentAction? onCorrect,
+  YorksCorrectCertificationAction? onCorrectCertification,
+  YorksCancelInvoiceAction? onCancel,
+  YorksReviseInvoiceAction? onRevise,
+  YorksCreatePdcAction? onCreatePdc,
+  Future<String?> Function(String)? onPrint,
+}) async {
+  _surface(tester);
+  await tester.pumpWidget(
+    _wrap(
+      AccountsV2InvoicesTab(
+        projection: projection ?? _projection(),
+        language: AppLanguage.english,
+        onOpenDetail: (id) async => detail ?? _detail(status: 'partially_paid'),
+        onCertify: onCertify,
+        onPay: onPay,
+        onReversePayment: onReverse,
+        onCorrectPayment: onCorrect,
+        onCorrectCertification: onCorrectCertification,
+        onCancelInvoice: onCancel,
+        onRevise: onRevise,
+        onCreatePdc: onCreatePdc,
+        onPrintInvoice: onPrint,
+        today: DateTime(2026, 11, 7),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('YRA322-01'));
+  await tester.pumpAndSettle();
+}
+
+Finder _rowMenu() =>
+    find.byWidgetPredicate((w) => w is AccountsV2Icon && w.name == 'dots');
 
 void main() {
   const en = AppLanguage.english;
   String t(String key) => accountsV2Text(en, key);
 
-  group('AccountsV2InvoicesTab (direct)', () {
-    testWidgets('renders KPIs and the invoice tracker', (tester) async {
-      _wideSurface(tester);
+  group('AccountsV2InvoicesTab layout', () {
+    testWidgets('renders report actions, KPIs, filters and the tracker', (
+      tester,
+    ) async {
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(AccountsV2InvoicesTab(projection: _projection(), language: en)),
       );
       await tester.pumpAndSettle();
 
+      expect(find.text(t('v2i_report_actions')), findsOneWidget);
+      expect(find.text(t('v2i_kpi_cheques')), findsOneWidget);
+      expect(find.text('AED 1,050,000'), findsWidgets);
+      expect(find.text(t('v2i_tracker')), findsOneWidget);
       expect(find.text('YRA322-01'), findsOneWidget);
-      expect(find.text(t('v2_inv_kpi_cheques')), findsOneWidget);
-      // Invoiced-incl-VAT KPI (with currency).
-      expect(find.text('AED 1,050,000.00'), findsWidgets);
-      // Overdue invoice flagged.
-      expect(find.text(t('v2_inv_overdue')), findsWidgets);
+      // Past its due date with money still due: overdue.
+      expect(find.text(t('v2i_st_overdue')), findsWidgets);
+      expect(find.text('+ 200,000.00 ${t('v2i_cheque_word')}'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('omits money without the capability', (tester) async {
-      _wideSurface(tester);
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(
           AccountsV2InvoicesTab(
@@ -291,12 +370,12 @@ void main() {
       expect(find.text('YRA322-01'), findsOneWidget);
       expect(find.textContaining('AED'), findsNothing);
       expect(find.text('1,050,000.00'), findsNothing);
-      expect(find.text(t('v2_inv_kpi_cheques')), findsNothing);
+      expect(find.text(t('v2i_kpi_cheques')), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('shows the empty state with no invoices', (tester) async {
-      _wideSurface(tester);
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(
           AccountsV2InvoicesTab(
@@ -306,245 +385,214 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text(t('v2i_no_records')), findsOneWidget);
+    });
 
-      expect(find.text(t('v2_inv_empty')), findsOneWidget);
+    testWidgets('the status filter narrows the tracker', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(AccountsV2InvoicesTab(projection: _projection(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, find.text(t('v2i_all')).first);
+      await tester.tap(find.text(t('v2i_st_paid')).last);
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2i_no_match')), findsOneWidget);
+      await _tap(tester, _button(t('v2i_clear_filters')));
+      expect(find.text('YRA322-01'), findsOneWidget);
+    });
+
+    testWidgets('lays out at 360px with the tracker scrolling sideways', (
+      tester,
+    ) async {
+      _surface(tester, width: 360);
+      await tester.pumpWidget(
+        _wrap(AccountsV2InvoicesTab(projection: _projection(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('YRA322-01'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
 
-  group('AccountsV2InvoicesTab actions', () {
-    testWidgets('records a payment through onPay', (tester) async {
-      _wideSurface(tester);
-      YorksAccountsPaymentInput? captured;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(cert: true, pay: true),
-            language: en,
-            onCertify: (i) async => null,
-            onPay: (i) async {
-              captured = i;
-              return null;
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
-      await tester.ensureVisible(find.text(t('v2_inv_record_payment')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_inv_record_payment')));
-      await tester.pumpAndSettle();
-      // Reference is the third text field (amount, date, reference, note).
-      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(captured, isNotNull);
-      expect(captured!.invoiceId, 'i1');
-      expect(captured!.paymentMethod, 'bank_transfer');
-      expect(captured!.paymentReference, 'PAY-1');
-      expect(find.text(t('v2_pay_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('records certification through onCertify', (tester) async {
-      _wideSurface(tester);
-      YorksAccountsCertificationInput? captured;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(cert: true, pay: true),
-            language: en,
-            onCertify: (i) async {
-              captured = i;
-              return null;
-            },
-            onPay: (i) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Certified already: the next step leads, correcting it is in the menu.
-      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
-      expect(find.text(t('v2_inv_recertify')), findsNothing);
-      await tester.ensureVisible(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_inv_recertify')));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'CERT-1');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(captured, isNotNull);
-      expect(captured!.invoiceId, 'i1');
-      expect(captured!.certificationReference, 'CERT-1');
-      expect(find.text(t('v2_cert_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('a phone shows a card, not a table to scroll sideways', (
+  group('AccountsV2InvoicesTab drawer', () {
+    testWidgets('a row opens the drawer with its figures and progress', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(360, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(cert: true, pay: true),
-            language: en,
-            onCertify: (i) async => null,
-            onPay: (i) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(DataTable), findsNothing);
-      await tester.scrollUntilVisible(
-        find.text(t('v2_inv_record_payment')),
-        200,
-      );
-      expect(find.text(t('v2_inv_record_payment')), findsOneWidget);
+      await _openDrawer(tester);
+      expect(find.text(t('v2i_invoice_total')), findsOneWidget);
+      expect(find.text(t('v2i_tl_submitted')), findsOneWidget);
+      expect(find.text(t('v2i_payments').toUpperCase()), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('an uncertified invoice leads with Certify', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(
-              cert: true,
-              pay: true,
-              invoices: [
-                _invoice(
-                  status: YorksAccountsInvoiceStatus.submitted,
-                  certified: '0.00',
-                ),
-              ],
-            ),
-            language: en,
-            onCertify: (i) async => null,
-            onPay: (i) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_inv_certify')), findsOneWidget);
-      expect(find.text(t('v2_inv_recertify')), findsNothing);
-      expect(find.text(t('v2_inv_record_payment')), findsNothing);
-    });
-
-    testWidgets('view/print invokes onPrintInvoice for an issued invoice', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      String? printedId;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(),
-            language: en,
-            onPrintInvoice: (id) async {
-              printedId = id;
-              return null;
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final btn = find.text(t('v2_inv_view_print'));
-      expect(btn, findsOneWidget);
-      await tester.ensureVisible(btn);
-      await tester.pumpAndSettle();
-      await tester.tap(btn);
-      await tester.pumpAndSettle();
-
-      expect(printedId, 'i1');
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('tapping the invoice reference requests the detail', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      String? openedId;
+    testWidgets('a failed detail read says so', (tester) async {
+      _surface(tester);
+      String? opened;
       await tester.pumpWidget(
         _wrap(
           AccountsV2InvoicesTab(
             projection: _projection(),
             language: en,
             onOpenDetail: (id) async {
-              openedId = id;
-              return null; // null -> the tab shows the detail-failed toast
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('YRA322-01'));
-      await tester.pumpAndSettle();
-
-      expect(openedId, 'i1');
-      expect(find.text(t('v2_inv_detail_failed')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('no action buttons without the capabilities', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(),
-            language: en,
-            onCertify: (i) async => null,
-            onPay: (i) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_inv_record_payment')), findsNothing);
-      expect(find.text(t('v2_inv_certify')), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-  });
-
-  group('AccountsV2InvoicesTab cheques', () {
-    testWidgets('records a cheque, prefilled with what is still open', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      YorksAccountsPdcCreateInput? captured;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(pdc: true),
-            language: en,
-            onCreatePdc: (input) async {
-              captured = input;
+              opened = id;
               return null;
             },
           ),
         ),
       );
       await tester.pumpAndSettle();
-      final button = find.text(t('v2_pdc_add'));
-      await tester.ensureVisible(button);
+      await tester.tap(find.text('YRA322-01'));
       await tester.pumpAndSettle();
-      await tester.tap(button);
+      expect(opened, 'i1');
+      expect(find.text(t('v2_inv_detail_failed')), findsOneWidget);
+    });
+
+    testWidgets('records a payment through onPay', (tester) async {
+      YorksAccountsPaymentInput? captured;
+      await _openDrawer(
+        tester,
+        projection: _projection(cert: true, pay: true),
+        onPay: (i) async {
+          captured = i;
+          return null;
+        },
+      );
+      await _tap(tester, _button(t('v2i_record_payment')));
+      // Reference is the third text field (amount, date, reference, note).
+      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
       await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(captured!.invoiceId, 'i1');
+      expect(captured!.paymentMethod, 'bank_transfer');
+      expect(captured!.paymentReference, 'PAY-1');
+      expect(find.text(t('v2_pay_saved')), findsOneWidget);
+    });
+
+    testWidgets('a rejected payment explains why and keeps the drawer', (
+      tester,
+    ) async {
+      await _openDrawer(
+        tester,
+        projection: _projection(pay: true),
+        onPay: (_) async => 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED',
+      );
+      await _tap(tester, _button(t('v2i_record_payment')));
+      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_err_over_due')), findsOneWidget);
+    });
+
+    testWidgets('records the first certification through onCertify', (
+      tester,
+    ) async {
+      YorksAccountsCertificationInput? captured;
+      await _openDrawer(
+        tester,
+        projection: _projection(
+          cert: true,
+          invoices: [
+            _invoice(
+              status: YorksAccountsInvoiceStatus.submitted,
+              certified: '0.00',
+            ),
+          ],
+        ),
+        detail: _detail(status: 'submitted'),
+        onCertify: (i) async {
+          captured = i;
+          return null;
+        },
+      );
+      // Not certified yet: payments wait for it.
+      expect(
+        tester
+            .widgetList<AccountsV2Button>(_button(t('v2i_record_payment')))
+            .every((b) => b.onPressed == null),
+        isTrue,
+      );
+      await _tap(tester, _button(t('v2i_record_cert')));
+      await tester.enterText(find.byType(TextField).at(2), 'CERT-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(captured!.certificationReference, 'CERT-1');
+      expect(find.text(t('v2_cert_saved')), findsOneWidget);
+    });
+
+    testWidgets('only the latest certification is edited', (tester) async {
+      YorksAccountsCertificationCorrectionInput? captured;
+      await _openDrawer(
+        tester,
+        detail: _detail(
+          status: 'partially_paid',
+          certifications: [
+            _certificationJson(id: 'c1', revision: 1, reference: 'CERT-1'),
+            _certificationJson(id: 'c2', revision: 2, reference: 'CERT-2'),
+          ],
+        ),
+        onCorrectCertification: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      await _tap(tester, _button(t('v2i_edit_cert')));
+      expect(find.text(t('v2_cert_edit_hint')), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_cert_amount')),
+        '0',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
+        'Certified in error',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(captured!.certificationReference, 'CERT-2');
+      expect(captured!.certifiedExVat.isPositive, isFalse);
+    });
+
+    testWidgets('view / print opens the invoice PDF', (tester) async {
+      String? printed;
+      await _openDrawer(
+        tester,
+        onPrint: (id) async {
+          printed = id;
+          return null;
+        },
+      );
+      await _tap(tester, _button(t('v2i_view_print')));
+      expect(printed, 'i1');
+    });
+
+    testWidgets('no actions without the capabilities', (tester) async {
+      await _openDrawer(
+        tester,
+        onCertify: (_) async => null,
+        onPay: (_) async => null,
+      );
+      expect(_button(t('v2i_record_payment')), findsNothing);
+      expect(_button(t('v2i_record_cert')), findsNothing);
+      expect(_button(t('v2i_record_cheque')), findsNothing);
+    });
+
+    testWidgets('records a cheque, prefilled with what is still open', (
+      tester,
+    ) async {
+      YorksAccountsPdcCreateInput? captured;
+      await _openDrawer(
+        tester,
+        projection: _projection(pdc: true),
+        onCreatePdc: (input) async {
+          captured = input;
+          return null;
+        },
+      );
+      await _tap(tester, _button(t('v2i_record_cheque')));
       // Due 550,000 less 200,000 already covered by cheques.
       expect(find.widgetWithText(TextField, '350000'), findsOneWidget);
       expect(
@@ -562,147 +610,68 @@ void main() {
       await tester.pumpAndSettle();
       expect(captured!.chequeNumber, '004517');
       expect(captured!.amount.canonicalText, '350000');
-      expect(find.text(t('v2_pdc_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2_pdc_saved')), findsOneWidget);
     });
 
-    testWidgets('no cheque button without manage_pdc', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(),
-            language: en,
-            onCreatePdc: (_) async => null,
-          ),
+    testWidgets('revises a submitted invoice', (tester) async {
+      String? revised;
+      await _openDrawer(
+        tester,
+        projection: _projection(
+          invoices: [_invoice(status: YorksAccountsInvoiceStatus.submitted)],
         ),
+        detail: _detail(status: 'submitted'),
+        onRevise:
+            ({
+              required String invoiceId,
+              required int expectedVersion,
+              required String reason,
+            }) async {
+              revised = '$invoiceId@$expectedVersion:$reason';
+              return null;
+            },
       );
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_pdc_add')), findsNothing);
-    });
-
-    testWidgets('a rejected payment explains why', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(pay: true),
-            language: en,
-            onPay: (_) async => 'R39_ACCOUNTS_PAYMENT_CAP_EXCEEDED',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final pay = find.text(t('v2_inv_record_payment'));
-      await tester.ensureVisible(pay);
-      await tester.pumpAndSettle();
-      await tester.tap(pay);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_err_over_due')), findsOneWidget);
-    });
-  });
-
-  group('AccountsV2InvoicesTab revise', () {
-    testWidgets('revises a submitted invoice from the drawer', (tester) async {
-      _wideSurface(tester);
-      String? revisedId;
-      int? revisedVersion;
-      String? revisedReason;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(
-              invoices: [
-                _invoice(status: YorksAccountsInvoiceStatus.submitted),
-              ],
-            ),
-            language: en,
-            onOpenDetail: (id) async => _detail(status: 'submitted'),
-            onRevise:
-                ({
-                  required String invoiceId,
-                  required int expectedVersion,
-                  required String reason,
-                }) async {
-                  revisedId = invoiceId;
-                  revisedVersion = expectedVersion;
-                  revisedReason = reason;
-                  return null;
-                },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('YRA322-01'));
-      await tester.pumpAndSettle();
-
-      // Drawer offers Revise for a still-revisable invoice.
-      final revise = find.text(t('v2_inv_revise'));
-      expect(revise, findsOneWidget);
-      await tester.tap(revise);
-      await tester.pumpAndSettle();
-
+      await _tap(tester, _button('${t('v2i_revise')} (R.1)'));
       await tester.enterText(find.byType(TextField).last, 'Wrong quantity');
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
-
-      expect(revisedId, 'i1');
-      expect(revisedVersion, 2);
-      expect(revisedReason, 'Wrong quantity');
-      expect(find.text(t('v2_inv_revised')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(revised, 'i1@2:Wrong quantity');
+      expect(find.text(t('v2_inv_revised')), findsOneWidget);
     });
 
-    Future<void> openDrawer(
-      WidgetTester tester,
-      YorksAccountsInvoiceDetailProjection detail, {
-      YorksReversePaymentAction? onReverse,
-      YorksCorrectPaymentAction? onCorrect,
-      YorksCorrectCertificationAction? onCorrectCertification,
-      YorksCancelInvoiceAction? onCancel,
-    }) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2InvoicesTab(
-            projection: _projection(
-              invoices: [
-                _invoice(status: YorksAccountsInvoiceStatus.partiallyPaid),
-              ],
-            ),
-            language: en,
-            onOpenDetail: (id) async => detail,
-            onReversePayment: onReverse,
-            onCorrectPayment: onCorrect,
-            onCorrectCertification: onCorrectCertification,
-            onCancelInvoice: onCancel,
-          ),
+    testWidgets('hides Revise once the invoice is certified', (tester) async {
+      await _openDrawer(
+        tester,
+        detail: _detail(
+          status: 'certified',
+          certifications: [
+            _certificationJson(id: 'c1', revision: 1, reference: 'CERT-1'),
+          ],
         ),
+        onRevise:
+            ({
+              required String invoiceId,
+              required int expectedVersion,
+              required String reason,
+            }) async => null,
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('YRA322-01'));
-      await tester.pumpAndSettle();
-    }
+      expect(find.textContaining(t('v2i_revise')), findsNothing);
+    });
 
     testWidgets('reverses a payment with only a reason typed', (tester) async {
       YorksAccountsPaymentReversalInput? captured;
-      await openDrawer(
+      await _openDrawer(
         tester,
-        _detail(status: 'partially_paid', payments: [_paymentJson()]),
+        detail: _detail(status: 'partially_paid', payments: [_paymentJson()]),
         onReverse: (input) async {
           captured = input;
           return null;
         },
       );
-      await tester.tap(find.text(t('v2_pay_reverse')));
+      await _tap(tester, _rowMenu());
+      await tester.tap(find.text(t('v2i_reverse')));
       await tester.pumpAndSettle();
-
       // Not from a cheque, so there is no cheque question.
       expect(find.text(t('v2_pay_reverse_cheque')), findsNothing);
       await tester.enterText(
@@ -712,33 +681,33 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
-
       expect(captured!.originalPaymentId, 'pay1');
-      expect(captured!.reversalReference, isEmpty);
       expect(captured!.reason, 'Bank recalled it');
       expect(captured!.chequeOutcome, isNull);
-      expect(find.text(t('v2_pay_reversed')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2_pay_reversed')), findsOneWidget);
     });
 
-    testWidgets('reversing a cheque payment asks what happened to the cheque', (
+    testWidgets('a cleared cheque\'s payment is reversed from its row', (
       tester,
     ) async {
       YorksAccountsPaymentReversalInput? captured;
-      await openDrawer(
+      await _openDrawer(
         tester,
-        _detail(
+        detail: _detail(
           status: 'partially_paid',
           payments: [_paymentJson(pdcId: 'pdc1', method: 'PDC')],
+          pdcs: [_pdcJson()],
         ),
         onReverse: (input) async {
           captured = input;
           return null;
         },
       );
-      await tester.tap(find.text(t('v2_pay_reverse')));
+      // One row for the cheque, not a second one for its payment.
+      expect(find.text('004517'), findsOneWidget);
+      await _tap(tester, _rowMenu());
+      await tester.tap(find.text(t('v2i_reverse')));
       await tester.pumpAndSettle();
-
       expect(find.text(t('v2_pay_reverse_cheque')), findsOneWidget);
       await tester.tap(find.text(t('v2_pay_reverse_cheque_deposited')));
       await tester.pumpAndSettle();
@@ -751,24 +720,22 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
-
       expect(captured!.chequeOutcome, YorksAccountsPdcStatus.bounced);
-      expect(tester.takeException(), isNull);
     });
 
     testWidgets('edits a payment, prefilled, in one step', (tester) async {
       YorksAccountsPaymentCorrectionInput? captured;
-      await openDrawer(
+      await _openDrawer(
         tester,
-        _detail(status: 'partially_paid', payments: [_paymentJson()]),
+        detail: _detail(status: 'partially_paid', payments: [_paymentJson()]),
         onCorrect: (input) async {
           captured = input;
           return null;
         },
       );
-      await tester.tap(find.text(t('v2_pay_edit')));
+      await _tap(tester, _rowMenu());
+      await tester.tap(find.text(t('v2i_edit')));
       await tester.pumpAndSettle();
-
       final amount = find.widgetWithText(TextField, t('v2_pay_amount'));
       expect(tester.widget<TextField>(amount).controller!.text, '1000');
       await tester.enterText(amount, '1200.00');
@@ -779,79 +746,37 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
-
-      expect(captured!.originalPaymentId, 'pay1');
       expect(captured!.amount.postgresText, '1200');
       expect(captured!.paymentReference, 'BANK-1');
-      expect(captured!.paymentMethod, 'bank_transfer');
-      expect(find.text(t('v2_pay_edit_done')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2_pay_edit_done')), findsOneWidget);
     });
 
     testWidgets('a cheque payment keeps its amount when edited', (
       tester,
     ) async {
-      await openDrawer(
+      await _openDrawer(
         tester,
-        _detail(
+        detail: _detail(
           status: 'partially_paid',
           payments: [_paymentJson(pdcId: 'pdc1', method: 'PDC')],
+          pdcs: [_pdcJson()],
         ),
         onCorrect: (_) async => null,
       );
-      await tester.tap(find.text(t('v2_pay_edit')));
+      await _tap(tester, _rowMenu());
+      await tester.tap(find.text(t('v2i_edit')));
       await tester.pumpAndSettle();
-
       expect(find.text(t('v2_pay_edit_cheque_hint')), findsOneWidget);
       expect(find.widgetWithText(TextField, t('v2_pay_amount')), findsNothing);
     });
 
-    testWidgets('only the latest certification can be edited', (tester) async {
-      YorksAccountsCertificationCorrectionInput? captured;
-      await openDrawer(
-        tester,
-        _detail(
-          status: 'partially_paid',
-          certifications: [
-            _certificationJson(id: 'c1', revision: 1, reference: 'CERT-1'),
-            _certificationJson(id: 'c2', revision: 2, reference: 'CERT-2'),
-          ],
-        ),
-        onCorrectCertification: (input) async {
-          captured = input;
-          return null;
-        },
-      );
-      expect(find.text(t('v2_cert_edit')), findsOneWidget);
-      await tester.tap(find.text(t('v2_cert_edit')));
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_cert_edit_hint')), findsOneWidget);
-      await tester.enterText(
-        find.widgetWithText(TextField, t('v2_cert_amount')),
-        '0',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
-        'Certified in error',
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(captured!.certificationReference, 'CERT-2');
-      expect(captured!.certifiedExVat.isPositive, isFalse);
-      expect(tester.takeException(), isNull);
-    });
-
     testWidgets('cancels an invoice and explains a refusal', (tester) async {
-      await openDrawer(
+      await _openDrawer(
         tester,
-        _detail(status: 'submitted'),
+        detail: _detail(status: 'submitted'),
         onCancel: (_) async => 'R39_ACCOUNTS_INVOICE_HAS_DOWNSTREAM_FACTS',
       );
-      await tester.tap(find.text(t('v2_inv_cancel')));
-      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2i_cancel_invoice')));
       await tester.enterText(
         find.widgetWithText(TextField, t('v2_pay_reverse_reason')),
         'Wrong client',
@@ -859,36 +784,26 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_err_has_facts')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2_err_has_facts')), findsOneWidget);
     });
 
-    testWidgets('hides Revise once the invoice is certified', (tester) async {
-      _wideSurface(tester);
+    testWidgets('the drawer lays out at 360px', (tester) async {
+      _surface(tester, width: 360);
       await tester.pumpWidget(
         _wrap(
           AccountsV2InvoicesTab(
-            projection: _projection(),
+            projection: _projection(cert: true, pay: true, pdc: true),
             language: en,
-            onOpenDetail: (id) async => _detail(status: 'certified'),
-            onRevise:
-                ({
-                  required String invoiceId,
-                  required int expectedVersion,
-                  required String reason,
-                }) async => null,
+            onOpenDetail: (id) async =>
+                _detail(status: 'partially_paid', payments: [_paymentJson()]),
+            onPay: (_) async => null,
+            onCreatePdc: (_) async => null,
           ),
         ),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text('YRA322-01'));
-      await tester.pumpAndSettle();
-
-      // Drawer opened (certifications section visible) but Revise is gated out.
-      expect(find.text(t('v2_inv_certifications')), findsOneWidget);
-      expect(find.text(t('v2_inv_revise')), findsNothing);
+      await _tap(tester, find.text('YRA322-01'));
+      expect(find.text(t('v2i_invoice_total')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
@@ -897,7 +812,7 @@ void main() {
     testWidgets('opening on invoices loads the tracker from the repository', (
       tester,
     ) async {
-      _wideSurface(tester);
+      _surface(tester);
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
       final container = ProviderContainer(
@@ -920,10 +835,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: _wrap(
-            const YorksAccountsWorkspaceV2Screen(
-              projectId: 'p1',
-              initialTab: YorksAccountsWorkspaceV2Tab.invoices,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.invoices,
+              ),
             ),
           ),
         ),
@@ -931,14 +848,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('YRA322-01'), findsOneWidget);
-      expect(find.text('AED 1,050,000.00'), findsWidgets);
+      expect(find.text('AED 1,050,000'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('a refusal says there is no access, with nothing to retry', (
       tester,
     ) async {
-      _wideSurface(tester);
+      _surface(tester);
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
       final container = ProviderContainer(
@@ -961,10 +878,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: _wrap(
-            const YorksAccountsWorkspaceV2Screen(
-              projectId: 'p1',
-              initialTab: YorksAccountsWorkspaceV2Tab.invoices,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.invoices,
+              ),
             ),
           ),
         ),

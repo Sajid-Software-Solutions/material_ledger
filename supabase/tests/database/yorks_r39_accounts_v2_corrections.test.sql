@@ -107,6 +107,49 @@ select public.v1_save_project_invoice_settings('39d1a000-0000-4000-8000-00000000
 insert into r select 'issue', public.v1_issue_client_invoice('39d1a000-0000-4000-8000-000000000001',(select (v->>'claim_id')::uuid from r where k='claim'),2,null,date '2026-08-26',date '2026-08-26',pg_temp.key());
 
 create function pg_temp.inv() returns uuid language sql as $$ select (v->>'invoice_id')::uuid from r where k='issue'; $$;
+
+-- ═══ The claim workbench keeps claim money to commercial readers ═════════════
+create function pg_temp.wb() returns jsonb language sql as $$
+  select public.v1_get_claim_workbench('39d1a000-0000-4000-8000-000000000001',(select (v->>'claim_id')::uuid from r where k='claim'));
+$$;
+select pg_temp.act('se');
+select ok(pg_temp.wb()->'claim' ? 'claim_reference','A Site Engineer still sees which claim it is');
+select ok(not (pg_temp.wb()->'claim' ? 'claimed_ex_vat'),'A Site Engineer gets no claim total');
+select ok(not (pg_temp.wb()->'claim' ? 'net_payable') and not (pg_temp.wb()->'claim' ? 'invoice'),'A Site Engineer gets no payable or invoice');
+select is((select count(*)::integer from jsonb_array_elements(pg_temp.wb()->'claim'->'lines') l
+  where l ?| array['claimed_amount','stage_value_snapshot','eligible_amount_snapshot','previously_claimed_amount_snapshot']),0,
+  'A Site Engineer gets no money on any claim line');
+select ok((pg_temp.wb()->'claim'->'lines'->0) ? 'confirmed_percent_snapshot','The line percent stays for a Site Engineer');
+select is(pg_temp.wb()->'claim'->>'prepared_by',(select public.v1_safe_profile_display_name(display_name,auth_user_id) from public.v1_profiles where auth_user_id='10000000-0000-4000-8000-000000000001'),'Everyone sees who prepared the claim');
+select pg_temp.act('pe');
+select is(pg_temp.wb()->'claim'->>'claimed_ex_vat','50000.00','The Project Engineer sees the claim total');
+select is(pg_temp.wb()->'claim'->'lines'->0->>'claimed_amount','50000.00','The Project Engineer sees the line amount');
+select is(pg_temp.wb()->'claim'->'invoice'->>'invoice_id',pg_temp.inv()::text,'The Project Engineer sees the invoice the claim produced');
+create function pg_temp.design(p jsonb) returns jsonb language sql as $$
+  select c from jsonb_array_elements(p->'cells') c where c->>'stage_key'='design';
+$$;
+select is(pg_temp.design(pg_temp.wb())->>'percent_before_claim','0','Nothing of Design was done before the claim');
+select is((pg_temp.design(pg_temp.wb())->>'percent_this_claim')::numeric,100::numeric,'The claim holds the Design progress confirmed when it was checked');
+select is(pg_temp.design(pg_temp.wb())->>'this_claim_amount','50000.00','The claim holds 50,000 of Design');
+select is(pg_temp.design(pg_temp.wb())->>'claimed_before_claim','0.00','No Design money was claimed before it');
+select is((select (c->>'percent_this_claim')::numeric from jsonb_array_elements(pg_temp.wb()->'cells') c where c->>'stage_key'='installation'),0::numeric,'A stage the claim has no line for holds nothing');
+create function pg_temp.wb_open() returns jsonb language sql as $$
+  select public.v1_get_claim_workbench('39d1a000-0000-4000-8000-000000000001');
+$$;
+select is((pg_temp.design(pg_temp.wb_open())->>'percent_before_claim')::numeric,100::numeric,'With no claim open, Design progress counts as done before the next claim');
+select is(pg_temp.design(pg_temp.wb_open())->>'claimed_before_claim','50000.00','With no claim open, all Design money claimed so far counts as before');
+select pg_temp.act('se');
+select ok(pg_temp.design(pg_temp.wb()) ? 'percent_this_claim','A Site Engineer sees the progress split');
+select ok(not (pg_temp.design(pg_temp.wb()) ?| array['claimed_before_claim','this_claim_amount']),'A Site Engineer gets no money split');
+select ok(not has_function_privilege('authenticated','public.v1_accounts_dimension_percent_at(uuid,uuid,text,timestamptz)','execute'),'The progress history helper is internal');
+select ok(not has_function_privilege('authenticated','public.v1_accounts_item_qty_at(uuid,uuid,text,text,timestamptz)','execute'),'The item history helper is internal');
+select pg_temp.act('admin');
+select is(pg_temp.wb()->'claim'->>'claimed_ex_vat','50000.00','Admin sees the claim total');
+select ok(public.v1_get_project_commercial_setup('39d1a000-0000-4000-8000-000000000001') ?& array['job_contract_reference','project_site'],
+  'The contract read carries the project details a contract starts from');
+select pg_temp.act('procurement');
+select throws_ok($$select pg_temp.wb()$$,'42501',null,'Procurement cannot read the claim workbench');
+select pg_temp.act('admin');
 create function pg_temp.iv() returns integer language sql as $$ select record_version from public.v1_accounts_client_invoices where id=pg_temp.inv(); $$;
 create function pg_temp.paid() returns numeric language sql as $$ select public.v1_accounts_invoice_paid_amount(pg_temp.inv()); $$;
 create function pg_temp.pdc(p_no text) returns uuid language sql as $$ select id from public.v1_accounts_client_pdcs where cheque_number=p_no and project_id='39d1a000-0000-4000-8000-000000000001'; $$;

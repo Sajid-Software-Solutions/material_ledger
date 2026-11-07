@@ -36,6 +36,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
+import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
@@ -408,7 +409,11 @@ final class YorksAccountsWorkbenchController
   /// `claimId` is null) and reloads it.
   Future<void> selectClaim(String? claimId) {
     _activeClaimId = claimId;
-    return load();
+    // Keep the claim in view on screen until the next one arrives.
+    state = const AsyncValue<YorksAccountsWorkbench>.loading().copyWithPrevious(
+      state,
+    );
+    return _fetch();
   }
 
   Future<void> _fetch() async {
@@ -448,6 +453,27 @@ final class YorksAccountsWorkbenchController
     entityId: claimId,
     payload: {'version': expectedVersion, 'reason': reason},
     action: (key) => _receivables.submitClaimToAccounts(
+      YorksAccountsEntityActionInput(
+        projectId: _projectId,
+        entityId: claimId,
+        expectedVersion: expectedVersion,
+        reason: reason,
+      ),
+      idempotencyKey: key,
+    ),
+  );
+
+  /// Deletes (cancels) a draft claim with a reason. The claim and its lines
+  /// stay in history; progress is untouched. No optimistic success.
+  Future<String?> cancelClaim({
+    required String claimId,
+    required int expectedVersion,
+    required String reason,
+  }) => runCommand(
+    operation: 'cancel_claim',
+    entityId: claimId,
+    payload: {'version': expectedVersion, 'reason': reason},
+    action: (key) => _receivables.cancelClaim(
       YorksAccountsEntityActionInput(
         projectId: _projectId,
         entityId: claimId,
@@ -757,6 +783,116 @@ final yorksAccountsVariationsControllerProvider = StateNotifierProvider
       ref.watch(yorksV1CurrentRoleProvider);
       ref.watch(yorksAccountsPermissionEpochProvider);
       return YorksAccountsVariationsController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
+        commandKeys: _commandKeys(ref),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the BOQ folders a building's Material Supply items may stand for, the
+/// saved links and what has been delivered, and saves the links. Shared by the
+/// Contract tab (linking) and Progress & claims (delivered quantities).
+final class YorksAccountsMaterialSourcesController
+    extends StateNotifier<AsyncValue<YorksAccountsMaterialSources>>
+    with _AccountsCommandRunner<YorksAccountsMaterialSources> {
+  YorksAccountsMaterialSourcesController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required this.commandKeys,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  @override
+  final YorksV1CriticalCommandKeyStore commandKeys;
+  final String _projectId;
+
+  /// Keeps what is on screen while the confirmed read comes back.
+  @override
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsMaterialSources>.loading()
+        .copyWithPrevious(state);
+    await _fetch();
+  }
+
+  @override
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final repository = _repository;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsMaterialSources>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final sources = await repository.getMaterialSources(_projectId);
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsMaterialSources>.data(sources);
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsMaterialSources>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+
+  /// Replaces every link of the project. No optimistic success; the links
+  /// re-fetch on the server's confirmation.
+  Future<String?> saveLinks({
+    required List<YorksAccountsMaterialLink> links,
+    required String reason,
+  }) {
+    final sorted = [...links]
+      ..sort(
+        (a, b) =>
+            '${a.projectScopeId}|${a.stageKey}|${a.itemKey}|'
+                    '${a.boqGroupId}'
+                .compareTo(
+                  '${b.projectScopeId}|${b.stageKey}|${b.itemKey}|${b.boqGroupId}',
+                ),
+      );
+    return runCommand(
+      operation: 'save_material_links',
+      entityId: _projectId,
+      payload: {
+        'links': [for (final l in sorted) l.toJson()],
+        'reason': reason,
+      },
+      action: (key) async {
+        final repository = _repository;
+        if (repository == null) {
+          throw StateError('accounts_backend_unavailable');
+        }
+        await repository.saveMaterialLinks(
+          projectId: _projectId,
+          links: sorted,
+          reason: reason,
+          idempotencyKey: key,
+        );
+      },
+    );
+  }
+}
+
+final yorksAccountsMaterialSourcesControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsMaterialSourcesController,
+      AsyncValue<YorksAccountsMaterialSources>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsMaterialSourcesController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         commandKeys: _commandKeys(ref),
         projectId: projectId,

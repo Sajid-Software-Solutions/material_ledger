@@ -12,6 +12,7 @@ import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_repository.dart' show YorksAccountsRpcClient;
 
@@ -49,6 +50,35 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId, 'p_claim_id': claimId},
     );
     return YorksAccountsWorkbench.fromJson(json);
+  }
+
+  /// BOQ folders, their links to Material Supply items, and deliveries.
+  Future<YorksAccountsMaterialSources> getMaterialSources(
+    String projectId,
+  ) async {
+    final json = await _client.invoke(
+      functionName: 'v1_get_accounts_material_sources',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsMaterialSources.fromJson(json);
+  }
+
+  /// Replaces the project's item-to-BOQ-folder links in one step.
+  Future<Map<String, dynamic>> saveMaterialLinks({
+    required String projectId,
+    required List<YorksAccountsMaterialLink> links,
+    required String reason,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_material_boq_links',
+      parameters: {
+        'p_project_id': projectId,
+        'p_links': [for (final l in links) l.toJson()],
+        'p_reason': reason,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
   }
 
   /// Saves the editable contract references on the project profile.

@@ -6,6 +6,7 @@ import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_mod
 import 'package:material_ledger/features/accounts/domain/v2/commercial_setup_read_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_contract_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 
 const en = AppLanguage.english;
@@ -107,7 +108,26 @@ void _surface(WidgetTester tester, {double width = 1200}) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
+
+Finder _field(String label) => find.widgetWithText(TextField, label);
+
+/// The cell input holding [text] (item rows have no labels of their own).
+Finder _cell(String text) =>
+    find.byWidgetPredicate((w) => w is TextField && w.controller?.text == text);
+
+AccountsV2Button _button(WidgetTester tester, String label) => tester
+    .widget<AccountsV2Button>(find.widgetWithText(AccountsV2Button, label));
+
+Future<void> _tapButton(WidgetTester tester, String label) async {
+  final f = find.widgetWithText(AccountsV2Button, label);
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
 
 /// A small workbook in the real shape, through the real parser.
 YorksAccountsMasterImportFile _workbook({
@@ -167,7 +187,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2_first_title')), findsOneWidget);
+      // The form is open straight away: details, buildings and stages.
+      expect(find.text(t('v2c_details_title')), findsOneWidget);
+      expect(_field(t('v2c_contract_value')), findsOneWidget);
       expect(find.text(t('v2_commercial_hidden')), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -193,24 +215,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_first_start')));
-      await tester.pumpAndSettle();
-      // Contract value is required, so Save starts disabled.
+      // Nothing typed yet, so there is nothing to save.
       expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, t('v2_save')),
-            )
-            .onPressed,
-        isNull,
+        find.widgetWithText(AccountsV2Button, t('v2c_save_changes')),
+        findsNothing,
       );
-      await tester.enterText(find.byType(TextField).first, '2000000');
+      await tester.enterText(_field(t('v2c_contract_value')), '2000000');
       await tester.pumpAndSettle();
-      final save = find.text(t('v2_save'));
-      await tester.ensureVisible(save);
-      await tester.pumpAndSettle();
-      await tester.tap(save);
-      await tester.pumpAndSettle();
+      await _tapButton(tester, t('v2c_save_changes'));
       expect(saved, isNotNull);
       expect(saved!.contractValue.canonicalText, '2000000');
       expect(saved!.buildings.map((b) => b.allocationPercent.canonicalText), [
@@ -237,7 +249,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text(t('v2_first_no_access')), findsOneWidget);
-      expect(find.text(t('v2_first_start')), findsNothing);
+      expect(_field(t('v2c_contract_value')), findsNothing);
     });
 
     testWidgets('no commercial access stays hidden', (tester) async {
@@ -255,7 +267,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text(t('v2_commercial_hidden')), findsOneWidget);
-      expect(find.text(t('v2_first_title')), findsNothing);
+      expect(_field(t('v2c_contract_value')), findsNothing);
+      expect(find.textContaining('AED'), findsNothing);
     });
   });
 
@@ -288,19 +301,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_edit')).first);
+      // The item breakdown is edited in place: change the quantity of 6.
+      await tester.enterText(_cell('6'), '8');
       await tester.pumpAndSettle();
-      expect(find.text('25% / 25%'), findsOneWidget);
-
-      // Change the item's quantity (label, qty, unit, weight are in order).
-      final qty = find.widgetWithText(TextField, t('v2_qty_label'));
-      await tester.enterText(qty, '8');
-      await tester.pumpAndSettle();
-      final save = find.text(t('v2_save'));
-      await tester.ensureVisible(save);
-      await tester.pumpAndSettle();
-      await tester.tap(save);
-      await tester.pumpAndSettle();
+      await _tapButton(tester, t('v2c_save_changes'));
 
       final supply = saved!.stages.firstWhere(
         (s) => s.stageKey == 'material_supply',
@@ -326,22 +330,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_edit')).first);
+      // Weight 25 → 20 leaves the stage 5% short for each building.
+      await tester.enterText(_cell('25'), '20');
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextField, t('v2_weight_label')),
-        '20',
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('20% / 25%'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, t('v2_save')),
-            )
-            .onPressed,
-        isNull,
-      );
+      expect(_button(tester, t('v2c_save_changes')).onPressed, isNull);
+      expect(find.textContaining(t('v2c_to_fix')), findsWidgets);
     });
 
     testWidgets('lists that differ between buildings stay protected', (
@@ -361,7 +354,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2_edit_items_blocked')), findsOneWidget);
+      expect(find.text(t('v2_items_vary_note')), findsOneWidget);
     });
 
     testWidgets('the editor lays out at 360px with items', (tester) async {
@@ -377,7 +370,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_edit')).first);
+      await tester.enterText(_cell('6'), '7');
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -392,9 +385,11 @@ void main() {
       YorksApplyMasterImportAction? onApply,
     }) async {
       _surface(tester);
+      final key = GlobalKey<AccountsV2ContractTabState>();
       await tester.pumpWidget(
         _wrap(
           AccountsV2ContractTab(
+            key: key,
             setup: YorksAccountsCommercialSetupRead.fromJson(_withContract()),
             language: en,
             canEdit: true,
@@ -409,7 +404,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_import_master')));
+      // The tab bar's Import Master File button starts it.
+      key.currentState!.startImport();
       await tester.pumpAndSettle();
     }
 
@@ -559,16 +555,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2_invoice_numbering_empty')), findsOneWidget);
-      final edit = find.text(t('v2_edit')).last;
-      await tester.ensureVisible(edit);
+      final field = _field(t('v2c_invoice_prefix'));
+      expect(tester.widget<TextField>(field).enabled, isTrue);
+      await tester.enterText(field, 'YRA322');
       await tester.pumpAndSettle();
-      await tester.tap(edit);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'YRA322');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_save')));
-      await tester.pumpAndSettle();
+      await _tapButton(tester, t('v2c_save_changes'));
       expect(prefix, 'YRA322');
       expect(find.text(t('v2_saved')), findsOneWidget);
     });
@@ -584,7 +575,131 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2_invoice_numbering_title')), findsNothing);
+      final field = _field(t('v2c_invoice_prefix'));
+      expect(tester.widget<TextField>(field).enabled, isFalse);
+    });
+  });
+
+  group('starting from the project', () {
+    Map<String, dynamic> fromProject() => {
+      ..._withContract(),
+      'project_reference': 'YRA-322',
+      'project_name': 'SS Nexus – 132/33kV Substations',
+      'job_contract_reference': 'N-19957.2',
+      'parties': {
+        'client': {
+          'name': 'Larsen & Toubro',
+          'address': 'Abu Dhabi',
+          'contact_name': 'Milan B',
+        },
+      },
+    };
+
+    Widget tab({
+      required void Function(String?) onContractNo,
+      required void Function(String) onPrefix,
+    }) => AccountsV2ContractTab(
+      setup: YorksAccountsCommercialSetupRead.fromJson(fromProject()),
+      language: en,
+      canEdit: true,
+      canManageInvoices: true,
+      onSave: (_) async => null,
+      onSaveReferences:
+          ({
+            String? clientTrn,
+            String? workOrderNumber,
+            String? workOrderDate,
+            String? contractNumber,
+            String? retentionPercent,
+            int? expectedProfileVersion,
+          }) async {
+            onContractNo(contractNumber);
+            return null;
+          },
+      onSaveInvoiceSettings:
+          ({
+            required String invoicePrefix,
+            String? scopeLine,
+            String? attentionName,
+            String? billToPartyId,
+            int? expectedVersion,
+          }) async {
+            onPrefix('$invoicePrefix|$scopeLine|$attentionName');
+            return null;
+          },
+    );
+
+    String text(WidgetTester tester, String label) =>
+        tester.widget<TextField>(_field(label)).controller!.text;
+
+    testWidgets('empty fields start from the project and save on Save', (
+      tester,
+    ) async {
+      _surface(tester);
+      String? contractNo;
+      String? invoice;
+      await tester.pumpWidget(
+        _wrap(
+          tab(
+            onContractNo: (v) => contractNo = v,
+            onPrefix: (v) => invoice = v,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(text(tester, t('v2c_contract_no')), 'N-19957.2');
+      expect(text(tester, t('v2c_invoice_prefix')), 'YRA322');
+      expect(text(tester, t('v2c_client_contact')), 'Milan B');
+      expect(
+        text(tester, t('v2c_scope_line')),
+        'SS Nexus – 132/33kV Substations',
+      );
+      // Not saved yet, and it says where they came from.
+      expect(find.textContaining(t('v2c_prefilled')), findsOneWidget);
+      await _tapButton(tester, t('v2c_save_changes'));
+      expect(contractNo, 'N-19957.2');
+      expect(invoice, 'YRA322|SS Nexus – 132/33kV Substations|Milan B');
+    });
+
+    testWidgets('they can be changed before saving', (tester) async {
+      _surface(tester);
+      String? contractNo;
+      await tester.pumpWidget(
+        _wrap(tab(onContractNo: (v) => contractNo = v, onPrefix: (_) {})),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_field(t('v2c_contract_no')), 'N-20000');
+      await tester.pumpAndSettle();
+      await _tapButton(tester, t('v2c_save_changes'));
+      expect(contractNo, 'N-20000');
+    });
+
+    testWidgets('Discard leaves them empty', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(tab(onContractNo: (_) {}, onPrefix: (_) {})),
+      );
+      await tester.pumpAndSettle();
+      await _tapButton(tester, t('v2c_discard'));
+      expect(text(tester, t('v2c_contract_no')), '');
+      expect(find.text(t('v2c_unsaved')), findsNothing);
+    });
+
+    testWidgets('nothing is filled for someone who cannot edit', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ContractTab(
+            setup: YorksAccountsCommercialSetupRead.fromJson(fromProject()),
+            language: en,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(text(tester, t('v2c_contract_no')), '');
+      expect(find.textContaining(t('v2c_prefilled')), findsNothing);
     });
   });
 }

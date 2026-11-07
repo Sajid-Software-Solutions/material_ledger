@@ -6,10 +6,10 @@ import 'package:material_ledger/features/accounts/application/accounts_supplier_
 import 'package:material_ledger/features/accounts/data/accounts_supplier_repository.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_receivables_inputs.dart';
-import 'package:material_ledger/features/accounts/domain/accounts_supplier_inputs.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_supplier_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_supplier_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -47,12 +47,18 @@ YorksAccountsSupplierBill _bill({
       YorksAccountsSupplierBillStatus.approved,
   YorksAccountsSupplierMatchStatus match =
       YorksAccountsSupplierMatchStatus.matched,
+  String id = 'sb1',
+  String reference = 'INV-5001',
+  String supplier = 'Cool Air Co',
+  String? receiptReview,
+  String paid = '40000.00',
+  String outstanding = '65000.00',
 }) => YorksAccountsSupplierBill(
-  supplierBillId: 'sb1',
+  supplierBillId: id,
   projectId: 'p1',
   supplierId: 'sup1',
-  supplierName: 'Cool Air Co',
-  supplierInvoiceReference: 'INV-5001',
+  supplierName: supplier,
+  supplierInvoiceReference: reference,
   invoiceDate: YorksAccountsDate.parse('2026-08-01'),
   dueDate: YorksAccountsDate.parse('2026-09-01'),
   exVatAmount: _d('100000.00'),
@@ -61,16 +67,16 @@ YorksAccountsSupplierBill _bill({
   totalInclVat: _d('105000.00'),
   poLpoReference: 'PO-77',
   poLpoDocumentId: null,
-  acceptedReceiptReviewId: null,
-  acceptedDeliveryReference: 'DO-3001',
+  acceptedReceiptReviewId: receiptReview,
+  acceptedDeliveryReference: receiptReview == null ? null : 'DO-3001',
   acceptedDelivery: null,
   supplierInvoiceDocumentId: null,
   explicitMismatchReason: null,
   matchStatus: match,
   status: status,
   paymentStatus: YorksAccountsSupplierPaymentStatus.partiallyPaid,
-  paidAmount: _d('40000.00'),
-  outstandingAmount: _d('65000.00'),
+  paidAmount: _d(paid),
+  outstandingAmount: _d(outstanding),
   approvalAdminExceptionReason: null,
   approvedAt: DateTime.utc(2026, 8, 2),
   approvedByAuthUserId: 'u',
@@ -115,285 +121,181 @@ final class _FakeSupplier implements YorksAccountsSupplierRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-void _wideSurface(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1200, 2000);
+void _surface(WidgetTester tester, {double width = 1400}) {
+  tester.view.physicalSize = Size(width, 2000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
+
+/// Two bills: an overdue one with no delivery linked, and a linked one paid.
+List<YorksAccountsSupplierBill> _two() => [
+  _bill(),
+  _bill(
+    id: 'sb2',
+    reference: 'EDF-0817',
+    supplier: 'Emirates Duct Fab',
+    receiptReview: 'rr1',
+    paid: '105000.00',
+    outstanding: '0.00',
+  ),
+];
 
 void main() {
   const en = AppLanguage.english;
   String t(String key) => accountsV2Text(en, key);
 
-  group('AccountsV2SupplierTab (direct)', () {
-    testWidgets('renders KPIs and the bills table', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(AccountsV2SupplierTab(projection: _projection(), language: en)),
-      );
-      await tester.pumpAndSettle();
+  Future<void> pump(
+    WidgetTester tester, {
+    YorksAccountsSupplierBillsProjection? projection,
+    VoidCallback? onAddBill,
+    ValueChanged<YorksAccountsSupplierBill>? onOpenBill,
+    YorksAccountsDecimal? invoiced,
+    double width = 1400,
+  }) async {
+    _surface(tester, width: width);
+    await tester.pumpWidget(
+      _wrap(
+        AccountsV2SupplierTab(
+          projection: projection ?? _projection(items: _two()),
+          language: en,
+          onAddBill: onAddBill,
+          onOpenBill: onOpenBill,
+          invoicedTotal: invoiced,
+          today: DateTime(2026, 11, 7),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
 
+  group('AccountsV2SupplierTab', () {
+    testWidgets('renders report actions, KPIs and the bills table', (
+      tester,
+    ) async {
+      await pump(tester, invoiced: _d('420000.00'));
+      expect(find.text(t('v2i_report_actions')), findsOneWidget);
+      expect(find.text(t('v2s_kpi_bills')), findsOneWidget);
+      expect(find.text('AED 210,000'), findsOneWidget);
+      expect(find.text(t('v2s_kpi_paid')), findsOneWidget);
+      expect(find.text('AED 145,000'), findsOneWidget);
+      // 200,000 of supplier cost against 420,000 invoiced.
+      expect(find.text('48%'), findsOneWidget);
       expect(find.text('INV-5001'), findsOneWidget);
       expect(find.text('Cool Air Co'), findsOneWidget);
-      expect(find.text('DO-3001'), findsOneWidget);
-      expect(find.text(t('v2_sup_kpi_billed')), findsOneWidget);
-      expect(find.text('AED 105,000.00'), findsWidgets);
-      expect(find.text(t('v2_sup_pay_partially_paid')), findsWidgets);
+      expect(find.text(t('v2s_no_delivery')), findsOneWidget);
+      expect(find.text('PO-77 · DO-3001'), findsOneWidget);
+      // Past its due date with money left: overdue; the other is paid.
+      expect(find.text(t('v2s_st_overdue')), findsOneWidget);
+      expect(find.text(t('v2s_st_paid')), findsWidgets);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('counts open bills with no delivery linked', (tester) async {
+      await pump(tester);
+      final card = find.ancestor(
+        of: find.text(t('v2s_kpi_unlinked')),
+        matching: find.byType(AccountsV2KpiCard),
+      );
+      expect(
+        find.descendant(of: card, matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(find.textContaining(t('v2s_waiting_proof')), findsOneWidget);
+    });
+
+    testWidgets('searches and filters the bills', (tester) async {
+      await pump(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2s_search')),
+        'duct',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('INV-5001'), findsNothing);
+      expect(find.text('EDF-0817'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2s_search')),
+        '',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2i_all')).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2s_not_linked')).last);
+      await tester.pumpAndSettle();
+      expect(find.text('INV-5001'), findsOneWidget);
+      expect(find.text('EDF-0817'), findsNothing);
+    });
+
+    testWidgets('says when nothing matches', (tester) async {
+      await pump(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2s_search')),
+        'zzz',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2s_no_match')), findsOneWidget);
     });
 
     testWidgets('blocks the surface without supplier-cost access', (
       tester,
     ) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(costs: false),
-            language: en,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
+      await pump(tester, projection: _projection(costs: false));
       expect(find.text(t('v2_sup_no_access')), findsOneWidget);
       expect(find.text('INV-5001'), findsNothing);
-      expect(tester.takeException(), isNull);
+      expect(find.textContaining('AED'), findsNothing);
     });
 
     testWidgets('shows the empty state with no bills', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(items: const []),
-            language: en,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_sup_empty')), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      await pump(tester, projection: _projection(items: const []));
+      expect(find.text(t('v2s_empty_title')), findsOneWidget);
     });
-  });
 
-  group('AccountsV2SupplierTab add and open', () {
     testWidgets('a project with no bills can still add the first one', (
       tester,
     ) async {
-      _wideSurface(tester);
       var added = 0;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(items: const []),
-            language: en,
-            onAddBill: () => added++,
-          ),
-        ),
+      await pump(
+        tester,
+        projection: _projection(items: const []),
+        onAddBill: () => added++,
+      );
+      await tester.tap(
+        find.widgetWithText(AccountsV2Button, t('v2s_new_bill')).last,
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2_sup_empty')), findsOneWidget);
-      await tester.tap(find.text(t('v2_sup_add_bill')));
       expect(added, 1);
     });
 
-    testWidgets('a bill opens its details', (tester) async {
-      _wideSurface(tester);
-      String? opened;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(),
-            language: en,
-            onAddBill: () {},
-            onOpenBill: (bill) => opened = bill.supplierBillId,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_sup_add_bill')), findsOneWidget);
-      final details = find.text(t('v2_sup_open_bill')).first;
-      await tester.ensureVisible(details);
-      await tester.pumpAndSettle();
-      await tester.tap(details);
-      expect(opened, isNotNull);
-      expect(tester.takeException(), isNull);
-    });
-
     testWidgets('no add button without the capability', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(AccountsV2SupplierTab(projection: _projection(), language: en)),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_sup_add_bill')), findsNothing);
-    });
-  });
-
-  group('AccountsV2SupplierTab payment', () {
-    testWidgets('records a supplier payment through onPay', (tester) async {
-      _wideSurface(tester);
-      YorksAccountsSupplierPaymentInput? captured;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(pay: true),
-            language: en,
-            onPay: (i) async {
-              captured = i;
-              return null;
-            },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final btn = find.text(t('v2_inv_record_payment'));
-      expect(btn, findsOneWidget);
-      await tester.ensureVisible(btn);
-      await tester.pumpAndSettle();
-      await tester.tap(btn);
-      await tester.pumpAndSettle();
-      // Fields: amount(0), date(1), reference(2), note(3).
-      await tester.enterText(find.byType(TextField).at(2), 'SPAY-1');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(captured, isNotNull);
-      expect(captured!.supplierBillId, 'sb1');
-      expect(captured!.paymentReference, 'SPAY-1');
-      expect(captured!.paymentMethod, 'bank_transfer');
-      expect(find.text(t('v2_pay_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
+      await pump(tester);
+      expect(find.text(t('v2s_new_bill')), findsNothing);
     });
 
-    testWidgets('no payment button without the capability', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(),
-            language: en,
-            onPay: (i) async => null,
-          ),
-        ),
-      );
+    testWidgets('a bill row opens the bill', (tester) async {
+      YorksAccountsSupplierBill? opened;
+      await pump(tester, onOpenBill: (b) => opened = b);
+      await tester.tap(find.text('INV-5001'));
       await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_inv_record_payment')), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-  });
-
-  group('AccountsV2SupplierTab approval', () {
-    testWidgets('no Approve until all three documents match', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(
-              pay: true,
-              items: [
-                _bill(
-                  status: YorksAccountsSupplierBillStatus.draft,
-                  match: YorksAccountsSupplierMatchStatus.blocked,
-                ),
-              ],
-            ),
-            language: en,
-            onApprove:
-                ({required supplierBillId, required expectedVersion}) async =>
-                    null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_sup_approve')), findsNothing);
+      expect(opened!.supplierBillId, 'sb1');
     });
 
-    testWidgets('no Approve for someone who cannot approve', (tester) async {
-      _wideSurface(tester);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(
-              items: [_bill(status: YorksAccountsSupplierBillStatus.draft)],
-            ),
-            language: en,
-            onApprove:
-                ({required supplierBillId, required expectedVersion}) async =>
-                    null,
-          ),
+    testWidgets('a draft bill reads as a draft', (tester) async {
+      await pump(
+        tester,
+        projection: _projection(
+          items: [_bill(status: YorksAccountsSupplierBillStatus.draft)],
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.text(t('v2_sup_approve')), findsNothing);
+      expect(find.text(t('v2s_st_draft')), findsOneWidget);
     });
 
-    testWidgets('a phone shows a card with the bill and its actions', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(360, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(pay: true),
-            language: en,
-            onPay: (input) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(DataTable), findsNothing);
-      await tester.scrollUntilVisible(find.text('INV-5001'), 200);
+    testWidgets('lays out at 360px', (tester) async {
+      await pump(tester, width: 360, onAddBill: () {});
       expect(find.text('INV-5001'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('approves a draft bill through onApprove', (tester) async {
-      _wideSurface(tester);
-      String? approvedId;
-      int? approvedVersion;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2SupplierTab(
-            projection: _projection(
-              pay: true,
-              items: [_bill(status: YorksAccountsSupplierBillStatus.draft)],
-            ),
-            language: en,
-            onApprove:
-                ({required supplierBillId, required expectedVersion}) async {
-                  approvedId = supplierBillId;
-                  approvedVersion = expectedVersion;
-                  return null;
-                },
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final btn = find.text(t('v2_sup_approve'));
-      expect(btn, findsOneWidget);
-      await tester.ensureVisible(btn);
-      await tester.pumpAndSettle();
-      await tester.tap(btn);
-      await tester.pumpAndSettle();
-      // Confirmation dialog.
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(approvedId, 'sb1');
-      expect(approvedVersion, 1);
-      expect(find.text(t('v2_sup_approved_done')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
@@ -402,7 +304,7 @@ void main() {
     testWidgets('opening on supplier bills loads from the repository', (
       tester,
     ) async {
-      _wideSurface(tester);
+      _surface(tester);
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
       final container = ProviderContainer(
@@ -425,10 +327,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: _wrap(
-            const YorksAccountsWorkspaceV2Screen(
-              projectId: 'p1',
-              initialTab: YorksAccountsWorkspaceV2Tab.supplierBills,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.supplierBills,
+              ),
             ),
           ),
         ),

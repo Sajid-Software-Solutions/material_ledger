@@ -15,12 +15,12 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import 'accounts_v2_common.dart';
+import 'kit/accounts_v2_kit.dart';
 
 /// Runs a cheque lifecycle transition; returns null on success or an error
 /// message (a version conflict resolves on reload).
@@ -64,10 +64,6 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
   bool get _showAction =>
       canManage &&
       (onTransition != null || onReplace != null || onEdit != null);
-
-  bool _hasMenu(YorksAccountsProjectPdc pdc) =>
-      (onEdit != null && pdc.canEditDetails) ||
-      (onTransition != null && pdc.nextStatuses.isNotEmpty);
 
   bool _canReplace(YorksAccountsProjectPdc pdc) =>
       onReplace != null &&
@@ -153,140 +149,207 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final format = const AccountsV2Format();
-    return AccountsV2Card(
+    int count(YorksAccountsPdcStatus s) =>
+        register.pdcs.where((p) => p.status == s).length;
+    final inHand = count(YorksAccountsPdcStatus.received);
+    final deposited = count(YorksAccountsPdcStatus.deposited);
+    final cleared = count(YorksAccountsPdcStatus.cleared);
+    final bounced =
+        count(YorksAccountsPdcStatus.bounced) +
+        count(YorksAccountsPdcStatus.returned);
+    return AccountsV2Panel(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountsV2SectionTitle(_t('v2_pdc_register_title')),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            _t('v2_pdc_register_hint'),
-            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          AccountsV2TileHead(
+            icon: 'cheque',
+            tone: AccountsV2Tone.vio,
+            title: _t('v2i_pdc_title'),
+            subtitle:
+                '${_t('v2i_pdc_sub_a')} ${_t('v2i_pdc_sub_b')}${_t('v2i_pdc_sub_c')}',
+            actions: [
+              if (inHand > 0)
+                AccountsV2Chip(
+                  '$inHand ${_t('v2i_ps_inhand').toLowerCase()}',
+                  tone: AccountsV2ChipTone.vio,
+                ),
+              if (deposited > 0)
+                AccountsV2Chip(
+                  '$deposited ${_t('v2i_ps_deposited').toLowerCase()}',
+                  tone: AccountsV2ChipTone.pri,
+                ),
+              if (cleared > 0)
+                AccountsV2Chip(
+                  '$cleared ${_t('v2i_ps_cleared').toLowerCase()}',
+                  tone: AccountsV2ChipTone.ok,
+                ),
+              if (bounced > 0)
+                AccountsV2Chip(
+                  '$bounced ${_t('v2i_ps_bounced').toLowerCase()}',
+                  tone: AccountsV2ChipTone.bad,
+                ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
           if (register.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Text(_t('v2_pdc_empty'), style: AppTypography.bodyMedium),
+            AccountsV2Empty(
+              icon: 'cheque',
+              title: _t('v2i_no_records'),
+              body: _t('v2i_pdc_empty_body'),
             )
           else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
-                  return Column(
-                    children: [
-                      for (final pdc in register.pdcs)
-                        _chequeCard(context, pdc, format),
-                    ],
-                  );
-                }
-                return _table(context, format);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _chequeCard(
-    BuildContext context,
-    YorksAccountsProjectPdc pdc,
-    AccountsV2Format format,
-  ) {
-    Widget plain(String text) => Text(
-      text,
-      style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
-    );
-    return AccountsV2RecordCard(
-      title: Text(
-        pdc.chequeNumber,
-        style: AppTypography.bodyMedium.copyWith(
-          color: AppColors.ink,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      status: PdcStatusChip(status: pdc.status, language: language),
-      facts: [
-        (_t('v2_pdc_col_invoice'), plain(pdc.invoiceReference)),
-        (_t('v2_pdc_col_bank'), plain(pdc.bankName ?? '—')),
-        (_t('v2_pdc_col_cheque_date'), plain(pdc.chequeDate.postgresText)),
-        (_t('v2_pdc_col_amount'), plain(format.money(pdc.amount))),
-        if (pdc.actionRequired)
-          (
-            _t('v2_pdc_col_status'),
-            StatusChip.warning(_t('v2_pdc_needs_action')),
-          ),
-      ],
-      actions: [
-        if (_showAction && (_canReplace(pdc) || _hasMenu(pdc)))
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: AppSpacing.minTapTarget,
-            ),
-            child: Center(widthFactor: 1, child: _actionCell(context, pdc)),
-          ),
-      ],
-    );
-  }
-
-  Widget _table(BuildContext context, AccountsV2Format format) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columnSpacing: AppSpacing.xl,
-        headingRowHeight: 36,
-        dataRowMinHeight: 40,
-        dataRowMaxHeight: 56,
-        columns: [
-          DataColumn(label: Text(_t('v2_pdc_col_cheque'))),
-          DataColumn(label: Text(_t('v2_pdc_col_invoice'))),
-          DataColumn(label: Text(_t('v2_pdc_col_bank'))),
-          DataColumn(label: Text(_t('v2_pdc_col_cheque_date'))),
-          DataColumn(label: Text(_t('v2_pdc_col_amount')), numeric: true),
-          DataColumn(label: Text(_t('v2_pdc_col_status'))),
-          if (_showAction) DataColumn(label: Text(_t('v2_pdc_col_action'))),
-        ],
-        rows: [
-          for (final pdc in register.pdcs)
-            DataRow(
-              cells: [
-                DataCell(
-                  Text(
-                    pdc.chequeNumber,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w700,
-                    ),
+            AccountsV2Table(
+              minWidth: 960,
+              columns: [
+                AccountsV2Column(_t('v2i_p_no'), width: 120),
+                AccountsV2Column(_t('v2i_c_invoice'), width: 140),
+                AccountsV2Column(_t('v2i_p_bank')),
+                AccountsV2Column(_t('v2i_p_received'), width: 120),
+                AccountsV2Column(_t('v2i_p_date'), width: 130),
+                AccountsV2Column(_t('v2i_p_amount'), width: 130, numeric: true),
+                AccountsV2Column(_t('v2i_c_status'), width: 120, center: true),
+                if (_showAction)
+                  AccountsV2Column(
+                    _t('v2i_p_action'),
+                    width: 200,
+                    numeric: true,
                   ),
-                ),
-                DataCell(Text(pdc.invoiceReference)),
-                DataCell(Text(pdc.bankName ?? '—')),
-                DataCell(Text(pdc.chequeDate.postgresText)),
-                DataCell(Text(format.money(pdc.amount, withCurrency: false))),
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      PdcStatusChip(status: pdc.status, language: language),
-                      if (pdc.actionRequired) ...[
-                        const SizedBox(width: AppSpacing.xs),
-                        StatusChip.warning(_t('v2_pdc_needs_action')),
-                      ],
-                    ],
-                  ),
-                ),
-                if (_showAction) DataCell(_actionCell(context, pdc)),
               ],
+              rows: [for (final pdc in register.pdcs) _row(context, pdc)],
             ),
         ],
       ),
     );
   }
 
-  Widget _actionCell(BuildContext context, YorksAccountsProjectPdc pdc) {
-    if (!_canReplace(pdc) && !_hasMenu(pdc)) return const Text('—');
-    return _menu(context, pdc);
+  AccountsV2Row _row(BuildContext context, YorksAccountsProjectPdc pdc) {
+    final today = DateTime.now();
+    final date = DateTime.tryParse(pdc.chequeDate.postgresText);
+    final days = date == null
+        ? 0
+        : DateTime(
+            date.year,
+            date.month,
+            date.day,
+          ).difference(DateTime(today.year, today.month, today.day)).inDays;
+    final inHand = pdc.status == YorksAccountsPdcStatus.received;
+    return AccountsV2Row([
+      Text(pdc.chequeNumber, style: v2Style(12.5, weight: FontWeight.w700)),
+      Text(pdc.invoiceReference),
+      Text(pdc.bankName ?? '—', maxLines: 1, overflow: TextOverflow.ellipsis),
+      Text(v2Date(pdc.receivedDate?.postgresText)),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(v2Date(pdc.chequeDate.postgresText)),
+          if (inHand)
+            Text(
+              days <= 0
+                  ? _t('v2i_ready_deposit')
+                  : '${_t('v2i_in')} $days ${_t('v2i_days')}',
+              style: days <= 0
+                  ? v2Style(
+                      12,
+                      weight: FontWeight.w700,
+                      color: AccountsV2Colors.bad,
+                    )
+                  : v2Style(12, color: AccountsV2Colors.mut),
+            ),
+        ],
+      ),
+      Text(v2Fmt(v2Number(pdc.amount.canonicalText))),
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PdcStatusChip(status: pdc.status, language: language),
+          if (pdc.actionRequired) ...[
+            const SizedBox(height: 3),
+            Text(
+              _t('v2_pdc_needs_action'),
+              style: v2Style(11.5, color: AccountsV2Colors.warn),
+            ),
+          ],
+        ],
+      ),
+      if (_showAction) _actions(context, pdc),
+    ]);
+  }
+
+  /// The next step as buttons, as the prototype offers them, and every other
+  /// move (walking back, edit, replace) in a menu.
+  Widget _actions(BuildContext context, YorksAccountsProjectPdc pdc) {
+    final next = onTransition == null
+        ? const <YorksAccountsPdcStatus>[]
+        : pdc.nextStatuses;
+    final primary = <(String, YorksAccountsPdcStatus, AccountsV2ButtonKind)>[
+      if (pdc.status == YorksAccountsPdcStatus.expected &&
+          next.contains(YorksAccountsPdcStatus.received))
+        (
+          _t('v2i_mark_received'),
+          YorksAccountsPdcStatus.received,
+          AccountsV2ButtonKind.normal,
+        ),
+      if (pdc.status == YorksAccountsPdcStatus.received &&
+          next.contains(YorksAccountsPdcStatus.deposited))
+        (
+          _t('v2i_mark_deposited'),
+          YorksAccountsPdcStatus.deposited,
+          AccountsV2ButtonKind.normal,
+        ),
+      if (pdc.status == YorksAccountsPdcStatus.deposited) ...[
+        if (next.contains(YorksAccountsPdcStatus.cleared))
+          (
+            _t('v2i_cleared_btn'),
+            YorksAccountsPdcStatus.cleared,
+            AccountsV2ButtonKind.ok,
+          ),
+        if (next.contains(YorksAccountsPdcStatus.bounced))
+          (
+            _t('v2i_bounced_btn'),
+            YorksAccountsPdcStatus.bounced,
+            AccountsV2ButtonKind.danger,
+          ),
+      ],
+      if ((pdc.status == YorksAccountsPdcStatus.bounced ||
+              pdc.status == YorksAccountsPdcStatus.returned) &&
+          next.contains(YorksAccountsPdcStatus.received))
+        (
+          _t('v2i_represented'),
+          YorksAccountsPdcStatus.received,
+          AccountsV2ButtonKind.normal,
+        ),
+    ];
+    final shown = {for (final p in primary) p.$2};
+    final rest = [
+      for (final t in next)
+        if (!shown.contains(t)) t,
+    ];
+    final hasMenu =
+        rest.isNotEmpty ||
+        _canReplace(pdc) ||
+        (onEdit != null && pdc.canEditDetails);
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final (label, target, kind) in primary)
+          AccountsV2Button(
+            label: label,
+            kind: kind,
+            size: AccountsV2ButtonSize.small,
+            onPressed: () => _transition(context, pdc, target),
+          ),
+        if (primary.isEmpty && !hasMenu)
+          Text(_t('v2i_done'), style: v2Style(12, color: AccountsV2Colors.mut)),
+        if (primary.isEmpty &&
+            hasMenu &&
+            pdc.status == YorksAccountsPdcStatus.cleared)
+          Text(_t('v2i_done'), style: v2Style(12, color: AccountsV2Colors.mut)),
+        if (hasMenu) _menu(context, pdc, rest),
+      ],
+    );
   }
 
   /// Written for what the step means, so walking back never reads like moving on.
@@ -314,49 +377,81 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
     return _t(key);
   }
 
-  Widget _menu(BuildContext context, YorksAccountsProjectPdc pdc) {
-    final next = onTransition == null
-        ? const <YorksAccountsPdcStatus>[]
-        : pdc.nextStatuses;
+  Widget _menu(
+    BuildContext context,
+    YorksAccountsProjectPdc pdc,
+    List<YorksAccountsPdcStatus> moves,
+  ) {
     const edit = 'edit';
     const replace = 'replace';
-    return PopupMenuButton<String>(
-      onSelected: (choice) {
-        if (choice == edit) {
-          _edit(context, pdc);
-        } else if (choice == replace) {
-          _replace(context, pdc);
-        } else {
-          _transition(
-            context,
-            pdc,
-            next.firstWhere((target) => target.name == choice),
-          );
-        }
-      },
-      itemBuilder: (_) => [
-        for (final target in next)
-          PopupMenuItem<String>(
-            value: target.name,
-            child: Text(_moveLabel(pdc, target)),
+    return Builder(
+      builder: (buttonContext) => Tooltip(
+        message: _t('v2i_more'),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () async {
+            final box = buttonContext.findRenderObject() as RenderBox?;
+            final overlay =
+                Overlay.of(buttonContext).context.findRenderObject()
+                    as RenderBox?;
+            if (box == null || overlay == null) return;
+            final at = box.localToGlobal(
+              Offset(0, box.size.height),
+              ancestor: overlay,
+            );
+            final choice = await showMenu<String>(
+              context: buttonContext,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              position: RelativeRect.fromRect(
+                at & const Size(1, 1),
+                Offset.zero & overlay.size,
+              ),
+              items: [
+                for (final target in moves)
+                  PopupMenuItem<String>(
+                    value: target.name,
+                    child: Text(_moveLabel(pdc, target), style: v2Style(13)),
+                  ),
+                if (_canReplace(pdc))
+                  PopupMenuItem<String>(
+                    value: replace,
+                    child: Text(_t('v2_pdc_replace'), style: v2Style(13)),
+                  ),
+                if (onEdit != null && pdc.canEditDetails)
+                  PopupMenuItem<String>(
+                    value: edit,
+                    child: Text(_t('v2_pdc_edit'), style: v2Style(13)),
+                  ),
+              ],
+            );
+            if (choice == null || !context.mounted) return;
+            if (choice == edit) {
+              await _edit(context, pdc);
+            } else if (choice == replace) {
+              await _replace(context, pdc);
+            } else {
+              await _transition(
+                context,
+                pdc,
+                moves.firstWhere((target) => target.name == choice),
+              );
+            }
+          },
+          child: const SizedBox(
+            width: 32,
+            height: 30,
+            child: Center(
+              child: AccountsV2Icon(
+                'dots',
+                size: 18,
+                color: AccountsV2Colors.ink2,
+              ),
+            ),
           ),
-        if (_canReplace(pdc))
-          PopupMenuItem<String>(
-            value: replace,
-            child: Text(_t('v2_pdc_replace')),
-          ),
-        if (onEdit != null && pdc.canEditDetails)
-          PopupMenuItem<String>(value: edit, child: Text(_t('v2_pdc_edit'))),
-      ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _t('v2_pdc_update'),
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.primary),
-          ),
-          const Icon(Icons.arrow_drop_down, size: 20, color: AppColors.primary),
-        ],
+        ),
       ),
     );
   }
@@ -387,20 +482,41 @@ class PdcStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = switch (status) {
-      YorksAccountsPdcStatus.expected => NexusStatusTone.neutral,
-      YorksAccountsPdcStatus.received => NexusStatusTone.info,
-      YorksAccountsPdcStatus.deposited => NexusStatusTone.info,
-      YorksAccountsPdcStatus.cleared => NexusStatusTone.success,
-      YorksAccountsPdcStatus.replaced => NexusStatusTone.neutral,
-      YorksAccountsPdcStatus.returned => NexusStatusTone.warning,
-      YorksAccountsPdcStatus.bounced => NexusStatusTone.danger,
-      YorksAccountsPdcStatus.cancelled => NexusStatusTone.neutral,
+    final (key, tone) = switch (status) {
+      YorksAccountsPdcStatus.expected => (
+        'v2i_ps_expected',
+        AccountsV2ChipTone.neutral,
+      ),
+      YorksAccountsPdcStatus.received => (
+        'v2i_ps_inhand',
+        AccountsV2ChipTone.vio,
+      ),
+      YorksAccountsPdcStatus.deposited => (
+        'v2i_ps_deposited',
+        AccountsV2ChipTone.pri,
+      ),
+      YorksAccountsPdcStatus.cleared => (
+        'v2i_ps_cleared',
+        AccountsV2ChipTone.ok,
+      ),
+      YorksAccountsPdcStatus.replaced => (
+        'v2i_ps_replaced',
+        AccountsV2ChipTone.neutral,
+      ),
+      YorksAccountsPdcStatus.returned => (
+        'v2i_ps_returned',
+        AccountsV2ChipTone.bad,
+      ),
+      YorksAccountsPdcStatus.bounced => (
+        'v2i_ps_bounced',
+        AccountsV2ChipTone.bad,
+      ),
+      YorksAccountsPdcStatus.cancelled => (
+        'v2i_ps_cancelled',
+        AccountsV2ChipTone.neutral,
+      ),
     };
-    return StatusChip(
-      label: accountsV2Text(language, _statusKey(status)),
-      tone: tone,
-    );
+    return AccountsV2Chip(accountsV2Text(language, key), tone: tone);
   }
 }
 

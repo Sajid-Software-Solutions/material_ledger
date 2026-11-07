@@ -22,6 +22,8 @@ final class YorksAccountsWorkbenchItem {
     required this.confirmedQty,
     required this.needsReview,
     required this.itemValue,
+    this.qtyBeforeClaim,
+    this.qtyThisClaim,
   });
 
   factory YorksAccountsWorkbenchItem.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,8 @@ final class YorksAccountsWorkbenchItem {
               key: 'item.item_value',
             )
           : null,
+      qtyBeforeClaim: _optionalDecimal(json, 'qty_before_claim', 'item'),
+      qtyThisClaim: _optionalDecimal(json, 'qty_this_claim', 'item'),
     );
   }
 
@@ -60,7 +64,20 @@ final class YorksAccountsWorkbenchItem {
 
   /// Present only with view_project_commercial_values.
   final YorksAccountsDecimal? itemValue;
+
+  /// Quantity confirmed before the claim in view, and in it. Absent from an
+  /// older server.
+  final YorksAccountsDecimal? qtyBeforeClaim;
+  final YorksAccountsDecimal? qtyThisClaim;
 }
+
+YorksAccountsDecimal? _optionalDecimal(
+  Map<String, dynamic> json,
+  String key,
+  String owner,
+) => json[key] == null
+    ? null
+    : YorksAccountsDecimal.fromRpcValue(json[key], key: '$owner.$key');
 
 /// One building × stage cell.
 final class YorksAccountsWorkbenchCell {
@@ -84,6 +101,10 @@ final class YorksAccountsWorkbenchCell {
     this.suggestedPercent,
     this.suggestedBy,
     this.suggestedEvidenceDocumentIds = const [],
+    this.percentBeforeClaim,
+    this.percentThisClaim,
+    this.claimedBeforeClaim,
+    this.thisClaimAmount,
   });
 
   factory YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic> json) {
@@ -129,6 +150,14 @@ final class YorksAccountsWorkbenchCell {
               ?.cast<String>()
               .toList(growable: false) ??
           const <String>[],
+      percentBeforeClaim: _optionalDecimal(
+        json,
+        'percent_before_claim',
+        'cell',
+      ),
+      percentThisClaim: _optionalDecimal(json, 'percent_this_claim', 'cell'),
+      claimedBeforeClaim: money('claimed_before_claim'),
+      thisClaimAmount: money('this_claim_amount'),
     );
   }
 
@@ -158,6 +187,16 @@ final class YorksAccountsWorkbenchCell {
   final YorksAccountsDecimal? suggestedPercent;
   final String? suggestedBy;
   final List<String> suggestedEvidenceDocumentIds;
+
+  /// Percent confirmed before the claim in view, and in it. Absent from an
+  /// older server.
+  final YorksAccountsDecimal? percentBeforeClaim;
+  final YorksAccountsDecimal? percentThisClaim;
+
+  /// Money claimed on this building and stage before the claim in view, and
+  /// in it. Commercial only.
+  final YorksAccountsDecimal? claimedBeforeClaim;
+  final YorksAccountsDecimal? thisClaimAmount;
 
   bool get isItemsMode => measurementMode == 'items';
 }
@@ -217,6 +256,7 @@ final class YorksAccountsWorkbench {
   bool get canSuggestProgress => capabilities['can_suggest'] == true;
   bool get canManageInvoices => commands['submit_invoice'] == true;
   bool get canPrepareClaim => commands['create_claim_draft'] == true;
+  bool get canCancelClaim => commands['cancel_claim'] == true;
 
   String? get openClaimId =>
       claim == null ? null : claim!['claim_id'] as String?;

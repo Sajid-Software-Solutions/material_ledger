@@ -7,13 +7,13 @@ library;
 
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_common.dart';
+import 'kit/accounts_v2_kit.dart';
 
 /// Creates (variationId null) or edits a variation; null on success or an error.
 typedef YorksSaveVariationAction =
@@ -60,106 +60,79 @@ class AccountsV2VariationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AccountsV2Card(
+    final add = _canEdit
+        ? AccountsV2Button(
+            label: _t('v2_add_variation'),
+            icon: 'plus',
+            kind: AccountsV2ButtonKind.primary,
+            size: AccountsV2ButtonSize.small,
+            onPressed: () => _edit(context, null),
+          )
+        : null;
+    return AccountsV2Panel(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountsV2SectionTitle(
-            _t('v2_variations_title'),
-            number: 5,
-            trailing: _canEdit
-                ? TextButton.icon(
-                    onPressed: () => _edit(context, null),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: Text(_t('v2_add_variation')),
-                  )
-                : null,
+          AccountsV2TileHead(
+            icon: 'edit',
+            tone: AccountsV2Tone.org,
+            title: _t('v2_variations_title'),
+            subtitle: _t('v2c_variations_sub'),
+            actions: [?add],
           ),
-          const SizedBox(height: AppSpacing.sm),
           if (variations.isEmpty)
-            Text(
-              _t('v2_variations_empty'),
-              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+            AccountsV2Empty(
+              icon: 'edit',
+              title: _t('v2c_no_records'),
+              body: _t('v2_variations_empty'),
+              action: _canEdit
+                  ? AccountsV2Button(
+                      label: _t('v2_add_variation'),
+                      icon: 'plus',
+                      onPressed: () => _edit(context, null),
+                    )
+                  : null,
             )
           else
-            for (final v in variations)
-              _VariationRow(
-                variation: v,
-                format: format,
-                language: language,
-                onTap: _canEdit ? () => _edit(context, v) : null,
-              ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VariationRow extends StatelessWidget {
-  const _VariationRow({
-    required this.variation,
-    required this.format,
-    required this.language,
-    required this.onTap,
-  });
-
-  final YorksAccountsVariation variation;
-  final AccountsV2Format format;
-  final AppLanguage language;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        variation.voNumber,
-                        style: AppTypography.titleSmall.copyWith(
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      _VariationStatusChip(
-                        status: variation.status,
-                        language: language,
-                      ),
-                    ],
-                  ),
-                  if (variation.description != null &&
-                      variation.description!.isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.xxs),
+            AccountsV2Table(
+              columns: [
+                AccountsV2Column(_t('v2c_vo_no'), width: 130),
+                AccountsV2Column(_t('v2c_description')),
+                AccountsV2Column(
+                  _t('v2c_amount_aed'),
+                  width: 180,
+                  numeric: true,
+                ),
+                AccountsV2Column(_t('v2c_status'), width: 150),
+                const AccountsV2Column('', width: 56, numeric: true),
+              ],
+              rows: [
+                for (final v in variations)
+                  AccountsV2Row([
                     Text(
-                      variation.description!,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.muted,
-                      ),
+                      v.voNumber,
+                      style: v2Style(12.5, weight: FontWeight.w700),
                     ),
-                  ],
-                ],
-              ),
+                    Text(v.description ?? '—'),
+                    Text(
+                      format.money(v.amount, withCurrency: false),
+                      style: v2Style(12.5, tabular: true),
+                    ),
+                    _VariationStatusChip(status: v.status, language: language),
+                    _canEdit
+                        ? AccountsV2Button(
+                            label: '',
+                            icon: 'pen',
+                            kind: AccountsV2ButtonKind.ghost,
+                            size: AccountsV2ButtonSize.small,
+                            tooltip: _t('v2_edit'),
+                            onPressed: () => _edit(context, v),
+                          )
+                        : const SizedBox.shrink(),
+                  ], onTap: _canEdit ? () => _edit(context, v) : null),
+              ],
             ),
-            const SizedBox(width: AppSpacing.md),
-            Text(
-              format.money(variation.amount),
-              style: AppTypography.titleSmall.copyWith(
-                color: AppColors.ink,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

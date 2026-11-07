@@ -1,14 +1,11 @@
-/// R39 Accounts Workspace V2 — Invoices & payments tab.
+/// R39 Accounts Workspace V2 — Invoices & Payments tab, laid out as the
+/// approved prototype: Report actions, five KPIs, status and due filters, the
+/// invoice tracker, the cheque register and a right-hand invoice drawer.
 ///
-/// Shows the client invoice tracker from the existing v1_list_client_invoices
-/// projection: the five KPIs (invoiced incl VAT, certified, received, cheques
-/// in hand, still due) and a per-invoice table (ex/incl VAT, certified, due,
-/// received, balance, status). Monetary content is drawn only with
-/// view_project_commercial_values. Tapping an invoice opens the detail drawer
-/// (certifications, payments with reversal, cheques), and certify / record
-/// payment run from the row. The drawer also offers Revise (R.n) while the
-/// invoice is still revisable — before any certification, net payment or active
-/// PDC (D7); the server re-checks on `v1_revise_client_invoice`.
+/// Figures come from v1_list_client_invoices and the invoice detail read; every
+/// command (certify, pay, edit, reverse, cheque, revise, cancel) runs on the
+/// server and the tab shows the result only after it confirms. Money appears
+/// only with view_project_commercial_values.
 library;
 
 import 'package:flutter/material.dart';
@@ -16,12 +13,14 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
+import '../../domain/accounts_records_models.dart';
 import 'accounts_v2_common.dart';
+import 'kit/accounts_v2_kit.dart';
+import 'kit/accounts_v2_report_buttons.dart';
 
 /// Records client certification; returns null on success or an error message.
 typedef YorksCertifyAction =
@@ -35,7 +34,6 @@ typedef YorksPayAction =
 typedef YorksReversePaymentAction =
     Future<String?> Function(YorksAccountsPaymentReversalInput input);
 
-/// Records a cheque against an invoice; returns null on success or a failure code.
 /// Edits a payment in one step; returns null on success or an error message.
 typedef YorksCorrectPaymentAction =
     Future<String?> Function(YorksAccountsPaymentCorrectionInput input);
@@ -48,6 +46,7 @@ typedef YorksCorrectCertificationAction =
 typedef YorksCancelInvoiceAction =
     Future<String?> Function(YorksAccountsEntityActionInput input);
 
+/// Records a cheque against an invoice; returns null on success or a failure code.
 typedef YorksCreatePdcAction =
     Future<String?> Function(YorksAccountsPdcCreateInput input);
 
@@ -59,7 +58,106 @@ typedef YorksReviseInvoiceAction =
       required String reason,
     });
 
-class AccountsV2InvoicesTab extends StatelessWidget {
+/// A file attached to an invoice, for the drawer's Files row.
+typedef AccountsV2InvoiceFile = ({String name, VoidCallback? onOpen});
+
+const double _eps = 0.005;
+
+/// What the tracker says about an invoice (`invCalc` in the prototype).
+final class _InvoiceView {
+  _InvoiceView(this.inv, DateTime today)
+    : gross = _d(inv.claimedExVat),
+      total = _d(inv.totalInclVat),
+      received = _d(inv.amountPaidTillDate),
+      inHand = _d(inv.pdcExposure),
+      certified = _d(inv.certifiedExVat),
+      stillDue = _d(inv.stillDue) {
+    balance = certified > _eps
+        ? stillDue
+        : (total - received).clamp(0, double.infinity).toDouble();
+    paid =
+        inv.status == YorksAccountsInvoiceStatus.paid ||
+        (certified > _eps && balance <= _eps);
+    final due = _date(inv.dueDate);
+    final last = _date(inv.lastReceiptDate);
+    final now = DateTime(today.year, today.month, today.day);
+    if (paid) {
+      delay = due != null && last != null ? last.difference(due).inDays : 0;
+    } else {
+      delay = due != null && now.isAfter(due) ? now.difference(due).inDays : 0;
+    }
+    daysToDue = due == null ? 0 : due.difference(now).inDays;
+    overdue =
+        !paid &&
+        !inv.revisionInProgress &&
+        (inv.dueState == YorksAccountsDueState.overdue || delay > 0);
+    status = switch (inv.status) {
+      YorksAccountsInvoiceStatus.cancelled => 'cancelled',
+      YorksAccountsInvoiceStatus.returned => 'returned',
+      YorksAccountsInvoiceStatus.draft => 'draft',
+      _ when inv.revisionInProgress => 'revising',
+      _ when paid => 'paid',
+      _ when overdue => 'overdue',
+      _ when received > _eps => 'part_paid',
+      _ when certified > _eps => 'certified',
+      _ => 'submitted',
+    };
+  }
+
+  final YorksAccountsClientInvoiceSummary inv;
+  final double gross;
+  final double total;
+  final double received;
+  final double inHand;
+  final double certified;
+  final double stillDue;
+  late final double balance;
+  late final bool paid;
+  late final int delay;
+  late final int daysToDue;
+  late final bool overdue;
+  late final String status;
+
+  /// Certified amount including VAT, at the invoice's own rate.
+  double get certifiedInclVat => gross > 0 ? certified * total / gross : 0;
+
+  String get dueState => paid
+      ? 'paid'
+      : overdue
+      ? 'overdue'
+      : daysToDue <= 14
+      ? 'soon'
+      : 'notdue';
+
+  static double _d(YorksAccountsDecimal? v) =>
+      v == null ? 0 : v2Number(v.canonicalText);
+
+  static DateTime? _date(YorksAccountsDate? d) =>
+      d == null ? null : DateTime.tryParse(d.postgresText);
+}
+
+AccountsV2ChipTone _statusTone(String status) => switch (status) {
+  'paid' => AccountsV2ChipTone.ok,
+  'overdue' || 'returned' => AccountsV2ChipTone.bad,
+  'part_paid' => AccountsV2ChipTone.warn,
+  'certified' => AccountsV2ChipTone.pri,
+  'revising' => AccountsV2ChipTone.vio,
+  _ => AccountsV2ChipTone.neutral,
+};
+
+String _statusKey(String status) => switch (status) {
+  'paid' => 'v2i_st_paid',
+  'overdue' => 'v2i_st_overdue',
+  'part_paid' => 'v2i_st_part_paid',
+  'certified' => 'v2i_st_certified',
+  'revising' => 'v2i_st_revising',
+  'returned' => 'v2i_st_returned',
+  'cancelled' => 'v2i_st_cancelled',
+  'draft' => 'v2i_st_draft',
+  _ => 'v2i_st_submitted',
+};
+
+class AccountsV2InvoicesTab extends StatefulWidget {
   const AccountsV2InvoicesTab({
     super.key,
     required this.projection,
@@ -75,13 +173,20 @@ class AccountsV2InvoicesTab extends StatelessWidget {
     this.onPrintInvoice,
     this.onOpenDetail,
     this.trailing,
+    this.claimNumbers = const {},
+    this.filesFor,
+    this.onAttach,
+    this.onOpenClaims,
+    this.focusInvoiceId,
+    this.focusRevise = false,
+    this.onFocusHandled,
+    this.today,
   });
 
   final YorksAccountsInvoicesProjection projection;
   final AppLanguage language;
 
-  /// Optional card rendered below the tracker (the cheque register), scrolling
-  /// with it rather than in a separate viewport.
+  /// The cheque register card, drawn below the tracker.
   final Widget? trailing;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
@@ -90,7 +195,7 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   final YorksCorrectCertificationAction? onCorrectCertification;
   final YorksCancelInvoiceAction? onCancelInvoice;
 
-  /// Revises an issued invoice (R.n) from the detail drawer; null hides it.
+  /// Revises an issued invoice (R.n) from the drawer; null hides it.
   final YorksReviseInvoiceAction? onRevise;
 
   /// Records a cheque; shown only with manage_pdc.
@@ -106,209 +211,466 @@ class AccountsV2InvoicesTab extends StatelessWidget {
   )?
   onOpenDetail;
 
-  bool get _canValues => projection.capabilities.canViewValues;
+  /// Claim number (#01, #02 …) by claim id.
+  final Map<String, int> claimNumbers;
 
-  String _t(String key) => accountsV2Text(language, key);
+  /// Files attached to an invoice.
+  final List<AccountsV2InvoiceFile> Function(String invoiceId)? filesFor;
 
-  List<YorksAccountsClientInvoiceSummary> get _live => projection.invoices
-      .where((i) => i.status != YorksAccountsInvoiceStatus.cancelled)
-      .toList(growable: false);
+  /// Attaches a signed copy to an invoice.
+  final Future<void> Function(String invoiceId)? onAttach;
 
-  YorksAccountsDecimal _sum(
-    YorksAccountsDecimal Function(YorksAccountsClientInvoiceSummary) pick,
-  ) => _live.fold(YorksAccountsDecimal.zero, (a, i) => a + pick(i));
+  /// Opens Progress & Claims (New invoice from claim).
+  final VoidCallback? onOpenClaims;
+
+  /// An invoice to open once, from the Overview or a claim.
+  final String? focusInvoiceId;
+  final bool focusRevise;
+  final VoidCallback? onFocusHandled;
+  final DateTime? today;
 
   @override
-  Widget build(BuildContext context) {
-    final format = const AccountsV2Format();
-
-    if (projection.invoices.isEmpty) {
-      return _Empty(message: _t('v2_inv_empty'));
-    }
-
-    final children = <Widget>[];
-    if (_canValues) {
-      children
-        ..add(
-          _KpiRow(
-            language: language,
-            format: format,
-            invoiced: _sum((i) => i.totalInclVat),
-            certified: _sum((i) => i.certifiedExVat),
-            received: _sum((i) => i.amountPaidTillDate),
-            cheques: _sum((i) => i.pdcExposure),
-            due: _sum((i) => i.stillDue),
-          ),
-        )
-        ..add(const SizedBox(height: AppSpacing.lg));
-    }
-    children.add(
-      _TrackerCard(
-        projectId: projection.projectId,
-        invoices: projection.invoices,
-        canValues: _canValues,
-        canCertify:
-            projection.capabilities.recordClientCertification &&
-            onCertify != null,
-        canPay: projection.capabilities.recordClientPayment && onPay != null,
-        language: language,
-        format: format,
-        onCertify: onCertify,
-        onPay: onPay,
-        onReversePayment: onReversePayment,
-        onCorrectPayment: onCorrectPayment,
-        onCorrectCertification: onCorrectCertification,
-        onCancelInvoice: onCancelInvoice,
-        onRevise: onRevise,
-        onCreatePdc: projection.capabilities.managePdc ? onCreatePdc : null,
-        onPrintInvoice: onPrintInvoice,
-        onOpenDetail: onOpenDetail,
-      ),
-    );
-    if (trailing != null) {
-      children
-        ..add(const SizedBox(height: AppSpacing.lg))
-        ..add(trailing!);
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      children: children,
-    );
-  }
+  State<AccountsV2InvoicesTab> createState() => _AccountsV2InvoicesTabState();
 }
 
-// ─── KPIs ────────────────────────────────────────────────────────────────────
+class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
+  String _fStatus = 'all';
+  String _fDue = 'all';
+  String? _focused;
 
-class _KpiRow extends StatelessWidget {
-  const _KpiRow({
-    required this.language,
-    required this.format,
-    required this.invoiced,
-    required this.certified,
-    required this.received,
-    required this.cheques,
-    required this.due,
-  });
+  String _t(String key) => accountsV2Text(widget.language, key);
+  bool get _values => widget.projection.capabilities.canViewValues;
+  DateTime get _today => widget.today ?? DateTime.now();
 
-  final AppLanguage language;
-  final AccountsV2Format format;
-  final YorksAccountsDecimal invoiced;
-  final YorksAccountsDecimal certified;
-  final YorksAccountsDecimal received;
-  final YorksAccountsDecimal cheques;
-  final YorksAccountsDecimal due;
+  /// Oldest invoice first, as the tracker in the Project Master File lists them.
+  List<_InvoiceView> get _views {
+    final views = [
+      for (final inv in widget.projection.invoices) _InvoiceView(inv, _today),
+    ];
+    String key(_InvoiceView v) =>
+        '${v.inv.submissionDate?.postgresText ?? '9999'}|${v.inv.invoiceReference}';
+    views.sort((a, b) => key(a).compareTo(key(b)));
+    return views;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _openFocus();
+  }
+
+  @override
+  void didUpdateWidget(AccountsV2InvoicesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusInvoiceId != oldWidget.focusInvoiceId) _openFocus();
+  }
+
+  void _openFocus() {
+    final id = widget.focusInvoiceId;
+    if (id == null || id == _focused) return;
+    _focused = id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onFocusHandled?.call();
+      final match = _views.where((v) => v.inv.invoiceId == id);
+      if (match.isNotEmpty) _openDrawer(match.first);
+    });
+  }
+
+  String _claimLabel(String claimId) {
+    final n = widget.claimNumbers[claimId];
+    return n == null
+        ? _t('v2i_claim')
+        : '${_t('v2i_claim')} #${n.toString().padLeft(2, '0')}';
+  }
+
+  String _money(double v, [int digits = 2]) => v2Money(v, digits: digits);
 
   @override
   Widget build(BuildContext context) {
-    final tiles = <Widget>[
-      _Kpi(
-        icon: Icons.receipt_long_outlined,
-        label: accountsV2Text(language, 'v2_inv_kpi_invoiced'),
-        value: format.money(invoiced),
+    final all = _views;
+    final live = all.where((v) => v.status != 'cancelled').toList();
+    final rows = all.where((v) {
+      final status = _fStatus == 'all'
+          ? v.status != 'cancelled'
+          : v.status == _fStatus;
+      final due = _fDue == 'all' || v.dueState == _fDue;
+      return status && due;
+    }).toList();
+    final projectId = widget.projection.projectId;
+    return AccountsV2Stack(
+      children: [
+        AccountsV2ReportActions(
+          title: _t('v2i_report_actions'),
+          actions: [
+            for (final output in AccountsV2ReportOutput.values)
+              AccountsV2ReportButton(
+                projectId: projectId,
+                kind: YorksAccountsReportKind.clientInvoices,
+                companions: const [YorksAccountsReportKind.pdcRegister],
+                output: output,
+                language: widget.language,
+              ),
+          ],
+          primary: widget.onOpenClaims == null
+              ? null
+              : AccountsV2Button(
+                  label: _t('v2i_new_from_claim'),
+                  icon: 'plus',
+                  kind: AccountsV2ButtonKind.primary,
+                  onPressed: widget.onOpenClaims,
+                ),
+        ),
+        if (_values) _kpis(live),
+        _filters(context),
+        _tracker(context, all, rows),
+        ?widget.trailing,
+      ],
+    );
+  }
+
+  Widget _kpis(List<_InvoiceView> live) {
+    final invoiced = live.fold<double>(0, (a, v) => a + v.total);
+    final certified = live.fold<double>(0, (a, v) => a + v.certifiedInclVat);
+    final received = live.fold<double>(0, (a, v) => a + v.received);
+    final inHand = live.fold<double>(0, (a, v) => a + v.inHand);
+    final due = live.fold<double>(0, (a, v) => a + v.stillDue);
+    final overdue = live.where((v) => v.overdue).toList();
+    final overdueAmount = overdue.fold<double>(0, (a, v) => a + v.balance);
+    final count = live.length;
+    return AccountsV2KpiRow(
+      children: [
+        AccountsV2KpiCard(
+          icon: 'receipt',
+          label: _t('v2i_kpi_invoiced'),
+          value: _money(invoiced, 0),
+          caption:
+              '$count ${count == 1 ? _t('v2i_invoice_one') : _t('v2i_invoice_many')}',
+        ),
+        AccountsV2KpiCard(
+          icon: 'shield',
+          tone: AccountsV2Tone.vio,
+          label: _t('v2i_kpi_certified'),
+          value: _money(certified, 0),
+          caption: _t('v2i_incl_vat'),
+        ),
+        AccountsV2KpiCard(
+          icon: 'coins',
+          tone: AccountsV2Tone.green,
+          label: _t('v2i_kpi_received'),
+          value: _money(received, 0),
+          caption: _t('v2i_cleared_only'),
+          valueTone: AccountsV2ValueTone.ok,
+        ),
+        AccountsV2KpiCard(
+          icon: 'cheque',
+          tone: AccountsV2Tone.vio,
+          label: _t('v2i_kpi_cheques'),
+          value: _money(inHand, 0),
+          caption: _t('v2i_not_cleared'),
+        ),
+        AccountsV2KpiCard(
+          icon: 'alert',
+          tone: overdue.isNotEmpty ? AccountsV2Tone.red : AccountsV2Tone.org,
+          label: _t('v2i_kpi_due'),
+          value: _money(due, 0),
+          caption: overdue.isNotEmpty
+              ? '${_money(overdueAmount, 0)} ${_t('v2i_overdue_word')}'
+              : '0 ${_t('v2i_overdue_word')}',
+          valueTone: overdue.isNotEmpty
+              ? AccountsV2ValueTone.bad
+              : AccountsV2ValueTone.plain,
+        ),
+      ],
+    );
+  }
+
+  Widget _filters(BuildContext context) {
+    final narrow = AccountsV2Breakpoints.isNarrow(context);
+    final width = narrow ? null : 228.0;
+    final selects = [
+      AccountsV2Select<String>(
+        label: _t('v2i_f_status'),
+        value: _fStatus,
+        width: width,
+        options: [
+          ('all', _t('v2i_all')),
+          for (final s in const [
+            'submitted',
+            'certified',
+            'part_paid',
+            'paid',
+            'overdue',
+            'revising',
+            'cancelled',
+          ])
+            (s, _t(_statusKey(s))),
+        ],
+        onChanged: (v) => setState(() => _fStatus = v),
       ),
-      _Kpi(
-        icon: Icons.verified_outlined,
-        label: accountsV2Text(language, 'v2_inv_kpi_certified_excl'),
-        value: format.money(certified),
-      ),
-      _Kpi(
-        icon: Icons.payments_outlined,
-        label: accountsV2Text(language, 'v2_kpi_received'),
-        value: format.money(received),
-        accent: AppColors.success,
-      ),
-      _Kpi(
-        icon: Icons.account_balance_outlined,
-        label: accountsV2Text(language, 'v2_inv_kpi_cheques'),
-        value: format.money(cheques),
-        accent: AppColors.purple,
-      ),
-      _Kpi(
-        icon: Icons.schedule_outlined,
-        label: accountsV2Text(language, 'v2_inv_kpi_due'),
-        value: format.money(due),
-        accent: due.isPositive ? AppColors.warning : null,
+      AccountsV2Select<String>(
+        label: _t('v2i_f_due'),
+        value: _fDue,
+        width: width,
+        options: [
+          ('all', _t('v2i_all')),
+          ('overdue', _t('v2i_st_overdue')),
+          ('soon', _t('v2i_due_soon')),
+          ('notdue', _t('v2i_due_notdue')),
+          ('paid', _t('v2i_st_paid')),
+        ],
+        onChanged: (v) => setState(() => _fDue = v),
       ),
     ];
-    return AccountsV2KpiGrid(tiles: tiles);
-  }
-}
-
-class _Kpi extends StatelessWidget {
-  const _Kpi({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.accent,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = accent ?? AppColors.primary;
-    return AccountsV2Card(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 16, color: tint),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: AppTypography.labelMedium.copyWith(
-                    color: AppColors.muted,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            style: AppTypography.titleMedium.copyWith(
-              color: accent ?? AppColors.ink,
-              fontFeatures: const [FontFeature.tabularFigures()],
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: narrow
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (i, s) in selects.indexed) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  s,
+                ],
+              ],
+            )
+          : Row(
+              children: [
+                for (final (i, s) in selects.indexed) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  s,
+                ],
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  Widget _tracker(
+    BuildContext context,
+    List<_InvoiceView> all,
+    List<_InvoiceView> rows,
+  ) {
+    final liveCount = all.where((v) => v.status != 'cancelled').length;
+    final chip = rows.length == liveCount
+        ? '$liveCount ${liveCount == 1 ? _t('v2i_invoice_one') : _t('v2i_invoice_many')}'
+        : '${rows.length} ${_t('v2i_of')} $liveCount';
+    final Widget body;
+    if (all.isEmpty) {
+      body = AccountsV2Empty(
+        icon: 'receipt',
+        title: _t('v2i_no_records'),
+        body: _t('v2i_no_records_body'),
+        action: widget.onOpenClaims == null
+            ? null
+            : AccountsV2Button(
+                label: _t('v2i_prepare_claim'),
+                onPressed: widget.onOpenClaims,
+              ),
+      );
+    } else if (rows.isEmpty) {
+      body = AccountsV2Empty(
+        icon: 'receipt',
+        title: _t('v2i_no_match'),
+        action: AccountsV2Button(
+          label: _t('v2i_clear_filters'),
+          onPressed: () => setState(() {
+            _fStatus = 'all';
+            _fDue = 'all';
+          }),
+        ),
+      );
+    } else {
+      body = AccountsV2Table(
+        minWidth: 980,
+        columns: [
+          AccountsV2Column(_t('v2i_c_invoice'), flex: 2),
+          AccountsV2Column(_t('v2i_c_submitted'), width: 112),
+          if (_values) ...[
+            AccountsV2Column(_t('v2i_c_excl'), width: 120, numeric: true),
+            AccountsV2Column(_t('v2i_c_incl'), width: 120, numeric: true),
+          ],
+          AccountsV2Column(_t('v2i_c_certified'), width: 116),
+          AccountsV2Column(_t('v2i_c_due'), width: 112),
+          if (_values) ...[
+            AccountsV2Column(_t('v2i_c_received'), width: 168, numeric: true),
+            AccountsV2Column(_t('v2i_c_balance'), width: 120, numeric: true),
+          ],
+          AccountsV2Column(_t('v2i_c_status'), width: 130, center: true),
+        ],
+        rows: [for (final v in rows) _row(v)],
+      );
+    }
+    return AccountsV2Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2TileHead(
+            icon: 'receipt',
+            title: _t('v2i_tracker'),
+            subtitle: _t('v2i_tracker_sub'),
+            actions: [AccountsV2Chip(chip, tone: AccountsV2ChipTone.pri)],
           ),
+          body,
         ],
       ),
     );
   }
+
+  AccountsV2Row _row(_InvoiceView v) {
+    final inv = v.inv;
+    final small = v2Style(12, color: AccountsV2Colors.mut);
+    final certDiffers =
+        v.certified > _eps && (v.certified - v.gross).abs() > _eps;
+    final statusLine = v.delay > 0
+        ? '${v.delay} ${v.paid ? _t('v2i_days_late') : _t('v2i_days_overdue')}'
+        : v.paid
+        ? _t('v2i_on_time')
+        : '${_t('v2i_due_in')} ${v.daysToDue} ${_t('v2i_d')}';
+    return AccountsV2Row(
+      [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              inv.invoiceReference,
+              style: v2Style(12.5, weight: FontWeight.w700),
+            ),
+            Text(
+              [
+                _claimLabel(inv.claimId),
+                if (inv.replacesReference != null)
+                  '${_t('v2i_replaces')} ${inv.replacesReference}',
+              ].join(' · '),
+              style: small,
+            ),
+          ],
+        ),
+        Text(v2Date(inv.submissionDate?.postgresText)),
+        if (_values) ...[Text(v2Fmt(v.gross)), Text(v2Fmt(v.total))],
+        inv.certificationDate == null && v.certified <= _eps
+            ? Text(
+                _t('v2i_waiting'),
+                style: v2Style(12.5, color: AccountsV2Colors.mut),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(v2Date(inv.certificationDate?.postgresText)),
+                  if (certDiffers && _values)
+                    Text(
+                      v2Fmt(v.certified),
+                      style: v2Style(12, color: AccountsV2Colors.warn),
+                    ),
+                ],
+              ),
+        Text(v2Date(inv.dueDate?.postgresText)),
+        if (_values) ...[
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(v2Fmt(v.received)),
+              if (v.inHand > _eps)
+                Text(
+                  '+ ${v2Fmt(v.inHand)} ${_t('v2i_cheque_word')}',
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.fade,
+                  style: v2Style(12, color: AccountsV2Colors.vio),
+                ),
+            ],
+          ),
+          Text(
+            v2Fmt(v.balance),
+            style: v2Style(12.5, weight: FontWeight.w700, tabular: true),
+          ),
+        ],
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AccountsV2Chip(
+              _t(_statusKey(v.status)),
+              tone: _statusTone(v.status),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              statusLine,
+              textAlign: TextAlign.center,
+              style: v2Style(
+                12,
+                color: v.delay > 0
+                    ? AccountsV2Colors.bad
+                    : AccountsV2Colors.mut,
+              ),
+            ),
+          ],
+        ),
+      ],
+      key: ValueKey(inv.invoiceId),
+      onTap: widget.onOpenDetail == null ? null : () => _openDrawer(v),
+    );
+  }
+
+  // ─── Drawer ───────────────────────────────────────────────────────────────
+
+  Future<void> _openDrawer(_InvoiceView v) async {
+    final fetch = widget.onOpenDetail;
+    if (fetch == null) return;
+    await showAccountsV2Drawer<void>(
+      context,
+      closeLabel: _t('v2i_close'),
+      title: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(v.inv.invoiceReference),
+          AccountsV2Chip(_t(_statusKey(v.status)), tone: _statusTone(v.status)),
+        ],
+      ),
+      builder: (_) => _InvoiceDrawer(
+        view: v,
+        all: _views,
+        language: widget.language,
+        fetch: () => fetch(v.inv.invoiceId),
+        capabilities: widget.projection.capabilities,
+        claimLabel: _claimLabel(v.inv.claimId),
+        files: widget.filesFor?.call(v.inv.invoiceId) ?? const [],
+        onAttach: widget.onAttach == null
+            ? null
+            : () => widget.onAttach!(v.inv.invoiceId),
+        onCertify: widget.onCertify,
+        onPay: widget.onPay,
+        onReversePayment: widget.onReversePayment,
+        onCorrectPayment: widget.onCorrectPayment,
+        onCorrectCertification: widget.onCorrectCertification,
+        onCancelInvoice: widget.onCancelInvoice,
+        onRevise: widget.onRevise,
+        onCreatePdc: widget.projection.capabilities.managePdc
+            ? widget.onCreatePdc
+            : null,
+        onPrintInvoice: widget.onPrintInvoice,
+        onOpenClaims: widget.onOpenClaims,
+        openRevise:
+            widget.focusRevise && v.inv.invoiceId == widget.focusInvoiceId,
+      ),
+    );
+  }
 }
 
-// ─── Tracker ───────────────────────────────────────────────────────────────
-
-class _TrackerCard extends StatelessWidget {
-  const _TrackerCard({
-    required this.projectId,
-    required this.invoices,
-    required this.canValues,
-    required this.canCertify,
-    required this.canPay,
+/// The invoice drawer body: figures, actions, progress, payments, files.
+class _InvoiceDrawer extends StatefulWidget {
+  const _InvoiceDrawer({
+    required this.view,
+    required this.all,
     required this.language,
-    required this.format,
+    required this.fetch,
+    required this.capabilities,
+    required this.claimLabel,
+    required this.files,
+    this.onAttach,
     this.onCertify,
     this.onPay,
     this.onReversePayment,
@@ -318,16 +680,18 @@ class _TrackerCard extends StatelessWidget {
     this.onRevise,
     this.onCreatePdc,
     this.onPrintInvoice,
-    this.onOpenDetail,
+    this.onOpenClaims,
+    this.openRevise = false,
   });
 
-  final String projectId;
-  final List<YorksAccountsClientInvoiceSummary> invoices;
-  final bool canValues;
-  final bool canCertify;
-  final bool canPay;
+  final _InvoiceView view;
+  final List<_InvoiceView> all;
   final AppLanguage language;
-  final AccountsV2Format format;
+  final Future<YorksAccountsInvoiceDetailProjection?> Function() fetch;
+  final YorksAccountsReceivablesCapabilities capabilities;
+  final String claimLabel;
+  final List<AccountsV2InvoiceFile> files;
+  final VoidCallback? onAttach;
   final YorksCertifyAction? onCertify;
   final YorksPayAction? onPay;
   final YorksReversePaymentAction? onReversePayment;
@@ -337,18 +701,68 @@ class _TrackerCard extends StatelessWidget {
   final YorksReviseInvoiceAction? onRevise;
   final YorksCreatePdcAction? onCreatePdc;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
-  final Future<YorksAccountsInvoiceDetailProjection?> Function(
-    String invoiceId,
-  )?
-  onOpenDetail;
+  final VoidCallback? onOpenClaims;
+  final bool openRevise;
 
-  bool get _showActions =>
-      canCertify || canPay || onCreatePdc != null || onPrintInvoice != null;
+  @override
+  State<_InvoiceDrawer> createState() => _InvoiceDrawerState();
+}
 
-  /// Mirrors v1_create_client_pdc: open invoices with a certified amount. The
-  /// server re-checks this and the remaining-exposure cap.
-  bool _canRecordCheque(YorksAccountsClientInvoiceSummary inv) =>
-      onCreatePdc != null &&
+class _InvoiceDrawerState extends State<_InvoiceDrawer> {
+  late Future<YorksAccountsInvoiceDetailProjection?> _detail = widget.fetch();
+  bool _reviseOpened = false;
+
+  String _t(String key) => accountsV2Text(widget.language, key);
+  _InvoiceView get v => widget.view;
+  YorksAccountsClientInvoiceSummary get inv => widget.view.inv;
+  String? _detailProjectId;
+
+  /// Closes the drawer on success, so the refreshed tracker is what's shown. A
+  /// refusal stays over the drawer.
+  Future<void> _finish(String? error, String doneKey) async {
+    if (!mounted) return;
+    if (error == null) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      Navigator.of(context).pop();
+      messenger?.showSnackBar(SnackBar(content: Text(_t(doneKey))));
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: Text(accountsV2ErrorText(widget.language, error)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _canCertify =>
+      widget.onCertify != null &&
+      widget.capabilities.recordClientCertification &&
+      const {
+        YorksAccountsInvoiceStatus.submitted,
+        YorksAccountsInvoiceStatus.underCertification,
+        YorksAccountsInvoiceStatus.partiallyCertified,
+        YorksAccountsInvoiceStatus.certified,
+      }.contains(inv.status);
+
+  bool get _canPay =>
+      widget.onPay != null &&
+      widget.capabilities.recordClientPayment &&
+      !v.paid &&
+      const {
+        YorksAccountsInvoiceStatus.certified,
+        YorksAccountsInvoiceStatus.partiallyCertified,
+        YorksAccountsInvoiceStatus.partiallyPaid,
+      }.contains(inv.status);
+
+  bool get _canCheque =>
+      widget.onCreatePdc != null &&
       inv.certifiedExVat.isPositive &&
       !const {
         YorksAccountsInvoiceStatus.draft,
@@ -357,513 +771,698 @@ class _TrackerCard extends StatelessWidget {
         YorksAccountsInvoiceStatus.paid,
       }.contains(inv.status);
 
-  Future<void> _recordCheque(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
-  ) async {
-    final input = await showDialog<YorksAccountsPdcCreateInput>(
-      context: context,
-      builder: (_) =>
-          _ChequeDialog(projectId: projectId, invoice: inv, language: language),
-    );
-    if (input == null) return;
-    final error = await onCreatePdc!(input);
-    if (context.mounted) await _report(context, error, 'v2_pdc_saved');
-  }
-
-  Future<void> _openDetail(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
-  ) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final detail = await onOpenDetail!(inv.invoiceId);
-    if (!context.mounted) return;
-    if (detail == null) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text(_t('v2_inv_detail_failed'))),
-      );
-      return;
-    }
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _InvoiceDetailSheet(
-        detail: detail,
-        language: language,
-        format: format,
-        onReversePayment: onReversePayment,
-        onCorrectPayment: onCorrectPayment,
-        onCorrectCertification: onCorrectCertification,
-        onCancelInvoice: onCancelInvoice,
-        onRevise: onRevise,
-      ),
-    );
-  }
-
-  bool _canPrint(YorksAccountsClientInvoiceSummary inv) =>
-      onPrintInvoice != null &&
+  bool get _canPrint =>
+      widget.onPrintInvoice != null &&
       inv.status != YorksAccountsInvoiceStatus.draft &&
       inv.status != YorksAccountsInvoiceStatus.cancelled;
 
-  Future<void> _print(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
-  ) async {
-    final error = await onPrintInvoice!(inv.invoiceId);
-    if (!context.mounted || error == null) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(_t('v2_inv_pdf_failed'))));
-  }
-
-  String _t(String key) => accountsV2Text(language, key);
-
-  bool _canCertify(YorksAccountsClientInvoiceSummary inv) =>
-      canCertify &&
-      const {
-        YorksAccountsInvoiceStatus.submitted,
-        YorksAccountsInvoiceStatus.underCertification,
-        YorksAccountsInvoiceStatus.partiallyCertified,
-        YorksAccountsInvoiceStatus.certified,
-      }.contains(inv.status);
-
-  bool _canPay(YorksAccountsClientInvoiceSummary inv) =>
-      canPay &&
-      const {
-        YorksAccountsInvoiceStatus.certified,
-        YorksAccountsInvoiceStatus.partiallyCertified,
-        YorksAccountsInvoiceStatus.partiallyPaid,
-      }.contains(inv.status);
-
-  Future<void> _report(
-    BuildContext context,
-    String? error,
-    String okKey,
-  ) async {
-    if (!context.mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null ? _t(okKey) : accountsV2ErrorText(language, error),
-        ),
-      ),
+  /// D7: revisable before any certification, net payment or active cheque. The
+  /// server re-checks.
+  bool _canRevise(YorksAccountsInvoiceDetailProjection d) {
+    if (widget.onRevise == null || inv.revisionInProgress) return false;
+    final status = d.invoice.status;
+    if (status != YorksAccountsInvoiceStatus.submitted &&
+        status != YorksAccountsInvoiceStatus.underCertification) {
+      return false;
+    }
+    if (d.certifications.isNotEmpty) return false;
+    if (d.invoice.paidAmount?.isPositive ?? false) return false;
+    return !d.pdcs.any(
+      (p) => const {
+        YorksAccountsPdcStatus.expected,
+        YorksAccountsPdcStatus.received,
+        YorksAccountsPdcStatus.deposited,
+      }.contains(p.status),
     );
   }
 
-  Future<void> _certify(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
-  ) async {
+  int get _nextRevision {
+    final m = RegExp(r'R\.(\d+)$').firstMatch(inv.invoiceReference);
+    return m == null ? 1 : int.parse(m.group(1)!) + 1;
+  }
+
+  Set<String> _reversedIds(YorksAccountsInvoiceDetailProjection d) => {
+    for (final p in d.payments)
+      if (p.entryKind == YorksAccountsPaymentEntryKind.reversal &&
+          p.originalPaymentId != null)
+        p.originalPaymentId!,
+  };
+
+  Future<void> _certify() async {
     final input = await showDialog<YorksAccountsCertificationInput>(
       context: context,
       builder: (_) => _CertifyDialog(
-        projectId: projectId,
+        projectId: _detailProjectId ?? '',
         invoice: inv,
-        language: language,
+        language: widget.language,
       ),
     );
     if (input == null) return;
-    final error = await onCertify!(input);
-    if (context.mounted) await _report(context, error, 'v2_cert_saved');
+    await _finish(await widget.onCertify!(input), 'v2_cert_saved');
   }
 
-  Future<void> _pay(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
+  Future<void> _editCertification(
+    YorksAccountsInvoiceDetailProjection d,
+    YorksAccountsClientCertification c,
   ) async {
+    final input = await showDialog<YorksAccountsCertificationCorrectionInput>(
+      context: context,
+      builder: (_) => _EditCertificationDialog(
+        projectId: d.projectId,
+        invoiceId: inv.invoiceId,
+        expectedVersion: d.invoice.recordVersion,
+        certification: c,
+        language: widget.language,
+      ),
+    );
+    if (input == null) return;
+    await _finish(
+      await widget.onCorrectCertification!(input),
+      'v2_cert_edit_done',
+    );
+  }
+
+  Future<void> _pay() async {
     final input = await showDialog<YorksAccountsPaymentInput>(
       context: context,
-      builder: (_) =>
-          _PayDialog(projectId: projectId, invoice: inv, language: language),
+      builder: (_) => _PayDialog(
+        projectId: _detailProjectId ?? '',
+        invoice: inv,
+        language: widget.language,
+      ),
     );
     if (input == null) return;
-    final error = await onPay!(input);
-    if (context.mounted) await _report(context, error, 'v2_pay_saved');
+    await _finish(await widget.onPay!(input), 'v2_pay_saved');
   }
 
-  /// What can be done on an invoice now, the next step first. Certifying leads
-  /// until a certified amount exists; afterwards it is a correction.
-  List<_RowAction> _actionsFor(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
-  ) {
-    final certifyFirst = !inv.certifiedExVat.isPositive;
-    final certify = _canCertify(inv)
-        ? _RowAction(
-            label: _t(certifyFirst ? 'v2_inv_certify' : 'v2_inv_recertify'),
-            onPressed: () => _certify(context, inv),
-          )
-        : null;
-    return [
-      if (certify != null && certifyFirst) certify,
-      if (_canPay(inv))
-        _RowAction(
-          label: _t('v2_inv_record_payment'),
-          onPressed: () => _pay(context, inv),
+  Future<void> _cheque() async {
+    final input = await showDialog<YorksAccountsPdcCreateInput>(
+      context: context,
+      builder: (_) => _ChequeDialog(
+        projectId: _detailProjectId ?? '',
+        invoice: inv,
+        language: widget.language,
+      ),
+    );
+    if (input == null) return;
+    await _finish(await widget.onCreatePdc!(input), 'v2_pdc_saved');
+  }
+
+  Future<void> _print() async {
+    final error = await widget.onPrintInvoice!(inv.invoiceId);
+    if (!mounted || error == null) return;
+    await _finish(error, 'v2_inv_pdf_failed');
+  }
+
+  Future<void> _revise(YorksAccountsInvoiceDetailProjection d) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReviseDialog(language: widget.language),
+    );
+    if (reason == null) return;
+    await _finish(
+      await widget.onRevise!(
+        invoiceId: inv.invoiceId,
+        expectedVersion: d.invoice.recordVersion,
+        reason: reason,
+      ),
+      'v2_inv_revised',
+    );
+  }
+
+  Future<void> _cancel(YorksAccountsInvoiceDetailProjection d) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _CancelInvoiceDialog(language: widget.language),
+    );
+    if (reason == null) return;
+    await _finish(
+      await widget.onCancelInvoice!(
+        YorksAccountsEntityActionInput(
+          projectId: d.projectId,
+          entityId: inv.invoiceId,
+          expectedVersion: d.invoice.recordVersion,
+          reason: reason,
         ),
-      if (_canRecordCheque(inv))
-        _RowAction(
-          label: _t('v2_pdc_add'),
-          onPressed: () => _recordCheque(context, inv),
-        ),
-      if (_canPrint(inv))
-        _RowAction(
-          label: _t('v2_inv_view_print'),
-          onPressed: () => _print(context, inv),
-        ),
-      if (certify != null && !certifyFirst) certify,
-    ];
+      ),
+      'v2_inv_cancel_done',
+    );
+  }
+
+  Future<void> _editPayment(
+    YorksAccountsInvoiceDetailProjection d,
+    YorksAccountsClientPayment p,
+  ) async {
+    final input = await showDialog<YorksAccountsPaymentCorrectionInput>(
+      context: context,
+      builder: (_) => _EditPaymentDialog(
+        projectId: d.projectId,
+        invoiceId: inv.invoiceId,
+        expectedVersion: d.invoice.recordVersion,
+        payment: p,
+        language: widget.language,
+      ),
+    );
+    if (input == null) return;
+    await _finish(await widget.onCorrectPayment!(input), 'v2_pay_edit_done');
+  }
+
+  Future<void> _reverse(
+    YorksAccountsInvoiceDetailProjection d,
+    YorksAccountsClientPayment p,
+  ) async {
+    final input = await showDialog<YorksAccountsPaymentReversalInput>(
+      context: context,
+      builder: (_) => _ReversalDialog(
+        projectId: d.projectId,
+        invoiceId: inv.invoiceId,
+        expectedVersion: d.invoice.recordVersion,
+        payment: p,
+        language: widget.language,
+      ),
+    );
+    if (input == null) return;
+    await _finish(await widget.onReversePayment!(input), 'v2_pay_reversed');
   }
 
   @override
   Widget build(BuildContext context) {
-    final columns = <DataColumn>[
-      DataColumn(label: Text(_t('v2_inv_col_invoice'))),
-      DataColumn(label: Text(_t('v2_inv_col_submitted'))),
-      if (canValues) ...[
-        DataColumn(label: Text(_t('v2_inv_col_excl')), numeric: true),
-        DataColumn(label: Text(_t('v2_inv_col_incl')), numeric: true),
-        DataColumn(label: Text(_t('v2_inv_kpi_certified')), numeric: true),
-      ],
-      DataColumn(label: Text(_t('v2_inv_col_due'))),
-      if (canValues) ...[
-        DataColumn(label: Text(_t('v2_kpi_received')), numeric: true),
-        DataColumn(label: Text(_t('v2_inv_col_balance')), numeric: true),
-      ],
-      DataColumn(label: Text(_t('v2_inv_col_status'))),
-      if (_showActions) DataColumn(label: Text(_t('v2_inv_actions'))),
-    ];
+    return FutureBuilder<YorksAccountsInvoiceDetailProjection?>(
+      future: _detail,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(
+            child: SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+        final d = snap.data;
+        if (d == null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _t('v2_inv_detail_failed'),
+                    textAlign: TextAlign.center,
+                    style: v2Style(13, color: AccountsV2Colors.ink2),
+                  ),
+                  const SizedBox(height: 12),
+                  AccountsV2Button(
+                    label: _t('v2_retry'),
+                    onPressed: () => setState(() => _detail = widget.fetch()),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        _detailProjectId = d.projectId;
+        if (widget.openRevise && !_reviseOpened && _canRevise(d)) {
+          _reviseOpened = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _revise(d);
+          });
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _stats(d),
+              if (_d(d.invoice.retentionSnapshot) > _eps) ...[
+                const SizedBox(height: 8),
+                AccountsV2KeyValue(
+                  label: _t('v2i_retention_held'),
+                  value: v2Money(_d(d.invoice.retentionSnapshot)),
+                ),
+              ],
+              const SizedBox(height: 14),
+              _actions(d),
+              AccountsV2Section(_t('v2i_progress')),
+              AccountsV2Timeline(steps: _timeline(d)),
+              AccountsV2Section(_t('v2i_payments')),
+              _payments(d),
+              AccountsV2Section(_t('v2i_files')),
+              _files(),
+              if (inv.replacesReference != null) ...[
+                AccountsV2Section(_t('v2i_earlier')),
+                _earlier(),
+              ],
+              if (_canCancel(d)) ...[
+                const SizedBox(height: 20),
+                AccountsV2Button(
+                  label: _t('v2i_cancel_invoice'),
+                  icon: 'x',
+                  kind: AccountsV2ButtonKind.ghostDanger,
+                  size: AccountsV2ButtonSize.small,
+                  onPressed: () => _cancel(d),
+                ),
+                Text(
+                  _t('v2_inv_cancel_hint'),
+                  style: v2Style(12, color: AccountsV2Colors.mut),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-    return AccountsV2Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AccountsV2SectionTitle(_t('v2_tab_invoices')),
-          const SizedBox(height: AppSpacing.sm),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < AppSpacing.compactBreakpoint) {
-                return Column(
-                  children: [
-                    for (final inv in invoices) _invoiceCard(context, inv),
-                  ],
-                );
-              }
-              return _table(context, columns);
+  static double _d(YorksAccountsDecimal? value) =>
+      value == null ? 0 : v2Number(value.canonicalText);
+
+  bool _canCancel(YorksAccountsInvoiceDetailProjection d) =>
+      widget.onCancelInvoice != null &&
+      d.commands.cancelInvoice &&
+      d.invoice.status != YorksAccountsInvoiceStatus.cancelled &&
+      d.invoice.status != YorksAccountsInvoiceStatus.paid &&
+      d.invoice.status != YorksAccountsInvoiceStatus.draft;
+
+  Widget _stats(YorksAccountsInvoiceDetailProjection d) {
+    final stats = [
+      AccountsV2MiniStat(
+        label: _t('v2i_invoice_total'),
+        value: v2Fmt(v.total),
+        caption: '${v2Fmt(v.gross)} ${_t('v2i_plus_vat')}',
+      ),
+      AccountsV2MiniStat(
+        label: _t('v2i_kpi_received'),
+        value: v2Fmt(v.received),
+        tone: AccountsV2ValueTone.ok,
+        caption: v.inHand > _eps
+            ? '+ ${v2Fmt(v.inHand)} ${_t('v2i_cheque_word')}'
+            : _t('v2i_cleared_lower'),
+      ),
+      AccountsV2MiniStat(
+        label: _t('v2i_c_balance'),
+        value: v2Fmt(v.balance),
+        tone: v.overdue ? AccountsV2ValueTone.bad : AccountsV2ValueTone.plain,
+        caption: v.overdue
+            ? '${v.delay} ${_t('v2i_days_overdue')}'
+            : '${_t('v2i_due_word')} ${v2Date(inv.dueDate?.postgresText)}',
+      ),
+    ];
+    if (MediaQuery.sizeOf(context).width <= 640) {
+      return AccountsV2Stack(gap: 10, children: stats);
+    }
+    return AccountsV2Grid(columns: 3, gap: 10, children: stats);
+  }
+
+  Widget _actions(YorksAccountsInvoiceDetailProjection d) {
+    final buttons = <Widget>[];
+    if (inv.revisionInProgress) {
+      if (widget.onOpenClaims != null) {
+        buttons.add(
+          AccountsV2Button(
+            label: '${_t('v2i_open_claim')} · ${widget.claimLabel}',
+            block: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              widget.onOpenClaims!();
             },
           ),
-        ],
-      ),
-    );
+        );
+      }
+    } else {
+      final latest = d.certifications.isEmpty
+          ? null
+          : d.certifications.reduce(
+              (a, b) => a.revisionNumber >= b.revisionNumber ? a : b,
+            );
+      final canEditCert =
+          latest != null &&
+          widget.onCorrectCertification != null &&
+          d.commands.correctCertification;
+      if (_canCertify || canEditCert) {
+        buttons.add(
+          AccountsV2Button(
+            label: latest == null ? _t('v2i_record_cert') : _t('v2i_edit_cert'),
+            icon: 'shield',
+            size: AccountsV2ButtonSize.small,
+            block: true,
+            onPressed: canEditCert
+                ? () => _editCertification(d, latest)
+                : _certify,
+          ),
+        );
+      }
+      if (widget.onPay != null && widget.capabilities.recordClientPayment) {
+        buttons.add(
+          AccountsV2Button(
+            label: _t('v2i_record_payment'),
+            icon: 'wallet',
+            kind: AccountsV2ButtonKind.primary,
+            size: AccountsV2ButtonSize.small,
+            block: true,
+            onPressed: _canPay ? _pay : null,
+          ),
+        );
+      }
+      if (_canCheque) {
+        buttons.add(
+          AccountsV2Button(
+            label: _t('v2i_record_cheque'),
+            icon: 'cheque',
+            size: AccountsV2ButtonSize.small,
+            block: true,
+            onPressed: _cheque,
+          ),
+        );
+      }
+      if (_canRevise(d)) {
+        buttons.add(
+          AccountsV2Button(
+            label: '${_t('v2i_revise')} (R.$_nextRevision)',
+            icon: 'edit',
+            size: AccountsV2ButtonSize.small,
+            block: true,
+            onPressed: () => _revise(d),
+          ),
+        );
+      }
+    }
+    if (_canPrint) {
+      buttons.add(
+        AccountsV2Button(
+          label: _t('v2i_view_print'),
+          icon: 'print',
+          size: AccountsV2ButtonSize.small,
+          block: true,
+          onPressed: _print,
+        ),
+      );
+    }
+    if (buttons.isEmpty) return const SizedBox.shrink();
+    return AccountsV2Grid(columns: 2, gap: 8, children: buttons);
   }
 
-  Widget _invoiceCard(
-    BuildContext context,
-    YorksAccountsClientInvoiceSummary inv,
+  List<({String title, String detail, int state})> _timeline(
+    YorksAccountsInvoiceDetailProjection d,
   ) {
-    final reference = Text(
-      inv.invoiceReference,
-      style: AppTypography.bodyMedium.copyWith(
-        color: onOpenDetail == null ? AppColors.ink : AppColors.primary,
-        fontWeight: FontWeight.w700,
-        decoration: onOpenDetail == null ? null : TextDecoration.underline,
-        decorationColor: AppColors.primary,
+    final terms = d.invoice.paymentTermsDaysSnapshot;
+    final latest = d.certifications.isEmpty
+        ? null
+        : d.certifications.reduce(
+            (a, b) => a.revisionNumber >= b.revisionNumber ? a : b,
+          );
+    final certified = latest == null ? 0.0 : _d(latest.certifiedExVat);
+    final less = v.gross - certified;
+    final created = d.invoice.createdAt.toLocal();
+    return [
+      (
+        title: _t('v2i_tl_issued'),
+        detail: [
+          v2Date(created),
+          if (inv.replacesReference != null)
+            '${_t('v2i_replaces')} ${inv.replacesReference}',
+        ].join(' · '),
+        state: 2,
       ),
-    );
-    Widget amount(YorksAccountsDecimal value) => Text(
-      format.money(value),
-      style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
-    );
-    return AccountsV2RecordCard(
-      title: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: onOpenDetail == null
-            ? reference
-            : InkWell(
-                onTap: () => _openDetail(context, inv),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minHeight: AppSpacing.minTapTarget,
-                  ),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    widthFactor: 1,
-                    child: reference,
-                  ),
-                ),
-              ),
+      (
+        title: _t('v2i_tl_submitted'),
+        detail:
+            '${v2Date(inv.submissionDate?.postgresText)} · ${_t('v2i_due_word')} '
+            '${v2Date(inv.dueDate?.postgresText)}'
+            '${terms == null ? '' : ' ($terms ${_t('v2i_days')})'}',
+        state: 2,
       ),
-      status: _StatusChip(status: inv.status, language: language),
-      facts: [
-        (_t('v2_inv_col_due'), _DueCell(inv: inv, language: language)),
-        if (canValues) ...[
-          (_t('v2_inv_col_incl'), amount(inv.totalInclVat)),
-          (_t('v2_inv_kpi_certified_excl'), amount(inv.certifiedExVat)),
-          (_t('v2_kpi_received'), amount(inv.amountPaidTillDate)),
-          (_t('v2_inv_col_balance'), amount(inv.stillDue)),
+      (
+        title: _t('v2i_tl_certified'),
+        detail: latest == null
+            ? _t('v2i_waiting_cert')
+            : '${v2Date(latest.certificationDate.postgresText)} · '
+                  '${v2Money(certified)}'
+                  '${less.abs() > _eps ? ' (${v2Money(less)} ${_t('v2i_less_than_invoiced')})' : ''}',
+        state: latest == null ? 1 : 2,
+      ),
+      (
+        title: _t('v2i_tl_paid'),
+        detail: v.paid
+            ? '${v2Date(inv.lastReceiptDate?.postgresText)}'
+                  '${v.delay > 0 ? ' · ${v.delay} ${_t('v2i_days_late')}' : ' · ${_t('v2i_on_time').toLowerCase()}'}'
+            : v.received > _eps
+            ? '${v2Money(v.received)} ${_t('v2i_kpi_received').toLowerCase()} · '
+                  '${v2Money(v.balance)} ${_t('v2i_left')}'
+            : v.inHand > _eps
+            ? _t('v2i_cheque_not_cleared')
+            : _t('v2i_nothing_received'),
+        state: v.paid ? 2 : (latest != null ? 1 : 0),
+      ),
+    ];
+  }
+
+  String _method(String method) => switch (method) {
+    'bank_transfer' => _t('v2i_type_bank'),
+    'cash' => _t('v2i_type_cash'),
+    'PDC' || 'cheque' => _t('v2i_type_cheque'),
+    'reversal' => _t('v2i_type_reversal'),
+    _ => method,
+  };
+
+  (String, AccountsV2ChipTone) _pdcChip(YorksAccountsPdcStatus s) =>
+      switch (s) {
+        YorksAccountsPdcStatus.expected => (
+          _t('v2i_ps_expected'),
+          AccountsV2ChipTone.neutral,
+        ),
+        YorksAccountsPdcStatus.received => (
+          _t('v2i_ps_inhand'),
+          AccountsV2ChipTone.vio,
+        ),
+        YorksAccountsPdcStatus.deposited => (
+          _t('v2i_ps_deposited'),
+          AccountsV2ChipTone.pri,
+        ),
+        YorksAccountsPdcStatus.cleared => (
+          _t('v2i_ps_cleared'),
+          AccountsV2ChipTone.ok,
+        ),
+        YorksAccountsPdcStatus.bounced => (
+          _t('v2i_ps_bounced'),
+          AccountsV2ChipTone.bad,
+        ),
+        YorksAccountsPdcStatus.returned => (
+          _t('v2i_ps_returned'),
+          AccountsV2ChipTone.bad,
+        ),
+        YorksAccountsPdcStatus.replaced => (
+          _t('v2i_ps_replaced'),
+          AccountsV2ChipTone.neutral,
+        ),
+        YorksAccountsPdcStatus.cancelled => (
+          _t('v2i_ps_cancelled'),
+          AccountsV2ChipTone.neutral,
+        ),
+      };
+
+  Widget _payments(YorksAccountsInvoiceDetailProjection d) {
+    final reversed = _reversedIds(d);
+    Widget menuFor(YorksAccountsClientPayment p) {
+      final open = !reversed.contains(p.paymentId);
+      final canEdit =
+          open && widget.onCorrectPayment != null && d.commands.correctPayment;
+      final canReverse =
+          open && widget.onReversePayment != null && d.commands.reversePayment;
+      if (!canEdit && !canReverse) return const SizedBox.shrink();
+      return _RowMenu(
+        tooltip: _t('v2i_more'),
+        items: [
+          if (canEdit) (_t('v2i_edit'), 'edit', () => _editPayment(d, p)),
+          if (canReverse) (_t('v2i_reverse'), 'undo', () => _reverse(d, p)),
         ],
-      ],
-      actions: [
-        if (_showActions)
-          _RowActions(
-            moreLabel: _t('v2_inv_more_actions'),
-            actions: _actionsFor(context, inv),
-          ),
-      ],
-    );
-  }
+      );
+    }
 
-  Widget _table(BuildContext context, List<DataColumn> columns) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columnSpacing: AppSpacing.md,
-            horizontalMargin: AppSpacing.md,
-            headingRowHeight: 36,
-            dataRowMinHeight: 40,
-            dataRowMaxHeight: 52,
-            columns: columns,
-            rows: [
-              for (final inv in invoices)
-                DataRow(
-                  cells: [
-                    DataCell(
-                      onOpenDetail == null
-                          ? Text(
-                              inv.invoiceReference,
-                              style: AppTypography.bodyMedium.copyWith(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            )
-                          : InkWell(
-                              onTap: () => _openDetail(context, inv),
-                              child: Text(
-                                inv.invoiceReference,
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w700,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: AppColors.primary,
-                                ),
-                              ),
-                            ),
-                    ),
-                    DataCell(Text(inv.submissionDate?.toString() ?? '—')),
-                    if (canValues) ...[
-                      DataCell(
-                        Text(
-                          format.money(inv.claimedExVat, withCurrency: false),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          format.money(inv.totalInclVat, withCurrency: false),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          format.money(inv.certifiedExVat, withCurrency: false),
-                        ),
-                      ),
-                    ],
-                    DataCell(_DueCell(inv: inv, language: language)),
-                    if (canValues) ...[
-                      DataCell(
-                        Text(
-                          format.money(
-                            inv.amountPaidTillDate,
-                            withCurrency: false,
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Text(format.money(inv.stillDue, withCurrency: false)),
-                      ),
-                    ],
-                    DataCell(
-                      _StatusChip(status: inv.status, language: language),
-                    ),
-                    if (_showActions)
-                      DataCell(
-                        _RowActions(
-                          moreLabel: _t('v2_inv_more_actions'),
-                          actions: _actionsFor(context, inv),
-                        ),
-                      ),
-                  ],
+    final rows = <AccountsV2Row>[];
+    for (final c in d.pdcs) {
+      final (label, tone) = _pdcChip(c.status);
+      // A cleared cheque carries its payment; that payment is edited or
+      // reversed from the cheque's row.
+      final linked = d.payments.where(
+        (p) =>
+            p.pdcId == c.pdcId &&
+            p.entryKind == YorksAccountsPaymentEntryKind.receipt,
+      );
+      rows.add(
+        AccountsV2Row([
+          Text(_t('v2i_type_cheque')),
+          Text(c.chequeNumber),
+          Text(v2Date(c.chequeDate.postgresText)),
+          Text(v2Fmt(_d(c.amount))),
+          AccountsV2Chip(label, tone: tone),
+          linked.isEmpty ? const SizedBox.shrink() : menuFor(linked.first),
+        ]),
+      );
+    }
+    final chequeIds = {for (final c in d.pdcs) c.pdcId};
+    for (final p in d.payments) {
+      // A cleared cheque already shows as its cheque row.
+      if (p.pdcId != null &&
+          chequeIds.contains(p.pdcId) &&
+          p.entryKind == YorksAccountsPaymentEntryKind.receipt) {
+        continue;
+      }
+      final isReversal = p.entryKind == YorksAccountsPaymentEntryKind.reversal;
+      final wasReversed = reversed.contains(p.paymentId);
+      rows.add(
+        AccountsV2Row([
+          Text(isReversal ? _t('v2i_type_reversal') : _method(p.paymentMethod)),
+          Text(p.paymentReference),
+          Text(v2Date(p.paymentDate.postgresText)),
+          Text(v2Fmt(_d(p.amount))),
+          isReversal
+              ? AccountsV2Chip(
+                  _t('v2i_type_reversal'),
+                  tone: AccountsV2ChipTone.warn,
+                )
+              : wasReversed
+              ? AccountsV2Chip(
+                  _t('v2i_reversed_chip'),
+                  tone: AccountsV2ChipTone.neutral,
+                )
+              : AccountsV2Chip(
+                  _t('v2i_received_chip'),
+                  tone: AccountsV2ChipTone.ok,
                 ),
-            ],
-          ),
-        ),
+          isReversal ? const SizedBox.shrink() : menuFor(p),
+        ]),
+      );
+    }
+    if (rows.isEmpty) {
+      return Text(
+        _t('v2i_no_payments'),
+        style: v2Style(12, color: AccountsV2Colors.mut),
+      );
+    }
+    return AccountsV2Table(
+      boxed: true,
+      minWidth: 520,
+      columns: [
+        AccountsV2Column(_t('v2i_t_type'), width: 112),
+        AccountsV2Column(_t('v2i_t_ref')),
+        AccountsV2Column(_t('v2i_t_date'), width: 104),
+        AccountsV2Column(_t('v2i_p_amount'), width: 112, numeric: true),
+        AccountsV2Column(_t('v2i_c_status'), width: 104, center: true),
+        const AccountsV2Column('', width: 44, center: true),
       ],
+      rows: rows,
     );
   }
-}
 
-class _RowAction {
-  const _RowAction({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-}
-
-/// The next step as a button and the rest in a menu, so a row's actions stay on
-/// screen however many apply.
-class _RowActions extends StatelessWidget {
-  const _RowActions({required this.moreLabel, required this.actions});
-
-  final String moreLabel;
-  final List<_RowAction> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    if (actions.isEmpty) return const SizedBox.shrink();
-    final rest = actions.skip(1).toList(growable: false);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: TextButton(
-            onPressed: actions.first.onPressed,
-            child: Text(
-              actions.first.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        if (rest.isNotEmpty)
-          PopupMenuButton<_RowAction>(
-            tooltip: moreLabel,
-            icon: const Icon(Icons.more_vert, size: 18),
-            onSelected: (action) => action.onPressed(),
-            itemBuilder: (_) => [
-              for (final action in rest)
-                PopupMenuItem(value: action, child: Text(action.label)),
-            ],
-          ),
-      ],
-    );
-  }
-}
-
-class _DueCell extends StatelessWidget {
-  const _DueCell({required this.inv, required this.language});
-
-  final YorksAccountsClientInvoiceSummary inv;
-  final AppLanguage language;
-
-  @override
-  Widget build(BuildContext context) {
-    final overdue = inv.dueState == YorksAccountsDueState.overdue;
+  Widget _files() {
     return Wrap(
-      spacing: AppSpacing.xs,
-      runSpacing: AppSpacing.xxs,
-      alignment: WrapAlignment.end,
-      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 6,
+      runSpacing: 6,
       children: [
-        Text(
-          inv.dueDate?.toString() ?? '—',
-          style: AppTypography.bodyMedium.copyWith(
-            color: overdue ? AppColors.error : AppColors.inkSecondary,
+        if (_canPrint)
+          AccountsV2FilePill(
+            label: '${_t('v2i_invoice_pdf')} · ${inv.invoiceReference}',
+            icon: 'pdf',
+            onTap: _print,
           ),
-        ),
-        if (overdue)
-          StatusChip.error(accountsV2Text(language, 'v2_inv_overdue')),
+        for (final f in widget.files)
+          AccountsV2FilePill(label: f.name, onTap: f.onOpen),
+        if (widget.onAttach != null)
+          AccountsV2FilePill(
+            label: _t('v2i_attach'),
+            icon: 'plus',
+            accent: true,
+            onTap: () {
+              Navigator.of(context).pop();
+              widget.onAttach!();
+            },
+          ),
       ],
     );
   }
-}
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status, required this.language});
-
-  final YorksAccountsInvoiceStatus status;
-  final AppLanguage language;
-
-  @override
-  Widget build(BuildContext context) {
-    final (key, tone) = switch (status) {
-      YorksAccountsInvoiceStatus.draft => (
-        'v2_inv_status_draft',
-        NexusStatusTone.neutral,
-      ),
-      YorksAccountsInvoiceStatus.submitted => (
-        'v2_inv_status_submitted',
-        NexusStatusTone.info,
-      ),
-      YorksAccountsInvoiceStatus.underCertification => (
-        'v2_inv_status_under_certification',
-        NexusStatusTone.info,
-      ),
-      YorksAccountsInvoiceStatus.partiallyCertified => (
-        'v2_inv_status_partially_certified',
-        NexusStatusTone.info,
-      ),
-      YorksAccountsInvoiceStatus.certified => (
-        'v2_inv_status_certified',
-        NexusStatusTone.success,
-      ),
-      YorksAccountsInvoiceStatus.partiallyPaid => (
-        'v2_inv_status_partially_paid',
-        NexusStatusTone.warning,
-      ),
-      YorksAccountsInvoiceStatus.paid => (
-        'v2_inv_status_paid',
-        NexusStatusTone.success,
-      ),
-      YorksAccountsInvoiceStatus.returned => (
-        'v2_inv_status_returned',
-        NexusStatusTone.warning,
-      ),
-      YorksAccountsInvoiceStatus.cancelled => (
-        'v2_inv_status_cancelled',
-        NexusStatusTone.neutral,
-      ),
-    };
-    return StatusChip(label: accountsV2Text(language, key), tone: tone);
+  Widget _earlier() {
+    final ref = inv.replacesReference!;
+    final prior = widget.all.where((x) => x.inv.invoiceReference == ref);
+    final p = prior.isEmpty ? null : prior.first;
+    final text = [
+      ref,
+      if (p != null)
+        '${_t('v2_issued')} ${v2Date(p.inv.submissionDate?.postgresText)}',
+      if (p != null) '${v2Money(p.gross)} ${_t('v2i_c_excl').toLowerCase()}',
+    ].join(' · ');
+    return Text(
+      '$text — ${_t('v2i_replaced')}',
+      style: v2Style(12, color: AccountsV2Colors.mut),
+    );
   }
 }
 
-// ─── Empty ─────────────────────────────────────────────────────────────────
+/// A "⋯" button opening a short menu of actions for a row.
+class _RowMenu extends StatelessWidget {
+  const _RowMenu({required this.tooltip, required this.items});
 
-class _Empty extends StatelessWidget {
-  const _Empty({required this.message});
+  final String tooltip;
+  final List<(String label, String icon, VoidCallback onTap)> items;
 
-  final String message;
+  Future<void> _open(BuildContext context) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final at = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
+    final index = await showMenu<int>(
+      context: context,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      position: RelativeRect.fromRect(
+        at & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        for (final (i, (label, icon, _)) in items.indexed)
+          PopupMenuItem<int>(
+            value: i,
+            child: Row(
+              children: [
+                AccountsV2Icon(icon, size: 16, color: AccountsV2Colors.ink2),
+                const SizedBox(width: 8),
+                Text(label, style: v2Style(13)),
+              ],
+            ),
+          ),
+      ],
+    );
+    if (index != null) items[index].$3();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.receipt_long_outlined,
-              size: 32,
-              color: AppColors.muted,
+    return Builder(
+      builder: (context) => Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _open(context),
+          child: const SizedBox(
+            width: 32,
+            height: 30,
+            child: Center(
+              child: AccountsV2Icon(
+                'dots',
+                size: 18,
+                color: AccountsV2Colors.ink2,
+              ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              style: AppTypography.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Certify / pay dialogs ───────────────────────────────────────────────────
+// ─── Command dialogs ─────────────────────────────────────────────────────────
 
 class _CertifyDialog extends StatefulWidget {
   const _CertifyDialog({
@@ -1133,572 +1732,6 @@ class _DialogField extends StatelessWidget {
 }
 
 // ─── Invoice detail drawer ───────────────────────────────────────────────────
-
-class _InvoiceDetailSheet extends StatelessWidget {
-  const _InvoiceDetailSheet({
-    required this.detail,
-    required this.language,
-    required this.format,
-    this.onReversePayment,
-    this.onCorrectPayment,
-    this.onCorrectCertification,
-    this.onCancelInvoice,
-    this.onRevise,
-  });
-
-  final YorksAccountsInvoiceDetailProjection detail;
-  final AppLanguage language;
-  final AccountsV2Format format;
-  final YorksReversePaymentAction? onReversePayment;
-  final YorksCorrectPaymentAction? onCorrectPayment;
-  final YorksCorrectCertificationAction? onCorrectCertification;
-  final YorksCancelInvoiceAction? onCancelInvoice;
-  final YorksReviseInvoiceAction? onRevise;
-
-  String _t(String key) => accountsV2Text(language, key);
-
-  /// D7: an issued invoice may be revised (R.n) only before any certification,
-  /// net payment or active PDC. The server re-checks; this only gates the UI.
-  bool get _canRevise {
-    if (onRevise == null) return false;
-    final inv = detail.invoice;
-    final revisableStatus =
-        inv.status == YorksAccountsInvoiceStatus.submitted ||
-        inv.status == YorksAccountsInvoiceStatus.underCertification;
-    if (!revisableStatus) return false;
-    if (detail.certifications.isNotEmpty) return false;
-    if (inv.paidAmount?.isPositive ?? false) return false;
-    final hasActivePdc = detail.pdcs.any(
-      (p) => const {
-        YorksAccountsPdcStatus.expected,
-        YorksAccountsPdcStatus.received,
-        YorksAccountsPdcStatus.deposited,
-      }.contains(p.status),
-    );
-    return !hasActivePdc;
-  }
-
-  Future<void> _revise(BuildContext context) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (_) => _ReviseDialog(language: language),
-    );
-    if (reason == null) return;
-    final error = await onRevise!(
-      invoiceId: detail.invoice.invoiceId,
-      expectedVersion: detail.invoice.recordVersion,
-      reason: reason,
-    );
-    // No optimistic success: the drawer closes so the refreshed tracker shows
-    // the predecessor still submitted and the new successor draft claim.
-    if (context.mounted) await _finish(context, error, 'v2_inv_revised');
-  }
-
-  /// Payment ids that already carry a reversal entry — they cannot be reversed
-  /// again (the server enforces one reversal per receipt).
-  Set<String> get _reversedPaymentIds => {
-    for (final p in detail.payments)
-      if (p.entryKind == YorksAccountsPaymentEntryKind.reversal &&
-          p.originalPaymentId != null)
-        p.originalPaymentId!,
-  };
-
-  /// Written label for a stored method; anything else keeps its recorded text.
-  String _methodLabel(String method) => switch (method) {
-    'bank_transfer' => _t('v2_pay_method_bank'),
-    'cash' => _t('v2_pay_method_cash'),
-    'PDC' => _t('v2_pay_method_cheque'),
-    'reversal' => _t('v2_pay_reversal'),
-    _ => method,
-  };
-
-  bool _canReverse(YorksAccountsClientPayment p) =>
-      onReversePayment != null &&
-      detail.commands.reversePayment &&
-      p.entryKind == YorksAccountsPaymentEntryKind.receipt &&
-      !_reversedPaymentIds.contains(p.paymentId);
-
-  bool _canEditPayment(YorksAccountsClientPayment p) =>
-      onCorrectPayment != null &&
-      detail.commands.correctPayment &&
-      p.entryKind == YorksAccountsPaymentEntryKind.receipt &&
-      !_reversedPaymentIds.contains(p.paymentId);
-
-  /// Only the latest certification counts, so only it can be edited.
-  bool _canEditCertification(YorksAccountsClientCertification c) =>
-      onCorrectCertification != null &&
-      detail.commands.correctCertification &&
-      c.revisionNumber ==
-          detail.certifications
-              .map((other) => other.revisionNumber)
-              .reduce((a, b) => a > b ? a : b);
-
-  /// The server decides whether anything still stands in the way, and says what.
-  bool get _canCancel {
-    final status = detail.invoice.status;
-    return onCancelInvoice != null &&
-        detail.commands.cancelInvoice &&
-        status != YorksAccountsInvoiceStatus.cancelled &&
-        status != YorksAccountsInvoiceStatus.paid &&
-        status != YorksAccountsInvoiceStatus.draft;
-  }
-
-  /// Closes the drawer on success, so the refreshed tracker is what's shown. A
-  /// refusal stays over the drawer: a snackbar would sit behind it, cut off.
-  Future<void> _finish(
-    BuildContext context,
-    String? error,
-    String doneKey,
-  ) async {
-    if (!context.mounted) return;
-    if (error == null) {
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      Navigator.of(context).pop();
-      messenger?.showSnackBar(SnackBar(content: Text(_t(doneKey))));
-      return;
-    }
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        content: Text(accountsV2ErrorText(language, error)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(MaterialLocalizations.of(dialogContext).okButtonLabel),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _editPayment(
-    BuildContext context,
-    YorksAccountsClientPayment payment,
-  ) async {
-    final input = await showDialog<YorksAccountsPaymentCorrectionInput>(
-      context: context,
-      builder: (_) => _EditPaymentDialog(
-        projectId: detail.projectId,
-        invoiceId: detail.invoice.invoiceId,
-        expectedVersion: detail.invoice.recordVersion,
-        payment: payment,
-        language: language,
-      ),
-    );
-    if (input == null) return;
-    final error = await onCorrectPayment!(input);
-    if (context.mounted) await _finish(context, error, 'v2_pay_edit_done');
-  }
-
-  Future<void> _editCertification(
-    BuildContext context,
-    YorksAccountsClientCertification certification,
-  ) async {
-    final input = await showDialog<YorksAccountsCertificationCorrectionInput>(
-      context: context,
-      builder: (_) => _EditCertificationDialog(
-        projectId: detail.projectId,
-        invoiceId: detail.invoice.invoiceId,
-        expectedVersion: detail.invoice.recordVersion,
-        certification: certification,
-        language: language,
-      ),
-    );
-    if (input == null) return;
-    final error = await onCorrectCertification!(input);
-    if (context.mounted) await _finish(context, error, 'v2_cert_edit_done');
-  }
-
-  Future<void> _cancelInvoice(BuildContext context) async {
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (_) => _CancelInvoiceDialog(language: language),
-    );
-    if (reason == null) return;
-    final error = await onCancelInvoice!(
-      YorksAccountsEntityActionInput(
-        projectId: detail.projectId,
-        entityId: detail.invoice.invoiceId,
-        expectedVersion: detail.invoice.recordVersion,
-        reason: reason,
-      ),
-    );
-    if (context.mounted) await _finish(context, error, 'v2_inv_cancel_done');
-  }
-
-  Future<void> _reverse(
-    BuildContext context,
-    YorksAccountsClientPayment payment,
-  ) async {
-    final input = await showDialog<YorksAccountsPaymentReversalInput>(
-      context: context,
-      builder: (_) => _ReversalDialog(
-        projectId: detail.projectId,
-        invoiceId: detail.invoice.invoiceId,
-        expectedVersion: detail.invoice.recordVersion,
-        payment: payment,
-        language: language,
-      ),
-    );
-    if (input == null) return;
-    final error = await onReversePayment!(input);
-    // No optimistic success: the drawer closes so the refreshed tracker is shown.
-    if (context.mounted) await _finish(context, error, 'v2_pay_reversed');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final invoice = detail.invoice;
-    final maxHeight = MediaQuery.of(context).size.height * 0.85;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          0,
-          AppSpacing.lg,
-          AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    invoice.invoiceReference,
-                    style: AppTypography.titleMedium.copyWith(
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                _StatusChip(status: invoice.status, language: language),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Wraps on a phone, where three amounts can't share a line unclipped.
-            Wrap(
-              spacing: AppSpacing.xl,
-              runSpacing: AppSpacing.sm,
-              children: [
-                _MiniKpi(
-                  label: _t('v2_inv_detail_total'),
-                  value: format.money(invoice.totalInclVatSnapshot),
-                ),
-                _MiniKpi(
-                  label: _t('v2_inv_detail_received'),
-                  value: format.money(invoice.paidAmount),
-                  accent: AppColors.success,
-                ),
-                _MiniKpi(
-                  label: _t('v2_inv_detail_balance'),
-                  value: format.money(invoice.stillDue),
-                  accent: invoice.stillDue?.isPositive == true
-                      ? AppColors.warning
-                      : null,
-                ),
-              ],
-            ),
-            if (invoice.retentionSnapshot?.isPositive == true) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 14,
-                    color: AppColors.muted,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    _t('v2_inv_detail_retention'),
-                    style: AppTypography.labelMedium.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    format.money(invoice.retentionSnapshot),
-                    style: AppTypography.labelLarge.copyWith(
-                      color: AppColors.ink,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (_canRevise) ...[
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: OutlinedButton.icon(
-                  onPressed: () => _revise(context),
-                  icon: const Icon(Icons.edit_note_outlined, size: 16),
-                  label: Text(_t('v2_inv_revise')),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                _t('v2_inv_revise_hint'),
-                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            _DetailSection(
-              title: _t('v2_inv_certifications'),
-              emptyLabel: _t('v2_inv_none'),
-              rows: [
-                for (final c in detail.certifications)
-                  _DetailRow(
-                    leading: c.certificationReference,
-                    trailing: format.money(c.certifiedExVat),
-                    sub: c.certificationDate.toString(),
-                    action: _canEditCertification(c)
-                        ? TextButton(
-                            onPressed: () => _editCertification(context, c),
-                            child: Text(_t('v2_cert_edit')),
-                          )
-                        : null,
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _DetailSection(
-              title: _t('v2_inv_payments'),
-              emptyLabel: _t('v2_inv_none'),
-              rows: [
-                for (final p in detail.payments)
-                  _DetailRow(
-                    leading: p.paymentReference,
-                    trailing: format.money(p.amount),
-                    sub: '${p.paymentDate} · ${_methodLabel(p.paymentMethod)}',
-                    chip: p.entryKind == YorksAccountsPaymentEntryKind.reversal
-                        ? StatusChip(
-                            label: _t('v2_pay_reversal'),
-                            tone: NexusStatusTone.warning,
-                          )
-                        : null,
-                    action: _canReverse(p) || _canEditPayment(p)
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_canEditPayment(p))
-                                TextButton(
-                                  onPressed: () => _editPayment(context, p),
-                                  child: Text(_t('v2_pay_edit')),
-                                ),
-                              if (_canReverse(p))
-                                TextButton(
-                                  onPressed: () => _reverse(context, p),
-                                  child: Text(_t('v2_pay_reverse')),
-                                ),
-                            ],
-                          )
-                        : null,
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _DetailSection(
-              title: _t('v2_inv_cheques'),
-              emptyLabel: _t('v2_inv_none'),
-              rows: [
-                for (final pdc in detail.pdcs)
-                  _DetailRow(
-                    leading: pdc.chequeNumber,
-                    trailing: format.money(pdc.amount),
-                    sub: [
-                      if (pdc.bankName != null) pdc.bankName!,
-                      pdc.chequeDate.toString(),
-                    ].join(' · '),
-                    chip: _pdcChip(pdc.status),
-                  ),
-              ],
-            ),
-            if (_canCancel) ...[
-              const SizedBox(height: AppSpacing.lg),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: OutlinedButton.icon(
-                  onPressed: () => _cancelInvoice(context),
-                  icon: const Icon(Icons.block_rounded, size: 18),
-                  label: Text(_t('v2_inv_cancel')),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                _t('v2_inv_cancel_hint'),
-                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pdcChip(YorksAccountsPdcStatus status) {
-    final (key, tone) = switch (status) {
-      YorksAccountsPdcStatus.expected => (
-        'v2_pdc_expected',
-        NexusStatusTone.neutral,
-      ),
-      YorksAccountsPdcStatus.received => (
-        'v2_pdc_received',
-        NexusStatusTone.info,
-      ),
-      YorksAccountsPdcStatus.deposited => (
-        'v2_pdc_deposited',
-        NexusStatusTone.info,
-      ),
-      YorksAccountsPdcStatus.cleared => (
-        'v2_pdc_cleared',
-        NexusStatusTone.success,
-      ),
-      YorksAccountsPdcStatus.replaced => (
-        'v2_pdc_replaced',
-        NexusStatusTone.neutral,
-      ),
-      YorksAccountsPdcStatus.returned => (
-        'v2_pdc_returned',
-        NexusStatusTone.warning,
-      ),
-      YorksAccountsPdcStatus.bounced => (
-        'v2_pdc_bounced',
-        NexusStatusTone.danger,
-      ),
-      YorksAccountsPdcStatus.cancelled => (
-        'v2_pdc_cancelled',
-        NexusStatusTone.neutral,
-      ),
-    };
-    return StatusChip(label: accountsV2Text(language, key), tone: tone);
-  }
-}
-
-class _MiniKpi extends StatelessWidget {
-  const _MiniKpi({required this.label, required this.value, this.accent});
-
-  final String label;
-  final String value;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          value,
-          style: AppTypography.titleSmall.copyWith(
-            color: accent ?? AppColors.ink,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailSection extends StatelessWidget {
-  const _DetailSection({
-    required this.title,
-    required this.emptyLabel,
-    required this.rows,
-  });
-
-  final String title;
-  final String emptyLabel;
-  final List<Widget> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    return AccountsV2Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AccountsV2SectionTitle(title),
-          const SizedBox(height: AppSpacing.xs),
-          if (rows.isEmpty)
-            Text(emptyLabel, style: AppTypography.bodySmall)
-          else
-            ...rows,
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.leading,
-    required this.trailing,
-    required this.sub,
-    this.chip,
-    this.action,
-  });
-
-  final String leading;
-  final String trailing;
-  final String sub;
-  final Widget? chip;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  leading,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-                Text(sub, style: AppTypography.bodySmall),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                trailing,
-                style: AppTypography.titleSmall.copyWith(
-                  color: AppColors.ink,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              if (chip != null) ...[
-                const SizedBox(height: AppSpacing.xxs),
-                chip!,
-              ],
-              ?action,
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Payment reversal dialog ─────────────────────────────────────────────────
 
 class _ReversalDialog extends StatefulWidget {
   const _ReversalDialog({

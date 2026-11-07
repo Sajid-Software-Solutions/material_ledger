@@ -9,6 +9,7 @@ import 'package:material_ledger/features/accounts/data/v2/accounts_workspace_rep
 import 'package:material_ledger/features/accounts/domain/v2/accounts_workspace_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_summary_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -179,32 +180,33 @@ void main() {
           AccountsV2SummaryTab(
             workspace: ws,
             language: en,
-            format: const AccountsV2Format(),
             onOpenTab: (_) {},
-            onAttentionAction: (_) {},
+            onOpenTarget: (_) {},
             onOpenCell: (_, _) {},
+            today: DateTime(2026, 11, 7),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_kpi_contract')), findsOneWidget);
-      expect(find.text('AED 17,192,000.00'), findsOneWidget);
+      expect(find.text('AED 17,192,000'), findsWidgets);
       expect(find.text(t('v2_step_setup')), findsOneWidget);
-      expect(find.text(t('v2_money_flow_title')), findsOneWidget);
+      expect(find.text(t('v2o_money_title')), findsOneWidget);
       // The bar's segments really have size; they once collapsed to nothing.
       final segments = find.descendant(
-        of: find.byKey(const ValueKey('accounts-v2-money-flow-bar')),
+        of: find.byType(AccountsV2Bar),
         matching: find.byType(ColoredBox),
       );
       expect(segments, findsWidgets);
-      expect(tester.getSize(segments.first).height, 16);
+      expect(tester.getSize(segments.first).height, greaterThan(0));
       // Attention row for the open-claim prompt + its action.
       expect(find.text(t('v2_att_no_claim')), findsOneWidget);
       expect(find.text(t('v2_action_start_claim')), findsOneWidget);
-      // Heatmap building header + stage row.
-      expect(find.text('Block A'), findsOneWidget);
-      expect(find.text('Material Supply'), findsWidgets);
+      // Position by building: the building column and stage row.
+      expect(find.text(t('v2o_position_by_building')), findsOneWidget);
+      expect(find.text('BLOCK A'), findsWidgets);
+      expect(find.text('MATERIAL SUPPLY'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -219,10 +221,10 @@ void main() {
           AccountsV2SummaryTab(
             workspace: ws,
             language: en,
-            format: const AccountsV2Format(),
             onOpenTab: (_) {},
-            onAttentionAction: (_) {},
+            onOpenTarget: (_) {},
             onOpenCell: (_, _) {},
+            today: DateTime(2026, 11, 7),
           ),
         ),
       );
@@ -231,7 +233,8 @@ void main() {
       expect(find.text(t('v2_commercial_hidden')), findsOneWidget);
       // No commercial KPI values are shown.
       expect(find.text(t('v2_kpi_contract')), findsNothing);
-      expect(find.text(t('v2_money_flow_title')), findsNothing);
+      expect(find.text(t('v2o_money_title')), findsNothing);
+      expect(find.textContaining('AED'), findsNothing);
       // The step strip and attention list still render.
       expect(find.text(t('v2_step_setup')), findsOneWidget);
       expect(find.text(t('v2_attention_title')), findsOneWidget);
@@ -256,7 +259,7 @@ void main() {
         expect(find.text(t(tab)), findsWidgets);
       }
       // Summary data loaded.
-      expect(find.text('AED 17,192,000.00'), findsOneWidget);
+      expect(find.text('AED 17,192,000'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -270,7 +273,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Summary KPI is gone once we leave the Summary tab.
-      expect(find.text('AED 17,192,000.00'), findsNothing);
+      expect(find.text(t('v2o_money_title')), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

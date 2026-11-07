@@ -9,75 +9,87 @@ import 'package:material_ledger/features/accounts/data/v2/accounts_workspace_rep
 import 'package:material_ledger/features/accounts/domain/v2/claim_workbench_models.dart';
 import 'package:material_ledger/features/accounts/domain/v2/claims_list_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_claims_tab.dart';
-import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// One building (Block A), two stages:
+/// - Design, lump sum: stage value 100,000; 50% confirmed, all of it in this
+///   draft claim (AED 50,000).
+/// - Material Supply, by items: AHU units 4 Nos worth 250,000; 1 done before
+///   the claim, none in it.
 Map<String, dynamic> _workbenchJson({
   bool commercial = true,
   bool withClaim = true,
-  bool confirm = false,
+  bool confirm = true,
+  bool prepare = true,
   String claimStatus = 'draft',
+  bool suggestion = false,
 }) {
-  Map<String, dynamic> cell({
-    required String id,
-    required String stageKey,
-    required String stageLabel,
-    required int pos,
-    required String mode,
-    required String confirmed,
-    List<Map<String, dynamic>>? items,
-  }) {
-    return <String, dynamic>{
-      'progress_entry_id': id,
-      'building_scope_id': 'b01',
-      'building_name': 'Block A',
-      'stage_key': stageKey,
-      'stage_label': stageLabel,
-      'stage_position': pos,
-      'measurement_mode': mode,
-      'confirmed_percent': confirmed,
-      'review_status': 'not_required',
-      'record_version': 1,
-      'over_claimed': false,
-      'items': ?items,
-      if (commercial) ...{
-        // The real RPC sends stage values unrounded (v1_accounts_stage_value).
-        'stage_value': '429800.000000000000',
-        'eligible': '50000.00',
-        'claimed': '0.00',
-        'available': '50000.00',
-      },
-    };
-  }
-
   return <String, dynamic>{
     'schema_version': 1,
     'project_id': 'p1',
     'baseline_revision_id': 'rev1',
     'baseline_revision_number': 1,
     'capabilities': {'can_view_values': commercial, 'can_confirm': confirm},
-    'commands': <String, dynamic>{},
+    'commands': {'create_claim_draft': prepare, 'cancel_claim': true},
     'cells': [
-      cell(
-        id: 'pe-design',
-        stageKey: 'design',
-        stageLabel: 'Design',
-        pos: 1,
-        mode: 'percent',
-        confirmed: '50.0000',
-      ),
-      cell(
-        id: 'pe-material',
-        stageKey: 'material_supply',
-        stageLabel: 'Material Supply',
-        pos: 2,
-        mode: 'items',
-        confirmed: '25.0000',
-        items: [
+      {
+        'progress_entry_id': 'pe-design',
+        'building_scope_id': 'b01',
+        'building_name': 'Block A',
+        'stage_key': 'design',
+        'stage_label': 'Design',
+        'stage_position': 1,
+        'measurement_mode': 'percent',
+        'confirmed_percent': '50.0000',
+        'review_status': 'not_required',
+        'record_version': 1,
+        'over_claimed': false,
+        'percent_before_claim': '0',
+        'percent_this_claim': '50.0000',
+        if (suggestion) ...{
+          'suggested_percent': '70.0000',
+          'suggested_by': 'Site Sam',
+          'suggested_evidence_document_ids': ['doc-sug'],
+        },
+        if (commercial) ...{
+          // The real RPC sends stage values unrounded.
+          'stage_value': '100000.000000000000',
+          'eligible': '50000.00',
+          'claimed': '50000.00',
+          'available': '0.00',
+          'claimed_before_claim': '0.00',
+          'this_claim_amount': '50000.00',
+        },
+      },
+      {
+        'progress_entry_id': 'pe-material',
+        'building_scope_id': 'b01',
+        'building_name': 'Block A',
+        'stage_key': 'material_supply',
+        'stage_label': 'Material Supply',
+        'stage_position': 2,
+        'measurement_mode': 'items',
+        'confirmed_percent': '25.0000',
+        'review_status': 'not_required',
+        'record_version': 1,
+        'over_claimed': false,
+        'percent_before_claim': '25.0000',
+        'percent_this_claim': '0',
+        if (commercial) ...{
+          'stage_value': '400000.00',
+          'eligible': '62500.00',
+          'claimed': '62500.00',
+          'available': '0.00',
+          'claimed_before_claim': '62500.00',
+          'this_claim_amount': '0.00',
+        },
+        'items': [
           {
             'stage_item_id': 'si1',
             'item_key': 'ahu',
@@ -87,10 +99,12 @@ Map<String, dynamic> _workbenchJson({
             'unit_code': 'Nos',
             'confirmed_qty': '1.0000',
             'needs_review': false,
+            'qty_before_claim': '1.0000',
+            'qty_this_claim': '0',
             if (commercial) 'item_value': '250000.00',
           },
         ],
-      ),
+      },
     ],
     'claim': withClaim
         ? {
@@ -100,6 +114,8 @@ Map<String, dynamic> _workbenchJson({
             'record_version': 2,
             'claim_period_start': '2026-08-01',
             'claim_period_end': '2026-08-25',
+            'prepared_by': 'Pat Engineer',
+            if (claimStatus != 'draft') 'checked_by': 'Morgan Manager',
             if (commercial) ...{
               'claimed_ex_vat': '50000.00',
               'vat_amount': '2500.00',
@@ -107,6 +123,13 @@ Map<String, dynamic> _workbenchJson({
               'retention_percent': '10.0000',
               'retention_preview': '5000.00',
               'net_payable_after_retention': '47500.00',
+              if (claimStatus == 'invoiced')
+                'invoice': {
+                  'invoice_id': 'inv1',
+                  'invoice_reference': 'YRA32201',
+                  'status': 'submitted',
+                  'submission_date': '2026-08-26',
+                },
             },
             'lines': [
               {'progress_entry_id': 'pe-design'},
@@ -115,6 +138,45 @@ Map<String, dynamic> _workbenchJson({
         : null,
   };
 }
+
+YorksAccountsWorkbench _wb({
+  bool commercial = true,
+  bool withClaim = true,
+  bool confirm = true,
+  bool prepare = true,
+  String claimStatus = 'draft',
+  bool suggestion = false,
+}) => YorksAccountsWorkbench.fromJson(
+  _workbenchJson(
+    commercial: commercial,
+    withClaim: withClaim,
+    confirm: confirm,
+    prepare: prepare,
+    claimStatus: claimStatus,
+    suggestion: suggestion,
+  ),
+);
+
+final _claims = [
+  YorksAccountsClaimSummary.fromJson(const {
+    'claim_id': 'c1',
+    'claim_reference': 'CLM-01',
+    'status': 'draft',
+    'claim_period_start': '2026-08-01',
+    'claim_period_end': '2026-08-25',
+    'claimed_ex_vat': '50000.00',
+    'record_version': 2,
+  }),
+  YorksAccountsClaimSummary.fromJson(const {
+    'claim_id': 'c0',
+    'claim_reference': 'CLM-00',
+    'status': 'invoiced',
+    'claim_period_start': '2026-07-01',
+    'claim_period_end': '2026-07-25',
+    'claimed_ex_vat': '10000.00',
+    'record_version': 4,
+  }),
+];
 
 final class _FakeRpc implements YorksAccountsRpcClient {
   _FakeRpc(this.response);
@@ -127,580 +189,541 @@ final class _FakeRpc implements YorksAccountsRpcClient {
   }) async => response;
 }
 
-void _wideSurface(WidgetTester tester) {
-  tester.view.physicalSize = const Size(1200, 2400);
+void _surface(WidgetTester tester, {double width = 1400}) {
+  tester.view.physicalSize = Size(width, 2600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+Widget _wrap(Widget child) => MaterialApp(
+  home: Scaffold(body: SingleChildScrollView(child: child)),
+);
+
+Finder _button(String label) => find.widgetWithText(AccountsV2Button, label);
+
+Future<void> _tap(WidgetTester tester, Finder f) async {
+  await tester.ensureVisible(f);
+  await tester.pumpAndSettle();
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
+
+/// The input of a workbench row: the Design lump input first, then items.
+Finder _input(int index) => find.byType(AccountsV2CellInput).at(index);
 
 void main() {
   const en = AppLanguage.english;
   String t(String key) => accountsV2Text(en, key);
 
-  group('AccountsV2ClaimsTab (direct)', () {
-    testWidgets('renders the claim panel and the progress grid', (
+  group('AccountsV2ClaimsTab layout', () {
+    testWidgets('renders KPIs, the workbench and the claim details', (
       tester,
     ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+      _surface(tester);
       await tester.pumpWidget(
-        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
+        _wrap(AccountsV2ClaimsTab(workbench: _wb(), language: en)),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('CLM-01'), findsOneWidget);
-      expect(find.text(t('v2_claim_status_draft')), findsWidgets);
-      expect(find.text('Design'), findsOneWidget);
-      expect(find.text('Material Supply'), findsOneWidget);
-      expect(find.text('Block A'), findsWidgets);
-      expect(find.text('AHU units'), findsOneWidget);
-      // Commercial columns present.
+      expect(find.text(t('v2p_kpi_this_claim')), findsWidgets);
       expect(find.text('AED 50,000.00'), findsWidgets);
+      expect(find.text(t('v2p_wb_title')), findsOneWidget);
+      expect(find.text('Block A'), findsOneWidget);
+      expect(find.text('Design'), findsWidgets);
+      expect(find.text('Material Supply'), findsWidgets);
+      expect(find.text(t('v2p_claim_details')), findsOneWidget);
+      expect(find.text('${t('v2p_claim')} #01'), findsOneWidget);
+      expect(find.textContaining('Pat Engineer'), findsWidgets);
+      // Net payable in words, as the prototype writes it.
+      expect(find.textContaining('UAE Dirham Fifty Two Thousand'), findsOne);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('claim panel previews the retention hold-back', (tester) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
+    testWidgets('splits Design into done before and this claim', (
+      tester,
+    ) async {
+      _surface(tester);
       await tester.pumpWidget(
-        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
+        _wrap(AccountsV2ClaimsTab(workbench: _wb(), language: en)),
       );
       await tester.pumpAndSettle();
+      // Design has this claim's progress, so it opens by itself.
+      expect(find.text(t('v2p_col_done_before').toUpperCase()), findsOneWidget);
+      final lump = tester.widget<AccountsV2CellInput>(_input(0));
+      expect(lump.controller.text, '50');
+      expect(find.text('50,000.00'), findsWidgets);
+    });
 
-      // §28 R-1/R-4 preview: retention (shown as a deduction) and the resulting
-      // net-after-retention payable.
-      expect(
-        find.text('${t('v2_claim_retention_preview')} · 10%'),
-        findsOneWidget,
+    testWidgets('previews the retention hold-back in the claim panel', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(AccountsV2ClaimsTab(workbench: _wb(), language: en)),
       );
+      await tester.pumpAndSettle();
+      expect(find.text('${t('v2p_retention_held')} 10%'), findsOneWidget);
       expect(find.text('− AED 5,000.00'), findsOneWidget);
-      expect(find.text(t('v2_claim_net_after_retention')), findsOneWidget);
-      expect(find.text('AED 47,500.00'), findsWidgets);
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2p_after_retention')), findsOneWidget);
+      expect(find.text('AED 47,500.00'), findsOneWidget);
     });
 
-    testWidgets('omits money columns without the capability', (tester) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(commercial: false),
-      );
+    testWidgets('shows no money without the capability', (tester) async {
+      _surface(tester);
       await tester.pumpWidget(
-        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
+        _wrap(
+          AccountsV2ClaimsTab(workbench: _wb(commercial: false), language: en),
+        ),
       );
       await tester.pumpAndSettle();
-
-      expect(find.text('Design'), findsOneWidget);
+      expect(find.text('Design'), findsWidgets);
       expect(find.textContaining('AED'), findsNothing);
-      // Confirmed % is structural and still shown.
-      expect(find.text('50%'), findsWidgets);
+      expect(find.text(t('v2p_kpi_net')), findsNothing);
+      // Progress is not commercial and still shows.
+      expect(find.text('50.0%'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shows the no-claim note when nothing is open', (tester) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(withClaim: false, confirm: true),
-      );
-      await tester.pumpWidget(
-        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_claims_no_claim')), findsOneWidget);
-      expect(find.text('CLM-01'), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('shows a site suggestion with who made it', (tester) async {
-      _wideSurface(tester);
-      final json = _workbenchJson();
-      (json['cells'] as List).cast<Map<String, dynamic>>().first.addAll({
-        'suggested_percent': '40.0000',
-        'suggested_by': 'Sam Site',
-      });
+    testWidgets('lays out at 360px wide', (tester) async {
+      _surface(tester, width: 360);
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: YorksAccountsWorkbench.fromJson(json),
+            workbench: _wb(),
             language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
           ),
         ),
       );
       await tester.pumpAndSettle();
-
-      expect(find.textContaining('40%'), findsWidgets);
-      expect(find.textContaining('Sam Site'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('does not tell someone who cannot confirm to confirm', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(withClaim: false),
-      );
-      await tester.pumpWidget(
-        _wrap(AccountsV2ClaimsTab(workbench: wb, language: en)),
-      );
+      await tester.enterText(_input(0), '60');
       await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_att_no_claim')), findsOneWidget);
-      expect(find.text(t('v2_claims_no_claim')), findsNothing);
-    });
-
-    testWidgets('claim cards switch the active claim via onSelectClaim', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
-      String? selected;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            claims: [
-              YorksAccountsClaimSummary.fromJson(const {
-                'claim_id': 'c1',
-                'claim_reference': 'YRA322-CLM-02',
-                'status': 'draft',
-                'claim_period_start': '2026-08-01',
-                'claim_period_end': '2026-08-25',
-                'claimed_ex_vat': '1504300.00',
-                'record_version': 2,
-              }),
-              YorksAccountsClaimSummary.fromJson(const {
-                'claim_id': 'c0',
-                'claim_reference': 'YRA322-CLM-01',
-                'status': 'invoiced',
-                'claim_period_start': '2026-07-01',
-                'claim_period_end': '2026-07-25',
-                'claimed_ex_vat': '1000000.00',
-                'record_version': 3,
-              }),
-            ],
-            onSelectClaim: (id) => selected = id,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Both claims appear as cards; tapping the older one selects it.
-      expect(find.text('YRA322-CLM-01'), findsOneWidget);
-      await tester.tap(find.text('YRA322-CLM-01'));
-      await tester.pump();
-      expect(selected, 'c0');
       expect(tester.takeException(), isNull);
     });
   });
 
-  group('AccountsV2ClaimsTab record progress', () {
-    testWidgets('confirms an item quantity for an items-mode stage', (
+  group('AccountsV2ClaimsTab with no claim', () {
+    testWidgets('offers to start the first claim to someone who can', (
       tester,
     ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
-      List<Map<String, Object?>>? capturedEntries;
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: wb,
+            workbench: _wb(withClaim: false),
             language: en,
             canRecordProgress: true,
-            evidenceDocuments: const [(id: 'doc1', name: 'Delivery note')],
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async {
-                  capturedEntries = entries;
-                  return null;
-                },
+            onSaveWorkbench: _noSave,
           ),
         ),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text(t('v2_record_progress')));
-      await tester.pumpAndSettle();
-
-      // Fields: start(0), end(1), design %(2), AHU item qty(3), reason(4).
-      await tester.enterText(find.byType(TextField).at(3), '3');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delivery note'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_save')));
-      await tester.pumpAndSettle();
-
-      expect(capturedEntries, isNotNull);
-      final itemEntry = capturedEntries!.firstWhere(
-        (e) => e.containsKey('stage_item_id'),
-        orElse: () => <String, Object?>{},
-      );
-      expect(itemEntry['stage_item_id'], 'si1');
-      expect(itemEntry['confirmed_qty_to_date'], '3');
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2p_no_claims_title')), findsOneWidget);
+      await _tap(tester, _button('${t('v2p_start_claim')} #01'));
+      // A new claim opens the workbench locally; nothing is on the server yet.
+      expect(find.text('${t('v2p_claim')} #01'), findsOneWidget);
+      expect(find.text(t('v2p_status_new')), findsWidgets);
     });
 
-    testWidgets('confirms an increase with evidence via onSaveWorkbench', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
-      List<Map<String, Object?>>? capturedEntries;
-      List<String>? capturedEvidence;
+    testWidgets('does not offer it to someone who cannot', (tester) async {
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            canRecordProgress: true,
-            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async {
-                  capturedEntries = entries;
-                  capturedEvidence = evidenceDocumentIds;
-                  return null;
-                },
-          ),
+          AccountsV2ClaimsTab(workbench: _wb(withClaim: false), language: en),
         ),
       );
       await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_record_progress')), findsOneWidget);
-      await tester.tap(find.text(t('v2_record_progress')));
-      await tester.pumpAndSettle();
-
-      // Fields: period start(0), end(1), the single percent cell(2), reason(3).
-      await tester.enterText(find.byType(TextField).at(2), '75');
-      await tester.pumpAndSettle();
-      // Increase needs evidence — select the document, then save.
-      await tester.tap(find.text('Signed sheet'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_save')));
-      await tester.pumpAndSettle();
-
-      expect(capturedEntries, isNotNull);
-      expect(capturedEntries!.single['progress_entry_id'], 'pe-design');
-      expect(capturedEntries!.single['confirmed_percent_to_date'], '75');
-      expect(capturedEvidence, ['doc1']);
-      expect(find.text(t('v2_progress_saved')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('no record-progress button without the capability', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            canRecordProgress: false,
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_record_progress')), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('Max fills a lump-sum cell to 100% and previews the delta', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            canRecordProgress: true,
-            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_record_progress')));
-      await tester.pumpAndSettle();
-
-      // Two Max buttons: the Design lump-sum cell and the AHU item row.
-      expect(find.text(t('v2_max')), findsNWidgets(2));
-      await tester.tap(find.text(t('v2_max')).first);
-      await tester.pumpAndSettle();
-
-      // The percent field (index 2) is filled to 100 and a +50% delta previews.
-      final field = tester.widget<TextField>(find.byType(TextField).at(2));
-      expect(field.controller!.text, '100');
-      expect(find.text('+50%'), findsOneWidget);
-      expect(find.text('${t('v2_progress_changes')}: 1'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('a value below the confirmed percent shows a decrease delta', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            canRecordProgress: true,
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_record_progress')));
-      await tester.pumpAndSettle();
-
-      // Design confirmed is 50%; typing 30 shows a −20% decrease delta.
-      await tester.enterText(find.byType(TextField).at(2), '30');
-      await tester.pumpAndSettle();
-      expect(find.text('−20%'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('record-progress editor lays out at 360px wide', (
-      tester,
-    ) async {
-      tester.view.physicalSize = const Size(360, 1600);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson(confirm: true));
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            canRecordProgress: true,
-            evidenceDocuments: const [(id: 'doc1', name: 'Signed sheet')],
-            onSaveWorkbench:
-                ({
-                  String? claimReference,
-                  required String periodStart,
-                  required String periodEnd,
-                  required List<Map<String, Object?>> entries,
-                  required List<String> evidenceDocumentIds,
-                  String? reason,
-                }) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_record_progress')));
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_max')), findsNWidgets(2));
-      expect(tester.takeException(), isNull);
+      expect(find.text(t('v2p_no_claims_title')), findsOneWidget);
+      expect(find.textContaining(t('v2p_start_claim')), findsNothing);
     });
   });
 
-  group('AccountsV2ClaimsTab actions', () {
-    testWidgets('checked claim issues an invoice through onIssue', (
+  group('AccountsV2ClaimsTab recording progress', () {
+    testWidgets('sends a lump-sum change as a running total with evidence', (
       tester,
     ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(claimStatus: 'ready_for_accounts'),
-      );
-      String? issuedId;
-      int? issuedVersion;
+      _surface(tester);
+      List<Map<String, Object?>>? sentEntries;
+      List<String>? evidence;
+      String? reference;
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: wb,
+            workbench: _wb(),
             language: en,
-            onIssue:
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'site.pdf')],
+            onSaveWorkbench:
                 ({
-                  required String claimId,
-                  required int expectedClaimVersion,
-                  required String invoiceDate,
-                  required String submissionDate,
-                  String? invoiceReference,
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
                 }) async {
-                  issuedId = claimId;
-                  issuedVersion = expectedClaimVersion;
-                  return null;
-                },
-            onReopen:
-                ({
-                  required String claimId,
-                  required int expectedVersion,
-                  required String reason,
-                }) async => null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(t('v2_claim_issue')), findsOneWidget);
-      expect(find.text(t('v2_claim_back_to_draft')), findsOneWidget);
-
-      await tester.tap(find.text(t('v2_claim_issue')));
-      await tester.pumpAndSettle();
-      // Dialog pre-fills today's dates, so Confirm is enabled.
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(issuedId, 'c1');
-      expect(issuedVersion, 2);
-      expect(find.text(t('v2_claim_issued')), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('back to draft requires a reason and calls onReopen', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(
-        _workbenchJson(claimStatus: 'ready_for_accounts'),
-      );
-      String? reopenReason;
-      await tester.pumpWidget(
-        _wrap(
-          AccountsV2ClaimsTab(
-            workbench: wb,
-            language: en,
-            onIssue:
-                ({
-                  required String claimId,
-                  required int expectedClaimVersion,
-                  required String invoiceDate,
-                  required String submissionDate,
-                  String? invoiceReference,
-                }) async => null,
-            onReopen:
-                ({
-                  required String claimId,
-                  required int expectedVersion,
-                  required String reason,
-                }) async {
-                  reopenReason = reason;
+                  reference = claimReference;
+                  sentEntries = entries;
+                  evidence = evidenceDocumentIds;
                   return null;
                 },
           ),
         ),
       );
       await tester.pumpAndSettle();
+      // 50 this claim → 60: the running total sent is before (0) + 60.
+      await tester.enterText(_input(0), '60');
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2p_unsaved')), findsOneWidget);
+      // Live amount: 60% of 100,000.
+      expect(find.text('60,000.00'), findsWidgets);
+      // An increase needs a file.
+      expect(find.text(t('v2p_evidence_needed')), findsOneWidget);
+      final save = tester.widget<AccountsV2Button>(
+        _button(t('v2p_save_progress')),
+      );
+      expect(save.onPressed, isNull);
+      await _tap(tester, _button(t('v2p_add_file')));
+      await tester.tap(find.text('site.pdf').last);
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_save_progress')));
 
-      await tester.tap(find.text(t('v2_claim_back_to_draft')));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Correction needed');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
-
-      expect(reopenReason, 'Correction needed');
-      expect(find.text(t('v2_claim_reopened')), findsWidgets);
+      expect(sentEntries, [
+        {'progress_entry_id': 'pe-design', 'confirmed_percent_to_date': '60'},
+      ]);
+      expect(evidence, ['doc1']);
+      // The open draft keeps its reference.
+      expect(reference, 'CLM-01');
+      expect(find.text(t('v2_progress_saved')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
-  });
 
-  group('AccountsV2ClaimsTab money visibility', () {
-    test('reads the keys the server really sends', () {
+    testWidgets('sends an item quantity as before + this claim', (
+      tester,
+    ) async {
+      _surface(tester);
+      List<Map<String, Object?>>? sent;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'site.pdf')],
+            onSaveWorkbench:
+                ({
+                  String? claimReference,
+                  required String periodStart,
+                  required String periodEnd,
+                  required List<Map<String, Object?>> entries,
+                  required List<String> evidenceDocumentIds,
+                  String? reason,
+                }) async {
+                  sent = entries;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, find.text('Material Supply').first);
+      // 1 done before; 2 more this claim → 3 to date.
+      await tester.enterText(_input(1), '2');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('3 · 75%'), findsOneWidget);
+      await _tap(tester, _button(t('v2p_add_file')));
+      await tester.tap(find.text('site.pdf').last);
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_save_progress')));
+      expect(sent, [
+        {'stage_item_id': 'si1', 'confirmed_qty_to_date': '3'},
+      ]);
+    });
+
+    testWidgets('Max fills a lump-sum stage to what is left of 100%', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, find.text(t('v2p_max')).first);
       expect(
-        YorksAccountsWorkbench.fromJson(_workbenchJson()).canViewValues,
-        isTrue,
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        '100',
       );
-      final old = _workbenchJson()
-        ..['capabilities'] = {'view_project_commercial_values': true};
-      expect(YorksAccountsWorkbench.fromJson(old).canViewValues, isFalse);
+      expect(find.text('100,000.00'), findsWidgets);
     });
-  });
 
-  group('AccountsV2ClaimsTab single-cell update', () {
-    testWidgets('a suggester can update a percent stage, not an item stage', (
-      tester,
-    ) async {
-      _wideSurface(tester);
-      YorksAccountsWorkbenchCell? opened;
+    testWidgets('more than the whole stage cannot be saved', (tester) async {
+      _surface(tester);
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: YorksAccountsWorkbench.fromJson(
-              _workbenchJson(commercial: false),
-            ),
+            workbench: _wb(),
             language: en,
-            onUpdateCell: (cell) => opened = cell,
+            canRecordProgress: true,
+            evidenceDocuments: const [(id: 'doc1', name: 'site.pdf')],
+            onSaveWorkbench: _noSave,
           ),
         ),
       );
       await tester.pumpAndSettle();
-      final buttons = find.text(t('v2_cell_update_progress'));
-      expect(buttons, findsOneWidget);
-      await tester.tap(buttons);
-      expect(opened!.progressEntryId, 'pe-design');
-      expect(tester.takeException(), isNull);
+      await tester.enterText(_input(0), '120');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('120.0% ⚠'), findsOneWidget);
+      await _tap(tester, _button(t('v2p_add_file')));
+      await tester.tap(find.text('site.pdf').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<AccountsV2Button>(_button(t('v2p_save_progress')))
+            .onPressed,
+        isNull,
+      );
+    });
+
+    testWidgets('Discard puts the server figures back', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_input(0), '70');
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2c_discard')));
+      expect(
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        '50',
+      );
+      expect(find.text(t('v2p_unsaved')), findsNothing);
+    });
+
+    testWidgets('inputs are read-only without the capability', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(AccountsV2ClaimsTab(workbench: _wb(), language: en)),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AccountsV2CellInput>(_input(0)).enabled, isFalse);
+      expect(find.text(t('v2p_max')).hitTestable(), findsNothing);
+    });
+
+    testWidgets('a checked claim is read-only until it is back in draft', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<AccountsV2CellInput>(_input(0)).enabled, isFalse);
+    });
+
+    testWidgets('a site suggestion can be used in one tap', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(suggestion: true),
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Site Sam'), findsOneWidget);
+      await _tap(tester, _button(t('v2p_use')));
+      // Suggested 70% to date, none before: 70 this claim.
+      expect(
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        '70',
+      );
     });
   });
 
-  group('AccountsV2ClaimsTab preview', () {
+  group('AccountsV2ClaimsTab claim commands', () {
+    testWidgets('a draft claim marks checked with a reason', (tester) async {
+      _surface(tester);
+      String? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            onMarkChecked:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  captured = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_mark_checked')));
+      await tester.enterText(find.byType(TextField).last, 'Checked on site');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(captured, 'Checked on site');
+    });
+
+    testWidgets('a checked claim issues its invoice', (tester) async {
+      _surface(tester);
+      String? issued;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async {
+                  issued = '$claimId@$expectedClaimVersion';
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_issue_invoice')).last);
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(issued, 'c1@2');
+      expect(find.text(t('v2_claim_issued')), findsOneWidget);
+    });
+
+    testWidgets('a draft cannot be issued before it is checked', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final b in tester.widgetList<AccountsV2Button>(
+        _button(t('v2p_issue_invoice')),
+      )) {
+        expect(b.onPressed, isNull);
+      }
+    });
+
+    testWidgets('back to draft needs a reason', (tester) async {
+      _surface(tester);
+      String? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
+            language: en,
+            onReopen:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  captured = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_back_to_draft')));
+      final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.enterText(find.byType(TextField).last, 'Wrong quantity');
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(captured, 'Wrong quantity');
+    });
+
+    testWidgets('a draft can be deleted with a reason', (tester) async {
+      _surface(tester);
+      String? deleted;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            onCancelClaim:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  deleted = '$claimId:$reason';
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_delete_draft')));
+      await tester.enterText(find.byType(TextField).last, 'Started twice');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(deleted, 'c1:Started twice');
+      expect(find.text(t('v2p_deleted')), findsOneWidget);
+    });
+
     testWidgets('previews the invoice before issuing', (tester) async {
-      _wideSurface(tester);
+      _surface(tester);
       String? previewed;
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: YorksAccountsWorkbench.fromJson(
-              _workbenchJson(claimStatus: 'ready_for_accounts'),
-            ),
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
             language: en,
-            onIssue:
-                ({
-                  required String claimId,
-                  required int expectedClaimVersion,
-                  required String invoiceDate,
-                  required String submissionDate,
-                  String? invoiceReference,
-                }) async => null,
             onPreviewInvoice: (id) async {
               previewed = id;
               return null;
@@ -709,53 +732,71 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_claim_preview')));
-      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_preview_invoice')));
       expect(previewed, 'c1');
-      expect(tester.takeException(), isNull);
     });
-  });
 
-  group('AccountsV2ClaimsTab mark checked', () {
-    testWidgets('draft claim with lines marks checked via onMarkChecked', (
+    testWidgets('an invoiced claim shows its invoice and opens it', (
       tester,
     ) async {
-      _wideSurface(tester);
-      final wb = YorksAccountsWorkbench.fromJson(_workbenchJson());
-      String? markReason;
+      _surface(tester);
+      String? opened;
       await tester.pumpWidget(
         _wrap(
           AccountsV2ClaimsTab(
-            workbench: wb,
+            workbench: _wb(claimStatus: 'invoiced'),
             language: en,
-            onMarkChecked:
-                ({
-                  required String claimId,
-                  required int expectedVersion,
-                  required String reason,
-                }) async {
-                  markReason = reason;
-                  return null;
-                },
+            onOpenInvoice: (id, {bool revise = false}) =>
+                opened = '$id${revise ? ':revise' : ''}',
           ),
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.textContaining(t('v2p_invoiced_note_b')), findsOneWidget);
+      await _tap(tester, _button(t('v2p_revise')));
+      expect(opened, 'inv1:revise');
+    });
 
-      final markButton = find.text(t('v2_claim_mark_checked'));
-      expect(markButton, findsOneWidget);
-      await tester.ensureVisible(markButton);
+    testWidgets('the Claim picker switches claims', (tester) async {
+      _surface(tester);
+      String? selected;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            claims: _claims,
+            onSelectClaim: (id) => selected = id,
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(markButton);
+      // Oldest claim is #01.
+      await _tap(tester, find.textContaining('${t('v2p_claim')} #02').first);
+      await tester.tap(find.textContaining('${t('v2p_claim')} #01').last);
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Looks good');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
-      await tester.pumpAndSettle();
+      expect(selected, 'c0');
+    });
+  });
 
-      expect(markReason, 'Looks good');
-      expect(find.text(t('v2_claim_checked_done')), findsWidgets);
-      expect(tester.takeException(), isNull);
+  group('AccountsV2ClaimsTab single-cell update', () {
+    testWidgets('a suggester updates a lump-sum stage from its editor', (
+      tester,
+    ) async {
+      _surface(tester);
+      YorksAccountsWorkbenchCell? opened;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(commercial: false, confirm: false, prepare: false),
+            language: en,
+            onUpdateCell: (cell) => opened = cell,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2_cell_update_progress')));
+      expect(opened!.progressEntryId, 'pe-design');
     });
   });
 
@@ -763,7 +804,7 @@ void main() {
     testWidgets('opening on claims loads the workbench from the repository', (
       tester,
     ) async {
-      _wideSurface(tester);
+      _surface(tester);
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final prefs = await SharedPreferences.getInstance();
       final repo = YorksAccountsWorkspaceRepository(_FakeRpc(_workbenchJson()));
@@ -785,19 +826,30 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: _wrap(
-            const YorksAccountsWorkspaceV2Screen(
-              projectId: 'p1',
-              initialTab: YorksAccountsWorkspaceV2Tab.claims,
+          child: MaterialApp(
+            home: Scaffold(
+              body: const YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.claims,
+              ),
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('CLM-01'), findsOneWidget);
-      expect(find.text('Design'), findsOneWidget);
+      expect(find.text(t('v2p_wb_title')), findsOneWidget);
+      expect(find.text('Design'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });
 }
+
+Future<String?> _noSave({
+  String? claimReference,
+  required String periodStart,
+  required String periodEnd,
+  required List<Map<String, Object?>> entries,
+  required List<String> evidenceDocumentIds,
+  String? reason,
+}) async => null;
