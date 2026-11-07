@@ -79,10 +79,10 @@ select ok(
   and not (select is_granted from public.v1_permission_role_defaults
    where role_name = 'accountant'
      and capability_key = 'confirm_billing_progress')
-  and not (select is_granted from public.v1_permission_role_defaults
+  and (select is_granted from public.v1_permission_role_defaults
    where role_name = 'accountant'
      and capability_key = 'configure_project_commercials'),
-  'Accountant future ceiling separates Accounts recording from Engineering confirmation and baseline control'
+  'Accountant separates Accounts recording from Engineering confirmation, and may edit the contract (owner decision, 7 Nov 2026)'
 );
 
 select ok(
@@ -453,8 +453,8 @@ select ok(
       '39010000-0000-4000-8000-000000000001'
     ) -> 'capabilities') capability
     where coalesce((capability.value ->> 'command_enabled')::boolean, true)
-  ) = 10,
-  'Only the ten accepted T02-T06 Accountant consumers are enabled for its role'
+  ) = 11,
+  'Only the eleven accepted Accountant consumers are enabled for its role, now including contract editing'
 );
 
 select throws_ok(

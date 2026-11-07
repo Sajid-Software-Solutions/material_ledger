@@ -22,6 +22,11 @@ abstract interface class YorksAccountsSupplierRepository {
     String supplierBillId,
   );
 
+  /// Confirmed deliveries a bill on this project can cite, newest first.
+  Future<List<YorksAccountsAcceptedDelivery>> listDeliveryOptions(
+    String projectId,
+  );
+
   Future<YorksAccountsSupplierCommandResult> createBillDraft(
     YorksAccountsSupplierBillDraftInput input, {
     required String idempotencyKey,
@@ -48,6 +53,18 @@ abstract interface class YorksAccountsSupplierRepository {
   });
 
   Future<YorksAccountsSupplierCommandResult> cancelBill(
+    YorksAccountsSupplierBillCancelInput input, {
+    required String idempotencyKey,
+  });
+
+  Future<YorksAccountsSupplierCommandResult> correctPayment(
+    YorksAccountsSupplierPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  });
+
+  /// Returns an approved or cancelled bill to draft. Takes the same fields as a
+  /// cancellation: the bill, its version and a reason.
+  Future<YorksAccountsSupplierCommandResult> reopenBill(
     YorksAccountsSupplierBillCancelInput input, {
     required String idempotencyKey,
   });
@@ -127,6 +144,26 @@ final class YorksSupabaseAccountsSupplierRepository
       _requireId(projection.supplierBill.projectId, normalizedProjectId);
       _requireId(projection.supplierBill.supplierBillId, normalizedBillId);
       return projection;
+    });
+  }
+
+  @override
+  Future<List<YorksAccountsAcceptedDelivery>> listDeliveryOptions(
+    String projectId,
+  ) async {
+    final normalizedProjectId = projectId.trim();
+    if (normalizedProjectId.isEmpty) return _invalidInput();
+    final response = await _invoke('v1_list_supplier_bill_delivery_options', {
+      'p_project_id': normalizedProjectId,
+    });
+    return _decode(() {
+      _requireId(response['project_id'] as String? ?? '', normalizedProjectId);
+      return [
+        for (final item in response['deliveries'] as List<dynamic>)
+          YorksAccountsAcceptedDelivery.fromRpcJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+      ];
     });
   }
 
@@ -244,6 +281,54 @@ final class YorksSupabaseAccountsSupplierRepository
     if (!input.isValid) return _invalidInput();
     return _billCommand(
       'v1_cancel_supplier_bill',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_supplier_bill_id': input.supplierBillId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      idempotencyKey,
+      expectedBillId: input.supplierBillId,
+    );
+  }
+
+  @override
+  Future<YorksAccountsSupplierCommandResult> correctPayment(
+    YorksAccountsSupplierPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _paymentCommand(
+      'v1_correct_supplier_payment',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_supplier_bill_id': input.supplierBillId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_original_payment_id': input.originalPaymentId.trim(),
+        'p_payment_date': input.paymentDate.postgresText,
+        'p_payment_method': input.paymentMethod.trim(),
+        'p_payment_reference': input.paymentReference.trim(),
+        'p_amount': input.amount.postgresText,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      input.supplierBillId,
+      idempotencyKey,
+      expectReversal: false,
+    );
+  }
+
+  @override
+  Future<YorksAccountsSupplierCommandResult> reopenBill(
+    YorksAccountsSupplierBillCancelInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _billCommand(
+      'v1_reopen_supplier_bill',
       {
         'p_project_id': input.projectId.trim(),
         'p_supplier_bill_id': input.supplierBillId.trim(),

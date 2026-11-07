@@ -4,12 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_accounts_strings.dart';
+import '../../../../shared/models/yorks_v1_document.dart';
 import '../../application/accounts_controller.dart';
+import '../../application/accounts_records_providers.dart';
 import '../../application/accounts_supplier_providers.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
+import '../v2/accounts_v2_common.dart';
+import 'yorks_accounts_records_views.dart';
 
 Future<bool> showYorksAccountsSupplierBillDraftSheet(
   BuildContext context, {
@@ -75,9 +79,9 @@ class _SupplierBillDraftSheetState
   late final TextEditingController _exVat;
   late final TextEditingController _vatRate;
   late final TextEditingController _poReference;
-  late final TextEditingController _poDocumentId;
-  late final TextEditingController _receiptReviewId;
-  late final TextEditingController _invoiceDocumentId;
+  String? _poDocumentId;
+  String? _receiptReviewId;
+  String? _invoiceDocumentId;
   late final TextEditingController _mismatchReason;
   late final TextEditingController _notes;
   String? _error;
@@ -88,11 +92,7 @@ class _SupplierBillDraftSheetState
   void initState() {
     super.initState();
     final bill = widget.existing;
-    final now = DateTime.now().toUtc();
-    final date =
-        '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
+    final date = accountsV2TodayIso();
     _supplier = TextEditingController(text: bill?.supplierName ?? '');
     _invoiceReference = TextEditingController(
       text: bill?.supplierInvoiceReference ?? '',
@@ -106,17 +106,22 @@ class _SupplierBillDraftSheetState
       text: bill?.vatRatePercent.canonicalText ?? '5',
     );
     _poReference = TextEditingController(text: bill?.poLpoReference ?? '');
-    _poDocumentId = TextEditingController(text: bill?.poLpoDocumentId ?? '');
-    _receiptReviewId = TextEditingController(
-      text: bill?.acceptedReceiptReviewId ?? '',
-    );
-    _invoiceDocumentId = TextEditingController(
-      text: bill?.supplierInvoiceDocumentId ?? '',
-    );
+    _poDocumentId = bill?.poLpoDocumentId;
+    _receiptReviewId = bill?.acceptedReceiptReviewId;
+    _invoiceDocumentId = bill?.supplierInvoiceDocumentId;
     _mismatchReason = TextEditingController(
       text: bill?.explicitMismatchReason ?? '',
     );
     _notes = TextEditingController(text: bill?.notes ?? '');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final documents = yorksAccountsDocumentsControllerProvider(
+        widget.projectId,
+      );
+      if (ref.read(documents).status == YorksAccountsViewStatus.idle) {
+        ref.read(documents.notifier).load();
+      }
+    });
   }
 
   @override
@@ -129,9 +134,6 @@ class _SupplierBillDraftSheetState
       _exVat,
       _vatRate,
       _poReference,
-      _poDocumentId,
-      _receiptReviewId,
-      _invoiceDocumentId,
       _mismatchReason,
       _notes,
     ]) {
@@ -153,6 +155,15 @@ class _SupplierBillDraftSheetState
       setState(() => _error = _text('review_invalid_fields'));
       return;
     }
+    if (dueDate.postgresText.compareTo(invoiceDate.postgresText) < 0) {
+      setState(
+        () => _error = YorksV1AccountsStrings.text(
+          widget.language,
+          'v2_sup_due_before',
+        ),
+      );
+      return;
+    }
     final input = YorksAccountsSupplierBillDraftInput(
       projectId: widget.projectId,
       supplierName: _supplier.text,
@@ -162,9 +173,9 @@ class _SupplierBillDraftSheetState
       exVatAmount: exVat,
       vatRatePercent: vat,
       poLpoReference: _nullable(_poReference.text),
-      poLpoDocumentId: _nullable(_poDocumentId.text),
-      acceptedReceiptReviewId: _nullable(_receiptReviewId.text),
-      supplierInvoiceDocumentId: _nullable(_invoiceDocumentId.text),
+      poLpoDocumentId: _poDocumentId,
+      acceptedReceiptReviewId: _receiptReviewId,
+      supplierInvoiceDocumentId: _invoiceDocumentId,
       explicitMismatchReason: _nullable(_mismatchReason.text),
       notes: _nullable(_notes.text),
       supplierBillId: widget.existing?.supplierBillId,
@@ -226,21 +237,15 @@ class _SupplierBillDraftSheetState
                   ),
                   validator: _required(widget.language),
                 ),
-                TextFormField(
+                AccountsV2DateField(
+                  label: _text('invoice_date'),
                   controller: _invoiceDate,
-                  decoration: InputDecoration(
-                    labelText: _text('invoice_date'),
-                    helperText: _text('date_format'),
-                  ),
-                  validator: _dateValidator(widget.language),
+                  language: widget.language,
                 ),
-                TextFormField(
+                AccountsV2DateField(
+                  label: _text('due_date'),
                   controller: _dueDate,
-                  decoration: InputDecoration(
-                    labelText: _text('due_date'),
-                    helperText: _text('date_format'),
-                  ),
-                  validator: _dateValidator(widget.language),
+                  language: widget.language,
                 ),
                 TextFormField(
                   controller: _exVat,
@@ -279,11 +284,13 @@ class _SupplierBillDraftSheetState
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      TextFormField(
-                        controller: _poDocumentId,
-                        decoration: InputDecoration(
-                          labelText: _text('current_document_id'),
-                        ),
+                      _DocumentPicker(
+                        projectId: widget.projectId,
+                        language: widget.language,
+                        uploadType: YorksV1AccountsDocumentType.poLpo,
+                        billId: widget.existing?.supplierBillId,
+                        value: _poDocumentId,
+                        onChanged: (id) => setState(() => _poDocumentId = id),
                       ),
                     ],
                   ),
@@ -291,12 +298,13 @@ class _SupplierBillDraftSheetState
                     title: _text('accepted_delivery'),
                     icon: Icons.local_shipping_outlined,
                     children: [
-                      TextFormField(
-                        controller: _receiptReviewId,
-                        decoration: InputDecoration(
-                          labelText: _text('receipt_review_id'),
-                          helperText: _text('trusted_receipt_helper'),
-                        ),
+                      _DeliveryPicker(
+                        projectId: widget.projectId,
+                        language: widget.language,
+                        value: _receiptReviewId,
+                        current: widget.existing?.acceptedDelivery,
+                        onChanged: (id) =>
+                            setState(() => _receiptReviewId = id),
                       ),
                     ],
                   ),
@@ -304,11 +312,14 @@ class _SupplierBillDraftSheetState
                     title: _text('supplier_invoice'),
                     icon: Icons.receipt_long_outlined,
                     children: [
-                      TextFormField(
-                        controller: _invoiceDocumentId,
-                        decoration: InputDecoration(
-                          labelText: _text('current_document_id'),
-                        ),
+                      _DocumentPicker(
+                        projectId: widget.projectId,
+                        language: widget.language,
+                        uploadType: YorksV1AccountsDocumentType.supplierInvoice,
+                        billId: widget.existing?.supplierBillId,
+                        value: _invoiceDocumentId,
+                        onChanged: (id) =>
+                            setState(() => _invoiceDocumentId = id),
                       ),
                     ],
                   ),
@@ -360,7 +371,214 @@ class _SupplierBillDraftSheetState
   }
 }
 
-enum _SupplierAction { edit, approve, payment, reversePayment, cancel }
+/// Chooses a commercial file on this project, the only kind the server accepts
+/// as evidence, or adds a new one, instead of asking for a database ID.
+class _DocumentPicker extends ConsumerWidget {
+  const _DocumentPicker({
+    required this.projectId,
+    required this.language,
+    required this.uploadType,
+    required this.value,
+    required this.onChanged,
+    this.billId,
+  });
+
+  final String projectId;
+  final AppLanguage language;
+  final YorksV1AccountsDocumentType uploadType;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  /// The bill being edited, which a new file links to. A new bill has no record
+  /// to link to until its draft is saved.
+  final String? billId;
+
+  String _t(String key) => YorksV1AccountsStrings.text(language, key);
+
+  static String _label(YorksV1Document document) {
+    final version = document.currentVersion;
+    final reference = version.businessReference;
+    return reference == null || reference.isEmpty
+        ? version.fileName
+        : '${version.fileName} · $reference';
+  }
+
+  Future<void> _add(
+    BuildContext context,
+    WidgetRef ref,
+    YorksV1AccountsDocumentWorkspace workspace,
+  ) async {
+    final known = {for (final document in workspace.documents) document.id};
+    final saved = await showYorksAccountsDocumentUploadDialog(
+      context,
+      projectId: projectId,
+      language: language,
+      workspace: workspace,
+      initialType: uploadType,
+      initialTargetEntityId: billId,
+    );
+    if (saved != true) return;
+    final updated = ref
+        .read(yorksAccountsDocumentsControllerProvider(projectId))
+        .workspace;
+    for (final document in updated?.documents ?? const <YorksV1Document>[]) {
+      if (!known.contains(document.id)) {
+        onChanged(document.id);
+        return;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final workspace = ref
+        .watch(yorksAccountsDocumentsControllerProvider(projectId))
+        .workspace;
+    final documents = (workspace?.documents ?? const <YorksV1Document>[])
+        .where(
+          (document) =>
+              !document.isArchived &&
+              document.classification ==
+                  YorksV1DocumentClassification.commercial,
+        )
+        .toList(growable: false);
+    final selected = value;
+    final isListed = documents.any((document) => document.id == selected);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String?>(
+          key: ValueKey<String>('${selected}_${documents.length}'),
+          isExpanded: true,
+          initialValue: selected,
+          decoration: InputDecoration(labelText: _t('v2_sup_pick_document')),
+          items: [
+            DropdownMenuItem<String?>(child: Text(_t('v2_sup_pick_none'))),
+            // A linked file this list can't show must stay linked, not vanish.
+            if (selected != null && !isListed)
+              DropdownMenuItem<String?>(
+                value: selected,
+                child: Text(_t('v2_sup_linked')),
+              ),
+            for (final document in documents)
+              DropdownMenuItem<String?>(
+                value: document.id,
+                child: Text(_label(document), overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: onChanged,
+        ),
+        if (billId == null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              _t('v2_sup_save_first'),
+              style: AppTypography.bodySmall,
+            ),
+          )
+        else if (workspace != null &&
+            workspace.uploadTargets.any((t) => t.entityId == billId))
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: () => _add(context, ref, workspace),
+              icon: const Icon(Icons.upload_file_outlined, size: 18),
+              label: Text(_t('v2_sup_add_document')),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Chooses a confirmed delivery on this project by its reference.
+class _DeliveryPicker extends ConsumerWidget {
+  const _DeliveryPicker({
+    required this.projectId,
+    required this.language,
+    required this.value,
+    required this.current,
+    required this.onChanged,
+  });
+
+  final String projectId;
+  final AppLanguage language;
+  final String? value;
+  final YorksAccountsAcceptedDelivery? current;
+  final ValueChanged<String?> onChanged;
+
+  String _t(String key) => YorksV1AccountsStrings.text(language, key);
+
+  String _label(YorksAccountsAcceptedDelivery delivery) {
+    final reviewed = delivery.reviewedAt.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${delivery.deliveryReference} · '
+        '${reviewed.year}-${two(reviewed.month)}-${two(reviewed.day)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final options = ref.watch(
+      yorksAccountsSupplierDeliveryOptionsProvider(projectId),
+    );
+    final deliveries = [
+      ...?options.valueOrNull,
+      // Keep a delivery already on the bill visible if the list can't show it.
+      if (current != null &&
+          !(options.valueOrNull ?? const []).any(
+            (delivery) => delivery.receiptReviewId == current!.receiptReviewId,
+          ))
+        current!,
+    ];
+    final selected = value;
+    final isListed = deliveries.any(
+      (delivery) => delivery.receiptReviewId == selected,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String?>(
+          key: ValueKey<String>('${selected}_${deliveries.length}'),
+          isExpanded: true,
+          initialValue: selected,
+          decoration: InputDecoration(labelText: _t('v2_sup_pick_delivery')),
+          items: [
+            DropdownMenuItem<String?>(child: Text(_t('v2_sup_pick_none'))),
+            if (selected != null && !isListed)
+              DropdownMenuItem<String?>(
+                value: selected,
+                child: Text(_t('v2_sup_linked')),
+              ),
+            for (final delivery in deliveries)
+              DropdownMenuItem<String?>(
+                value: delivery.receiptReviewId,
+                child: Text(_label(delivery), overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: onChanged,
+        ),
+        if (options.hasValue && deliveries.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              _t('v2_sup_no_deliveries'),
+              style: AppTypography.bodySmall,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+enum _SupplierAction {
+  edit,
+  approve,
+  payment,
+  correctPayment,
+  reversePayment,
+  reopen,
+  cancel,
+}
 
 class _SupplierBillActionsSheet extends ConsumerStatefulWidget {
   const _SupplierBillActionsSheet({
@@ -396,11 +614,7 @@ class _SupplierBillActionsSheetState
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now().toUtc();
-    _date.text =
-        '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
+    _date.text = accountsV2TodayIso();
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => ref
           .read(
@@ -425,11 +639,38 @@ class _SupplierBillActionsSheetState
     super.dispose();
   }
 
+  /// Payments still in force. A reversed one has nothing left to change.
+  List<YorksAccountsSupplierPayment> _activePayments(
+    YorksAccountsSupplierBillDetailProjection detail,
+  ) {
+    final reversed = {
+      for (final entry in detail.payments)
+        if (entry.entryKind == YorksAccountsSupplierPaymentEntryKind.reversal)
+          entry.originalPaymentId,
+    };
+    return [
+      for (final entry in detail.payments)
+        if (entry.entryKind == YorksAccountsSupplierPaymentEntryKind.payment &&
+            !reversed.contains(entry.paymentId))
+          entry,
+    ];
+  }
+
+  /// Fills the form from the payment being edited, so only the change is typed.
+  void _prefillFrom(YorksAccountsSupplierPayment? payment) {
+    if (payment == null) return;
+    _date.text = payment.paymentDate.postgresText;
+    _amount.text = payment.amount.canonicalText;
+    _method.text = payment.paymentMethod;
+    _reference.text = payment.paymentReference;
+  }
+
   List<_SupplierAction> _actions(
     YorksAccountsSupplierBillDetailProjection detail,
   ) {
     final bill = detail.supplierBill;
     final commands = detail.commands;
+    final active = _activePayments(detail);
     return [
       if (commands.editBill &&
           bill.status == YorksAccountsSupplierBillStatus.draft)
@@ -441,13 +682,16 @@ class _SupplierBillActionsSheetState
           bill.status == YorksAccountsSupplierBillStatus.approved &&
           bill.outstandingAmount.isPositive)
         _SupplierAction.payment,
-      if (commands.reversePayment &&
-          detail.payments.any(
-            (payment) =>
-                payment.entryKind ==
-                YorksAccountsSupplierPaymentEntryKind.payment,
-          ))
+      if (commands.correctPayment &&
+          bill.status == YorksAccountsSupplierBillStatus.approved &&
+          active.isNotEmpty)
+        _SupplierAction.correctPayment,
+      if (commands.reversePayment && active.isNotEmpty)
         _SupplierAction.reversePayment,
+      if (commands.reopenBill &&
+          bill.status != YorksAccountsSupplierBillStatus.draft &&
+          active.isEmpty)
+        _SupplierAction.reopen,
       if (commands.cancelBill &&
           bill.status != YorksAccountsSupplierBillStatus.cancelled)
         _SupplierAction.cancel,
@@ -458,7 +702,9 @@ class _SupplierBillActionsSheetState
     _SupplierAction.edit => _text('edit_supplier_bill'),
     _SupplierAction.approve => _text('approve_supplier_bill'),
     _SupplierAction.payment => _text('record_supplier_payment'),
+    _SupplierAction.correctPayment => _text('v2_sup_edit_payment'),
     _SupplierAction.reversePayment => _text('reverse_payment'),
+    _SupplierAction.reopen => _text('v2_sup_reopen'),
     _SupplierAction.cancel => _text('cancel_supplier_bill'),
   };
 
@@ -528,6 +774,29 @@ class _SupplierBillActionsSheetState
             reason: _reason.text,
           ),
         );
+      case _SupplierAction.correctPayment:
+        result = await controller.correctPayment(
+          YorksAccountsSupplierPaymentCorrectionInput(
+            projectId: widget.projectId,
+            supplierBillId: bill.supplierBillId,
+            expectedVersion: bill.recordVersion,
+            originalPaymentId: _selectedPaymentId!,
+            paymentDate: date!,
+            paymentMethod: _method.text,
+            paymentReference: _reference.text,
+            amount: amount!,
+            reason: _reason.text,
+          ),
+        );
+      case _SupplierAction.reopen:
+        result = await controller.reopenBill(
+          YorksAccountsSupplierBillCancelInput(
+            projectId: widget.projectId,
+            supplierBillId: bill.supplierBillId,
+            expectedVersion: bill.recordVersion,
+            reason: _reason.text,
+          ),
+        );
       case _SupplierAction.cancel:
         result = await controller.cancelBill(
           YorksAccountsSupplierBillCancelInput(
@@ -578,14 +847,8 @@ class _SupplierBillActionsSheetState
     final bill = detail.supplierBill;
     final actions = _actions(detail);
     _action ??= actions.firstOrNull;
-    _selectedPaymentId ??= detail.payments
-        .where(
-          (payment) =>
-              payment.entryKind ==
-              YorksAccountsSupplierPaymentEntryKind.payment,
-        )
-        .firstOrNull
-        ?.paymentId;
+    final active = _activePayments(detail);
+    _selectedPaymentId ??= active.firstOrNull?.paymentId;
     return _SheetFrame(
       title: bill.supplierInvoiceReference,
       subtitle:
@@ -624,21 +887,32 @@ class _SupplierBillActionsSheetState
                     : (value) => setState(() {
                         _action = value;
                         _error = null;
+                        if (value == _SupplierAction.correctPayment) {
+                          _prefillFrom(
+                            active
+                                .where(
+                                  (payment) =>
+                                      payment.paymentId == _selectedPaymentId,
+                                )
+                                .firstOrNull,
+                          );
+                        }
                       }),
               ),
-              if (_action == _SupplierAction.reversePayment) ...[
+              if (_action == _SupplierAction.reversePayment ||
+                  _action == _SupplierAction.correctPayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPaymentId,
                   decoration: InputDecoration(
-                    labelText: _text('payment_to_reverse'),
+                    labelText: _text(
+                      _action == _SupplierAction.correctPayment
+                          ? 'v2_sup_payment_to_edit'
+                          : 'payment_to_reverse',
+                    ),
                   ),
                   items: [
-                    for (final payment in detail.payments.where(
-                      (entry) =>
-                          entry.entryKind ==
-                          YorksAccountsSupplierPaymentEntryKind.payment,
-                    ))
+                    for (final payment in active)
                       DropdownMenuItem(
                         value: payment.paymentId,
                         child: Text(
@@ -647,23 +921,30 @@ class _SupplierBillActionsSheetState
                         ),
                       ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentId = value),
+                  onChanged: (value) => setState(() {
+                    _selectedPaymentId = value;
+                    if (_action == _SupplierAction.correctPayment) {
+                      _prefillFrom(
+                        active
+                            .where((payment) => payment.paymentId == value)
+                            .firstOrNull,
+                      );
+                    }
+                  }),
                 ),
               ],
               if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment ||
                   _action == _SupplierAction.reversePayment) ...[
                 const SizedBox(height: AppSpacing.md),
-                TextFormField(
+                AccountsV2DateField(
+                  label: _text('date'),
                   controller: _date,
-                  decoration: InputDecoration(
-                    labelText: _text('date'),
-                    helperText: _text('date_format'),
-                  ),
-                  validator: _dateValidator(widget.language),
+                  language: widget.language,
                 ),
               ],
-              if (_action == _SupplierAction.payment) ...[
+              if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _amount,
@@ -683,18 +964,28 @@ class _SupplierBillActionsSheetState
                 ),
               ],
               if (_action == _SupplierAction.payment ||
+                  _action == _SupplierAction.correctPayment ||
                   _action == _SupplierAction.reversePayment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
                   controller: _reference,
                   decoration: InputDecoration(
-                    labelText: _text('payment_reference'),
+                    labelText: _text(
+                      _action == _SupplierAction.reversePayment
+                          ? 'v2_sup_reversal_reference_opt'
+                          : 'payment_reference',
+                    ),
                   ),
-                  validator: _required(widget.language),
+                  // The server picks a reversal reference when this is left blank.
+                  validator: _action == _SupplierAction.reversePayment
+                      ? null
+                      : _required(widget.language),
                 ),
               ],
               if (_action == _SupplierAction.cancel ||
                   _action == _SupplierAction.reversePayment ||
+                  _action == _SupplierAction.correctPayment ||
+                  _action == _SupplierAction.reopen ||
                   _action == _SupplierAction.payment) ...[
                 const SizedBox(height: AppSpacing.md),
                 TextFormField(
@@ -702,11 +993,9 @@ class _SupplierBillActionsSheetState
                   minLines: 2,
                   maxLines: 4,
                   decoration: InputDecoration(labelText: _text('reason')),
-                  validator:
-                      _action == _SupplierAction.cancel ||
-                          _action == _SupplierAction.reversePayment
-                      ? _required(widget.language)
-                      : null,
+                  validator: _action == _SupplierAction.payment
+                      ? null
+                      : _required(widget.language),
                 ),
               ],
               if (_action == _SupplierAction.approve ||
@@ -749,11 +1038,18 @@ class _MatchPosition extends StatelessWidget {
       LayoutBuilder(
         builder: (context, constraints) {
           final cards = [
+            // The server counts a PO only with both its reference and its file.
             _MatchFact(
               title: _text('po_lpo'),
               present:
-                  bill.poLpoDocumentId != null || bill.poLpoReference != null,
-              detail: bill.poLpoReference ?? _text('missing_evidence'),
+                  bill.poLpoDocumentId != null && bill.poLpoReference != null,
+              detail: switch ((bill.poLpoReference, bill.poLpoDocumentId)) {
+                (null, null) => _text('missing_evidence'),
+                (null, _) => _text('v2_sup_po_needs_reference'),
+                (final reference?, null) =>
+                  '$reference · ${_text('v2_sup_po_needs_file')}',
+                (final reference?, _) => reference,
+              },
             ),
             _MatchFact(
               title: _text('accepted_delivery'),
@@ -764,12 +1060,16 @@ class _MatchPosition extends StatelessWidget {
             _MatchFact(
               title: _text('supplier_invoice'),
               present: bill.supplierInvoiceDocumentId != null,
-              detail:
-                  bill.supplierInvoiceDocumentId ?? _text('missing_evidence'),
+              detail: _text(
+                bill.supplierInvoiceDocumentId == null
+                    ? 'missing_evidence'
+                    : 'v2_sup_linked',
+              ),
             ),
           ];
           if (constraints.maxWidth < 620) {
             return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final card in cards) ...[
                   card,
@@ -1093,11 +1393,6 @@ class _ErrorBox extends StatelessWidget {
 FormFieldValidator<String> _required(AppLanguage language) =>
     (value) => (value ?? '').trim().isEmpty
     ? YorksV1AccountsStrings.text(language, 'field_required')
-    : null;
-
-FormFieldValidator<String> _dateValidator(AppLanguage language) =>
-    (value) => YorksAccountsDate.tryParse(value ?? '') == null
-    ? YorksV1AccountsStrings.text(language, 'invalid_date')
     : null;
 
 FormFieldValidator<String> _positiveAmount(AppLanguage language) => (value) {

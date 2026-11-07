@@ -33,8 +33,20 @@ import 'dart:io';
 // measures 10,462,712 raw / 2,818,164 gzip bytes. Reserve 22 kB of raw parse
 // headroom for deterministic compiler movement; keep the tighter transferred
 // network ceiling unchanged.
+// The R39 Accounts Workspace V2 release adds the six-tab in-project Accounts
+// workspace (summary, contract, progress & claims, invoices & payments,
+// supplier bills, history) behind YORKS_V1_ACCOUNTS_WORKSPACE_V2. With every
+// staging module on, the production candidate measures 2,903,903 gzip bytes —
+// the first increase to cross the long-held 2.9 MB transferred-size ceiling.
+// The raw parse budget is unchanged and still passes. Raise the compressed
+// ceiling to 2,915,000 (~11 kB headroom above the measured artifact for
+// deterministic compiler movement); retain every other startup check.
+// The V2 prototype rebuild and the Material Supply ↔ BOQ links bring the
+// production candidate (production configuration, every live module on) to
+// 2,915,576 gzip bytes, 576 bytes over that ceiling. Raise it to 2,925,000
+// (~9 kB headroom); the raw parse budget is unchanged and still passes.
 const _mainDartJsRawBudget = 10485000;
-const _mainDartJsGzipBudget = 2900000;
+const _mainDartJsGzipBudget = 2925000;
 const _indexHtmlRawBudget = 40000;
 
 Never _fail(String message) {

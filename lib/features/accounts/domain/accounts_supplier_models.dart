@@ -82,6 +82,8 @@ final class YorksAccountsSupplierCommands {
     required this.recordPayment,
     required this.reversePayment,
     required this.cancelBill,
+    this.correctPayment = false,
+    this.reopenBill = false,
   });
 
   final bool createBill;
@@ -90,6 +92,8 @@ final class YorksAccountsSupplierCommands {
   final bool recordPayment;
   final bool reversePayment;
   final bool cancelBill;
+  final bool correctPayment;
+  final bool reopenBill;
 
   factory YorksAccountsSupplierCommands.fromRpcJson(
     Map<String, dynamic> json,
@@ -100,6 +104,8 @@ final class YorksAccountsSupplierCommands {
     recordPayment: _requiredBool(json, 'record_payment'),
     reversePayment: _requiredBool(json, 'reverse_payment'),
     cancelBill: _requiredBool(json, 'cancel_bill'),
+    correctPayment: json['correct_payment'] == true,
+    reopenBill: json['reopen_bill'] == true,
   );
 }
 

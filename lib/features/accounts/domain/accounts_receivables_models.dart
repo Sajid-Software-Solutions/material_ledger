@@ -127,6 +127,9 @@ final class YorksAccountsReceivablesCommands {
     required this.createPdc,
     required this.transitionPdc,
     required this.replacePdc,
+    this.editPdc = false,
+    this.correctPayment = false,
+    this.correctCertification = false,
   });
 
   final bool createClaimDraft;
@@ -143,6 +146,9 @@ final class YorksAccountsReceivablesCommands {
   final bool createPdc;
   final bool transitionPdc;
   final bool replacePdc;
+  final bool editPdc;
+  final bool correctPayment;
+  final bool correctCertification;
 
   factory YorksAccountsReceivablesCommands.fromRpcJson(
     Map<String, dynamic> json,
@@ -161,6 +167,9 @@ final class YorksAccountsReceivablesCommands {
     createPdc: _requiredBool(json, 'create_pdc'),
     transitionPdc: _requiredBool(json, 'transition_pdc'),
     replacePdc: _requiredBool(json, 'replace_pdc'),
+    editPdc: json['edit_pdc'] == true,
+    correctPayment: json['correct_payment'] == true,
+    correctCertification: json['correct_certification'] == true,
   );
 }
 
@@ -418,6 +427,7 @@ final class YorksAccountsClientInvoice {
     required this.paidAmount,
     required this.stillDue,
     required this.pdcExposure,
+    required this.retentionSnapshot,
     required this.createdByAuthUserId,
     required this.createdByExactRole,
     required this.createdAt,
@@ -446,6 +456,11 @@ final class YorksAccountsClientInvoice {
   final YorksAccountsDecimal? paidAmount;
   final YorksAccountsDecimal? stillDue;
   final YorksAccountsDecimal? pdcExposure;
+
+  /// Retention held back from this invoice's payable (frozen at issue). This is
+  /// a commercial figure: never a reduction the actor cannot see. Null when the
+  /// actor lacks commercial access; `0` when no retention policy applies.
+  final YorksAccountsDecimal? retentionSnapshot;
   final String? createdByAuthUserId;
   final String? createdByExactRole;
   final DateTime createdAt;
@@ -513,6 +528,11 @@ final class YorksAccountsClientInvoice {
       paidAmount: _protectedMoney(json, 'paid_amount', canViewValues),
       stillDue: _protectedMoney(json, 'still_due', canViewValues),
       pdcExposure: _protectedMoney(json, 'pdc_exposure', canViewValues),
+      retentionSnapshot: _protectedMoney(
+        json,
+        'retention_snapshot',
+        canViewValues,
+      ),
       createdByAuthUserId: _optionalString(json['created_by_auth_user_id']),
       createdByExactRole: _optionalString(json['created_by_exact_role']),
       createdAt: _requiredDateTime(json, 'created_at'),
@@ -550,6 +570,7 @@ final class YorksAccountsClientInvoice {
         paidAmount: null,
         stillDue: null,
         pdcExposure: null,
+        retentionSnapshot: null,
         createdByAuthUserId: createdByAuthUserId,
         createdByExactRole: createdByExactRole,
         createdAt: createdAt,
@@ -627,6 +648,10 @@ final class YorksAccountsClientInvoiceSummary {
     required this.dueState,
     required this.recordVersion,
     required this.updatedAt,
+    this.certificationDate,
+    this.lastReceiptDate,
+    this.replacesReference,
+    this.revisionInProgress = false,
   });
 
   final String invoiceId;
@@ -644,6 +669,17 @@ final class YorksAccountsClientInvoiceSummary {
   final YorksAccountsDueState? dueState;
   final int recordVersion;
   final DateTime updatedAt;
+
+  /// The latest certification and the last receipt still standing, for the
+  /// tracker's Certified column and "days late / on time".
+  final YorksAccountsDate? certificationDate;
+  final YorksAccountsDate? lastReceiptDate;
+
+  /// The invoice this revision replaces, if it is one.
+  final String? replacesReference;
+
+  /// A revision of this invoice is being prepared.
+  final bool revisionInProgress;
 
   factory YorksAccountsClientInvoiceSummary.fromRpcJson(
     Map<String, dynamic> json,
@@ -675,6 +711,10 @@ final class YorksAccountsClientInvoiceSummary {
       dueState: dueState,
       recordVersion: _requiredInt(json, 'record_version'),
       updatedAt: _requiredDateTime(json, 'updated_at'),
+      certificationDate: _optionalDate(json['certification_date']),
+      lastReceiptDate: _optionalDate(json['last_receipt_date']),
+      replacesReference: json['replaces_reference'] as String?,
+      revisionInProgress: json['revision_in_progress'] == true,
     );
   }
 }

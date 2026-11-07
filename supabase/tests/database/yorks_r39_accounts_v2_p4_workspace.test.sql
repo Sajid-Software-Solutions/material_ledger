@@ -67,5 +67,13 @@ select ok(
   (select count(*) from jsonb_array_elements((select payload from v1_r39_p4w where result_key='ws')->'attention') a where a->>'kind'='awaiting_certification') >= 1,
   'Attention flags the submitted invoice awaiting certification');
 
+-- P4 part c: enriched step detail + badges (commercial actor).
+select is((select payload->'steps'->0->'detail'->>'contract_value' from v1_r39_p4w where result_key='ws'),'1000000.00','Setup step detail carries the contract value');
+select is((select payload->'steps'->0->'detail'->>'building_count' from v1_r39_p4w where result_key='ws'),'1','Setup step detail counts 1 building');
+select is((select payload->'steps'->0->'detail'->>'stage_count' from v1_r39_p4w where result_key='ws'),'5','Setup step detail counts 5 stages');
+select is((select payload->'steps'->2->'detail'->>'issued_count' from v1_r39_p4w where result_key='ws'),'1','Invoice step detail counts 1 issued invoice');
+select ok((select payload ? 'badges' from v1_r39_p4w where result_key='ws'),'Workspace returns a badges object');
+select is((select payload->'badges'->>'claims_draft' from v1_r39_p4w where result_key='ws'),'false','No open draft claim after the claim is invoiced');
+
 select finish();
 rollback;

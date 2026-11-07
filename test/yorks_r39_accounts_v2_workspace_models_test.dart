@@ -57,12 +57,7 @@ Map<String, dynamic> _fullWorkspace() => <String, dynamic>{
       'invoiced_percent': '50.0',
     },
   ],
-  'supplier': {
-    'billed': '0',
-    'paid': '0',
-    'unpaid': '0',
-    'overdue_count': 0,
-  },
+  'supplier': {'billed': '0', 'paid': '0', 'unpaid': '0', 'overdue_count': 0},
   'cash': {'received': '0', 'paid_to_suppliers': '0', 'net': '0'},
 };
 
@@ -85,33 +80,85 @@ void main() {
       expect(ws.cash!.net, _d('0'));
     });
 
-    test('omits monetary and supplier blocks when the capability is absent', () {
-      final json = _fullWorkspace()
-        ..remove('money_flow')
-        ..remove('kpis')
-        ..remove('heatmap')
-        ..remove('supplier')
-        ..remove('cash');
-      json['capabilities'] = {
-        'view_project_accounts': true,
-        'view_project_commercial_values': false,
-        'view_supplier_costs': false,
-      };
-      final ws = YorksAccountsWorkspace.fromJson(json);
-      expect(ws.moneyFlow, isNull);
-      expect(ws.kpis, isNull);
-      expect(ws.supplier, isNull);
-      expect(ws.cash, isNull);
-      expect(ws.heatmap, isEmpty);
-      expect(ws.steps, isNotEmpty);
-    });
+    test(
+      'omits monetary and supplier blocks when the capability is absent',
+      () {
+        final json = _fullWorkspace()
+          ..remove('money_flow')
+          ..remove('kpis')
+          ..remove('heatmap')
+          ..remove('supplier')
+          ..remove('cash');
+        json['capabilities'] = {
+          'view_project_accounts': true,
+          'view_project_commercial_values': false,
+          'view_supplier_costs': false,
+        };
+        final ws = YorksAccountsWorkspace.fromJson(json);
+        expect(ws.moneyFlow, isNull);
+        expect(ws.kpis, isNull);
+        expect(ws.supplier, isNull);
+        expect(ws.cash, isNull);
+        expect(ws.heatmap, isEmpty);
+        expect(ws.steps, isNotEmpty);
+      },
+    );
 
     test('rejects a money field delivered as a JSON number', () {
       final json = _fullWorkspace();
       // Inject a JSON number (not a decimal string) for a money field.
       json['kpis'] = Map<String, dynamic>.from(json['kpis'] as Map)
         ..['invoiced'] = 50000;
-      expect(() => YorksAccountsWorkspace.fromJson(json), throwsFormatException);
+      expect(
+        () => YorksAccountsWorkspace.fromJson(json),
+        throwsFormatException,
+      );
+    });
+
+    test('parses per-step detail figures and the tab badges', () {
+      final json = _fullWorkspace();
+      json['steps'] = [
+        {
+          'key': 'setup',
+          'state': 'done',
+          'detail': {
+            'contract_value': '1000000.00',
+            'building_count': 4,
+            'stage_count': 5,
+          },
+        },
+        {
+          'key': 'progress',
+          'state': 'current',
+          'detail': {'claim_reference': 'Claim #03', 'claim_gross': '27507.00'},
+        },
+        {
+          'key': 'invoice',
+          'state': '',
+          'detail': {'issued_count': 2, 'latest_reference': 'YRA32202R.1'},
+        },
+        {'key': 'paid', 'state': ''},
+      ];
+      json['badges'] = {'claims_draft': true, 'supplier_count': 3};
+      final ws = YorksAccountsWorkspace.fromJson(json);
+      final setup = ws.steps[0].detail!;
+      expect(setup.contractValue, _d('1000000.00'));
+      expect(setup.buildingCount, 4);
+      expect(setup.stageCount, 5);
+      expect(ws.steps[1].detail!.claimReference, 'Claim #03');
+      expect(ws.steps[1].detail!.claimGross, _d('27507.00'));
+      expect(ws.steps[2].detail!.issuedCount, 2);
+      expect(ws.steps[2].detail!.latestReference, 'YRA32202R.1');
+      expect(ws.steps[3].detail, isNull); // no detail → label-only
+      expect(ws.badges.claimsDraft, isTrue);
+      expect(ws.badges.supplierCount, 3);
+    });
+
+    test('defaults badges to empty and step detail to null when absent', () {
+      final ws = YorksAccountsWorkspace.fromJson(_fullWorkspace());
+      expect(ws.steps.first.detail, isNull);
+      expect(ws.badges.claimsDraft, isFalse);
+      expect(ws.badges.supplierCount, isNull);
     });
   });
 }

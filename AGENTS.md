@@ -233,7 +233,10 @@ label combines those concepts.
 ## Security rules
 
 - UI hiding is not security. Enforce every boundary in RLS and trusted RPCs.
-- Project/Site Engineers receive no restricted commercial values by default.
+- Site Engineers receive no restricted commercial values by default. Project
+  Engineers see Accounts commercial values by default (owner decision, 7 November
+  2026, `PRODUCT_DECISIONS.md` section 29). Supplier costs and Material Request
+  commercial columns keep their own controls.
 - Commercial values live in protected relations/views and role-safe response
   shapes.
 - Every RLS change requires positive and negative tests for Project Engineer,

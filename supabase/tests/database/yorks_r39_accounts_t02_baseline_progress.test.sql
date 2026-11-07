@@ -1213,11 +1213,11 @@ select ok(
   ) -> 'baseline') ? 'contract_value'
   and (public.v1_get_project_commercial_baseline(
     '39210000-0000-4000-8000-000000000001'
-  ) #>> '{commands,revise_baseline}')::boolean = false
+  ) #>> '{commands,revise_baseline}')::boolean = true
   and (public.v1_get_project_commercial_baseline(
     '39210000-0000-4000-8000-000000000001'
   ) #>> '{commands,confirm_progress}')::boolean = false,
-  'Accountant can read protected Accounts values but receives no T02 mutation command'
+  'Accountant reads protected values and may edit the contract (owner decision, 7 Nov 2026), but cannot confirm progress'
 );
 
 select throws_ok(

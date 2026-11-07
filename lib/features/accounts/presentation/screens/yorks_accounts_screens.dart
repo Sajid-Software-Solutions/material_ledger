@@ -1566,7 +1566,9 @@ class _PortfolioKpis extends StatelessWidget {
                   label: item.$1,
                   value: _money(item.$2),
                   onTap: () => onFilter(item.$3),
-                  danger: item.$1 == _t(language, 'still_due'),
+                  danger:
+                      item.$1 == _t(language, 'still_due') &&
+                      item.$2.isPositive,
                 ),
               ),
           ],

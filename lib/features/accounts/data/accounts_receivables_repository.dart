@@ -110,6 +110,21 @@ abstract interface class YorksAccountsReceivablesRepository {
     required String idempotencyKey,
   });
 
+  Future<YorksAccountsReceivablesCommandResult> correctPayment(
+    YorksAccountsPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  });
+
+  Future<YorksAccountsReceivablesCommandResult> correctCertification(
+    YorksAccountsCertificationCorrectionInput input, {
+    required String idempotencyKey,
+  });
+
+  Future<YorksAccountsReceivablesCommandResult> updatePdc(
+    YorksAccountsPdcEditInput input, {
+    required String idempotencyKey,
+  });
+
   Future<YorksAccountsReceivablesCommandResult> createPdc(
     YorksAccountsPdcCreateInput input, {
     required String idempotencyKey,
@@ -527,10 +542,87 @@ final class YorksSupabaseAccountsReceivablesRepository
         'p_reversal_reference': input.reversalReference.trim(),
         'p_reason': input.reason.trim(),
         'p_idempotency_key': idempotencyKey.trim(),
+        if (input.chequeOutcome != null)
+          'p_cheque_outcome': input.chequeOutcome!.wireValue,
       },
       input.projectId,
       idempotencyKey,
       kind: _ReceivablesEntityKind.payment,
+    );
+  }
+
+  @override
+  Future<YorksAccountsReceivablesCommandResult> correctPayment(
+    YorksAccountsPaymentCorrectionInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _command(
+      'v1_correct_client_payment',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_invoice_id': input.invoiceId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_original_payment_id': input.originalPaymentId.trim(),
+        'p_payment_date': input.paymentDate.postgresText,
+        'p_payment_method': input.paymentMethod.trim(),
+        'p_payment_reference': input.paymentReference.trim(),
+        'p_amount': input.amount.postgresText,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      idempotencyKey,
+      kind: _ReceivablesEntityKind.payment,
+    );
+  }
+
+  @override
+  Future<YorksAccountsReceivablesCommandResult> correctCertification(
+    YorksAccountsCertificationCorrectionInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _command(
+      'v1_correct_client_certification',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_invoice_id': input.invoiceId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_certification_reference': input.certificationReference.trim(),
+        'p_certification_date': input.certificationDate.postgresText,
+        'p_certified_ex_vat': input.certifiedExVat.postgresText,
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      idempotencyKey,
+      kind: _ReceivablesEntityKind.certification,
+    );
+  }
+
+  @override
+  Future<YorksAccountsReceivablesCommandResult> updatePdc(
+    YorksAccountsPdcEditInput input, {
+    required String idempotencyKey,
+  }) {
+    if (!input.isValid) return _invalidInput();
+    return _command(
+      'v1_update_client_pdc',
+      {
+        'p_project_id': input.projectId.trim(),
+        'p_pdc_id': input.pdcId.trim(),
+        'p_expected_version': input.expectedVersion,
+        'p_cheque_number': input.chequeNumber.trim(),
+        'p_cheque_date': input.chequeDate.postgresText,
+        'p_amount': input.amount.postgresText,
+        'p_bank_name': _nullableTrimmed(input.bankName),
+        'p_reason': input.reason.trim(),
+        'p_idempotency_key': idempotencyKey.trim(),
+      },
+      input.projectId,
+      idempotencyKey,
+      kind: _ReceivablesEntityKind.pdc,
     );
   }
 

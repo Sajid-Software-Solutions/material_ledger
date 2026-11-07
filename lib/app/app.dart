@@ -220,6 +220,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     yorksV1CompanyMaterialRequestsEnabled:
         yorksV1CompanyMaterialRequestsEnabled,
     yorksV1AccountsEnabled: yorksV1AccountsEnabled,
+    yorksV1AccountsWorkspaceV2Enabled: ref
+        .read(yorksV1FeatureFlagsProvider)
+        .accountsWorkspaceV2,
     yorksV1WorkforceEnabled: yorksV1WorkforceEnabled,
     yorksV1AnalyticsEnabled: yorksV1AnalyticsEnabled,
     yorksV1Role: yorksV1Role,

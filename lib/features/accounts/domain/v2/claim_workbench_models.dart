@@ -22,6 +22,8 @@ final class YorksAccountsWorkbenchItem {
     required this.confirmedQty,
     required this.needsReview,
     required this.itemValue,
+    this.qtyBeforeClaim,
+    this.qtyThisClaim,
   });
 
   factory YorksAccountsWorkbenchItem.fromJson(Map<String, dynamic> json) {
@@ -30,14 +32,24 @@ final class YorksAccountsWorkbenchItem {
       itemKey: json['item_key'] as String,
       itemLabel: json['item_label'] as String,
       displayOrder: (json['display_order'] as num).toInt(),
-      quantity: YorksAccountsDecimal.fromRpcValue(json['quantity'], key: 'item.quantity'),
+      quantity: YorksAccountsDecimal.fromRpcValue(
+        json['quantity'],
+        key: 'item.quantity',
+      ),
       unitCode: json['unit_code'] as String,
-      confirmedQty:
-          YorksAccountsDecimal.fromRpcValue(json['confirmed_qty'], key: 'item.confirmed_qty'),
+      confirmedQty: YorksAccountsDecimal.fromRpcValue(
+        json['confirmed_qty'],
+        key: 'item.confirmed_qty',
+      ),
       needsReview: json['needs_review'] == true,
       itemValue: json.containsKey('item_value')
-          ? YorksAccountsDecimal.fromRpcValue(json['item_value'], key: 'item.item_value')
+          ? YorksAccountsDecimal.fromRpcValue(
+              json['item_value'],
+              key: 'item.item_value',
+            )
           : null,
+      qtyBeforeClaim: _optionalDecimal(json, 'qty_before_claim', 'item'),
+      qtyThisClaim: _optionalDecimal(json, 'qty_this_claim', 'item'),
     );
   }
 
@@ -52,7 +64,20 @@ final class YorksAccountsWorkbenchItem {
 
   /// Present only with view_project_commercial_values.
   final YorksAccountsDecimal? itemValue;
+
+  /// Quantity confirmed before the claim in view, and in it. Absent from an
+  /// older server.
+  final YorksAccountsDecimal? qtyBeforeClaim;
+  final YorksAccountsDecimal? qtyThisClaim;
 }
+
+YorksAccountsDecimal? _optionalDecimal(
+  Map<String, dynamic> json,
+  String key,
+  String owner,
+) => json[key] == null
+    ? null
+    : YorksAccountsDecimal.fromRpcValue(json[key], key: '$owner.$key');
 
 /// One building × stage cell.
 final class YorksAccountsWorkbenchCell {
@@ -73,6 +98,13 @@ final class YorksAccountsWorkbenchCell {
     required this.available,
     required this.overClaimed,
     required this.items,
+    this.suggestedPercent,
+    this.suggestedBy,
+    this.suggestedEvidenceDocumentIds = const [],
+    this.percentBeforeClaim,
+    this.percentThisClaim,
+    this.claimedBeforeClaim,
+    this.thisClaimAmount,
   });
 
   factory YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic> json) {
@@ -80,7 +112,11 @@ final class YorksAccountsWorkbenchCell {
         ? YorksAccountsDecimal.fromRpcValue(json[key], key: 'cell.$key')
         : null;
     final items = (json['items'] as List?)
-        ?.map((e) => YorksAccountsWorkbenchItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        ?.map(
+          (e) => YorksAccountsWorkbenchItem.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
         .toList(growable: false);
     return YorksAccountsWorkbenchCell(
       progressEntryId: json['progress_entry_id'] as String,
@@ -91,7 +127,9 @@ final class YorksAccountsWorkbenchCell {
       stagePosition: (json['stage_position'] as num).toInt(),
       measurementMode: json['measurement_mode'] as String,
       confirmedPercent: YorksAccountsDecimal.fromRpcValue(
-        json['confirmed_percent'], key: 'cell.confirmed_percent'),
+        json['confirmed_percent'],
+        key: 'cell.confirmed_percent',
+      ),
       reviewStatus: json['review_status'] as String,
       recordVersion: (json['record_version'] as num).toInt(),
       stageValue: money('stage_value'),
@@ -100,6 +138,26 @@ final class YorksAccountsWorkbenchCell {
       available: money('available'),
       overClaimed: json['over_claimed'] == true,
       items: items ?? const <YorksAccountsWorkbenchItem>[],
+      suggestedPercent: json['suggested_percent'] == null
+          ? null
+          : YorksAccountsDecimal.fromRpcValue(
+              json['suggested_percent'],
+              key: 'cell.suggested_percent',
+            ),
+      suggestedBy: json['suggested_by'] as String?,
+      suggestedEvidenceDocumentIds:
+          (json['suggested_evidence_document_ids'] as List?)
+              ?.cast<String>()
+              .toList(growable: false) ??
+          const <String>[],
+      percentBeforeClaim: _optionalDecimal(
+        json,
+        'percent_before_claim',
+        'cell',
+      ),
+      percentThisClaim: _optionalDecimal(json, 'percent_this_claim', 'cell'),
+      claimedBeforeClaim: money('claimed_before_claim'),
+      thisClaimAmount: money('this_claim_amount'),
     );
   }
 
@@ -125,6 +183,21 @@ final class YorksAccountsWorkbenchCell {
 
   final List<YorksAccountsWorkbenchItem> items;
 
+  /// A site suggestion still ahead of the confirmed percent, if any.
+  final YorksAccountsDecimal? suggestedPercent;
+  final String? suggestedBy;
+  final List<String> suggestedEvidenceDocumentIds;
+
+  /// Percent confirmed before the claim in view, and in it. Absent from an
+  /// older server.
+  final YorksAccountsDecimal? percentBeforeClaim;
+  final YorksAccountsDecimal? percentThisClaim;
+
+  /// Money claimed on this building and stage before the claim in view, and
+  /// in it. Commercial only.
+  final YorksAccountsDecimal? claimedBeforeClaim;
+  final YorksAccountsDecimal? thisClaimAmount;
+
   bool get isItemsMode => measurementMode == 'items';
 }
 
@@ -144,11 +217,18 @@ final class YorksAccountsWorkbench {
     return YorksAccountsWorkbench(
       projectId: json['project_id'] as String,
       baselineRevisionId: json['baseline_revision_id'] as String?,
-      baselineRevisionNumber: (json['baseline_revision_number'] as num?)?.toInt(),
+      baselineRevisionNumber: (json['baseline_revision_number'] as num?)
+          ?.toInt(),
       cells: ((json['cells'] as List?) ?? const <dynamic>[])
-          .map((e) => YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) => YorksAccountsWorkbenchCell.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
           .toList(growable: false),
-      claim: json['claim'] is Map ? Map<String, dynamic>.from(json['claim'] as Map) : null,
+      claim: json['claim'] is Map
+          ? Map<String, dynamic>.from(json['claim'] as Map)
+          : null,
       capabilities: json['capabilities'] is Map
           ? Map<String, dynamic>.from(json['capabilities'] as Map)
           : const <String, dynamic>{},
@@ -168,6 +248,18 @@ final class YorksAccountsWorkbench {
   final Map<String, dynamic> capabilities;
   final Map<String, dynamic> commands;
 
-  String? get openClaimId => claim == null ? null : claim!['claim_id'] as String?;
-  String? get openClaimStatus => claim == null ? null : claim!['status'] as String?;
+  /// `capabilities` is the server's `v1_accounts_capability_envelope`; `commands`
+  /// is `v1_accounts_receivables_commands`. Read their keys only through these
+  /// getters, so a key name lives in one place.
+  bool get canViewValues => capabilities['can_view_values'] == true;
+  bool get canConfirmProgress => capabilities['can_confirm'] == true;
+  bool get canSuggestProgress => capabilities['can_suggest'] == true;
+  bool get canManageInvoices => commands['submit_invoice'] == true;
+  bool get canPrepareClaim => commands['create_claim_draft'] == true;
+  bool get canCancelClaim => commands['cancel_claim'] == true;
+
+  String? get openClaimId =>
+      claim == null ? null : claim!['claim_id'] as String?;
+  String? get openClaimStatus =>
+      claim == null ? null : claim!['status'] as String?;
 }

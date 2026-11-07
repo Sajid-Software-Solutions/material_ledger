@@ -98,16 +98,16 @@ select ok(exists(
 
 -- ===== Test B: a non-configure actor is denied. =====
 set local role authenticated;
-select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
 select throws_ok(
   $$select public.v1_save_project_commercial_setup(
     '39fb0000-0000-4000-8000-000000000001', 2,
     jsonb_build_object('contract_value','1300000.00','currency_code','AED','vat_rate_percent','5.0000',
       'buildings', jsonb_build_array(jsonb_build_object('building_scope_id','39fb0000-0000-4000-8000-000000000002','allocation_percent','100')),
       'stages', (select stages from v1_r39_stage_tpl)),
-    'PE cannot configure','39f90000-0000-4000-8000-000000000024')$$,
+    'SE cannot configure','39f90000-0000-4000-8000-000000000024')$$,
   '42501','R39_ACCOUNTS_ACCESS_DENIED',
-  'A Project Engineer without configure_project_commercials cannot save the contract');
+  'A Site Engineer without configure_project_commercials cannot save the contract');
 
 -- ===== Test C: item carry-forward caps a reduced quantity and flags needs_review. =====
 reset role;

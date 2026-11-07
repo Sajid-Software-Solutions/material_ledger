@@ -8,8 +8,11 @@ library;
 
 import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
+import '../../domain/v2/claims_list_models.dart';
+import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_repository.dart' show YorksAccountsRpcClient;
 
@@ -47,6 +50,106 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId, 'p_claim_id': claimId},
     );
     return YorksAccountsWorkbench.fromJson(json);
+  }
+
+  /// BOQ folders, their links to Material Supply items, and deliveries.
+  Future<YorksAccountsMaterialSources> getMaterialSources(
+    String projectId,
+  ) async {
+    final json = await _client.invoke(
+      functionName: 'v1_get_accounts_material_sources',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsMaterialSources.fromJson(json);
+  }
+
+  /// Replaces the project's item-to-BOQ-folder links in one step.
+  Future<Map<String, dynamic>> saveMaterialLinks({
+    required String projectId,
+    required List<YorksAccountsMaterialLink> links,
+    required String reason,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_material_boq_links',
+      parameters: {
+        'p_project_id': projectId,
+        'p_links': [for (final l in links) l.toJson()],
+        'p_reason': reason,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+  }
+
+  /// Saves the editable contract references on the project profile.
+  Future<Map<String, dynamic>> saveContractReferences({
+    required String projectId,
+    String? clientTrn,
+    String? workOrderNumber,
+    String? workOrderDate,
+    String? contractNumber,
+    String? retentionPercent,
+    int? expectedVersion,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_contract_references',
+      parameters: {
+        'p_project_id': projectId,
+        'p_client_trn': clientTrn,
+        'p_work_order_number': workOrderNumber,
+        'p_work_order_date': workOrderDate,
+        'p_contract_number': contractNumber,
+        'p_retention_percent': retentionPercent,
+        'p_expected_version': expectedVersion,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+  }
+
+  /// The project's variation (VO) register.
+  Future<YorksAccountsVariationsList> getVariations(String projectId) async {
+    final json = await _client.invoke(
+      functionName: 'v1_list_accounts_variations',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsVariationsList.fromJson(json);
+  }
+
+  /// Creates (variationId null) or edits a variation. Amount is a decimal string.
+  Future<Map<String, dynamic>> saveVariation({
+    required String projectId,
+    String? variationId,
+    required String voNumber,
+    String? description,
+    String? amount,
+    required String status,
+    int? expectedVersion,
+    required String idempotencyKey,
+  }) {
+    return _client.invoke(
+      functionName: 'v1_save_accounts_variation',
+      parameters: {
+        'p_project_id': projectId,
+        'p_variation_id': variationId,
+        'p_vo_number': voNumber,
+        'p_description': description,
+        'p_amount': amount,
+        'p_status': status,
+        'p_expected_version': expectedVersion,
+        'p_idempotency_key': idempotencyKey,
+      },
+    );
+  }
+
+  /// All claims for the project (newest first) for the claim-cards row. Reuses
+  /// the existing commercial-gated `v1_list_client_claims`.
+  Future<YorksAccountsClaimsList> getClaimsList(String projectId) async {
+    final json = await _client.invoke(
+      functionName: 'v1_list_client_claims',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsClaimsList.fromJson(json);
   }
 
   Future<YorksClientInvoiceDocument> getInvoiceDocument(

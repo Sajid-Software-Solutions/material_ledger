@@ -69,8 +69,8 @@ final class YorksAccountsProjectPdc {
   }
 
   /// Transitions the server accepts from the cheque's current state, in the
-  /// order the register offers them. Terminal states (cleared / replaced /
-  /// returned / cancelled) return an empty list.
+  /// order the register offers them. Every state can be walked back except a
+  /// replaced cheque, which its replacement stands in for.
   List<YorksAccountsPdcStatus> get nextStatuses {
     switch (status) {
       case YorksAccountsPdcStatus.expected:
@@ -84,21 +84,49 @@ final class YorksAccountsProjectPdc {
           YorksAccountsPdcStatus.returned,
           YorksAccountsPdcStatus.bounced,
           YorksAccountsPdcStatus.cancelled,
+          YorksAccountsPdcStatus.expected,
         ];
       case YorksAccountsPdcStatus.deposited:
         return const [
           YorksAccountsPdcStatus.cleared,
           YorksAccountsPdcStatus.returned,
           YorksAccountsPdcStatus.bounced,
+          YorksAccountsPdcStatus.received,
         ];
       case YorksAccountsPdcStatus.cleared:
-      case YorksAccountsPdcStatus.replaced:
+        return const [
+          YorksAccountsPdcStatus.deposited,
+          YorksAccountsPdcStatus.bounced,
+          YorksAccountsPdcStatus.returned,
+        ];
       case YorksAccountsPdcStatus.returned:
       case YorksAccountsPdcStatus.bounced:
+        return const [
+          YorksAccountsPdcStatus.received,
+          YorksAccountsPdcStatus.cancelled,
+        ];
       case YorksAccountsPdcStatus.cancelled:
+        return const [YorksAccountsPdcStatus.expected];
+      case YorksAccountsPdcStatus.replaced:
         return const [];
     }
   }
+
+  /// Whether moving to [target] walks a step back. The server wants a reason.
+  bool isBackwardMove(YorksAccountsPdcStatus target) =>
+      status == YorksAccountsPdcStatus.cleared ||
+      status == YorksAccountsPdcStatus.returned ||
+      status == YorksAccountsPdcStatus.bounced ||
+      status == YorksAccountsPdcStatus.cancelled ||
+      (status == YorksAccountsPdcStatus.received &&
+          target == YorksAccountsPdcStatus.expected) ||
+      (status == YorksAccountsPdcStatus.deposited &&
+          target == YorksAccountsPdcStatus.received);
+
+  /// A cleared cheque has its clearing undone before its details change.
+  bool get canEditDetails =>
+      status != YorksAccountsPdcStatus.cleared &&
+      status != YorksAccountsPdcStatus.replaced;
 }
 
 /// The whole project cheque register.

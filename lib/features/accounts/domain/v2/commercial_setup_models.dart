@@ -12,7 +12,11 @@ import '../accounts_decimal.dart';
 
 /// Result of one setup mirror check.
 final class YorksAccountsSetupCheck {
-  const YorksAccountsSetupCheck({required this.key, required this.ok, required this.detail});
+  const YorksAccountsSetupCheck({
+    required this.key,
+    required this.ok,
+    required this.detail,
+  });
 
   final String key;
   final bool ok;
@@ -88,7 +92,8 @@ final class YorksAccountsSetupStage {
     'allocation_percent': allocationPercent.postgresText,
     'position': position,
     'measurement_mode': measurementMode,
-    if (isItemsMode) 'items': items.map((e) => e.toJson()).toList(growable: false),
+    if (isItemsMode)
+      'items': items.map((e) => e.toJson()).toList(growable: false),
   };
 }
 
@@ -116,7 +121,8 @@ final class YorksAccountsCommercialSetup {
 
   YorksAccountsDecimal get buildingTotal =>
       _sum(buildings.map((b) => b.allocationPercent));
-  YorksAccountsDecimal get stageTotal => _sum(stages.map((s) => s.allocationPercent));
+  YorksAccountsDecimal get stageTotal =>
+      _sum(stages.map((s) => s.allocationPercent));
 
   /// Additive mirror checks. The server remains authoritative; the per-building
   /// item-weight rule is not mirrored here (it is server-enforced).
@@ -133,12 +139,14 @@ final class YorksAccountsCommercialSetup {
       YorksAccountsSetupCheck(
         key: 'buildings_total',
         ok: buildings.isNotEmpty && buildingTotal == hundred,
-        detail: 'Currently ${buildingTotal.displayText(maximumFractionDigits: 2)}%',
+        detail:
+            'Currently ${buildingTotal.displayText(maximumFractionDigits: 2)}%',
       ),
       YorksAccountsSetupCheck(
         key: 'stages_total',
         ok: stageTotal == hundred,
-        detail: 'Currently ${stageTotal.displayText(maximumFractionDigits: 2)}%',
+        detail:
+            'Currently ${stageTotal.displayText(maximumFractionDigits: 2)}%',
       ),
     ];
   }
