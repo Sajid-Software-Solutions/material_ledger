@@ -532,9 +532,17 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              inv.invoiceReference,
-              style: v2Style(12.5, weight: FontWeight.w700),
+            // An invoice number never breaks ("YRA32202R" / ".1"): on a narrow
+            // column it shrinks to fit instead.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                inv.invoiceReference,
+                maxLines: 1,
+                softWrap: false,
+                style: v2Style(12.5, weight: FontWeight.w700),
+              ),
             ),
             Text(
               [
