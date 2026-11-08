@@ -260,7 +260,7 @@ are lost, the audit events stay.
 | Check | Result |
 |---|---|
 | `flutter analyze` | Clean |
-| `flutter test` | 2,715 pass, 4 skipped, **2 fail** |
+| `flutter test` | 2,717 pass, 4 skipped, **2 fail** (after the History file-name and local-time fix) |
 | `supabase db reset` + `supabase test db` | 142 files, 4,006 tests pass |
 | Web build with startup budget | Passes |
 | APK with CI ephemeral signing | Builds; not a release artifact |

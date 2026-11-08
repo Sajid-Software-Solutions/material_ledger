@@ -324,6 +324,8 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
       ?text('supplier_name'),
       ?text('cheque_number'),
       ?text('payment_reference'),
+      // An import names the workbook it came from.
+      ?text('original_file_name'),
     ];
     if (a['confirmed_percent'] != null) {
       parts.add(v2Pct(v2Number(a['confirmed_percent'])));
@@ -494,7 +496,13 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
                 title: _title(item.entry),
                 detail: _detail(item.entry, count: item.count),
                 by: '${_t('v2h_by')} ${item.entry.actorDisplayName}',
-                businessDate: item.entry.businessDate,
+                // Only a date the record names (an invoice, cheque or claim
+                // date) differs from when it was recorded. Without one the
+                // server dates the entry in UAE time, which is not "another
+                // day" for someone reading in a different time zone.
+                businessDate: item.entry.context?['business_date'] == null
+                    ? null
+                    : item.entry.businessDate,
                 recorded: item.entry.occurredAt.toLocal(),
                 recordedLabel: _t('v2h_recorded'),
                 files: [

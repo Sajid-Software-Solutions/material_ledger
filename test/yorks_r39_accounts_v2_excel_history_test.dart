@@ -131,6 +131,8 @@ YorksAccountsActivityEntry _entry(
   String entityId = 'x',
   String? businessDate,
   Map<String, dynamic>? context,
+  Map<String, dynamic>? afterData,
+  String? reason,
   DateTime? at,
 }) => YorksAccountsActivityEntry(
   id: id,
@@ -142,8 +144,13 @@ YorksAccountsActivityEntry _entry(
   actorDisplayName: 'Owner',
   actorExactRole: 'admin',
   occurredAt: at ?? DateTime(2026, 11, 8, 9, 30),
+  reason: reason,
+  afterData: afterData,
   businessDate: businessDate,
-  context: context,
+  // As the server sends it: a date the record names is also in the context.
+  context: context == null
+      ? null
+      : {...context, 'business_date': ?businessDate},
 );
 
 Widget _wrap(Widget child) => MaterialApp(
@@ -408,6 +415,75 @@ void main() {
       await pump(tester);
       expect(find.textContaining('19 Jan 2026'), findsWidgets);
       expect(find.textContaining('Recorded 08 Nov 2026'), findsWidgets);
+    });
+
+    Future<void> pumpOne(
+      WidgetTester tester,
+      YorksAccountsActivityEntry entry,
+    ) async {
+      tester.view.physicalSize = const Size(1300, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2HistoryTab(
+            projection: YorksAccountsActivityProjection(
+              projectId: 'p1',
+              total: 1,
+              limit: 100,
+              offset: 0,
+              entries: [entry],
+            ),
+            language: _en,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an entry with no date of its own shows when it was recorded', (
+      tester,
+    ) async {
+      // Exported at 00:58 local time on 27 Sep; the server dates it 26 Sep
+      // (UAE time) because the export names no date of its own.
+      await pumpOne(
+        tester,
+        YorksAccountsActivityEntry(
+          id: 'e1',
+          eventType: 'accounts.export.generated',
+          entityType: 'accounts_export',
+          entityId: 'x1',
+          projectId: 'p1',
+          actorAuthUserId: 'u1',
+          actorDisplayName: 'Owner',
+          actorExactRole: 'admin',
+          occurredAt: DateTime(2026, 9, 27, 0, 58),
+          businessDate: '2026-09-26',
+        ),
+      );
+      expect(find.textContaining('27 Sep 2026'), findsOneWidget);
+      expect(find.textContaining('00:58'), findsOneWidget);
+      expect(find.textContaining('26 Sep 2026'), findsNothing);
+      expect(find.textContaining('Recorded'), findsNothing);
+    });
+
+    testWidgets('an import names the workbook it came from', (tester) async {
+      await pumpOne(
+        tester,
+        _entry(
+          's1',
+          'accounts.source_import.applied',
+          reason: 'YRA-322 history from the signed invoices',
+          afterData: {'original_file_name': 'INVOICE#02R.1.xlsx'},
+        ),
+      );
+      expect(
+        find.text(
+          'INVOICE#02R.1.xlsx · YRA-322 history from the signed invoices',
+        ),
+        findsOneWidget,
+      );
     });
   });
 
