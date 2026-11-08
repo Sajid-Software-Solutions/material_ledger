@@ -258,6 +258,20 @@ are lost, the audit events stay.
 - **Phone layout.** The per-item contract table scrolls sideways, and KPI tiles
   are tall.
 
+## Gates (local, 9 November 2026, claim rights and the invoice item sheets)
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | Clean |
+| `flutter test` | 2,721 pass, 4 skipped, **2 fail** (the same R38.4 rental register goldens) |
+| `supabase db reset` + `supabase test db` | 143 files, 4,052 tests pass |
+| Web build with startup budget | Passes |
+
+Applied by hand on 9 November 2026: staging, then production (files 32 and 33
+only, after checking that the live definitions of the three replaced functions
+matched the repository). Production web `dpl_6TH2qa1CTRLoAYQg5jsBeteCz992`;
+rollback target `dpl_2SSWkyuWKzb8ZT9SGPrfeUHPhgLJ`.
+
 ## Gates (local, 8 November 2026, with Excel rounding, the signed invoice layout and History dates)
 
 | Check | Result |
