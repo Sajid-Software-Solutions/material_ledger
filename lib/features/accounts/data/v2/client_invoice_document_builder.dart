@@ -1161,13 +1161,17 @@ final class _Ctx {
     final breakdown = installation
         ? 'Total Breakdown of Material Installation'
         : 'Total Breakdown of Delivered Materials';
-    out.add(_miniHeader('${label.toUpperCase()} — PER BUILDING'));
+    // One building per page, as the workbook prints its sheets.
     for (final (i, (bi, b, st)) in sheets.indexed) {
       final letter = String.fromCharCode(65 + (bi % 26));
       out
+        ..addAll([
+          if (i > 0) pw.NewPage(),
+          _miniHeader('${label.toUpperCase()} — PER BUILDING'),
+        ])
         ..add(
           pw.Padding(
-            padding: pw.EdgeInsets.only(top: i == 0 ? 2 : 10, bottom: 4),
+            padding: const pw.EdgeInsets.only(top: 2, bottom: 4),
             child: pw.Text(
               '($letter) $title (${b.name})',
               style: _st(8.5, bold: true),
@@ -1177,13 +1181,18 @@ final class _Ctx {
         ..add(_itemTable(letter, breakdown, st));
     }
     if (sheets.length > 1) {
+      // The stage's money across buildings is the Main Summary's (rounded
+      // once from the exact sum), so it equals the invoice to the fil.
+      YorksClientInvoiceSummaryStage? summary;
+      for (final s in doc.summary?.stages ?? const []) {
+        if (s.stageKey == stageKey) summary = s;
+      }
       out
         ..add(pw.SizedBox(height: 10))
         ..add(
-          _itemGrandTotal(
-            'TOTAL — ${[for (final s in sheets) s.$2.name].join(' + ')}',
-            [for (final s in sheets) s.$3],
-          ),
+          _itemGrandTotal('TOTAL — ALL BUILDINGS', [
+            for (final s in sheets) s.$3,
+          ], summary: summary),
         );
     }
     return out;
@@ -1458,17 +1467,24 @@ final class _Ctx {
 
   pw.TableRow _itemTotalRow(
     String label,
-    List<YorksClientInvoiceItemStage> sts,
-  ) {
+    List<YorksClientInvoiceItemStage> sts, {
+    YorksClientInvoiceSummaryStage? summary,
+  }) {
     double sum(double Function(YorksClientInvoiceItemStage) f) =>
         sts.fold<double>(0, (a, s) => a + f(s));
     double items(
       YorksClientInvoiceItemStage s,
       YorksAccountsDecimal Function(YorksClientInvoiceItemRow) f,
     ) => s.items.fold<double>(0, (a, i) => a + _n(f(i)));
-    final prev = sum((s) => _n(s.previousAmount));
-    final now = sum((s) => _n(s.thisAmount));
-    final total = sum((s) => _n(s.totalAmount));
+    final prev = summary != null
+        ? _n(summary.previousAmount)
+        : sum((s) => _n(s.previousAmount));
+    final now = summary != null
+        ? _n(summary.thisAmount)
+        : sum((s) => _n(s.thisAmount));
+    final total = summary != null
+        ? _n(summary.totalAmount)
+        : sum((s) => _n(s.totalAmount));
     String amount(double v) => YorksClientInvoiceDocumentBuilder.money(
       YorksAccountsDecimal.parse(v.toStringAsFixed(2)),
     );
@@ -1524,11 +1540,12 @@ final class _Ctx {
 
   pw.Widget _itemGrandTotal(
     String label,
-    List<YorksClientInvoiceItemStage> sts,
-  ) => pw.Table(
+    List<YorksClientInvoiceItemStage> sts, {
+    YorksClientInvoiceSummaryStage? summary,
+  }) => pw.Table(
     border: _border,
     columnWidths: _itemColumns,
-    children: [_itemTotalRow(label, sts)],
+    children: [_itemTotalRow(label, sts, summary: summary)],
   );
 
   // ─── Footer on every page ────────────────────────────────────────────────
