@@ -682,8 +682,14 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   }
 
   void _discard() => setState(() {
-    _resetEdits();
-    if (_newClaim && !_dirty) _newClaim = false;
+    // Leaving a new claim rebuilds the rows for the claim in view, so its
+    // figures replace the new claim's (top-ups, available amounts).
+    if (_newClaim) {
+      _newClaim = false;
+      _rebuild(resetEdits: true);
+    } else {
+      _resetEdits();
+    }
   });
 
   Future<void> _save() async {

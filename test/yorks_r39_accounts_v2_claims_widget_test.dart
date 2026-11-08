@@ -281,6 +281,14 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('22,336.70'), findsWidgets);
+
+      // Discard goes back to the claim in view without the new claim's money.
+      await _tap(tester, find.text(t('v2c_discard')).first);
+      expect(
+        find.text(t('v2p_topup_note').replaceAll('{amount}', 'AED 22,336.70')),
+        findsNothing,
+      );
+      expect(find.textContaining('22,336.70'), findsNothing);
     });
   });
 
