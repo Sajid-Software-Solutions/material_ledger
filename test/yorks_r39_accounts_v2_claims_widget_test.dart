@@ -216,6 +216,74 @@ void main() {
   const en = AppLanguage.english;
   String t(String key) => accountsV2Text(en, key);
 
+  // YRA-322 after the contract correction: Design was 100% done and billed at
+  // the old value (429,800); at the corrected value the stage is 452,136.70.
+  YorksAccountsWorkbench corrected({required bool invoiced}) {
+    final json = _workbenchJson(withClaim: invoiced, claimStatus: 'invoiced');
+    final design = (json['cells'] as List).first as Map<String, dynamic>;
+    design
+      ..['confirmed_percent'] = '100.0000'
+      ..['percent_before_claim'] = '100.0000'
+      ..['percent_this_claim'] = '0'
+      ..['stage_value'] = '452136.70'
+      ..['eligible'] = '452136.70'
+      ..['claimed'] = '429800.00'
+      ..['available'] = '22336.70'
+      ..['claimed_before_claim'] = '429800.00'
+      ..['this_claim_amount'] = '0.00';
+    if (invoiced) {
+      (json['claim'] as Map<String, dynamic>)['lines'] = [
+        {'progress_entry_id': 'pe-material'},
+      ];
+    }
+    return YorksAccountsWorkbench.fromJson(json);
+  }
+
+  group('contract correction', () {
+    testWidgets('a stage finished before it still reads 100% done', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: corrected(invoiced: true),
+            language: en,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('100.0%'), findsWidgets);
+      expect(find.text('95.1%'), findsNothing);
+      // An invoiced claim shows what it billed; no top-up note.
+      expect(find.textContaining('22,336.70'), findsNothing);
+    });
+
+    testWidgets('a new claim carries the top-up and says why', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: corrected(invoiced: false),
+            language: en,
+            canRecordProgress: true,
+            onSaveWorkbench: _noSave,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, find.textContaining(t('v2p_start_claim')).first);
+      // Open Design to see its editor.
+      await _tap(tester, find.text('Design').first);
+      expect(find.text('100.0%'), findsWidgets);
+      expect(
+        find.text(t('v2p_topup_note').replaceAll('{amount}', 'AED 22,336.70')),
+        findsOneWidget,
+      );
+      expect(find.text('22,336.70'), findsWidgets);
+    });
+  });
+
   group('AccountsV2ClaimsTab layout', () {
     testWidgets('renders KPIs, the workbench and the claim details', (
       tester,
@@ -250,8 +318,9 @@ void main() {
       await tester.pumpAndSettle();
       // Design has this claim's progress, so it opens by itself.
       expect(find.text(t('v2p_col_done_before').toUpperCase()), findsOneWidget);
-      final lump = tester.widget<AccountsV2CellInput>(_input(0));
-      expect(lump.controller.text, '50');
+      // Read-only here (no capability), so this claim's % is plain text.
+      expect(find.byType(AccountsV2CellInput), findsNothing);
+      expect(find.text('50'), findsWidgets);
       expect(find.text('50,000.00'), findsWidgets);
     });
 
@@ -522,7 +591,9 @@ void main() {
         _wrap(AccountsV2ClaimsTab(workbench: _wb(), language: en)),
       );
       await tester.pumpAndSettle();
-      expect(tester.widget<AccountsV2CellInput>(_input(0)).enabled, isFalse);
+      // Read-only cells are text, not disabled boxes.
+      expect(find.byType(AccountsV2CellInput), findsNothing);
+      expect(find.text('50'), findsWidgets);
       expect(find.text(t('v2p_max')).hitTestable(), findsNothing);
     });
 
@@ -541,7 +612,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(tester.widget<AccountsV2CellInput>(_input(0)).enabled, isFalse);
+      expect(find.byType(AccountsV2CellInput), findsNothing);
     });
 
     testWidgets('a site suggestion can be used in one tap', (tester) async {

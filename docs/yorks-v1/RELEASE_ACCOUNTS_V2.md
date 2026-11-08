@@ -15,7 +15,10 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   Supplier bills · History. PR #54 merged the first version; PR #55 adds the
   later features and fixes, and the bundle grows from 12 to 30 migrations. The
   8 November release adds a 31st (Excel rounding, the signed invoice layout and
-  History dates).
+  History dates). The 9 November release adds a 32nd (claim rights for Admin
+  and the organization-wide engineering roles) and a 33rd (the invoice's
+  per-building Material and Installation sheets); see `PRODUCT_DECISIONS.md`
+  §31.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.
@@ -36,7 +39,7 @@ of the live schema. Because of that:
   is separate.
 
 **Apply `supabase/release/accounts_v2_bundle.sql` by hand instead.** It holds all
-31 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
+33 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
 rolls the whole script back.
 
 A database may already have some of the V2 migrations, for example the first 12.

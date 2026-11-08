@@ -204,6 +204,119 @@ final class YorksClientInvoiceBuildingStage {
   final YorksAccountsDecimal totalAmount;
 }
 
+/// One item row of a building's Material or Installation sheet: quantity,
+/// % of contract and amount till the previous invoice, this one and to date.
+final class YorksClientInvoiceItemRow {
+  const YorksClientInvoiceItemRow({
+    required this.itemKey,
+    required this.itemLabel,
+    required this.quantity,
+    required this.unitCode,
+    required this.weightPercent,
+    required this.contractAmount,
+    required this.previousQty,
+    required this.previousPercent,
+    required this.previousAmount,
+    required this.thisQty,
+    required this.thisPercent,
+    required this.thisAmount,
+    required this.totalQty,
+    required this.totalPercent,
+    required this.totalAmount,
+  });
+
+  factory YorksClientInvoiceItemRow.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'item.$k');
+    return YorksClientInvoiceItemRow(
+      itemKey: json['item_key'] as String? ?? '',
+      itemLabel: json['item_label'] as String? ?? '',
+      quantity: d('quantity'),
+      unitCode: json['unit_code'] as String? ?? '',
+      weightPercent: d('weight_percent'),
+      contractAmount: d('contract_amount'),
+      previousQty: d('previous_qty'),
+      previousPercent: d('previous_percent'),
+      previousAmount: d('previous_amount'),
+      thisQty: d('this_qty'),
+      thisPercent: d('this_percent'),
+      thisAmount: d('this_amount'),
+      totalQty: d('total_qty'),
+      totalPercent: d('total_percent'),
+      totalAmount: d('total_amount'),
+    );
+  }
+
+  final String itemKey;
+  final String itemLabel;
+  final YorksAccountsDecimal quantity;
+  final String unitCode;
+  final YorksAccountsDecimal weightPercent;
+  final YorksAccountsDecimal contractAmount;
+  final YorksAccountsDecimal previousQty;
+  final YorksAccountsDecimal previousPercent;
+  final YorksAccountsDecimal previousAmount;
+  final YorksAccountsDecimal thisQty;
+  final YorksAccountsDecimal thisPercent;
+  final YorksAccountsDecimal thisAmount;
+  final YorksAccountsDecimal totalQty;
+  final YorksAccountsDecimal totalPercent;
+  final YorksAccountsDecimal totalAmount;
+}
+
+/// One items-mode stage of a building (Material Supply, Installation) with
+/// its item rows. The stage amounts are what the invoices billed; when work
+/// was billed before a contract correction, the adjustment is the part the
+/// items at today's values do not explain, so the rows still add up.
+final class YorksClientInvoiceItemStage {
+  const YorksClientInvoiceItemStage({
+    required this.stageKey,
+    required this.stageLabel,
+    required this.contractAmount,
+    required this.weightPercent,
+    required this.items,
+    required this.adjustmentPreviousAmount,
+    required this.adjustmentThisAmount,
+    required this.previousAmount,
+    required this.thisAmount,
+    required this.totalAmount,
+  });
+
+  factory YorksClientInvoiceItemStage.fromJson(Map<String, dynamic> json) {
+    YorksAccountsDecimal d(String k) =>
+        YorksAccountsDecimal.fromRpcValue(json[k], key: 'item_stage.$k');
+    return YorksClientInvoiceItemStage(
+      stageKey: json['stage_key'] as String? ?? '',
+      stageLabel: json['stage_label'] as String?,
+      contractAmount: d('contract_amount'),
+      weightPercent: d('weight_percent'),
+      items: ((json['items'] as List?) ?? const <dynamic>[])
+          .map(
+            (e) => YorksClientInvoiceItemRow.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false),
+      adjustmentPreviousAmount: d('adjustment_previous_amount'),
+      adjustmentThisAmount: d('adjustment_this_amount'),
+      previousAmount: d('previous_amount'),
+      thisAmount: d('this_amount'),
+      totalAmount: d('total_amount'),
+    );
+  }
+
+  final String stageKey;
+  final String? stageLabel;
+  final YorksAccountsDecimal contractAmount;
+  final YorksAccountsDecimal weightPercent;
+  final List<YorksClientInvoiceItemRow> items;
+  final YorksAccountsDecimal adjustmentPreviousAmount;
+  final YorksAccountsDecimal adjustmentThisAmount;
+  final YorksAccountsDecimal previousAmount;
+  final YorksAccountsDecimal thisAmount;
+  final YorksAccountsDecimal totalAmount;
+}
+
 /// One building's breakdown (share, value and its stage rows).
 final class YorksClientInvoiceBuilding {
   const YorksClientInvoiceBuilding({
@@ -215,6 +328,7 @@ final class YorksClientInvoiceBuilding {
     required this.thisAmount,
     required this.totalAmount,
     required this.stages,
+    this.itemStages = const [],
   });
 
   factory YorksClientInvoiceBuilding.fromJson(Map<String, dynamic> json) {
@@ -235,6 +349,14 @@ final class YorksClientInvoiceBuilding {
             ),
           )
           .toList(growable: false),
+      // Absent on invoices issued before the item rows were stored.
+      itemStages: ((json['item_stages'] as List?) ?? const <dynamic>[])
+          .map(
+            (e) => YorksClientInvoiceItemStage.fromJson(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 
@@ -246,6 +368,10 @@ final class YorksClientInvoiceBuilding {
   final YorksAccountsDecimal thisAmount;
   final YorksAccountsDecimal totalAmount;
   final List<YorksClientInvoiceBuildingStage> stages;
+
+  /// The Material and Installation sheets of this building (items-mode
+  /// stages), in stage order.
+  final List<YorksClientInvoiceItemStage> itemStages;
 
   /// Completion % of the building to date (total ÷ value × 100) as a
   /// presentation-only double, 0 when the building has no value. Money stays

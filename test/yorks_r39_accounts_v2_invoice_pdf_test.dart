@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/accounts/data/v2/client_invoice_document_builder.dart';
 import 'package:material_ledger/features/accounts/domain/v2/client_invoice_document_models.dart';
@@ -122,8 +124,77 @@ Map<String, dynamic> _docJson() => {
   ],
 };
 
+/// The workbook's Material sheet rows for a building: two plain items and a
+/// "Ducting" group, plus a contract-correction adjustment.
+List<Map<String, dynamic>> _itemStages() => [
+  {
+    'stage_key': 'material_supply',
+    'stage_label': 'Material Supply',
+    'contract_amount': '500000.00',
+    'weight_percent': '25.000000',
+    'adjustment_previous_amount': '-1200.00',
+    'adjustment_this_amount': '1200.00',
+    'previous_amount': '98800.00',
+    'this_amount': '401200.00',
+    'total_amount': '500000.00',
+    'items': [
+      for (final (key, label, qty, unit, prev, now) in [
+        ('1', 'AC Units (Package Unit)', '6.0000', 'Nos', '2.0000', '4.0000'),
+        ('2', 'Motorized Fire Dampers', '55.0000', 'Nos', '0', '20.0000'),
+        ('10-1', 'Ducting — Basement Floor', '1.0000', 'Lot', '0', '0.5000'),
+        ('10-2', 'Ducting — Ground Floor', '1.0000', 'Lot', '0', '0'),
+      ])
+        {
+          'item_key': key,
+          'item_label': label,
+          'quantity': qty,
+          'unit_code': unit,
+          'weight_percent': '5.000000',
+          'contract_amount': '100000.00',
+          'previous_qty': prev,
+          'previous_percent': '1.6667',
+          'previous_amount': '33333.33',
+          'this_qty': now,
+          'this_percent': '3.3333',
+          'this_amount': '66666.67',
+          'total_qty': '6.0000',
+          'total_percent': '5.0000',
+          'total_amount': '100000.00',
+        },
+    ],
+  },
+];
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('item rows parse and print as Material sheets per building', () async {
+    final json = _docJson();
+    for (final b in (json['buildings'] as List).cast<Map<String, dynamic>>()) {
+      b['item_stages'] = _itemStages();
+    }
+    final model = YorksClientInvoiceDocumentModel.fromJson(json);
+    final a = model.buildings.first;
+    expect(a.itemStages, hasLength(1));
+    final st = a.itemStages.single;
+    expect(st.items, hasLength(4));
+    expect(st.items.first.thisQty.canonicalText, '4');
+    expect(st.adjustmentThisAmount.canonicalText, '1200');
+
+    final withItems = await YorksClientInvoiceDocumentBuilder.build(model);
+    final without = await YorksClientInvoiceDocumentBuilder.build(
+      YorksClientInvoiceDocumentModel.fromJson(_docJson()),
+    );
+    expect(String.fromCharCodes(withItems.take(4)), '%PDF');
+    expect(withItems.length, greaterThan(without.length));
+    final out = Platform.environment['YORKS_INVOICE_PDF_OUT'];
+    if (out != null) File(out).writeAsBytesSync(withItems);
+  });
+
+  test('a snapshot without item rows keeps the stage breakdown', () {
+    final model = YorksClientInvoiceDocumentModel.fromJson(_docJson());
+    expect(model.buildings.every((b) => b.itemStages.isEmpty), isTrue);
+  });
 
   test('builds a non-empty PDF from the frozen invoice snapshot', () async {
     final model = YorksClientInvoiceDocumentModel.fromJson(_docJson());

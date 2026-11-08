@@ -191,11 +191,6 @@ final class _Stage {
   final bool byItems;
 }
 
-YorksAccountsDecimal _dec(double value, [int digits = 4]) {
-  final fixed = (value < 0 ? 0.0 : value).toStringAsFixed(digits);
-  return YorksAccountsDecimal.tryParse(fixed) ?? YorksAccountsDecimal.zero;
-}
-
 double _d(YorksAccountsDecimal? value) =>
     value == null ? 0 : v2Number(value.canonicalText);
 
@@ -378,15 +373,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       thisAmount = _d(c.available);
       thisExact = _d(c.availableExact ?? c.available);
     }
-    // With money, a lump-sum split follows the claimed amounts exactly, so the
-    // percent and the amount always agree.
-    if (_values && stageValue > 0 && !c.isItemsMode) {
-      beforePct = _dec(beforeAmount / stageValue * 100);
-      final rest = newMode
-          ? _d(c.confirmedPercent) - beforeAmount / stageValue * 100
-          : thisAmount / stageValue * 100;
-      thisPct = _dec(rest < 0 ? 0 : rest);
-    }
+    // Progress is the confirmed percent, not money: a stage finished before a
+    // contract correction stays 100% done even though it was billed at the
+    // old value. The difference is a top-up (see _topUp), not progress.
     final items = <_ItemView>[
       for (final item in [
         ...c.items,
@@ -499,22 +488,51 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     return total <= 0 ? 0 : _itemValue(i) * qty / total;
   }
 
+  /// Value of the progress done before the claim, at today's contract.
+  double _beforeValue(_CellView v) {
+    if (v.cell.isItemsMode) {
+      return v.items.fold<double>(
+        0,
+        (a, i) => a + _itemAmount(i, _d(i.before)),
+      );
+    }
+    return v.stageValue * _d(v.beforePct) / 100;
+  }
+
+  /// Money owed on work already done before the claim: after a contract
+  /// correction, finished work is worth more than was billed for it. An open
+  /// claim carries the difference; an invoiced one shows what it billed.
+  double _topUp(_CellView v) {
+    if (!_values || (_status != 'new' && _status != 'draft')) return 0;
+    final gap = _beforeValue(v) - v.beforeAmount;
+    return gap > 0.005 ? gap : 0;
+  }
+
   /// This claim's money for a cell: the server's figure until it is edited.
   double _liveAmount(_CellView v) {
     if (!_cellEdited(v)) return v.thisAmount;
     if (v.cell.isItemsMode) {
-      return v.items.fold<double>(
-        0,
-        (a, i) => a + _itemAmount(i, _d(_typedQty(i))),
-      );
+      return _topUp(v) +
+          v.items.fold<double>(
+            0,
+            (a, i) => a + _itemAmount(i, _d(_typedQty(i))),
+          );
     }
-    return v.stageValue * _d(_typedPct(v)) / 100;
+    return _topUp(v) + v.stageValue * _d(_typedPct(v)) / 100;
   }
 
   /// Fraction of the stage done before the claim and in it, for the bars.
+  /// Progress, not money, so a finished stage reads 100%.
   (double, double) _fractions(_CellView v) {
-    if (_values && v.stageValue > 0) {
-      return (v.beforeAmount / v.stageValue, _liveAmount(v) / v.stageValue);
+    if (_values && v.stageValue > 0 && v.cell.isItemsMode) {
+      final now = v.items.fold<double>(
+        0,
+        (a, i) => a + _itemAmount(i, _d(_typedQty(i))),
+      );
+      return (_beforeValue(v) / v.stageValue, now / v.stageValue);
+    }
+    if (!v.cell.isItemsMode) {
+      return (_d(v.beforePct) / 100, _d(_typedPct(v)) / 100);
     }
     if (v.cell.isItemsMode) {
       if (v.items.isEmpty) return (0, 0);
@@ -1612,10 +1630,13 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     double before;
     double now;
     if (_values && buildingValue > 0) {
-      before =
-          b.cells.fold<double>(0, (a, v) => a + v.beforeAmount) / buildingValue;
-      now =
-          b.cells.fold<double>(0, (a, v) => a + _liveAmount(v)) / buildingValue;
+      before = 0;
+      now = 0;
+      for (final v in b.cells) {
+        final (fb, fn) = _fractions(v);
+        before += fb * v.stageValue / buildingValue;
+        now += fn * v.stageValue / buildingValue;
+      }
     } else {
       var weight = 0.0;
       before = 0;
@@ -1912,6 +1933,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             ]),
           ],
         ),
+        ?_topUpNote(v),
         const SizedBox(height: 10),
         AccountsV2How(
           spans: [
@@ -1921,6 +1943,29 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           ],
         ),
       ],
+    );
+  }
+
+  /// Says when an open claim carries money for work billed before a contract
+  /// correction, so the amount is not mistaken for new progress.
+  Widget? _topUpNote(_CellView v) {
+    final topUp = _topUp(v);
+    if (topUp <= _eps) return null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AccountsV2Icon('info', size: 15, color: AccountsV2Colors.pri),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              _t('v2p_topup_note').replaceAll('{amount}', v2Money(topUp)),
+              style: v2Style(12.5, color: AccountsV2Colors.ink2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2111,6 +2156,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
               : null,
           footerSpans: const [4, 1],
         ),
+        ?_topUpNote(v),
         const SizedBox(height: 10),
         AccountsV2How(
           spans: [
@@ -2756,6 +2802,23 @@ class _QtyCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!enabled) {
+      final value = _parseInput(controller.text);
+      final empty =
+          value == null || value.compareTo(YorksAccountsDecimal.zero) == 0;
+      return Align(
+        alignment: AlignmentDirectional.centerEnd,
+        child: Text(
+          empty ? '—' : controller.text.trim(),
+          style: v2Style(
+            12.5,
+            weight: FontWeight.w700,
+            tabular: true,
+            color: empty ? AccountsV2Colors.mut : AccountsV2Colors.ink,
+          ),
+        ),
+      );
+    }
     return Row(
       children: [
         Expanded(
