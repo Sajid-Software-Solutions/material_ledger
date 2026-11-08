@@ -789,9 +789,11 @@ class _StepTileState extends State<_StepTile> {
                         child: Tooltip(
                           message: widget.detail,
                           waitDuration: const Duration(milliseconds: 600),
+                          // Two lines before trimming, so figures such as
+                          // "AED 1,805,160 in · AED 6,282,777 to come" stay whole.
                           child: Text(
                             widget.detail,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: v2Style(12, color: AccountsV2Colors.ink2),
                           ),

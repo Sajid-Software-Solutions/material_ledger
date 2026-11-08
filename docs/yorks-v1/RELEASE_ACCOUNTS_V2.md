@@ -13,7 +13,9 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   PDC · Supplier Bills · Documents · Activity.
 - V2 tabs: Summary · Contract · Progress & claims · Invoices & payments ·
   Supplier bills · History. PR #54 merged the first version; PR #55 adds the
-  later features and fixes, and the bundle grows from 12 to 30 migrations.
+  later features and fixes, and the bundle grows from 12 to 30 migrations. The
+  8 November release adds a 31st (Excel rounding, the signed invoice layout and
+  History dates).
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.
@@ -34,7 +36,7 @@ of the live schema. Because of that:
   is separate.
 
 **Apply `supabase/release/accounts_v2_bundle.sql` by hand instead.** It holds all
-30 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
+31 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
 rolls the whole script back.
 
 A database may already have some of the V2 migrations, for example the first 12.
@@ -42,7 +44,7 @@ That is fine: apply the whole bundle anyway.
 
 ## What the bundle changes
 
-- **Adds** 7 tables, 36 functions, and columns and indexes that use
+- **Adds** 7 tables, 42 functions, and columns and indexes that use
   `IF NOT EXISTS`.
 - **Replaces 17 functions that existed before V2**, which V1 Accounts and the
   office rely on. Payment recording, cheque steps, reversals, invoice cancelling,
@@ -83,6 +85,29 @@ That is fine: apply the whole bundle anyway.
   linked. The read returns quantities and delivery numbers only, never money,
   so anyone who can read Accounts sees it (an Accountant included: folder names
   and quantities). BOQ, request, dispatch and receipt tables are only read.
+- **Rounds claims and invoices as the Yorks workbook does**
+  (`20261108100000_accounts_v2_excel_rounding_and_dates.sql`, owner decisions of
+  8 November 2026, `PRODUCT_DECISIONS.md` §30). Claim lines gain a nullable
+  `claimed_amount_exact`; a new invoice's gross, VAT and total are each rounded
+  once from the exact sum, so its total may differ from ex-VAT + VAT by at most
+  0.01 (the invoice and certification checks are relaxed to exactly that; no
+  existing row differs). Certifying in full carries the invoice's VAT and total.
+  The invoice document (frozen at issue) gains the bill-to party, references, VAT
+  and grand-total rows, and counts every earlier invoiced claim as "till
+  previous"; a historical import may set the letterhead and bank its signed copy
+  carried through the transaction-local setting `yorks.invoice_company_override`.
+  History entries carry a business date and references and are ordered by it;
+  the Overview's "to come" becomes invoiced-and-unpaid. Existing invoices,
+  frozen documents and audit rows are unchanged. Replaced functions:
+  `v1_accounts_validate_claim_lines`, `v1_accounts_replace_claim_lines`,
+  `v1_revise_client_invoice`, `v1_create_client_invoice_draft`,
+  `v1_record_client_certification`, `v1_correct_client_certification`,
+  `v1_accounts_claim_snapshot`, `v1_accounts_invoice_snapshot`,
+  `v1_list_client_claims`, `v1_get_claim_workbench`,
+  `v1_get_accounts_office_register`, `v1_get_accounts_export`,
+  `v1_get_project_commercial_setup`, `v1_get_project_accounts_workspace`,
+  `v1_accounts_build_invoice_document`, `v1_get_accounts_activity`; new internal
+  helpers are not callable by app users.
 - **Changes figures straight away.** For example, the office Receipts & PDC total
   stops counting a cleared cheque twice, and retention can reduce client payable
   (`PRODUCT_DECISIONS.md` §28).
@@ -98,7 +123,7 @@ That is fine: apply the whole bundle anyway.
 
 | Test | Result |
 |---|---|
-| Run on a database built from the 186 migrations before V2 (a local stand-in replaced `pg_cron`) | Succeeds; all 816 public functions match a normally migrated database |
+| Run on a database built from the 186 migrations before V2 (a local stand-in replaced `pg_cron`) | Succeeds; all 822 public functions match a normally migrated database (8 November, 31 files) |
 | Run a second time on that database | Succeeds; functions unchanged |
 | Run on a fully migrated database, then rolled back | Succeeds; functions unchanged |
 
@@ -230,13 +255,13 @@ are lost, the audit events stay.
 - **Phone layout.** The per-item contract table scrolls sideways, and KPI tiles
   are tall.
 
-## Gates (local, 7 November 2026, with the owner decisions, the prototype rebuild and the BOQ links)
+## Gates (local, 8 November 2026, with Excel rounding, the signed invoice layout and History dates)
 
 | Check | Result |
 |---|---|
 | `flutter analyze` | Clean |
-| `flutter test` | 2,702 pass, 4 skipped, **2 fail** |
-| `supabase db reset` + `supabase test db` | 141 files, 3,951 tests pass |
+| `flutter test` | 2,715 pass, 4 skipped, **2 fail** |
+| `supabase db reset` + `supabase test db` | 142 files, 4,006 tests pass |
 | Web build with startup budget | Passes |
 | APK with CI ephemeral signing | Builds; not a release artifact |
 

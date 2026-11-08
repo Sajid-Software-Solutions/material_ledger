@@ -558,8 +558,12 @@ YorksAccountsSupplierBillsProjection _supplierProjection() =>
       ),
     );
 
-Widget _invoicesTab() =>
-    AccountsV2InvoicesTab(projection: _invoicesProjection(), language: _en);
+Widget _invoicesTab() => AccountsV2InvoicesTab(
+  projection: _invoicesProjection(),
+  language: _en,
+  // Pinned, so "days overdue" does not change with the calendar.
+  today: DateTime(2026, 11, 7),
+);
 
 Widget _supplierTab() => AccountsV2SupplierTab(
   projection: _supplierProjection(),

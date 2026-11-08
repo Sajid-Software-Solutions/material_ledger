@@ -145,6 +145,7 @@ final class _CellView {
     required this.thisPct,
     required this.beforeAmount,
     required this.thisAmount,
+    required this.thisExact,
     required this.items,
   });
 
@@ -157,6 +158,9 @@ final class _CellView {
   final YorksAccountsDecimal thisPct;
   final double beforeAmount;
   final double thisAmount;
+
+  /// [thisAmount] unrounded, for the claim's Excel-rule gross.
+  final double thisExact;
   final List<_ItemView> items;
 
   String get key => '${cell.buildingScopeId}|${cell.stageKey}';
@@ -368,9 +372,11 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     }
     var beforeAmount = _d(c.claimedBeforeClaim);
     var thisAmount = _d(c.thisClaimAmount);
+    var thisExact = _d(c.thisClaimAmountExact ?? c.thisClaimAmount);
     if (newMode && _values) {
       beforeAmount = _d(c.claimed);
       thisAmount = _d(c.available);
+      thisExact = _d(c.availableExact ?? c.available);
     }
     // With money, a lump-sum split follows the claimed amounts exactly, so the
     // percent and the amount always agree.
@@ -403,6 +409,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       thisPct: thisPct,
       beforeAmount: beforeAmount,
       thisAmount: thisAmount,
+      thisExact: thisExact,
       items: items,
     );
   }
@@ -821,6 +828,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   ];
 
   int _numberOf(String? claimId) {
+    for (final c in widget.claims) {
+      if (c.claimId == claimId && c.claimNumber != null) return c.claimNumber!;
+    }
     final live = _liveClaims;
     final i = live.indexWhere((c) => c.claimId == claimId);
     return i < 0 ? live.length + 1 : i + 1;
@@ -864,18 +874,40 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     return v2Number(_claim?['contract_value']);
   }
 
-  /// This claim's gross: the server's figure plus anything typed since.
-  double get _gross {
-    var gross = _newClaim ? 0.0 : v2Number(_claim?['claimed_ex_vat']);
+  /// This claim's exact (unrounded) gross: the server's exact figure plus
+  /// anything typed since.
+  double get _exactGross {
+    var exact = _newClaim
+        ? 0.0
+        : v2Number(
+            _claim?['claimed_ex_vat_exact'] ?? _claim?['claimed_ex_vat'],
+          );
     for (final v in _views.values) {
+      final live = _cellEdited(v) ? _liveAmount(v) : v.thisExact;
       if (_newClaim) {
-        gross += _liveAmount(v);
+        exact += live;
       } else if (_cellEdited(v)) {
-        gross += _liveAmount(v) - v.thisAmount;
+        exact += live - v.thisExact;
       }
     }
-    return gross;
+    return exact;
   }
+
+  /// Gross, VAT and net payable as the Yorks workbook works them out: each
+  /// rounded once from the exact gross. The server's figures stand until
+  /// something is typed (an invoiced claim shows its invoice).
+  ({double gross, double vat, double net}) get _amounts {
+    if (!_newClaim && !_dirty && _claim?['net_payable'] != null) {
+      return (
+        gross: v2Number(_claim?['claimed_ex_vat']),
+        vat: v2Number(_claim?['vat_amount']),
+        net: v2Number(_claim?['net_payable']),
+      );
+    }
+    return accountsV2ExcelAmounts(_exactGross, _vatPercent);
+  }
+
+  double get _gross => _amounts.gross;
 
   double _stageAmount(String stageKey) => _views.values
       .where((v) => v.cell.stageKey == stageKey)
@@ -1202,9 +1234,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
 
   Widget _kpis() {
     final ro = _status == 'invoiced';
-    final gross = _gross;
+    final amounts = _amounts;
+    final gross = amounts.gross;
     final vatPct = _vatPercent;
-    final vat = gross * vatPct / 100;
     final contract = _contractValue;
     final before = _newClaim
         ? _views.values.fold<double>(0, (a, v) => a + _d(v.cell.claimed))
@@ -1235,7 +1267,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             icon: 'receipt',
             tone: AccountsV2Tone.green,
             label: _t('v2p_kpi_net'),
-            value: v2Money(gross + vat),
+            value: v2Money(amounts.net),
             caption:
                 '${_t('v2p_incl_vat')} ${v2Fmt(vatPct, vatPct % 1 == 0 ? 0 : 2)}%',
           ),
@@ -2097,10 +2129,11 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   Widget _sidePanel() {
     final status = _status;
     final ro = status == 'invoiced';
-    final gross = _gross;
+    final amounts = _amounts;
+    final gross = amounts.gross;
     final vatPct = _vatPercent;
-    final vat = gross * vatPct / 100;
-    final net = gross + vat;
+    final vat = amounts.vat;
+    final net = amounts.net;
     final retentionPct = v2Number(_claim?['retention_percent']);
     final retention = ro ? 0.0 : gross * retentionPct / 100;
     final phone = AccountsV2Breakpoints.isPhone(context);
@@ -2196,6 +2229,14 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         if (gross <= _eps)
           Text(
             _t('v2p_enter_progress'),
+            textAlign: TextAlign.center,
+            style: v2Style(12, color: AccountsV2Colors.mut),
+          )
+        // Why Issue is not available yet, said where it shows, not only on
+        // hover: a claim is checked before Accounts invoices it.
+        else if (widget.onIssue != null && _values && !checked)
+          Text(
+            _t('v2p_issue_needs_check'),
             textAlign: TextAlign.center,
             style: v2Style(12, color: AccountsV2Colors.mut),
           ),

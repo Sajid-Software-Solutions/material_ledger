@@ -159,3 +159,56 @@ non-golden tests passed while four pre-existing 1024 px shell/overview tests
 reported the same 139 px top-bar overflow; the golden lane also has unrelated
 baseline pixel drift. Neither failure intersects this SQL-only reconciliation
 or its focused Accounts gates.
+
+## November 2026: billing history from the signed invoices
+
+Owner decisions of 8 November 2026 (`PRODUCT_DECISIONS.md` section 30).
+
+On 20 October 2026 a contract revision set YRA-322's value to AED 1,808,546.80
+(it was meant as AED 18,085,468.00). No claim, invoice, certification or
+payment had been recorded. The November import brings YRA-322 to its real
+billing history from these sources:
+
+| File | SHA-256 |
+|---|---|
+| `32201 L&T NEXUS -DHAFRA  PAYEMNT INVOICE.xlsx` | `7b6c24c03a789f6e4cf559d4182abc117ef8c4a3c2e7094ffb70c0d79c745320` |
+| `Invoice-PC #01-signed.pdf` | `f8fde0ff616add34c78821c0ad372e8242db6fe82ecacf0b9313b4988e978c8e` |
+| `INVOICE#02R.1.xlsx` | `9df45305c10485eef7c8b2519cbd1e2db2df4c4daaaa5fe491882fec8bcb436b` |
+| `INVOICE#02-R.1-signed.pdf` | `1c9540e87c6f51d9b88870cf1bc479dc0deeddb0bd9861be9cfef40ee2acd896` |
+
+What it records, in one transaction, as Owner:
+
+1. The contract as invoiced: AED 17,192,000, VAT 5%, 45 days, four buildings
+   at 25%, stages 10/50/30/5/5 with the invoice labels; Material Supply and
+   Progress Installation measured by the workbook's 15 items per building;
+   client TRN, work order and contract number; L&T as the billed party.
+2. Claim #01: Cooling Load Design 100% in every building, imported from the
+   YRA32201 workbook; invoice **YRA32201** dated 19 Jan 2026 (1,719,200.00 +
+   85,960.00 = 1,805,160.00); certified in full on 2 Feb 2026; cheque 004517
+   received 10 Mar, deposited 20 Apr, cleared 21 Apr 2026, so the invoice is
+   paid.
+3. Claim #02: Material Supply deliveries per building, imported from the
+   YRA32202R.1 workbook (DF3W 1,549,624.36; DF4W 1,549,624.36; DF6W
+   1,463,664.36; DF7W 1,420,684.36); invoice **YRA32202R.1** dated
+   29 Sep 2026 (5,983,597.45 + 299,179.87 = 6,282,777.33); certified in full on
+   20 Oct 2026; cheque 004893 for 6,282,777.33 received 1 Nov 2026, dated
+   13 Nov 2026, in hand.
+4. The next invoice number YRA32203, then the contract value correction to
+   AED 18,085,468.00. Issued invoices keep their amounts.
+
+Each invoice is frozen with the letterhead and bank its signed copy carries.
+Progress is linked to two source-import rows (one per workbook), as in August;
+no evidence document is inferred. The certifications and cheques are
+owner-confirmed facts; the cheques' bank was not given and is left blank. The
+original YRA32202, the prototype's draft claim #03 and its sample supplier
+bills are not recorded.
+
+The import refuses to run unless YRA-322 is exactly as read on 8 November (the
+1,808,546.80 revision, no billing records, all progress at zero) and checks
+every invoice figure, the frozen document's columns, the payment and cheque
+state, the next invoice number and the final contract value before it can
+commit. The signed copies are attached to their invoices afterwards in the app.
+
+Rollback is corrective: revise or cancel the invoices with a reason, reverse
+the payment and cheques, and add correcting progress revisions; the
+source-import rows and audit events stay.

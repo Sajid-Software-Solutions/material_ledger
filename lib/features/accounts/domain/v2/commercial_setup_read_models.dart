@@ -196,10 +196,12 @@ final class YorksAccountsSetupReadParty {
     required this.contactName,
     required this.contactPhone,
     required this.contactEmail,
+    this.partyId,
   });
 
   factory YorksAccountsSetupReadParty.fromJson(Map<String, dynamic> json) {
     return YorksAccountsSetupReadParty(
+      partyId: json['party_id'] as String?,
       name: json['name'] as String?,
       address: json['address'] as String?,
       contactName: json['contact_name'] as String?,
@@ -208,6 +210,8 @@ final class YorksAccountsSetupReadParty {
     );
   }
 
+  /// The project party's id (null from an older server).
+  final String? partyId;
   final String? name;
   final String? address;
   final String? contactName;

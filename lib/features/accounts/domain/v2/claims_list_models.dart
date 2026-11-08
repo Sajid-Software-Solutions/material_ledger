@@ -21,6 +21,7 @@ final class YorksAccountsClaimSummary {
     required this.grossExVat,
     required this.isStale,
     required this.recordVersion,
+    this.claimNumber,
   });
 
   factory YorksAccountsClaimSummary.fromJson(Map<String, dynamic> json) {
@@ -38,6 +39,7 @@ final class YorksAccountsClaimSummary {
             ),
       isStale: json['is_stale'] == true,
       recordVersion: (json['record_version'] as num?)?.toInt() ?? 1,
+      claimNumber: (json['claim_number'] as num?)?.toInt(),
     );
   }
 
@@ -51,6 +53,10 @@ final class YorksAccountsClaimSummary {
   final YorksAccountsDecimal? grossExVat;
   final bool isStale;
   final int recordVersion;
+
+  /// The server's claim number (#01 …); a revision keeps its original's.
+  /// Null from an older server.
+  final int? claimNumber;
 }
 
 /// The project's claims, newest first, for the claim-cards row.

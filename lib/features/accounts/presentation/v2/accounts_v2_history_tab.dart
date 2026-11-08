@@ -148,7 +148,91 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
     super.dispose();
   }
 
+  String _fill(String key, Map<String, String> values) {
+    var text = _t(key);
+    values.forEach((k, v) => text = text.replaceAll('{$k}', v));
+    return text;
+  }
+
+  String? _ctx(YorksAccountsActivityEntry entry, String key) {
+    final v = entry.context?[key];
+    if (v == null) return null;
+    final s = '$v'.trim();
+    return s.isEmpty ? null : s;
+  }
+
+  String? _claimNo(YorksAccountsActivityEntry entry) {
+    final n = entry.context?['claim_number'];
+    final value = n is num ? n.toInt() : int.tryParse('${n ?? ''}');
+    return value == null || value <= 0
+        ? null
+        : value.toString().padLeft(2, '0');
+  }
+
+  /// A title that names what happened, as the prototype's timeline does
+  /// ("Invoice YRA32201 issued", "Cheque 004517 received for YRA32201").
   String _title(YorksAccountsActivityEntry entry) {
+    final ref = _ctx(entry, 'invoice_reference');
+    final cheque = _ctx(entry, 'cheque_number');
+    final claim = _claimNo(entry);
+    final named = switch (entry.eventType) {
+      'accounts.client_invoice.submitted' when ref != null => _fill(
+        'v2h_t_invoice_issued',
+        {'ref': ref},
+      ),
+      'accounts.client_invoice.superseded' when ref != null => _fill(
+        'v2h_t_invoice_replaced',
+        {'ref': ref, 'new': '${entry.afterData?['reference'] ?? ''}'},
+      ),
+      'accounts.client_certification.recorded' ||
+      'accounts.client_certification.corrected' when ref != null =>
+        _ctx(entry, 'bill_to') == null
+            ? _fill('v2h_t_certified', {'ref': ref})
+            : _fill('v2h_t_certified_by', {
+                'ref': ref,
+                'party': _ctx(entry, 'bill_to')!,
+              }),
+      'accounts.client_pdc.created' when cheque != null && ref != null => _fill(
+        'v2h_t_cheque_added',
+        {'no': cheque, 'ref': ref},
+      ),
+      'accounts.client_pdc.received' when cheque != null && ref != null =>
+        _fill('v2h_t_cheque_received', {'no': cheque, 'ref': ref}),
+      'accounts.client_pdc.deposited' when cheque != null => _fill(
+        'v2h_t_cheque_deposited',
+        {'no': cheque},
+      ),
+      'accounts.client_pdc.cleared' when cheque != null => _fill(
+        'v2h_t_cheque_cleared',
+        {'no': cheque},
+      ),
+      'accounts.client_pdc.bounced' when cheque != null => _fill(
+        'v2h_t_cheque_bounced',
+        {'no': cheque},
+      ),
+      'accounts.client_payment.recorded' when ref != null => _fill(
+        'v2h_t_payment',
+        {'ref': ref},
+      ),
+      'accounts.client_claim.created' when claim != null => _fill(
+        'v2h_t_claim_prepared',
+        {'n': claim},
+      ),
+      'accounts.client_claim.ready_for_accounts' when claim != null => _fill(
+        'v2h_t_claim_checked',
+        {'n': claim},
+      ),
+      'accounts_progress_confirmed' when claim != null => _fill(
+        'v2h_t_progress',
+        {'n': claim},
+      ),
+      'accounts.progress.imported' when claim != null => _fill(
+        'v2h_t_progress_imported',
+        {'n': claim},
+      ),
+      _ => null,
+    };
+    if (named != null) return named;
     final known = yorksAccountsV2HistoryEventKeys[entry.eventType];
     if (known != null) return _t(known);
     // An event added later still reads as words, never as a raw key.
@@ -161,8 +245,72 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
         : '${words[0].toUpperCase()}${words.substring(1)}';
   }
 
+  /// The detail line from the record the entry touched, when the server
+  /// named it; null to fall back to what the event recorded.
+  String? _contextDetail(YorksAccountsActivityEntry entry, int count) {
+    final c = entry.context;
+    if (c == null) return null;
+    String? money(String key) {
+      final v = c[key];
+      return v == null ? null : v2Money(v2Number(v));
+    }
+
+    final claim = _claimNo(entry);
+    final reason = entry.reason?.trim();
+    final parts = <String>[];
+    switch (entry.eventType) {
+      case 'accounts.client_invoice.submitted':
+        if (claim != null) parts.add(_fill('v2h_d_claim', {'n': claim}));
+        final total = money('total_incl_vat');
+        if (total != null) parts.add('$total ${_t('v2h_d_incl_vat')}');
+      case 'accounts.client_certification.recorded' ||
+          'accounts.client_certification.corrected':
+        final certified = c['certified_ex_vat'];
+        final invoiced = c['invoiced_ex_vat'];
+        if (certified != null) {
+          final diff = v2Number(invoiced) - v2Number(certified);
+          parts.add(
+            '${_t('v2h_certified')} ${money('certified_ex_vat')} '
+            '(${diff.abs() < 0.005 ? _t('v2h_d_full') : _fill('v2h_d_less', {'amount': v2Money(diff)})})',
+          );
+        }
+        final certRef = _ctx(entry, 'certification_reference');
+        if (certRef != null) parts.add(certRef);
+      case String e when e.startsWith('accounts.client_pdc.'):
+        final amount = money('amount');
+        if (amount != null) parts.add(amount);
+        final dated = _ctx(entry, 'cheque_date');
+        if (dated != null) {
+          parts.add(_fill('v2h_d_dated', {'date': v2Date(dated)}));
+        }
+        final bank = _ctx(entry, 'bank_name');
+        if (bank != null) parts.add(bank);
+      case 'accounts.client_payment.recorded':
+        final amount = money('amount');
+        if (amount != null) parts.add(amount);
+        final payRef = _ctx(entry, 'payment_reference');
+        if (payRef != null) parts.add(payRef);
+      case 'accounts.client_claim.created' ||
+          'accounts.client_claim.ready_for_accounts':
+        final stages = c['stages'];
+        if (stages is List && stages.isNotEmpty) {
+          parts.add(stages.map((s) => '$s').join(', '));
+        }
+        final amount = money('claimed_ex_vat');
+        if (amount != null) parts.add(amount);
+      case 'accounts_progress_confirmed' || 'accounts.progress.imported':
+        if (count > 1) parts.add(_fill('v2h_d_cells', {'n': '$count'}));
+      default:
+        return null;
+    }
+    if (reason != null && reason.isNotEmpty) parts.add(reason);
+    return parts.join(' · ');
+  }
+
   /// The prototype's detail line, from what the event recorded.
-  String _detail(YorksAccountsActivityEntry entry) {
+  String _detail(YorksAccountsActivityEntry entry, {int count = 1}) {
+    final fromContext = _contextDetail(entry, count);
+    if (fromContext != null) return fromContext;
     final a = entry.afterData ?? const <String, dynamic>{};
     String? text(String key) {
       final v = a[key];
@@ -210,16 +358,57 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
     return ids is List ? ids.whereType<String>().toList() : const [];
   }
 
+  /// What the timeline shows. An invoice's draft step and a cheque's "added"
+  /// step fold into the later step that covers them, and a claim's progress
+  /// lines (one per building and stage) become one line.
+  List<_Item> _items(List<YorksAccountsActivityEntry> all) {
+    final submitted = {
+      for (final e in all)
+        if (e.eventType == 'accounts.client_invoice.submitted') e.entityId,
+    };
+    final received = {
+      for (final e in all)
+        if (e.eventType == 'accounts.client_pdc.received') e.entityId,
+    };
+    final out = <_Item>[];
+    final progressAt = <String, int>{};
+    for (final e in all) {
+      if (e.eventType == 'accounts.client_invoice.draft_created' &&
+          submitted.contains(e.entityId)) {
+        continue;
+      }
+      if (e.eventType == 'accounts.client_pdc.created' &&
+          received.contains(e.entityId)) {
+        continue;
+      }
+      if ((e.eventType == 'accounts_progress_confirmed' ||
+              e.eventType == 'accounts.progress.imported') &&
+          _claimNo(e) != null) {
+        final key =
+            '${e.eventType}|${_claimNo(e)}|${e.actorAuthUserId}|${e.businessDate}';
+        final at = progressAt[key];
+        if (at != null) {
+          out[at] = _Item(out[at].entry, out[at].count + 1);
+          continue;
+        }
+        progressAt[key] = out.length;
+      }
+      out.add(_Item(e, 1));
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _search.text.trim().toLowerCase();
-    final entries = widget.projection.entries
-        .where((e) {
+    final entries = _items(widget.projection.entries)
+        .where((i) {
+          final e = i.entry;
           if (_kind != 'all' && _Kind.of(e).name != _kind) return false;
           if (q.isEmpty) return true;
           return [
             _title(e),
-            _detail(e),
+            _detail(e, count: i.count),
             e.actorDisplayName,
           ].join(' ').toLowerCase().contains(q);
         })
@@ -230,10 +419,7 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
     );
   }
 
-  Widget _activity(
-    BuildContext context,
-    List<YorksAccountsActivityEntry> entries,
-  ) {
+  Widget _activity(BuildContext context, List<_Item> entries) {
     final narrow = AccountsV2Breakpoints.isNarrow(context);
     final filtering = _kind != 'all' || _search.text.trim().isNotEmpty;
     final filters = <Widget>[
@@ -301,16 +487,18 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
               body: filtering ? _t('v2h_nothing_matches') : null,
             )
           else
-            for (final (i, e) in entries.indexed)
+            for (final (i, item) in entries.indexed)
               _HistRow(
                 first: i == 0,
-                kind: _Kind.of(e),
-                title: _title(e),
-                detail: _detail(e),
-                by: '${_t('v2h_by')} ${e.actorDisplayName}',
-                when: e.occurredAt.toLocal(),
+                kind: _Kind.of(item.entry),
+                title: _title(item.entry),
+                detail: _detail(item.entry, count: item.count),
+                by: '${_t('v2h_by')} ${item.entry.actorDisplayName}',
+                businessDate: item.entry.businessDate,
+                recorded: item.entry.occurredAt.toLocal(),
+                recordedLabel: _t('v2h_recorded'),
                 files: [
-                  for (final id in _evidenceIds(e))
+                  for (final id in _evidenceIds(item.entry))
                     for (final f in widget.files)
                       if (f.id == id) f,
                 ],
@@ -389,8 +577,16 @@ const _monthNames = [
   'Dec',
 ];
 
+/// A timeline line: one audit entry, or several folded into it.
+final class _Item {
+  const _Item(this.entry, this.count);
+  final YorksAccountsActivityEntry entry;
+  final int count;
+}
+
 /// One activity entry (`.hist`): tinted icon, title, detail, who, files and
-/// when on the right (below on phones).
+/// when on the right (below on phones). "When" is the day it happened; the
+/// time it was recorded shows beneath, or the record date when that differs.
 class _HistRow extends StatelessWidget {
   const _HistRow({
     required this.first,
@@ -398,7 +594,9 @@ class _HistRow extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.by,
-    required this.when,
+    required this.businessDate,
+    required this.recorded,
+    required this.recordedLabel,
     required this.files,
   });
 
@@ -407,17 +605,27 @@ class _HistRow extends StatelessWidget {
   final String title;
   final String detail;
   final String by;
-  final DateTime when;
+  final String? businessDate;
+  final DateTime recorded;
+  final String recordedLabel;
   final List<YorksAccountsHistoryFile> files;
 
   @override
   Widget build(BuildContext context) {
     final phone = AccountsV2Breakpoints.isPhone(context);
     String two(int v) => v.toString().padLeft(2, '0');
-    final date = '${two(when.day)} ${_monthNames[when.month - 1]} ${when.year}';
-    final time = '${two(when.hour)}:${two(when.minute)}';
+    String day(DateTime d) =>
+        '${two(d.day)} ${_monthNames[d.month - 1]} ${d.year}';
+    final happened = businessDate == null
+        ? null
+        : DateTime.tryParse(businessDate!);
+    final recordedDay = DateTime(recorded.year, recorded.month, recorded.day);
+    final date = day(happened ?? recorded);
+    final sub = happened == null || happened == recordedDay
+        ? '${two(recorded.hour)}:${two(recorded.minute)}'
+        : '$recordedLabel ${day(recorded)}';
     final whenText = Text(
-      phone ? '$date · $time' : '$date\n$time',
+      phone ? '$date · $sub' : '$date\n$sub',
       textAlign: phone ? TextAlign.left : TextAlign.right,
       style: v2Style(11.5, color: AccountsV2Colors.mut),
     );
@@ -467,7 +675,7 @@ class _HistRow extends StatelessWidget {
           Expanded(child: body),
           if (!phone) ...[
             const SizedBox(width: 12),
-            SizedBox(width: 92, child: whenText),
+            SizedBox(width: 128, child: whenText),
           ],
         ],
       ),

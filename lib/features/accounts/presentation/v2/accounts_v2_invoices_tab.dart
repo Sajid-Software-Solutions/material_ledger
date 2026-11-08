@@ -1173,12 +1173,14 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
           );
     final certified = latest == null ? 0.0 : _d(latest.certifiedExVat);
     final less = v.gross - certified;
-    final created = d.invoice.createdAt.toLocal();
+    // The date on the invoice itself; when it was recorded only as a fallback.
+    final issuedOn =
+        d.invoice.invoiceDate?.postgresText ?? d.invoice.createdAt.toLocal();
     return [
       (
         title: _t('v2i_tl_issued'),
         detail: [
-          v2Date(created),
+          v2Date(issuedOn),
           if (inv.replacesReference != null)
             '${_t('v2i_replaces')} ${inv.replacesReference}',
         ].join(' · '),
