@@ -584,7 +584,11 @@ class AccountsV2KpiRow extends StatelessWidget {
                 1,
                 children.length,
               );
-        return AccountsV2Grid(columns: fit, gap: gap, children: children);
+        // Balanced rows: six tiles that cannot sit in one row become 3 + 3,
+        // never 5 + 1.
+        final rows = (children.length / fit).ceil();
+        final columns = (children.length / rows).ceil();
+        return AccountsV2Grid(columns: columns, gap: gap, children: children);
       },
     );
   }
@@ -2401,6 +2405,27 @@ double v2Number(Object? value) {
   if (value is num) return value.toDouble();
   return double.tryParse('$value') ?? 0;
 }
+
+/// Rounds money to fils, halves away from zero (as Postgres `round` and Excel).
+/// The small nudge keeps a value such as 1.005 (stored as 1.00499…) from
+/// rounding down; it is far below a fil.
+double accountsV2RoundFils(double value) {
+  final rounded = (value.abs() * 100 + 1e-6).round() / 100;
+  return value < 0 ? -rounded : rounded;
+}
+
+/// The Yorks workbook's rule for a claim or invoice: gross, VAT and total are
+/// each rounded once from the exact gross, so the total can differ from
+/// gross + VAT by a fil (as on the signed invoices). Display preview only; the
+/// server's figures are the record.
+({double gross, double vat, double net}) accountsV2ExcelAmounts(
+  double exactGross,
+  double vatRatePercent,
+) => (
+  gross: accountsV2RoundFils(exactGross),
+  vat: accountsV2RoundFils(exactGross * vatRatePercent / 100),
+  net: accountsV2RoundFils(exactGross * (1 + vatRatePercent / 100)),
+);
 
 /// `1,234,567.89` with en-US grouping and [digits] decimals (prototype `fmt`).
 String v2Fmt(double value, [int digits = 2]) {

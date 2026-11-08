@@ -225,6 +225,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     _contractNumber.text = s.contractNumber ?? '';
     _prefix.text = s.invoiceSettings?.invoicePrefix ?? '';
     _scope.text = s.invoiceSettings?.scopeLine ?? '';
+    _billTo = _billToParty(s)?.partyId;
 
     for (final b in _buildings) {
       b.dispose();
@@ -438,7 +439,23 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       '${_isoDate(_woDate.text) ?? _woDate.text.trim()}|'
       '${_contractNumber.text.trim()}';
   String get _invoiceSnapshot =>
-      '${_prefix.text.trim()}|${_scope.text.trim()}|${_contact.text.trim()}';
+      '${_prefix.text.trim()}|${_scope.text.trim()}|${_contact.text.trim()}|'
+      '${_billTo ?? ''}';
+
+  /// The party being billed: the one chosen in the invoice settings, else the
+  /// main contractor (a subcontractor bills the main contractor), else the
+  /// client.
+  YorksAccountsSetupReadParty? _billToParty(
+    YorksAccountsCommercialSetupRead s,
+  ) {
+    final chosen = s.invoiceSettings?.billToPartyId;
+    for (final p in [s.mainContractorParty, s.clientParty]) {
+      if (p != null && chosen != null && p.partyId == chosen) return p;
+    }
+    return s.mainContractorParty ?? s.clientParty;
+  }
+
+  String? _billTo;
 
   String _snapshot() =>
       '$_setupSnapshot§$_referencesSnapshot§$_invoiceSnapshot';
@@ -544,7 +561,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         invoicePrefix: _prefix.text.trim(),
         scopeLine: scope.isEmpty ? null : scope,
         attentionName: contact.isEmpty ? null : contact,
-        billToPartyId: settings?.billToPartyId,
+        billToPartyId: _billTo ?? settings?.billToPartyId,
         expectedVersion: settings?.recordVersion,
       );
       if (error == null) await _settle();
@@ -843,7 +860,20 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       enabled: enabled,
       suffix: suffix,
     );
-    final client = setup.clientParty ?? setup.mainContractorParty;
+    // Who the invoices are addressed to: chosen from the project's client and
+    // main contractor by someone who manages invoices; read-only otherwise.
+    final parties = [
+      if (setup.mainContractorParty?.partyId != null)
+        (setup.mainContractorParty!, _t('v2c_party_main_contractor')),
+      if (setup.clientParty?.partyId != null)
+        (setup.clientParty!, _t('v2c_party_client')),
+    ];
+    final client =
+        parties
+            .where((p) => p.$1.partyId == _billTo)
+            .map((p) => p.$1)
+            .firstOrNull ??
+        _billToParty(setup);
     final fields = <Widget>[
       field(
         _t('v2c_contract_value'),
@@ -859,7 +889,18 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         numeric: true,
         enabled: refsOn,
       ),
-      _ReadOnlyField(label: _t('v2c_client'), value: client?.name ?? ''),
+      if (invoiceOn && parties.length > 1)
+        AccountsV2Select<String>(
+          label: _t('v2c_client'),
+          value: _billTo ?? parties.first.$1.partyId!,
+          options: [
+            for (final (party, kind) in parties)
+              (party.partyId!, '${party.name ?? ''} ($kind)'),
+          ],
+          onChanged: (v) => setState(() => _billTo = v),
+        )
+      else
+        _ReadOnlyField(label: _t('v2c_client'), value: client?.name ?? ''),
       _ReadOnlyField(
         label: _t('v2c_client_address'),
         value: client?.address ?? '',

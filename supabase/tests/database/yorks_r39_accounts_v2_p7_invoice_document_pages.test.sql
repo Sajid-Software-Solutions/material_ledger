@@ -64,7 +64,8 @@ insert into v1_r39_p7 select 'doc', public.v1_get_client_invoice_document('39d18
 reset role;
 
 -- Document carries the new schema version + contract value.
-select is((select payload->'document'->>'schema_version' from v1_r39_p7 where result_key='doc'),'2','Document schema version advanced to 2');
+-- Schema 3 (8 Nov 2026) adds the bill-to party, references and VAT rows.
+select is((select payload->'document'->>'schema_version' from v1_r39_p7 where result_key='doc'),'3','Document schema version is 3');
 select is((select payload->'document'->>'contract_value' from v1_r39_p7 where result_key='doc'),'1000000.00','Contract value exposed on the document');
 
 -- Summary matrix: Design claimed 100,000 this invoice; others zero; contract per stage correct.

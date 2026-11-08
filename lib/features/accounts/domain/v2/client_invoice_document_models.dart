@@ -114,16 +114,33 @@ final class YorksClientInvoiceSummary {
     required this.thisTotal,
     required this.totalTotal,
     required this.stages,
+    this.contractVat,
+    this.contractGrand,
+    this.previousVat,
+    this.previousGrand,
+    this.thisVat,
+    this.thisGrand,
+    this.totalVat,
+    this.totalGrand,
   });
 
   factory YorksClientInvoiceSummary.fromJson(Map<String, dynamic> json) {
     YorksAccountsDecimal d(String k) =>
         YorksAccountsDecimal.fromRpcValue(json[k], key: 'summary.$k');
+    YorksAccountsDecimal? o(String k) => json[k] is String ? d(k) : null;
     return YorksClientInvoiceSummary(
       contractTotal: d('contract_total'),
       previousTotal: d('previous_total'),
       thisTotal: d('this_total'),
       totalTotal: d('total_total'),
+      contractVat: o('contract_vat'),
+      contractGrand: o('contract_grand'),
+      previousVat: o('previous_vat'),
+      previousGrand: o('previous_grand'),
+      thisVat: o('this_vat'),
+      thisGrand: o('this_grand'),
+      totalVat: o('total_vat'),
+      totalGrand: o('total_grand'),
       stages: ((json['stages'] as List?) ?? const <dynamic>[])
           .map(
             (e) => YorksClientInvoiceSummaryStage.fromJson(
@@ -139,6 +156,20 @@ final class YorksClientInvoiceSummary {
   final YorksAccountsDecimal thisTotal;
   final YorksAccountsDecimal totalTotal;
   final List<YorksClientInvoiceSummaryStage> stages;
+
+  /// VAT and grand-total rows per column (schema 3; the Excel rule rounds each
+  /// once from the exact amount). Null on older snapshots.
+  final YorksAccountsDecimal? contractVat;
+  final YorksAccountsDecimal? contractGrand;
+  final YorksAccountsDecimal? previousVat;
+  final YorksAccountsDecimal? previousGrand;
+  final YorksAccountsDecimal? thisVat;
+  final YorksAccountsDecimal? thisGrand;
+  final YorksAccountsDecimal? totalVat;
+  final YorksAccountsDecimal? totalGrand;
+
+  bool get hasVatRows =>
+      contractVat != null && previousVat != null && thisVat != null;
 }
 
 /// One stage row within a building's breakdown.
@@ -245,6 +276,8 @@ final class YorksClientInvoiceDocumentModel {
     required this.contractValue,
     required this.summary,
     required this.buildings,
+    this.billTo = const <String, dynamic>{},
+    this.references = const <String, dynamic>{},
   });
 
   factory YorksClientInvoiceDocumentModel.fromJson(Map<String, dynamic> json) {
@@ -290,6 +323,8 @@ final class YorksClientInvoiceDocumentModel {
             ),
           )
           .toList(growable: false),
+      billTo: obj('bill_to'),
+      references: obj('references'),
     );
   }
 
@@ -317,6 +352,12 @@ final class YorksClientInvoiceDocumentModel {
 
   /// Per-building breakdown. Empty on legacy snapshots.
   final List<YorksClientInvoiceBuilding> buildings;
+
+  /// Who is billed (name, address), schema 3. Empty on older snapshots.
+  final Map<String, dynamic> billTo;
+
+  /// Client TRN, work order number/date and contract number, schema 3.
+  final Map<String, dynamic> references;
 }
 
 /// Envelope from get (frozen) or preview (live).

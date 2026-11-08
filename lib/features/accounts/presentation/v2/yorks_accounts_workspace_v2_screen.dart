@@ -1234,7 +1234,9 @@ class _InvoicesBody extends ConsumerWidget {
       for (final c in claims.reversed)
         if (c.status != 'cancelled') c,
     ];
-    final claimNumbers = {for (final (i, c) in live.indexed) c.claimId: i + 1};
+    final claimNumbers = {
+      for (final (i, c) in live.indexed) c.claimId: c.claimNumber ?? i + 1,
+    };
     // Files attached to each invoice, from the Accounts documents.
     final docsState = ref.watch(
       yorksAccountsDocumentsControllerProvider(projectId),

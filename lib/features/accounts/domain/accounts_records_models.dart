@@ -75,6 +75,8 @@ class YorksAccountsActivityEntry {
     this.idempotencyKey,
     this.beforeData,
     this.afterData,
+    this.businessDate,
+    this.context,
   });
 
   final String id;
@@ -91,6 +93,15 @@ class YorksAccountsActivityEntry {
   final Map<String, dynamic>? beforeData;
   final Map<String, dynamic>? afterData;
 
+  /// The day it happened (`YYYY-MM-DD`): an invoice's date, a certification
+  /// or cheque date, a claim's period end. Null from an older server; then
+  /// [occurredAt] (when it was recorded) is the date.
+  final String? businessDate;
+
+  /// References that name the entry (invoice, cheque, claim number …), read
+  /// from the record it touched. Money only with commercial access.
+  final Map<String, dynamic>? context;
+
   factory YorksAccountsActivityEntry.fromRpcJson(Map<String, dynamic> json) =>
       YorksAccountsActivityEntry(
         id: _requiredString(json, 'id'),
@@ -106,6 +117,8 @@ class YorksAccountsActivityEntry {
         idempotencyKey: _nullable(json['idempotency_key']),
         beforeData: _nullableMap(json['before_data']),
         afterData: _nullableMap(json['after_data']),
+        businessDate: _nullable(json['business_date']),
+        context: _nullableMap(json['context']),
       );
 }
 

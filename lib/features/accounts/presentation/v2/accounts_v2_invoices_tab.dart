@@ -532,9 +532,17 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              inv.invoiceReference,
-              style: v2Style(12.5, weight: FontWeight.w700),
+            // An invoice number never breaks ("YRA32202R" / ".1"): on a narrow
+            // column it shrinks to fit instead.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                inv.invoiceReference,
+                maxLines: 1,
+                softWrap: false,
+                style: v2Style(12.5, weight: FontWeight.w700),
+              ),
             ),
             Text(
               [
@@ -1173,12 +1181,14 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
           );
     final certified = latest == null ? 0.0 : _d(latest.certifiedExVat);
     final less = v.gross - certified;
-    final created = d.invoice.createdAt.toLocal();
+    // The date on the invoice itself; when it was recorded only as a fallback.
+    final issuedOn =
+        d.invoice.invoiceDate?.postgresText ?? d.invoice.createdAt.toLocal();
     return [
       (
         title: _t('v2i_tl_issued'),
         detail: [
-          v2Date(created),
+          v2Date(issuedOn),
           if (inv.replacesReference != null)
             '${_t('v2i_replaces')} ${inv.replacesReference}',
         ].join(' · '),

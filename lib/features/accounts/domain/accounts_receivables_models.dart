@@ -432,6 +432,7 @@ final class YorksAccountsClientInvoice {
     required this.createdByExactRole,
     required this.createdAt,
     required this.updatedAt,
+    this.invoiceDate,
   });
 
   final String invoiceId;
@@ -447,6 +448,10 @@ final class YorksAccountsClientInvoice {
   final int? reminderLeadDaysSnapshot;
   final YorksAccountsDate? submissionDate;
   final YorksAccountsDate? dueDate;
+
+  /// The date printed on the invoice (from its frozen document); null before
+  /// it is issued or from an older server.
+  final YorksAccountsDate? invoiceDate;
   final YorksAccountsDueState? dueState;
   final String? adminExceptionReason;
   final String? notes;
@@ -515,6 +520,7 @@ final class YorksAccountsClientInvoice {
       ),
       submissionDate: _optionalDate(json['submission_date']),
       dueDate: _optionalDate(json['due_date']),
+      invoiceDate: _optionalDate(json['invoice_date']),
       dueState: dueState,
       adminExceptionReason: _optionalString(json['admin_exception_reason']),
       notes: _optionalString(json['notes']),
@@ -561,6 +567,7 @@ final class YorksAccountsClientInvoice {
         reminderLeadDaysSnapshot: null,
         submissionDate: submissionDate,
         dueDate: dueDate,
+        invoiceDate: invoiceDate,
         dueState: dueState,
         adminExceptionReason: adminExceptionReason,
         notes: notes,

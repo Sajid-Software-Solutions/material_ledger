@@ -2001,3 +2001,45 @@ share a reference, and the same cheque can never have two receipts in force.
 **Not reversible by design.** A replaced cheque stays replaced: cancel its
 replacement and record a new cheque. A cancelled invoice stays cancelled: raise a
 new claim.
+
+## 30. R39 Accounts — owner decisions of 8 November 2026
+
+**Amounts follow the Yorks workbook (Excel rule).** A claim's gross, VAT and
+total are each rounded once from the exact (unrounded) sum of its amounts:
+gross = round(exact), VAT = round(exact × rate), total = round(exact × (1 +
+rate)). Each claim line keeps its exact amount beside the fils it shows, and a
+line still never claims more than its building and stage allow. A column of
+rounded lines can therefore differ from its total by a fil, as on the signed
+invoices.
+
+**Invoices are stored exactly as signed.** An invoice or certification total may
+differ from ex-VAT + VAT by at most 0.01 when that is how the rounding falls
+(signed YRA32202R.1: 5,983,597.45 + 299,179.87 = 6,282,777.33). Certifying the
+full invoiced amount carries the invoice's own VAT and total, so a cheque for
+the printed total settles it exactly. Nothing else may differ.
+
+**The invoice document is the signed Yorks layout.** Letterhead, TAX INVOICE,
+bill-to / invoice / project boxes, stage rows a–e with contract % and this
+invoice, amount in words, notes (bank and terms), totals and signatures; then
+the Main Summary with VAT and grand-total rows per column, the summary by
+building and the breakdown per building. "Till previous" counts every earlier
+invoiced claim on every building and stage. Yorks bills the chosen bill-to
+party, else the project's main contractor, else its client.
+
+**History is dated by when things happened.** An invoice by its invoice date, a
+certification by its certification date, a cheque by the day it was received,
+deposited or cleared, a claim by its period end; the time it was recorded shows
+beneath, or the record date when that differs. Entries name their invoice,
+cheque, claim number and certifying party; an invoice's draft step and a
+cheque's "added" step fold into the later step, and a claim's progress lines
+become one.
+
+**YRA-322 history is imported from the signed invoices.** YRA32201 (claim #01,
+Design 100%) and YRA32202R.1 (claim #02, Material Supply deliveries), with their
+certifications (2 Feb and 20 Oct 2026) and cheques (004517 received 10 Mar,
+cleared 21 Apr 2026; 004893 received 1 Nov 2026, dated 13 Nov 2026, in hand).
+Progress is recorded as imported from the source workbooks, as the August
+master-file import was. The original YRA32202, the prototype's draft claim #03
+and its sample supplier bills are not recorded. After the invoices, the
+contract value is AED 18,085,468.00 (it had been entered as AED 1,808,546.80 on
+20 October 2026); issued invoices keep their amounts.

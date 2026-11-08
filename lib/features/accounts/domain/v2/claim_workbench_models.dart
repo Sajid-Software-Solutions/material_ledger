@@ -105,6 +105,8 @@ final class YorksAccountsWorkbenchCell {
     this.percentThisClaim,
     this.claimedBeforeClaim,
     this.thisClaimAmount,
+    this.availableExact,
+    this.thisClaimAmountExact,
   });
 
   factory YorksAccountsWorkbenchCell.fromJson(Map<String, dynamic> json) {
@@ -158,6 +160,8 @@ final class YorksAccountsWorkbenchCell {
       percentThisClaim: _optionalDecimal(json, 'percent_this_claim', 'cell'),
       claimedBeforeClaim: money('claimed_before_claim'),
       thisClaimAmount: money('this_claim_amount'),
+      availableExact: money('available_exact'),
+      thisClaimAmountExact: money('this_claim_amount_exact'),
     );
   }
 
@@ -197,6 +201,11 @@ final class YorksAccountsWorkbenchCell {
   /// in it. Commercial only.
   final YorksAccountsDecimal? claimedBeforeClaim;
   final YorksAccountsDecimal? thisClaimAmount;
+
+  /// The same two amounts unrounded (Excel rule: a claim's gross, VAT and
+  /// total are rounded once from the exact sum). Absent from an older server.
+  final YorksAccountsDecimal? availableExact;
+  final YorksAccountsDecimal? thisClaimAmountExact;
 
   bool get isItemsMode => measurementMode == 'items';
 }
