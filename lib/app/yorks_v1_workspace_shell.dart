@@ -934,59 +934,118 @@ List<_YorksDestination> _destinationsFor(
     for (final destination in unique.values)
       if (destinationAllowed(destination)) destination,
   ];
-  final accountsDestinations = visible
-      .where(
-        (destination) =>
-            destination.path == RoutePaths.yorksV1Accounts ||
-            (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-                false),
-      )
-      .toList(growable: false);
-  final requestsIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-  );
-  if (accountsDestinations.isNotEmpty) {
-    visible.removeWhere(accountsDestinations.contains);
-    final updatedRequestsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-    );
-    final insertionIndex = updatedRequestsIndex >= 0
-        ? updatedRequestsIndex + 1
-        : requestsIndex >= 0
-        ? requestsIndex + 1
-        : 0;
-    visible.insertAll(insertionIndex, accountsDestinations);
+  return _arrangeSidebar(visible, role);
+}
+
+/// Sidebar sections, in the order they appear. Related pages sit together
+/// for every role: the material flow (requests, dispatches, returns,
+/// inventory) is one section, and Administration is always last.
+enum _SidebarSection { workspace, materials, collaboration, tools, admin }
+
+_SidebarSection _sectionOf(String path) {
+  if (path == RoutePaths.yorksV1MaterialRequests ||
+      path == RoutePaths.yorksV1Dispatches ||
+      path == RoutePaths.yorksV1Returns ||
+      path == RoutePaths.yorksV1Inventory) {
+    return _SidebarSection.materials;
   }
-  final workforceIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1Workforce,
-  );
-  if (workforceIndex >= 0) {
-    final workforce = visible.removeAt(workforceIndex);
-    final accountsEndIndex = visible.lastIndexWhere(
-      (destination) =>
-          destination.path == RoutePaths.yorksV1Accounts ||
-          (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-              false),
-    );
-    final updatedRequestsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-    );
-    final anchor = accountsEndIndex >= 0
-        ? accountsEndIndex
-        : updatedRequestsIndex;
-    visible.insert(anchor >= 0 ? anchor + 1 : visible.length, workforce);
+  if (path == RoutePaths.yorksV1TeamChat) return _SidebarSection.collaboration;
+  if (path == RoutePaths.yorksV1Calculators ||
+      path == RoutePaths.yorksV1DuctSizer ||
+      path == RoutePaths.yorksV1EspCalculator) {
+    return _SidebarSection.tools;
   }
-  final analyticsIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1Analytics,
-  );
-  if (analyticsIndex >= 0) {
-    final analytics = visible.removeAt(analyticsIndex);
-    final overviewIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.engineerHome,
-    );
-    visible.insert(overviewIndex >= 0 ? overviewIndex + 1 : 0, analytics);
+  if (path == RoutePaths.yorksV1Configuration ||
+      path == RoutePaths.rentals ||
+      path == RoutePaths.users ||
+      path == RoutePaths.yorksV1WorkforceAdministration ||
+      path == RoutePaths.activityLog ||
+      path == RoutePaths.yorksV1Analytics) {
+    return _SidebarSection.admin;
   }
-  return visible;
+  return _SidebarSection.workspace;
+}
+
+/// Order inside a section. Unknown pages keep their relative order after
+/// the listed ones.
+const _sidebarOrder = <String>[
+  RoutePaths.engineerHome,
+  RoutePaths.yorksV1Projects,
+  RoutePaths.yorksV1Accounts,
+  RoutePaths.yorksV1AccountsProjects,
+  RoutePaths.yorksV1AccountsClaims,
+  RoutePaths.yorksV1AccountsClientPayments,
+  RoutePaths.yorksV1AccountsSupplierBills,
+  RoutePaths.yorksV1AccountsDueSchedule,
+  RoutePaths.yorksV1Workforce,
+  RoutePaths.yorksV1MaterialRequests,
+  RoutePaths.yorksV1Dispatches,
+  RoutePaths.yorksV1Returns,
+  RoutePaths.yorksV1Inventory,
+  RoutePaths.yorksV1TeamChat,
+  RoutePaths.yorksV1Calculators,
+  RoutePaths.yorksV1DuctSizer,
+  RoutePaths.yorksV1EspCalculator,
+  RoutePaths.yorksV1Configuration,
+  RoutePaths.rentals,
+  RoutePaths.users,
+  RoutePaths.yorksV1WorkforceAdministration,
+  RoutePaths.activityLog,
+];
+
+TranslatableString _sectionTitle(_SidebarSection section, YorksV1Role? role) =>
+    switch (section) {
+      _SidebarSection.workspace => _workspaceCopy(role),
+      _SidebarSection.materials => YorksV1ShellStrings.materialsSection,
+      _SidebarSection.collaboration => YorksV1ShellStrings.collaboration,
+      _SidebarSection.tools => YorksV1ShellStrings.engineeringTools,
+      _SidebarSection.admin => YorksV1ShellStrings.administration,
+    };
+
+/// Sorts the allowed destinations into sections and gives the first page of
+/// each section its heading. Every role gets the same structure; a section
+/// with no allowed page simply does not appear.
+List<_YorksDestination> _arrangeSidebar(
+  List<_YorksDestination> destinations,
+  YorksV1Role? role,
+) {
+  int rank(_YorksDestination destination) {
+    final index = _sidebarOrder.indexOf(destination.path ?? '');
+    return index < 0 ? _sidebarOrder.length : index;
+  }
+
+  final indexed = [
+    for (var i = 0; i < destinations.length; i++) (i, destinations[i]),
+  ];
+  indexed.sort((a, b) {
+    final section = _sectionOf(
+      a.$2.path ?? '',
+    ).index.compareTo(_sectionOf(b.$2.path ?? '').index);
+    if (section != 0) return section;
+    final order = rank(a.$2).compareTo(rank(b.$2));
+    return order != 0 ? order : a.$1.compareTo(b.$1);
+  });
+
+  final arranged = <_YorksDestination>[];
+  _SidebarSection? current;
+  for (final (_, destination) in indexed) {
+    final section = _sectionOf(destination.path ?? '');
+    final first = section != current;
+    current = section;
+    arranged.add(
+      _YorksDestination(
+        label: destination.label,
+        icon: destination.icon,
+        selectedIcon: destination.selectedIcon,
+        compactLabel: destination.compactLabel,
+        path: destination.path,
+        group: first ? _sectionTitle(section, role) : null,
+        suffix: destination.suffix,
+        badgeCount: destination.badgeCount,
+      ),
+    );
+  }
+  return arranged;
 }
 
 List<_YorksDestination> _legacyDestinationsFor(
