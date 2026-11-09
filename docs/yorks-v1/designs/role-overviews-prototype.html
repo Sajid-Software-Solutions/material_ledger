@@ -1,0 +1,1267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Yorks Role Overviews</title>
+<!--
+  Yorks AC. & Ref. — role-based Overview prototype (8 November 2026).
+  One home screen per exact role, built from the live Yorks shell, tokens and
+  card patterns. Sample data only; YRA-322 Accounts figures follow the signed
+  invoices. Switch role with the bar at the top, the account stamp, keys 1–9
+  or the ← → arrows. "Role notes" explains who each role is and which cards
+  need new server data.
+-->
+<style>
+:root{
+  --bg:#EEF3F8;--mbg:#F3F6FA;--chrome:#F9FBFD;--card:#fff;
+  --line:#E0E6ED;--line2:#EDF1F6;--lineS:#C8D2DF;--cardb:#D8E2EE;
+  --ink:#132033;--ink2:#34435A;--mut:#6B788C;--mut2:#8F9AAE;--navy:#0D2F57;--navyH:#123F73;
+  --pri:#1D68D9;--pri-d:#1757B8;--pri-50:#EAF2FF;--pri-100:#C9DCFF;
+  --ok:#0D8B63;--ok-50:#E9F8F2;--okI:#2E9A63;
+  --warn:#AD6A00;--warn-50:#FFF5DF;--org:#D2742C;
+  --bad:#C23737;--bad-50:#FFF0F0;
+  --vio:#6D4BD1;--vio-50:#F2EDFF;
+  --neu:#F1F4F7;--neuT:#536175;
+  --r:14px;--gap:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:13px;line-height:1.45}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:15px;height:15px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== prototype bar (not part of the app) ===== */
+#pbar{position:sticky;top:0;z-index:80;background:var(--navy);color:#fff;box-shadow:0 2px 10px rgba(13,47,87,.25)}
+.pb-in{display:flex;align-items:center;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.pb-tag{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;white-space:nowrap;margin-right:4px}
+.pb-tag small{font-weight:500;opacity:.7}
+.pb-roles{display:flex;gap:3px;flex-wrap:wrap;flex:1;min-width:0}
+.pr{height:30px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:0 10px;display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pr:hover{background:rgba(255,255,255,.14)}
+.pr.on{background:#fff;color:var(--navy);border-color:#fff}
+.pr-n{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;font-weight:700;background:rgba(255,255,255,.16)}
+.pr.on .pr-n{background:var(--pri-50);color:var(--pri)}
+.pb-sel{display:none;flex:1;min-width:160px;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;padding:0 10px;font-weight:600}
+.pb-sel option{color:var(--ink)}
+.seg{display:inline-flex;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:2px;gap:2px}
+.seg button{height:28px;border:0;background:none;color:#fff;border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.seg button.on{background:#fff;color:var(--navy)}
+.seg svg.i{width:15px;height:15px}
+.pb-btn{height:32px;border:1px solid rgba(255,255,255,.3);background:none;color:#fff;border-radius:9px;padding:0 12px;font-size:12px;font-weight:700;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.pb-btn.on{background:#fff;color:var(--navy)}
+.pb-btn svg.i{width:15px;height:15px}
+
+/* ===== shell (same as live Yorks web) ===== */
+.app{display:grid;grid-template-columns:84px minmax(0,1fr);min-height:calc(100vh - var(--pb,48px))}
+.app.open{grid-template-columns:246px minmax(0,1fr)}
+.side{background:var(--chrome);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:var(--pb,48px);height:calc(100vh - var(--pb,48px));z-index:30;overflow:hidden}
+.brand{height:68px;display:flex;align-items:center;gap:12px;padding:0 24px;border-bottom:1px solid var(--line);flex:none}
+.brand img{width:36px;height:36px;border-radius:50%;box-shadow:0 1px 4px rgba(19,32,51,.22);flex:none}
+.brand .bt{display:none;min-width:0}
+.brand .bt b{display:block;font-size:14px;white-space:nowrap}.brand .bt span{display:block;font-size:11px;color:var(--mut);line-height:1.3}
+.app.open .brand .bt{display:block}
+.side nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 6px;scrollbar-width:thin}
+.side h6{display:none;margin:14px 16px 6px;font-size:10.5px;letter-spacing:.1em;color:var(--mut);font-weight:700;white-space:nowrap;text-transform:uppercase}
+.side h6:first-child{margin-top:4px}
+.app.open .side h6{display:block}
+.nav{display:flex;align-items:center;gap:14px;height:41px;padding:0 0 0 26px;border-radius:10px;color:var(--ink2);cursor:pointer;margin-bottom:1px;white-space:nowrap;font-size:13px;font-weight:500;border:0;background:none;width:100%;text-align:left}
+.nav svg.i{width:20px;height:20px}
+.nav span{display:none}.app.open .nav span{display:inline}
+.nav small{display:none;margin-left:auto;margin-right:10px;font-size:10px;font-weight:700;color:var(--mut);background:var(--neu);border-radius:5px;padding:1px 6px}
+.app.open .nav small{display:inline}
+.nav:hover{background:#EEF3F9}.nav.on{background:var(--pri-50);color:var(--pri);font-weight:700}
+.me{margin:8px 6px 6px;border:1px solid var(--line);border-radius:12px;height:54px;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;flex:none;width:calc(100% - 12px)}
+.me:hover{border-color:var(--lineS)}
+.app.open .me{justify-content:flex-start;padding:0 10px}
+.me .mt{display:none;min-width:0;flex:1;text-align:left}.app.open .me .mt{display:block}
+.me .mt b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.me .mt span{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.me .chev{display:none;color:var(--mut)}.app.open .me .chev{display:block}
+.av{width:34px;height:34px;border-radius:50%;background:var(--pri-50);display:grid;place-items:center;font-weight:700;color:var(--ink);font-size:12px;flex:none;position:relative}
+.av:after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#2DA66E;border:2px solid #fff}
+.sfoot{display:none;padding:2px 18px 12px;font-size:10.5px;color:var(--mut);line-height:1.4}
+.sfoot b{display:flex;gap:5px;align-items:center;color:var(--ink2);font-size:11px}.sfoot b svg{color:#2DA66E;width:14px;height:14px}
+.app.open .sfoot{display:block}
+#meMenu{position:fixed;left:12px;bottom:76px;width:270px;background:#fff;border:1px solid var(--cardb);border-radius:14px;box-shadow:0 12px 36px rgba(19,32,51,.18);padding:8px;z-index:60;max-height:70vh;overflow:auto}
+#meMenu h6{margin:6px 8px 6px;font-size:10.5px;letter-spacing:.1em;color:var(--mut);font-weight:700;text-transform:uppercase}
+.mm{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;padding:8px;border-radius:10px;text-align:left}
+.mm:hover{background:var(--bg)}.mm.on{background:var(--pri-50)}
+.mm b{display:block;font-size:12.5px}.mm small{display:block;font-size:11px;color:var(--mut)}
+main{min-width:0}
+.topbar{height:64px;display:flex;align-items:center;gap:4px;padding:0 20px 0 22px;border-bottom:1px solid var(--line);background:var(--chrome);position:sticky;top:var(--pb,48px);z-index:20}
+.tbi{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--ink2);border:0;background:none;flex:none;position:relative}
+.tbi:hover{background:#EEF3F9}.tbi.dim{color:var(--mut2)}
+.tbi svg.i{width:20px;height:20px}
+.crumb{margin-left:14px;color:var(--mut);white-space:nowrap;font-size:13px}.crumb b{color:var(--ink);font-weight:700}
+.search{margin-left:auto;margin-right:10px;width:300px;height:36px;border:1px solid var(--line);border-radius:10px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 6px 0 12px;color:var(--mut);font-size:13px}
+.kbd{margin-left:auto;background:var(--neu);color:var(--neuT);font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px}
+.badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center;border:2px solid var(--chrome);line-height:1}
+.conn{display:flex;gap:6px;align-items:center;color:var(--mut);font-size:12.5px;font-weight:600;margin-left:8px;white-space:nowrap}.conn svg{color:#2DA66E}
+.wrap{padding:22px 24px 56px;min-width:0;max-width:1480px}
+
+/* ===== page header (live Overview pattern) ===== */
+.ph{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px}
+.ph-t{flex:1;min-width:0}
+.eb{font-size:12px;font-weight:700;color:var(--mut)}
+.ph h1{margin:2px 0 4px;font-size:28px;line-height:1.2;font-weight:700;color:var(--ink);letter-spacing:-.01em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rchip{font-size:11px;font-weight:700;color:var(--pri);background:var(--pri-50);border:1px solid var(--pri-100);border-radius:6px;padding:2px 8px;letter-spacing:0;line-height:1.5}
+.ph p{margin:0;color:var(--ink2);font-size:13px;max-width:760px}
+.meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--mut)}
+.meta .dotsep{width:3px;height:3px;border-radius:50%;background:var(--mut2)}
+.ph-a{display:flex;gap:10px;align-items:center;flex:none;flex-wrap:wrap;justify-content:flex-end}
+
+/* ===== primitives ===== */
+.card{background:var(--card);border:1px solid var(--cardb);border-radius:var(--r);min-width:0}
+.stack{display:grid;gap:var(--gap);min-width:0;align-content:start}
+.sp{flex:1}
+.ch{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 10px}
+.ch .ci{color:var(--pri);flex:none;margin-top:1px;display:flex}
+.ch .ci svg.i{width:21px;height:21px}
+.cht{min-width:0;flex:1}
+.ch h3{margin:0;font-size:15.5px;font-weight:700;color:var(--ink);line-height:1.3}
+.ch p{margin:2px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.4}
+.ch .ca{display:flex;gap:8px;align-items:center;flex:none;margin-left:auto}
+.ti{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none}
+.ti svg.i{width:20px;height:20px}
+.t-blue{background:#EAF1FB;color:var(--pri)}.t-green{background:#E9F6F0;color:var(--okI)}.t-vio{background:#F1EEFB;color:var(--vio)}.t-org{background:#FBF1E8;color:var(--org)}.t-red{background:#FCEDED;color:var(--bad)}.t-neu{background:var(--neu);color:var(--neuT)}.t-gold{background:#FFF5DF;color:var(--warn)}
+.btn{display:inline-flex;gap:8px;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;border-radius:10px;padding:0 14px;height:38px;font-weight:700;color:var(--ink2);white-space:nowrap;font-size:13px}
+.btn svg.i{width:17px;height:17px}
+.btn:hover{background:#F3F7FC;border-color:var(--lineS)}
+.btn.navy{background:var(--navy);border-color:var(--navy);color:#fff;border-radius:999px;padding:0 18px}.btn.navy:hover{background:var(--navyH)}
+.btn.pri{background:var(--pri);border-color:var(--pri);color:#fff;border-radius:999px}.btn.pri:hover{background:var(--pri-d)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--pri);padding:0 8px}.btn.ghost:hover{background:var(--pri-50)}
+.btn.sm{height:32px;padding:0 12px;font-size:12px;border-radius:8px;gap:6px}.btn.sm svg.i{width:15px;height:15px}
+.btn.pri.sm{border-radius:999px}
+.btn.block{width:100%}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;background:var(--neu);color:var(--neuT);vertical-align:middle}
+.chip svg.i{width:12px;height:12px}
+.chip.ok{background:var(--ok-50);color:var(--ok)}.chip.warn{background:var(--warn-50);color:var(--warn)}.chip.bad{background:var(--bad-50);color:var(--bad)}.chip.pri{background:var(--pri-50);color:var(--pri)}.chip.vio{background:var(--vio-50);color:var(--vio)}
+.muted{color:var(--mut)}.b{font-weight:700}
+.note{display:flex;gap:10px;align-items:center;background:#FFF8EA;border:1px solid #F6E2B8;border-left:3px solid #E0A33A;border-radius:8px;padding:10px 14px;color:var(--ink2);font-size:12.5px;margin-bottom:var(--gap)}
+.note>svg.i{color:var(--warn)}
+
+/* KPI tiles — live Overview tile + caption */
+.kgrid{display:grid;gap:var(--gap);grid-template-columns:repeat(var(--kc,5),minmax(0,1fr));margin-bottom:var(--gap)}
+.fullw{margin-bottom:var(--gap)}
+.fullw td:first-child{min-width:240px}
+.kt{background:#fff;border:1px solid var(--cardb);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-height:122px;text-align:left;min-width:0}
+.kt:hover{border-color:var(--lineS);box-shadow:0 2px 10px rgba(19,32,51,.06)}
+.kt.sel{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
+.kh{display:flex;gap:10px;align-items:center;min-height:34px}
+.kt .ti{width:34px;height:34px;border-radius:9px}.kt .ti svg.i{width:18px;height:18px}
+.kl{font-size:12.5px;font-weight:700;color:var(--ink2);line-height:1.3}
+.kv{font-size:26px;font-weight:700;color:var(--ink);line-height:1.15;margin-top:8px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kv.money{font-size:19px;margin-top:12px}
+.kv small{font-size:14px;color:var(--mut);font-weight:600}
+.kv.bad{color:var(--bad)}.kv.warn{color:var(--warn)}.kv.ok{color:var(--ok)}
+.ks{font-size:12px;color:var(--mut);line-height:1.35}
+
+/* two-column body */
+.cols{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);gap:var(--gap);align-items:start}
+.full{margin-top:var(--gap)}
+
+/* work queue */
+.qtabs{display:flex;gap:6px;padding:0 18px 12px;flex-wrap:wrap}
+.qt{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12px;font-weight:700;color:var(--ink2);display:inline-flex;gap:6px;align-items:center}
+.qt b{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.qt:hover{border-color:var(--lineS)}
+.qt.on{background:var(--pri-50);border-color:var(--pri-100);color:var(--pri)}.qt.on b{color:var(--pri)}
+.qrow{display:grid;grid-template-columns:40px minmax(0,1fr) 64px auto;gap:14px;align-items:center;padding:12px 18px;border-top:1px solid var(--line2);cursor:pointer}
+.qrow:hover{background:#F8FBFF}
+.qrow .ti{width:40px;height:40px;border-radius:10px}.qrow .ti svg.i{width:19px;height:19px}
+.qb{min-width:0}
+.q1{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.q1 b{font-size:13.5px;color:var(--ink)}
+.qref{font-size:11.5px;font-weight:700;color:var(--pri);white-space:nowrap}
+.qm{font-size:12.5px;color:var(--ink2);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.qby{font-size:11.5px;color:var(--mut);margin-top:2px}
+.qq{font-size:12px;color:var(--ink2);margin-top:4px;background:var(--bg);border-left:3px solid var(--org);border-radius:4px;padding:5px 9px;font-style:italic}
+.age{text-align:right;line-height:1.2}
+.age b{display:block;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.age span{font-size:10.5px;color:var(--mut)}
+.age.warn b{color:var(--warn)}.age.bad b{color:var(--bad)}
+.qmore{width:100%;border:0;border-top:1px solid var(--line2);background:#FAFCFE;height:40px;font-weight:700;color:var(--pri);font-size:12.5px}
+.qmore:hover{background:var(--pri-50)}
+.qfoot{padding:10px 18px 12px;border-top:1px solid var(--line2);font-size:11.5px;color:var(--mut);display:flex;gap:8px;align-items:flex-start;line-height:1.4}
+.qfoot svg.i{width:14px;height:14px;margin-top:1px;flex:none}
+.clear{display:flex;gap:14px;align-items:center;padding:18px;border-top:1px solid var(--line2)}
+.clear b{display:block;font-size:14px}.clear span{font-size:12.5px;color:var(--ink2)}
+
+/* lists */
+.li{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 18px;border-top:1px solid var(--line2);cursor:pointer}
+.li:hover{background:#F8FBFF}
+.li .ti{width:36px;height:36px;border-radius:10px}.li .ti svg.i{width:17px;height:17px}
+.lt{font-weight:700;font-size:13px;color:var(--ink)}
+.ld{font-size:12px;color:var(--ink2);margin-top:1px}
+.lr{text-align:right;font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.lr small{display:block;font-weight:500;color:var(--mut);font-size:11px}
+.lr.bad{color:var(--bad)}.lr.warn{color:var(--warn)}.lr.ok{color:var(--ok)}.lr.vio{color:var(--vio)}
+.cbody{padding:0 0 6px}
+
+/* stage bars */
+.pv{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 48px;gap:12px;align-items:center;padding:7px 18px;cursor:pointer}
+.pv:hover{background:#F8FBFF}
+.pl{font-size:12.5px;color:var(--ink2);font-weight:600;line-height:1.3}
+.pl small{display:block;font-weight:500;color:var(--mut);font-size:11px}
+.pbw{height:10px;border-radius:6px;background:#E6ECF3;overflow:hidden}
+.pbw i{display:block;height:100%;border-radius:6px}
+.pn{font-size:14px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.pfoot{padding:8px 18px 14px;font-size:11.5px;color:var(--mut)}
+
+/* money */
+.kvr{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:7px 18px;font-size:12.5px;color:var(--ink2);border-top:1px solid var(--line2)}
+.kvr b{font-size:13px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.kvr small{display:block;font-size:11px;color:var(--mut)}
+.kvr b.bad{color:var(--bad)}.kvr b.ok{color:var(--ok)}.kvr b.vio{color:var(--vio)}.kvr b.pri{color:var(--pri)}
+.mbar{height:14px;border-radius:7px;overflow:hidden;display:flex;background:#E6ECF3;margin:4px 18px 8px}
+.mbar i{display:block;height:100%}
+.mleg{display:flex;gap:14px;flex-wrap:wrap;padding:0 18px 12px;font-size:11.5px;color:var(--ink2)}
+.mleg span{display:inline-flex;gap:6px;align-items:center}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* bars */
+.bars{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:10px;align-items:end;height:170px;padding:8px 18px 14px}
+.bc{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;min-width:0}
+.bc b{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bw{width:100%;max-width:44px;flex:1;display:flex;align-items:flex-end}
+.bw i{display:block;width:100%;background:var(--pri);border-radius:6px 6px 2px 2px;min-height:3px}
+.bc small{font-size:11px;color:var(--mut)}
+
+/* request tracker */
+.tr{padding:11px 18px;border-top:1px solid var(--line2);cursor:pointer}
+.tr:hover{background:#F8FBFF}
+.tr-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.tr-h b{font-size:13px}
+.tr-h .age{margin-left:auto}
+.steps{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0 6px}
+.steps i{height:6px;border-radius:4px;background:#E3E9F1;display:block}
+.steps i.d{background:#9DBDEB}.steps i.c{background:var(--pri)}
+.steps.warn i.c{background:var(--org)}
+.tr-s{font-size:12px;color:var(--ink2)}
+.tr-s b{color:var(--ink)}
+.tr-s .warn{color:var(--warn);font-weight:700}.tr-s .bad{color:var(--bad);font-weight:700}
+
+/* tools */
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:0 18px 16px}
+.tool{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px;text-align:left;min-height:56px}
+.tool:hover{border-color:var(--lineS);background:#F8FBFF}
+.tool .ti{width:36px;height:36px;border-radius:10px}
+.tool b{display:block;font-size:12.5px}.tool small{display:block;font-size:11px;color:var(--mut)}
+
+/* tables */
+.tw{overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{background:#F7F9FC;color:var(--mut);font-weight:700;font-size:10.5px;text-align:left;padding:9px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{padding-left:18px}th:last-child,td:last-child{padding-right:18px}
+td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:middle;height:48px}
+tbody tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer}tr.click:hover td{background:#F8FBFF}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{background:#F7F9FC;font-weight:700;border-top:1px solid var(--line);height:42px}
+.cell-t b{display:block;font-size:12.5px;color:var(--ink)}.cell-t span{display:block;font-size:11.5px;color:var(--mut)}
+.z{color:var(--mut2)}
+.bad-t{color:var(--bad);font-weight:700}.warn-t{color:var(--warn);font-weight:700}.ok-t{color:var(--ok);font-weight:700}
+
+/* role notes */
+.rn{margin-bottom:var(--gap);border-color:#DCD3F7;background:linear-gradient(180deg,#FBFAFF 0,#fff 60%)}
+.rn-h{display:flex;gap:12px;align-items:flex-start;padding:16px 18px 8px}
+.rn-h .ti{width:38px;height:38px;border-radius:10px}
+.rn-h h3{margin:0;font-size:15px}
+.rn-h p{margin:2px 0 0;font-size:12.5px;color:var(--ink2)}
+.rn-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:4px 18px 10px}
+.rn-g h5{margin:0 0 4px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--vio)}
+.rn-g ul{margin:0;padding-left:16px;font-size:12.5px;color:var(--ink2)}
+.rn-g li{margin:2px 0}
+.rn-f{border-top:1px solid #ECE7FA;padding:10px 18px 12px;font-size:12.5px;color:var(--ink2);display:grid;gap:4px}
+.rn-f b{color:var(--ink)}
+.src{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap;border:1px dashed currentColor}
+.src.live{color:var(--ok)}.src.part{color:var(--warn)}.src.new{color:var(--vio)}
+
+/* skeleton */
+.sk{display:block;border-radius:6px;background:linear-gradient(90deg,#E9EEF4 0,#F4F7FA 50%,#E9EEF4 100%);background-size:200% 100%;animation:sh 1.2s infinite linear}
+@keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skrow{display:grid;grid-template-columns:40px 1fr 70px;gap:14px;align-items:center;padding:14px 18px;border-top:1px solid var(--line2)}
+
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:12.5px;box-shadow:0 10px 30px rgba(19,32,51,.3);opacity:0;pointer-events:none;transition:all .18s;z-index:100;max-width:min(560px,92vw)}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== phone ===== */
+.pwrap{display:flex;gap:28px;justify-content:center;align-items:flex-start;padding:24px 16px 48px}
+.phone{width:390px;height:844px;flex:none;border-radius:46px;background:#fff;border:10px solid #172235;box-shadow:0 24px 60px rgba(19,32,51,.28);overflow:hidden;display:flex;flex-direction:column;position:sticky;top:64px}
+.phone.bare{width:100%;height:calc(100vh - var(--pb,48px));border:0;border-radius:0;box-shadow:none;position:relative;top:0}
+.m-status{height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:12px;font-weight:700;background:#fff}
+.phone.bare .m-status{display:none}
+.m-head{height:56px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px 0 16px;border-bottom:1px solid var(--line);background:#fff}
+.m-head img{width:30px;height:30px;border-radius:50%}
+.m-head b{font-size:17px;flex:1}
+.m-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;border:0;background:none;color:var(--ink2);position:relative}
+.m-ic .badge{top:6px;right:6px;border-color:#fff}
+.m-body{flex:1;overflow:auto;background:var(--mbg);padding:14px 12px 24px;display:grid;gap:12px;align-content:start}
+.m-hi{padding:2px 4px 0}
+.m-hi .eb{font-size:12px}
+.m-hi h2{margin:2px 0 2px;font-size:20px;line-height:1.25}
+.m-hi p{margin:0;font-size:12.5px;color:var(--ink2)}
+.m-hi .meta{margin-top:6px}
+.m-act{display:grid;gap:8px}
+.m-act .btn{height:48px;border-radius:14px;font-size:14px}
+.m-act .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-act .row2 .btn{height:44px;font-size:12.5px;padding:0 8px}
+.m-k{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m-k .kt{min-height:104px;padding:12px;border-radius:14px}
+.m-k .kv{font-size:22px;margin-top:4px}.m-k .kv.money{font-size:15px;margin-top:8px}
+.m-k .kl{font-size:12px}
+.m-body .card{border-radius:16px}
+.m-body .ch{padding:14px 14px 8px}
+.m-body .ch h3{font-size:15px}
+.m-body .qtabs{padding:0 14px 10px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+.m-body .qt{height:36px;flex:none}
+.m-body .qrow{grid-template-columns:38px minmax(0,1fr) auto;gap:10px;padding:12px 14px}
+.m-body .qrow .age{grid-column:3;grid-row:1}
+.m-body .qrow .btn{grid-column:2/4;justify-self:start;height:40px;min-width:120px}
+.m-body .li{grid-template-columns:36px minmax(0,1fr) auto;padding:11px 14px}
+.m-body .pv{padding:7px 14px;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 40px}
+.m-body .kvr{padding:8px 14px}
+.m-body .tr{padding:12px 14px}
+.m-body .tools{padding:0 14px 14px;grid-template-columns:1fr 1fr}
+.m-body .qfoot{padding:10px 14px 12px}
+.m-body .rn-g{grid-template-columns:1fr;padding:4px 14px 10px}.m-body .rn-h{padding:14px 14px 6px}.m-body .rn-f{padding:10px 14px 12px}.m-body .rn{margin:0}
+.m-body .mbar{margin:4px 14px 8px}.m-body .mleg{padding:0 14px 12px}
+.mcard{padding:11px 14px;border-top:1px solid var(--line2);cursor:pointer}
+.mcard:hover{background:#F8FBFF}
+.mc-t{font-size:13px}
+.mc-g{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:6px}
+.mc-g div{min-width:0}
+.mc-g span{display:block;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.mc-g b{display:block;font-size:12.5px;overflow:hidden;text-overflow:ellipsis}
+.m-nav{height:76px;flex:none;border-top:1px solid var(--line);background:#fff;display:grid;grid-template-columns:repeat(5,1fr);padding:4px 4px 14px}
+.phone.bare .m-nav{position:sticky;bottom:0;padding-bottom:8px;height:64px}
+.mn{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600;color:var(--mut);border-radius:12px;position:relative}
+.mn svg.i{width:22px;height:22px}
+.mn.on{color:var(--pri)}
+.mn.on .mni{background:var(--pri-50)}
+.mni{width:56px;height:30px;border-radius:15px;display:grid;place-items:center;position:relative}
+.mn .badge{top:-2px;right:6px;border-color:#fff}
+.pnotes{width:420px;flex:none;position:sticky;top:64px}
+.pnotes .rn-g{grid-template-columns:1fr}
+
+/* ===== responsive ===== */
+@media (max-width:900px){.kgrid{--kc:2!important}}
+@media (max-width:1180px){.cols{grid-template-columns:1fr}.rn-g{grid-template-columns:1fr 1fr}.pnotes{display:none}}
+@media (max-width:1050px){
+  .app,.app.open{grid-template-columns:1fr}.side{display:none}
+  .app.open .side{display:flex;position:fixed;left:0;top:var(--pb,48px);width:246px;box-shadow:0 0 40px rgba(19,32,51,.25)}
+  .search,.crumb{display:none}.conn{margin-left:auto}
+}
+@media (max-width:900px){.pb-roles{display:none}.pb-sel{display:block}}
+@media (max-width:720px){.seg.dev button span{display:none}.seg button{padding:0 8px}}
+</style>
+</head>
+<body>
+<div id="pbar"></div>
+<div id="stage"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+const LOGO='data:image/png;base64,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';
+
+/* ---------- icons (same stroke set as the Accounts prototype) ---------- */
+const IC={
+ grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+ doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+ chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+ receipt:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+ box:'<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ check:'<path d="m5 12 5 5 9-10"/>',
+ alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+ truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+ wallet:'<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><path d="M16 14h.01"/>',
+ cheque:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 14h6M15 14h3M6 10h12"/>',
+ bldg:'<path d="M4 21V5l8-2v18M12 8l8 2v11M8 8h.01M8 12h.01M8 16h.01M16 13h.01M16 17h.01M2 21h20"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c.5-3.5 3.3-5.5 7-5.5s6.5 2 7 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.6c2 .7 3.5 2.6 4 5.4"/>',
+ chat:'<path d="M4 5h16v11H8l-4 4z"/>',
+ cog:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+ folder:'<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ spark:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+ undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+ shield:'<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+ hier:'<rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="9.5" width="7" height="5" rx="1.5"/><rect x="14" y="16.5" width="7" height="5" rx="1.5"/><path d="M6.5 9v10.5H14M6.5 12H14"/>',
+ clip:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h4"/>',
+ archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
+ ret:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M15.5 13H9m0 0 2.5-2.5M9 13l2.5 2.5"/>',
+ usercog:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.6 6.5-5.6 1.2 0 2.3.3 3.2.8"/><circle cx="17.5" cy="17.5" r="2.2"/><path d="M17.5 13.5v1.8M17.5 19.7v1.8M21.5 17.5h-1.8M15.3 17.5h-1.8"/>',
+ history:'<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.4"/><path d="M3.5 3.5v4.9h4.9M12 7.5V12l3 2"/>',
+ panel:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M13 10l2 2-2 2"/>',
+ arrowL:'<path d="M19 12H5m0 0 6-6m-6 6 6 6"/>',
+ arrowR:'<path d="M5 12h14m0 0-6-6m6 6-6 6"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+ expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+ bell:'<path d="M6 16v-5a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+ cloud:'<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z"/><path d="m9.5 13 2 2 3.5-3.5"/>',
+ chevUD:'<path d="m8 9 4-4 4 4M8 15l4 4 4-4"/>',
+ chevR:'<path d="m9 6 6 6-6 6"/>',
+ msgs:'<path d="M3 5h12v9H7l-4 3z"/><path d="M15 9h6v9l-3-2.5h-7V14"/>',
+ layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+ company:'<path d="M3 21V8l6-4v17M9 21h12V10l-6-2.5V21M12.5 12.5h3M12.5 16.5h3M5.5 10h1M5.5 14h1M5.5 18h1M2 21h20"/>',
+ ruler:'<path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/>',
+ gauge:'<path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 18 4-6"/>',
+ cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+ camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+ refresh:'<path d="M20 11a8 8 0 0 0-14.6-4.5L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.6 4.5L20 16"/><path d="M20 21v-5h-5"/>',
+ home:'<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
+ key:'<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l2 2M15 8l2 2"/>',
+ pause:'<circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/>',
+ eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ phone:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+ monitor:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+ book:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/>',
+ signal:'<path d="M4 20v-4M9 20v-8M14 20v-12M19 20V4"/>',
+ send:'<path d="M4 12 20 4l-6 16-3-7z"/>',
+ stack:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+ list:'<path d="M4 6h16M4 12h10M4 18h7"/><path d="m15 17 2 2 4-4"/>',
+ upload:'<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9"/><path d="M12 12v8m0-8-3 3m3-3 3 3"/>',
+};
+const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||''}</svg>`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip=s=>String(s).replace(/<[^>]+>/g,'');
+const TONE={pri:'t-blue',ok:'t-green',vio:'t-vio',org:'t-org',bad:'t-red',neu:'t-neu',gold:'t-gold'};
+const COL={pri:'#1D68D9',ok:'#2E9A63',vio:'#6D4BD1',org:'#D2742C',bad:'#C23737',neu:'#9AA6B6',gold:'#D89A2B',navy:'#0D2F57',lt:'#9DBDEB'};
+const aed=n=>'AED '+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const m2=n=>(n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(0)+'K':String(n));
+const STAGES=['Created','Engineering approval','Procurement arrangement','Ready for delivery','Dispatched','Received','Completed'];
+
+/* what each queue row is — icon + tone, so a person can scan by shape as well as colour */
+const KIND={approve:['check','pri'],receipt:['truck','ok'],close:['archive','neu'],retappr:['ret','vio'],progress:['chart','org'],
+ changes:['undo','org'],draft:['edit','neu'],photos:['camera','pri'],arrange:['box','pri'],dispatch:['truck','ok'],retin:['ret','vio'],
+ roster:['users','pri'],timesheet:['clock','vio'],do:['doc','pri'],version:['layers','vio'],pdc:['cheque','ok'],overdue:['alert','bad'],
+ claim:['receipt','pri'],bill:['wallet','vio'],returned:['undo','org'],resume:['pause','org'],mapping:['key','bad'],config:['cog','pri'],
+ wf:['clock','vio'],rent:['bldg','org'],audit:['shield','bad'],access:['usercog','pri'],clarify:['edit','org']};
+
+/* ---------- shared sample data ---------- */
+// YRA-322 follows the signed invoices and the 8 November contract correction; other projects are samples.
+const ACC=[
+ {p:'YRA-322',n:'Nexus 132/33kV Substations',contract:18085468.00,claimed:7702797.45,certified:8087937.33,paid:1805160.00,pdc:6282777.33,next:'Cheque 004893 to deposit 13 Nov',nt:'ok'},
+ {p:'YRA-315',n:'Shakhbout City School AHUs',contract:4850000,claimed:1940000,certified:2037000,paid:1556339.88,pdc:0,next:'Invoice YRA31503 overdue 12 days',nt:'bad'},
+ {p:'YRA-318',n:'Al Reem Tower C Chilled Water',contract:9400000,claimed:940000,certified:987000,paid:987000,pdc:0,next:'Material supply ready to claim',nt:'pri'},
+ {p:'YRA-326',n:'Mussafah Warehouse M-44',contract:3120000,claimed:1560000,certified:1638000,paid:1423200,pdc:214800,next:'Cheque 007731 dated 25 Nov',nt:''},
+ {p:'YRA-309',n:'Khalifa City Villa Compound',contract:6200000,claimed:620000,certified:651000,paid:531000,pdc:0,next:'On hold · AED 120,000.00 to collect',nt:'warn'},
+];
+const T=ACC.reduce((t,a)=>{for(const k of ['contract','claimed','certified','paid','pdc'])t[k]=(t[k]||0)+a[k];return t},{});
+T.due=T.certified-T.paid;
+
+const pj=(ref,name,sub)=>`<div class="cell-t"><b>${ref} · ${name}</b>${sub?`<span>${sub}</span>`:''}</div>`;
+const ft=(name,sub)=>`<div class="cell-t"><b>${name}</b>${sub?`<span>${sub}</span>`:''}</div>`;
+const st=(s)=>{const m={Active:'ok','On hold':'warn',Draft:'',Completed:'pri'};return `<span class="chip ${m[s]||''}">${s}</span>`};
+const z=n=>n?String(n):'<span class="z">0</span>';
+
+/* ---------- sidebars (taken from the live shell, per role) ---------- */
+const ENG=(o={})=>[['h',o.ws||'Engineer workspace'],['grid','Overview',1],['hier','Projects'],['clip','Material Requests'],
+ ...(o.accounts?[['grid','Accounts'],['folder','Project Accounts'],['chart','Billing Progress'],['receipt','Claims & Invoices'],['wallet','Receipts & PDC'],['cal','Due Schedule'],['doc','Documents'],['signal','Reports'],['history','Audit Trail']]:[]),
+ ...(o.workforce?[['users','Workforce']]:[]),
+ ['h','Collaboration'],['chat','Team Chat',0,'',3],
+ ...(o.inventory?[['box','Browse / Inventory',0,'View only']]:[]),
+ ['ret','Material Returns'],['h','Engineering tools'],['ruler','Duct Sizer'],['gauge','ESP Calculator'],
+ ...(o.users?[['h','Administration'],['usercog','User Management']]:[])];
+const MNAV_ENG=[['home','Home',1],['folder','Projects'],['chat','Chat',0,3],['receipt','Requests'],['grid','More']];
+
+/* =====================================================================
+   ROLES
+   ===================================================================== */
+const R={};
+
+/* ---------------- Project Engineer ---------------- */
+R.pe={role:'Project Engineer',short:'Project Eng.',person:'Faisal Rahman',ini:'FR',
+ nav:ENG(),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'Approve requests, keep deliveries moving and confirm what reached site on your projects.',
+ scope:'4 assigned projects',
+ actions:[['plus','New Material Request','navy'],['hier','New Project']],
+ kpis:[
+  {i:'check',t:'pri',l:'Waiting for your approval',v:'4',s:'Oldest 2 days · 1 urgent',go:'approve',act:1},
+  {i:'box',t:'vio',l:'With Procurement',v:'6',s:'1 partial · 1 cannot provide now'},
+  {i:'truck',t:'ok',l:'Delivered, receipt open',v:'3',s:'Delivery Orders waiting for receipt',go:'receipt',act:1},
+  {i:'alert',t:'bad',l:'Exceptions',v:'5',s:'2 missing · 1 damaged · 2 supply',cls:'bad',go:'@exc'},
+  {i:'chart',t:'org',l:'Billing progress to confirm',v:'2',s:'Suggested from site with photos',go:'progress',act:1},
+ ],
+ left:[
+  {id:'work',type:'queue',icon:'list',title:'Waiting for you',sub:'Only records you can act on now, urgent and oldest first.',src:'live',
+   tabs:[['all','All'],['approve','Approve'],['receipt','Receipts'],['close','Close'],['retappr','Returns'],['progress','Billing progress']],
+   clear:['Nothing is waiting for you','No request, receipt, return or progress needs your decision right now.'],
+   foot:'Age is time in the current step. Action due dates are not configured, so none are guessed.',
+   rows:[
+    {k:'approve',ref:'YRA-322-MR021',t:'Approve request',m:'Nexus · DF4W · 12 lines',tag:['Urgent','bad'],by:'Submitted by Imran Qureshi · Site Engineer',age:'2 d',at:'warn',b:'Review',p:1},
+    {k:'receipt',ref:'YRA-322-DO009',t:'Confirm receipt',m:'Nexus · DF3W · 8 lines · for YRA-322-MR018',by:'Dispatched today 08:10 · Naveed Akhtar · Procurement',age:'2 h',b:'Review receipt'},
+    {k:'approve',ref:'YRA-318-MR008',t:'Approve request',m:'Al Reem Tower C · Level 14 · 5 lines',tag:['Scheduled 15 Nov','pri'],by:'Submitted by Yusuf Ibrahim · Site Engineer',age:'1 d',b:'Review'},
+    {k:'retappr',ref:'YRA-322-RT002',t:'Approve material return',m:'Nexus · DF7W · 3 surplus lines',by:'Raised by Imran Qureshi · Site Engineer',age:'1 d',b:'Review'},
+    {k:'receipt',ref:'YRA-326-DO006',t:'Confirm receipt',m:'Mussafah M-44 · Building A · 5 lines',by:'Dispatched yesterday 15:30',age:'1 d',b:'Review receipt'},
+    {k:'receipt',ref:'YRA-329-DO004',t:'Confirm receipt',m:'Masdar Lab · Level 2 · 4 lines',by:'Dispatched yesterday 11:05',age:'1 d',b:'Review receipt'},
+    {k:'progress',ref:'YRA-322',t:'Confirm billing progress',m:'DF3W · Installation · site suggests 45% → 60%',by:'Suggested by Imran Qureshi · 6 photos attached',age:'3 d',at:'warn',b:'Confirm'},
+    {k:'progress',ref:'YRA-322',t:'Confirm billing progress',m:'DF4W · Installation · site suggests 30% → 40%',by:'Suggested by Imran Qureshi · 4 photos attached',age:'3 d',at:'warn',b:'Confirm'},
+    {k:'approve',ref:'YRA-322-MR022',t:'Approve request',m:'Nexus · Common · 3 lines',by:'Submitted by Imran Qureshi · Site Engineer',age:'6 h',b:'Review'},
+    {k:'approve',ref:'YRA-326-MR012',t:'Approve request',m:'Mussafah M-44 · Building A · 7 lines',by:'Submitted by Karthik Raj · Site Engineer',age:'3 h',b:'Review'},
+    {k:'close',ref:'YRA-326-MR011',t:'Close request',m:'All 9 lines received in good condition',by:'Receipt confirmed by Karthik Raj · 6 Nov',age:'2 d',b:'Close'},
+   ]},
+  {id:'proj',type:'table',icon:'hier',title:'My projects',sub:'Where each of your projects stands today.',link:'All projects',src:'part',
+   cols:['Project','State','Open requests','Waiting on you','Exceptions','Last activity'],num:[2,3,4],mcols:[1,2,3,4],
+   rows:[
+    [pj('YRA-322','Nexus 132/33kV Substations','Al Dhafra · 4 buildings + Common'),st('Active'),'7','<b>6</b>','<span class="bad-t">3</span>','Today 08:10 · YRA-322-DO009 dispatched'],
+    [pj('YRA-318','Al Reem Tower C','Al Reem Island · 1 building + Common'),st('Active'),'4','<b>1</b>','<span class="bad-t">1</span>','Yesterday · arrangement saved'],
+    [pj('YRA-326','Mussafah Warehouse M-44','Mussafah · 2 buildings + Common'),st('Active'),'3','<b>3</b>','<span class="bad-t">1</span>','Yesterday · YRA-326-DO006 dispatched'],
+    [pj('YRA-329','Masdar Lab Building','Masdar City · 1 building + Common'),st('Active'),'2','<b>1</b>',z(0),'Yesterday · YRA-329-DO004 dispatched'],
+   ]},
+ ],
+ right:[
+  {id:'pipe',type:'pipe',icon:'layers',title:'Requests on my projects',sub:'Open requests by stage. Select a stage to see them.',src:'live',
+   stages:[['Engineering approval',4,'pri','Waiting for you'],['Procurement arrangement',6,'vio'],['Ready for delivery',3,'gold'],['Dispatched',3,'ok','Receipt open'],['Received',1,'neu','Ready to close']],
+   foot:'Your 2 private drafts and 9 requests completed this month are not counted.'},
+  {id:'exc',type:'list',icon:'alert',title:'Exceptions to follow up',sub:'Supply and receipt problems still open.',src:'live',
+   items:[
+    {i:'alert',t:'bad',h:'Cannot provide now · YRA-322-MR017',d:'Motorized fire damper 600×400 · 8 Nos · supplier overdue',r:'6 d',rt:'bad'},
+    {i:'box',t:'org',h:'Partial arrangement · YRA-318-MR006',d:'Copper pipe 1-1/8″ ACR · 40 of 60 m arranged',r:'3 d',rt:'warn'},
+    {i:'truck',t:'bad',h:'Missing at receipt · YRA-322-MR012',d:'Flexible duct 8″ · 4 rolls · replacement allowed',r:'2 d'},
+    {i:'truck',t:'bad',h:'Damaged at receipt · YRA-326-MR009',d:'GI duct sheet 0.8 mm · 6 sheets · replacement allowed',r:'4 d'},
+    {i:'truck',t:'bad',h:'Missing at receipt · YRA-329-MR003',d:'Threaded rod M10 × 3 m · 20 pcs',r:'5 d'},
+   ]},
+  {id:'sched',type:'list',icon:'cal',title:'Needed on site this week',sub:'Scheduled requests and their required date.',src:'live',
+   items:[
+    {i:'cal',t:'bad',h:'YRA-329-MR005 · Fume extract fan',d:'Masdar Lab · Procurement arrangement',r:'Overdue 2 d<small>needed 6 Nov</small>',rt:'bad'},
+    {i:'cal',t:'gold',h:'YRA-322-MR019 · Ventilation fans (6)',d:'Nexus · DF6W · Ready for delivery',r:'10 Nov<small>in 2 days</small>',rt:'warn'},
+    {i:'cal',t:'pri',h:'YRA-318-MR007 · Chilled water valves',d:'Al Reem · Level 14 · Procurement arrangement',r:'12 Nov<small>in 4 days</small>'},
+   ]},
+ ],
+ phone:['work','exc','sched','pipe'],
+ notes:{who:'The engineer who owns delivery on the projects they are assigned to. Access comes from dated project membership.',
+  does:['Keeps the BOQ and project team current','Approves Material Requests before Procurement can arrange them','Approves material returns','Confirms site receipts and closes finished requests','Confirms billing progress suggested from site'],
+  needs:['What is waiting for my decision','What is stuck with Procurement or missing on site','What must reach site this week','Only my projects — nothing else'],
+  not:['Arranging, dispatching or changing stock','Supplier costs and Material Request cost columns (Accounts figures are visible by default)'],
+  today:'Five counters and a recent-requests list. “Needs your action” mixes everything into one number; exceptions, required-on-site dates and billing progress are not shown.',
+  data:'The queue, stages, exceptions and required dates already come from protected server projections. Per-project “waiting on you” and exception counts, and billing progress inside the queue, need a small extension.'}};
+
+/* ---------------- Site Engineer ---------------- */
+R.se={role:'Site Engineer',short:'Site Eng.',person:'Imran Qureshi',ini:'IQ',
+ nav:ENG(),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'Finish your drafts, confirm deliveries on site and send back what is not needed.',
+ scope:'2 assigned projects · YRA-322, YRA-326',
+ actions:[['plus','New Material Request','navy'],['chart','Suggest progress'],['ret','Create return']],
+ kpis:[
+  {i:'truck',t:'ok',l:'Deliveries to confirm',v:'2',s:'Delivery Orders issued to your sites',go:'receipt',act:1},
+  {i:'undo',t:'org',l:'Returned for changes',v:'1',s:'Faisal Rahman asked for a change',go:'changes',act:1,cls:'warn'},
+  {i:'edit',t:'neu',l:'My drafts',v:'3',s:'Visible only to you',go:'draft',act:1},
+  {i:'clock',t:'pri',l:'Waiting on others',v:'5',s:'Approval, arrangement or dispatch',go:'@mine'},
+  {i:'alert',t:'bad',l:'Missing or damaged',v:'2',s:'Replacement on the way',go:'@rep'},
+ ],
+ left:[
+  {id:'todo',type:'queue',icon:'list',title:'To do on site',sub:'Finish these first. Each one opens the exact record.',src:'live',
+   tabs:[['all','All'],['receipt','Receipts'],['changes','Changes'],['draft','Drafts'],['photos','Photos']],
+   clear:['You are up to date','No delivery, change or draft is waiting for you.'],
+   foot:'Drafts stay private until you submit. Receipts record every line as Received, Missing or Damaged.',
+   rows:[
+    {k:'receipt',ref:'YRA-322-DO009',t:'Confirm receipt',m:'DF3W · 8 lines · vehicle 4-21877',by:'Dispatched today 08:10 · Naveed Akhtar · Procurement',age:'2 h',b:'Confirm receipt',p:1},
+    {k:'changes',ref:'YRA-322-MR020',t:'Update returned request',m:'DF6W · 9 lines',by:'Returned by Faisal Rahman · Project Engineer · yesterday',q:'“Copper pipe 7/8″ is above the DF6W BOQ. Reduce to 120 m or add a reason.”',age:'1 d',at:'warn',b:'Edit request'},
+    {k:'receipt',ref:'YRA-326-DO006',t:'Confirm receipt',m:'Building A · 5 lines',by:'Dispatched yesterday 15:30',age:'1 d',b:'Confirm receipt'},
+    {k:'draft',ref:'Draft',t:'Fire dampers DF6W',m:'Nexus · DF6W · 11 lines from BOQ',by:'Saved to your account 2 h ago',age:'2 h',b:'Continue'},
+    {k:'draft',ref:'Draft',t:'Common area consumables',m:'Nexus · Common · 4 lines',by:'Saved to your account yesterday',age:'1 d',b:'Continue'},
+    {k:'draft',ref:'Draft',t:'Workshop materials DF7W',m:'Nexus · DF7W · 26 lines from Excel',by:'Saved to your account 3 Nov',age:'5 d',at:'warn',b:'Continue'},
+    {k:'photos',ref:'YRA-322-MR012',t:'Add site photos',m:'Receipt confirmed 6 Nov · 4 rolls missing',by:'Photos help Procurement replace the missing rolls',age:'2 d',b:'Add photos'},
+   ]},
+  {id:'mine',type:'track',icon:'clip',title:'My requests',sub:'Where each submitted request is and who has it now.',link:'All my requests',src:'live',
+   items:[
+    {ref:'YRA-322-MR018',t:'Duct accessories',s:5,o:'You — confirm receipt',age:'2 h',n:'DO009 dispatched today',nt:''},
+    {ref:'YRA-322-MR021',t:'Package units and supports',s:2,o:'Faisal Rahman · Project Engineer',age:'2 d',n:'Urgent',nt:'bad'},
+    {ref:'YRA-322-MR017',t:'Fire dampers DF4W',s:3,o:'Procurement',age:'6 d',n:'1 line cannot be provided now',nt:'warn',w:1},
+    {ref:'YRA-322-MR019',t:'Ventilation fans DF6W',s:4,o:'Procurement — dispatch',age:'1 d',n:'Needed 10 Nov',nt:'warn'},
+    {ref:'YRA-322-MR022',t:'Common consumables',s:2,o:'Faisal Rahman · Project Engineer',age:'6 h'},
+    {ref:'YRA-326-MR013',t:'Insulation Building A',s:3,o:'Procurement — arranging',age:'1 d'},
+   ]},
+ ],
+ right:[
+  {id:'arr',type:'list',icon:'truck',title:'On the way to your sites',sub:'Dispatched or packed and ready.',src:'live',
+   items:[
+    {i:'truck',t:'ok',h:'YRA-322-DO009 · DF3W',d:'Dispatched today 08:10 · 8 lines · driver Shahid',r:'Arrived?',rt:'ok'},
+    {i:'truck',t:'ok',h:'YRA-326-DO006 · Building A',d:'Dispatched yesterday 15:30 · 5 lines',r:'Arrived?',rt:'ok'},
+    {i:'box',t:'gold',h:'YRA-322-MR019 · DF6W',d:'Ready for delivery · 6 lines reserved',r:'Needed 10 Nov',rt:'warn'},
+   ]},
+  {id:'rep',type:'list',icon:'alert',title:'Missing or damaged',sub:'Procurement can replace up to the approved quantity.',src:'live',
+   items:[
+    {i:'truck',t:'bad',h:'Flexible duct 8″ · 4 rolls missing',d:'YRA-322-MR012 · DF3W · replacement being arranged',r:'2 d'},
+    {i:'truck',t:'bad',h:'GI duct sheet 0.8 mm · 6 damaged',d:'YRA-326-MR009 · Building A · replacement being arranged',r:'4 d'},
+   ]},
+  {id:'ret',type:'list',icon:'ret',title:'Returns',sub:'Only good material you received can go back.',src:'live',
+   items:[
+    {i:'ret',t:'vio',h:'YRA-322-RT002 · 3 lines',d:'Waiting for Faisal Rahman to approve',r:'1 d'},
+    {i:'plus',t:'pri',h:'14 lines can be returned',d:'Good material received on 3 requests',r:'Create',rt:'vio'},
+   ]},
+  {id:'tools',type:'tools',icon:'ruler',title:'Site tools',
+   items:[['ruler','Duct Sizer','Size ducts on site'],['gauge','ESP Calculator','Fan static pressure']]},
+ ],
+ phone:['todo','arr','mine','rep','ret','tools'],
+ notes:{who:'The engineer on site, usually on a phone, assigned to one or two projects.',
+  does:['Creates and submits Material Requests from the BOQ, Excel or free entry','Fixes requests returned for changes','Confirms deliveries line by line: Received, Missing or Damaged','Adds site photos and returns surplus material','Suggests billing progress with evidence'],
+  needs:['A short list I can finish standing on site','What is arriving and when','Where each of my requests is and who has it'],
+  not:['Approving requests (unless also the Project Engineer)','Team access','Any money figure'],
+  today:'The same five-counter layout as office roles. Drafts, returned requests and deliveries to confirm are counted but not listed as things to finish.',
+  data:'Everything here already exists in protected projections (My Work, drafts, dispatches, receipt exceptions and eligible returns). Phone is the primary layout for this role.'}};
+
+/* ---------------- Procurement ---------------- */
+R.proc={role:'Procurement',short:'Procurement',person:'Naveed Akhtar',ini:'NA',
+ nav:[['h','Procurement workspace'],['grid','Overview',1],['clip','Material Requests'],['h','Collaboration'],['chat','Team Chat',0,'',3],['box','Browse / Inventory'],['truck','Dispatches'],['ret','Material Returns'],['hier','Projects',0,'View only']],
+ mnav:[['home','Home',1],['receipt','Requests'],['box','Inventory'],['chat','Chat',0,3],['grid','More']],
+ crumb:'Overview',title:'Overview',
+ desc:'Arrange approved requests, dispatch only what was approved and keep stock honest. Projects are view only.',
+ scope:'All running projects · 1 warehouse',
+ actions:[['box','Arrange next request','navy'],['box','Browse / Inventory'],['truck','Dispatches']],
+ kpis:[
+  {i:'box',t:'pri',l:'To arrange',v:'7',s:'3 urgent · oldest 1 day',go:'arrange',act:1},
+  {i:'truck',t:'ok',l:'Ready to dispatch',v:'5',s:'1 past its required date',go:'dispatch',act:1},
+  {i:'alert',t:'bad',l:'Below minimum stock',v:'11',s:'4 needed by open requests',go:'@stock',cls:'bad'},
+  {i:'clock',t:'org',l:'Supplier deliveries late',v:'2',s:'Past the expected date',go:'@ext',cls:'warn'},
+  {i:'ret',t:'vio',l:'Returns to receive',v:'2',s:'Confirm what reached the warehouse',go:'retin',act:1},
+ ],
+ left:[
+  {id:'work',type:'queue',icon:'list',title:'Your work queue',sub:'Approved by Engineering and ready for you. Urgent and oldest first.',src:'live',
+   tabs:[['all','All'],['arrange','To arrange'],['dispatch','To dispatch'],['retin','Returns']],
+   clear:['Nothing needs Procurement right now','New approved requests appear here the moment Engineering approves them.'],
+   foot:'Saving an arrangement replaces reservations in one step. Dispatch never exceeds the approved quantity or available stock.',
+   rows:[
+    {k:'arrange',ref:'YRA-315-MR031',t:'Arrange request',m:'Shakhbout School · AHU-2 · 14 lines',tag:['Urgent','bad'],by:'Approved by Hassan Ali · Project Engineer · 08:20',age:'2 h',b:'Arrange',p:1},
+    {k:'arrange',ref:'YRA-322-MR023',t:'Arrange request',m:'Nexus · DF6W · 9 lines',tag:['Urgent','bad'],by:'Approved by Faisal Rahman · Project Engineer',age:'5 h',b:'Arrange'},
+    {k:'arrange',ref:'YRA-318-MR009',t:'Arrange request',m:'Al Reem Tower C · Level 15 · 6 lines',tag:['Urgent','bad'],by:'Approved by Faisal Rahman · Project Engineer',age:'9 h',b:'Arrange'},
+    {k:'dispatch',ref:'YRA-329-MR005',t:'Dispatch',m:'Masdar Lab · Level 2 · 2 lines',tag:['Needed 6 Nov · overdue','bad'],by:'Arranged by you · fully reserved',age:'2 d',at:'bad',b:'Dispatch'},
+    {k:'dispatch',ref:'YRA-322-MR019',t:'Dispatch',m:'Nexus · DF6W · 6 lines',tag:['Needed 10 Nov','pri'],by:'Arranged by you · fully reserved',age:'1 d',b:'Dispatch'},
+    {k:'retin',ref:'YRA-301-RT004',t:'Confirm returned material',m:'Yas Retail Kiosks · 6 lines',by:'Sent back 7 Nov · driver Rafiq',age:'1 d',b:'Confirm receipt'},
+    {k:'arrange',ref:'YRA-326-MR014',t:'Arrange request',m:'Mussafah M-44 · Building A · 4 lines',by:'Approved by Faisal Rahman · Project Engineer',age:'1 d',at:'warn',b:'Arrange'},
+    {k:'arrange',ref:'YRA-315-MR030',t:'Arrange request',m:'Shakhbout School · Block B · 11 lines',by:'Approved by Hassan Ali · Project Engineer',age:'1 d',at:'warn',b:'Arrange'},
+    {k:'arrange',ref:'YRA-329-MR006',t:'Arrange request',m:'Masdar Lab · Level 3 · 3 lines',tag:['Needed 14 Nov','pri'],by:'Approved by Faisal Rahman · Project Engineer',age:'20 h',b:'Arrange'},
+    {k:'arrange',ref:'CMR-000019',t:'Arrange company-use request',m:'Workshop consumables · 5 lines',by:'Approved by Babu Thomas · Workshop In-Charge',age:'9 h',b:'Arrange'},
+    {k:'dispatch',ref:'YRA-318-MR005',t:'Dispatch remaining lines',m:'Al Reem Tower C · Level 14 · 4 of 12 lines left',by:'Partly dispatched 5 Nov',age:'3 d',at:'warn',b:'Dispatch'},
+    {k:'dispatch',ref:'YRA-315-MR027',t:'Dispatch',m:'Shakhbout School · AHU-1 · 3 lines',by:'Arranged by you',age:'1 d',b:'Dispatch'},
+    {k:'dispatch',ref:'CMR-000017',t:'Dispatch company-use request',m:'Workshop · 2 lines',by:'Arranged by you',age:'6 h',b:'Dispatch'},
+    {k:'retin',ref:'YRA-322-RT001',t:'Confirm returned material',m:'Nexus · DF3W · 2 lines',by:'Sent back today',age:'3 h',b:'Confirm receipt'},
+   ]},
+  {id:'stock',type:'table',icon:'box',title:'Below minimum stock',sub:'11 items. The ones open requests need are listed first.',link:'Open inventory',src:'live',
+   cols:['Item','On hand','Reserved','Available','Minimum','Needed by'],num:[1,2,3,4],mcols:[3,4,5],
+   rows:[
+    [ft('Motorized fire damper 600×400','Dampers · Nos'),'0','0','<span class="bad-t">0</span>','10','YRA-322-MR017'],
+    [ft('Copper pipe 7/8″ ACR','Copper · m'),'180','160','<span class="bad-t">20</span>','200','2 requests'],
+    [ft('Armaflex 19 mm × 1-1/8″','Insulation · lengths'),'40','36','<span class="bad-t">4</span>','100','YRA-318-MR009'],
+    [ft('Package unit 10 TR R410A','AC units · Nos'),'1','1','<span class="bad-t">0</span>','2','YRA-315-MR031'],
+    [ft('Threaded rod M10 × 3 m','Fixings · pcs'),'120','80','<span class="warn-t">40</span>','300','—'],
+   ]},
+ ],
+ right:[
+  {id:'flow',type:'pipe',icon:'layers',title:'Your pipeline',sub:'Engineering approves first, then you arrange and dispatch.',src:'live',
+   stages:[['Approved · to arrange',7,'pri'],['Arranging',3,'vio','Started, not yet saved'],['Ready to dispatch',5,'gold'],['Dispatched · site receipt open',6,'ok'],['Received this week',11,'neu']]},
+  {id:'ext',type:'list',icon:'clock',title:'Supplier deliveries',sub:'External lines you marked as coming from a supplier.',src:'live',
+   items:[
+    {i:'clock',t:'bad',h:'Gulf Air Dampers · YRA-322-MR017',d:'Fire dampers 600×400 · 8 Nos · expected 2 Nov',r:'Late 6 d',rt:'bad'},
+    {i:'clock',t:'bad',h:'Al Masaood Copper · YRA-318-MR006',d:'Copper pipe 1-1/8″ · 20 m · expected 5 Nov',r:'Late 3 d',rt:'bad'},
+    {i:'check',t:'ok',h:'Emirates Insulation · YRA-315-MR027',d:'Armaflex 25 mm · 60 lengths · firmly committed',r:'9 Nov',rt:'ok'},
+   ]},
+  {id:'chase',type:'list',icon:'truck',title:'Waiting for site receipt',sub:'Dispatched, but the site has not confirmed yet.',src:'live',
+   items:[
+    {i:'truck',t:'org',h:'YRA-315-DO011 · Shakhbout School',d:'Dispatched 3 Nov · Hassan Ali’s team',r:'5 d',rt:'warn'},
+    {i:'truck',t:'ok',h:'YRA-326-DO006 · Mussafah M-44',d:'Dispatched yesterday',r:'1 d'},
+    {i:'truck',t:'ok',h:'YRA-329-DO004 · Masdar Lab',d:'Dispatched yesterday',r:'1 d'},
+    {i:'truck',t:'ok',h:'YRA-322-DO009 · Nexus DF3W',d:'Dispatched today 08:10',r:'2 h'},
+   ]},
+  {id:'ins',type:'money',icon:'spark',title:'Last 30 days',sub:'No cost values. Empty samples show a dash.',src:'live',
+   rows:[['Average arrangement time','1.4 days'],['Warehouse fill rate','86%','ok'],['Average site receipt time','2.1 days'],['Replacement still owed','30 units','bad']]},
+ ],
+ phone:['work','ext','stock','chase'],
+ notes:{who:'The procurement and warehouse team. They work from requests Engineering has already approved.',
+  does:['Arranges every line as Full, Partial or Cannot Provide Now, with a reason when not full','Keeps stock, reservations and supplier lines up to date','Dispatches only approved quantities','Confirms returned material at the warehouse'],
+  needs:['What to arrange next — urgent and oldest first','What can go out today','Which stock or supplier is blocking a request'],
+  not:['Creating or editing projects and BOQ','Raising Engineering requests','Approving its own arrangement'],
+  today:'The step strip still shows Arrange before Approve — the old order. Since August, Engineering approves first. The “To arrange / Dispatch / Low stock” counts are right but the records behind them are not listed together.',
+  data:'All cards use existing protected projections (My Work, inventory attention, external readiness, dispatch and the operational insights). No commercial value is shown.'}};
+
+/* ---------------- Accountant ---------------- */
+R.acc={role:'Accountant',short:'Accountant',person:'Priya Menon',ini:'PM',
+ nav:[['h','Accountant workspace'],['grid','Accounts',1],['folder','Project Accounts'],['chart','Billing Progress'],['receipt','Claims & Invoices'],['wallet','Receipts & PDC'],['wallet','Supplier Bills'],['cal','Due Schedule'],['doc','Documents'],['signal','Reports'],['history','Audit Trail']],
+ mnav:[['grid','Accounts',1],['folder','Projects'],['receipt','Claims'],['wallet','Payments'],['grid','More']],
+ crumb:'Accounts',title:'Accounts',
+ desc:'Collect what is due, bank cheques on time, raise claims from confirmed progress and pay matched supplier bills.',
+ scope:'5 project accounts · AED',
+ actions:[['wallet','Receipts & PDC','navy'],['cal','Due Schedule'],['signal','Reports']],
+ kpis:[
+  {i:'doc',t:'pri',l:'Contract baseline',v:aed(T.contract),s:'Ex VAT · 5 projects',m:1},
+  {i:'receipt',t:'vio',l:'Claimed',v:aed(T.claimed),s:'Ex VAT · '+(T.claimed/T.contract*100).toFixed(1)+'% of baseline',m:1},
+  {i:'check',t:'pri',l:'Certified',v:aed(T.certified),s:'Invoices certified by clients',m:1},
+  {i:'wallet',t:'ok',l:'Amount paid till date',v:aed(T.paid),s:'Cleared money received',m:1,cls:'ok'},
+  {i:'alert',t:'bad',l:'Still due',v:aed(T.due),s:'Certified, not yet paid',m:1,cls:'bad'},
+  {i:'cheque',t:'gold',l:'PDC exposure',v:aed(T.pdc),s:'2 cheques in hand, not cleared',m:1},
+ ],
+ left:[
+  {id:'money',type:'queue',icon:'list',title:'Today and this week',sub:'Money actions in date order. Each opens the exact record.',src:'part',
+   tabs:[['all','All'],['pdc','Cheques'],['overdue','Invoices'],['claim','Claims'],['bill','Supplier bills']],
+   clear:['Nothing is due this week','No cheque, invoice, claim or supplier bill needs you before 15 Nov.'],
+   foot:'Amounts are in AED and are never added across currencies. Payment terms come from each invoice’s saved policy (default 90 days).',
+   rows:[
+    {k:'overdue',g:'overdue',ref:'YRA31503',t:'Invoice is overdue',m:'Shakhbout School · AED 480,660.12 · was due 27 Oct',tag:['12 days overdue','bad'],by:'Certified by client 28 Jul',age:'12 d',at:'bad',b:'Open invoice',p:1},
+    {k:'returned',g:'overdue',ref:'YRA32603',t:'Invoice returned by client',m:'Mussafah M-44 · “Retention not shown on page 2”',by:'Returned 6 Nov · revise and resubmit',age:'2 d',at:'warn',b:'Revise'},
+    {k:'pdc',ref:'Cheque 004893',t:'Deposit post-dated cheque',m:'L&T · YRA32202R.1 · AED 6,282,777.33',tag:['Dated 13 Nov · in 5 days','ok'],by:'Received 1 Nov · in hand',age:'5 d',b:'Open cheque'},
+    {k:'claim',ref:'YRA-318',t:'Prepare claim #02',m:'Al Reem Tower C · Material supply confirmed · AED 412,500.00 available',by:'Progress confirmed by Faisal Rahman · 5 Nov',age:'3 d',b:'Prepare claim'},
+    {k:'claim',ref:'YRA-322',t:'Prepare claim #03',m:'Nexus · Design · AED 89,346.80 available after the contract correction',by:'Contract corrected by Owner · today 11:45',age:'today',b:'Prepare claim'},
+    {k:'bill',ref:'SB-0142',t:'Approve supplier payment',m:'Gulf Air Dampers · AED 38,640.00 · matched to dispatch evidence',by:'Matched by Naveed Akhtar · Procurement',age:'1 d',b:'Review bill'},
+   ]},
+  {id:'accts',type:'table',icon:'folder',title:'Project accounts',sub:'Position per project, in AED.',link:'Open Project Accounts',src:'live',
+   cols:['Project','Contract','Claimed','Paid till date','Still due','Next'],num:[1,2,3,4],mcols:[3,4,5],
+   rows:ACC.map(a=>[pj(a.p,a.n),aed(a.contract).replace('AED ',''),aed(a.claimed).replace('AED ',''),aed(a.paid).replace('AED ',''),a.certified-a.paid?`<b class="${a.certified-a.paid>0?'bad-t':''}">${aed(a.certified-a.paid).replace('AED ','')}</b>`:'<span class="z">0.00</span>',`<span class="${a.nt}-t">${a.next}</span>`]),
+   foot:['Total',aed(T.contract).replace('AED ',''),aed(T.claimed).replace('AED ',''),aed(T.paid).replace('AED ',''),aed(T.due).replace('AED ',''),'']},
+ ],
+ right:[
+  {id:'due',type:'list',icon:'cal',title:'Due in the next 30 days',sub:'From the Due Schedule.',link:'Due Schedule',src:'live',
+   items:[
+    {i:'alert',t:'bad',h:'YRA31503 · Shakhbout School',d:'Client invoice · overdue since 27 Oct',r:'AED 480,660.12<small>overdue</small>',rt:'bad'},
+    {i:'cheque',t:'ok',h:'Cheque 004893 · L&T',d:'YRA-322 · YRA32202R.1 · in hand',r:'AED 6,282,777.33<small>13 Nov</small>'},
+    {i:'cheque',t:'ok',h:'Cheque 007731 · Mussafah client',d:'YRA-326 · in hand',r:'AED 214,800.00<small>25 Nov</small>'},
+    {i:'wallet',t:'vio',h:'SB-0139 · Emirates Insulation',d:'Supplier bill · approved',r:'AED 22,150.00<small>30 Nov</small>',rt:'vio'},
+   ]},
+  {id:'coll',type:'bars',icon:'chart',title:'Money received by month',sub:'Cleared receipts, AED. The 21 Apr YRA-322 payment is earlier.',src:'live',
+   data:[['Jun',1250000],['Jul',640500],['Aug',987000],['Sep',531000],['Oct',1089039.88],['Nov',0]]},
+  {id:'mix',type:'money',icon:'wallet',title:'Certified so far',sub:'How certified invoices stand.',src:'live',
+   bar:[['Paid',T.paid,'ok'],['Cheques in hand',T.pdc,'gold'],['Still to collect',T.due-T.pdc,'bad']],
+   rows:[['Certified',aed(T.certified)],['Paid till date',aed(T.paid),'ok'],['Cheques in hand',aed(T.pdc)],['Not yet covered',aed(T.due-T.pdc),'bad']]},
+ ],
+ phone:['money','due','mix'],mk:[4,5,3,1],
+ notes:{who:'Finance staff who work only inside Accounts. They are never a technical project member.',
+  does:['Prepares claims from engineer-confirmed progress','Issues invoices and records client certification','Records payments and post-dated cheques','Matches, approves and pays supplier bills'],
+  needs:['Money that is due or overdue','Cheques to bank this week','Claims ready to raise','Supplier bills to pay'],
+  not:['Projects, BOQ, Material Requests, stock, dispatch or returns'],
+  today:'Lands on the Accounts portfolio with the right figures but leads with tables. This version leads with today’s money actions and the next 30 days.',
+  data:'Figures, the due schedule and registers exist. One combined “today and this week” list across cheques, invoices, claims and bills needs a small new read projection.'}};
+
+/* ---------------- Admin ---------------- */
+R.admin={role:'Admin',short:'Admin',person:'Owner',ini:'O',
+ nav:[['h','Management workspace'],['grid','Overview',1],['spark','Analytics'],['hier','Projects'],['clip','Material Requests'],['grid','Accounts'],['folder','Project Accounts'],['chart','Billing Progress'],['receipt','Claims & Invoices'],['wallet','Receipts & PDC'],['wallet','Supplier Bills'],['cal','Due Schedule'],['doc','Documents'],['signal','Reports'],['history','Audit Trail'],['users','Workforce'],
+  ['h','Collaboration'],['chat','Team Chat',0,'',3],['box','Browse / Inventory'],['ret','Material Returns'],['truck','Dispatches'],
+  ['h','Administration'],['cog','Configuration'],['bldg','Rental Properties'],['usercog','User Management'],['history','Audit Trail'],['users','Workforce administration']],
+ mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'How Yorks is doing today, what only an Administrator can resolve, and where to look next.',
+ scope:'Organisation-wide',
+ actions:[['spark','Analytics'],['plus','New Project','navy'],['clip','View All Requests']],
+ kpis:[
+  {i:'hier',t:'pri',l:'Active projects',v:'17',s:'2 on hold · 1 draft',go:'@projects'},
+  {i:'clip',t:'vio',l:'Open material requests',v:'74',s:'41 waiting approval or arrangement',go:'@flow'},
+  {i:'alert',t:'bad',l:'Still due to Yorks',v:aed(T.due),s:aed(T.pdc)+' in cheques',m:1,cls:'bad',go:'@acct'},
+  {i:'users',t:'ok',l:'Crew present today',v:'64 <small>of 71</small>',s:'4 on leave · 3 not marked',go:'@wf'},
+  {i:'bldg',t:'org',l:'Rental occupancy',v:'92%',s:'46 of 50 units · 3 rents overdue',go:'@rent'},
+ ],
+ left:[
+  {id:'admin',type:'queue',icon:'shield',title:'Needs an Administrator',sub:'Only what Admin alone can resolve. Engineering and Procurement work stays with them.',src:'part',
+   tabs:[],
+   clear:['Nothing needs an Administrator','Projects, access, configuration, rentals and approvals are all in order.'],
+   foot:'Admin can override most workflows with a reason, so “everything you could act on” is not shown here.',
+   rows:[
+    {k:'mapping',ref:'User Management',t:'Map 2 legacy accounts to a role',m:'Former “engineer” accounts stay blocked until you choose their exact role',by:'Found during the role migration',age:'9 d',at:'bad',b:'Map roles',p:1},
+    {k:'resume',ref:'YRA-309',t:'Project on hold for 21 days',m:'Khalifa City Villa Compound · reason: client site access',by:'Put on hold by Hassan Ali · 18 Oct · only Admin can resume',age:'21 d',at:'warn',b:'Review'},
+    {k:'wf',ref:'Workforce',t:'Approve October timesheets',m:'3 teams submitted · 64 workers · 2 days flagged',by:'Submitted by Babu Thomas and 2 supervisors',age:'2 d',b:'Review'},
+    {k:'config',ref:'Configuration',t:'Unpublished configuration draft',m:'Material Request self-approval policy · 2 changes',by:'Edited by Owner · 3 Nov',age:'5 d',b:'Review draft'},
+    {k:'rent',ref:'Rental Properties',t:'Rent overdue',m:'3 tenants · AED 54,500.00 · oldest 18 days',by:'4 rental cheques to deposit this week',age:'18 d',at:'warn',b:'Open rentals'},
+    {k:'audit',ref:'Audit Trail',t:'3 critical events today',m:'Contract value change, historical import, role change',by:'Review who changed what',age:'today',b:'Open audit'},
+   ]},
+  {id:'projects',type:'table',icon:'hier',title:'Projects needing attention',sub:'Sorted by what is blocking work or money.',link:'All projects',src:'part',
+   cols:['Project','State','Project Engineer','Open requests','Exceptions','Still due','Next'],num:[3,4,5],mcols:[2,4,5],
+   rows:[
+    [pj('YRA-322','Nexus 132/33kV Substations','Al Dhafra'),st('Active'),'Faisal Rahman','7','<span class="bad-t">3</span>','6,282,777.33','<span class="ok-t">Cheque matures 13 Nov</span>'],
+    [pj('YRA-315','Shakhbout City School','Shakhbout City'),st('Active'),'Hassan Ali','6','<span class="bad-t">2</span>','480,660.12','<span class="bad-t">Invoice overdue 12 days</span>'],
+    [pj('YRA-309','Khalifa City Villa Compound','Khalifa City'),st('On hold'),'Hassan Ali','2',z(0),'120,000.00','<span class="warn-t">On hold 21 days</span>'],
+    [pj('YRA-334','Al Ain Clinic Extension','Al Ain'),st('Draft'),'<span class="bad-t">None</span>','0',z(0),'—','<span class="bad-t">Needs a Project Engineer</span>'],
+    [pj('YRA-318','Al Reem Tower C','Al Reem Island'),st('Active'),'Faisal Rahman','4','<span class="bad-t">1</span>','0.00','Claim #02 ready'],
+   ]},
+  {id:'act',type:'list',icon:'history',title:'Recent critical activity',sub:'What changed, on which record, by whom.',link:'Open audit trail',src:'part',
+   items:[
+    {i:'edit',t:'bad',h:'Contract value corrected · YRA-322',d:'AED 17,192,000.00 → AED 18,085,468.00 · issued invoices unchanged · Owner · Admin',r:'11:45<small>today</small>'},
+    {i:'upload',t:'pri',h:'Historical import committed · YRA-322',d:'INVOICE#02R.1.xlsx · invoices, certification and cheques · Owner · Admin',r:'11:45<small>today</small>'},
+    {i:'usercog',t:'vio',h:'Role changed · Omar Siddiqui',d:'Now Site Engineer · by Rajesh Nair · Senior Mechanical Engineer',r:'16:20<small>yesterday</small>'},
+    {i:'cheque',t:'org',h:'Cheque bounced · YRA-315',d:'Cheque 004811 · AED 200,000.00 · receipt reversed · Priya Menon · Accountant',r:'6 Nov'},
+   ]},
+ ],
+ right:[
+  {id:'flow',type:'pipe',icon:'layers',title:'All material requests',sub:'313 requests, including completed ones.',src:'live',
+   stages:[['Drafts',9,'neu'],['Engineering approval',18,'pri'],['Procurement arrangement',23,'vio'],['Ready for delivery',14,'gold'],['Dispatched',19,'ok','Site receipt open'],['Received',8,'lt','Ready to close'],['Completed',210,'navy'],['Cancelled',12,'neu']],
+   foot:'Open requests (74) are the four stages from Engineering approval to Dispatched.'},
+  {id:'acct',type:'money',icon:'wallet',title:'Accounts position',sub:'AED · 5 projects with a contract.',link:'Accounts',src:'live',
+   bar:[['Paid',T.paid,'ok'],['Cheques in hand',T.pdc,'gold'],['Still to collect',T.due-T.pdc,'bad'],['Not yet certified',T.contract*1.05-T.certified,'neu']],
+   rows:[['Contract baseline',aed(T.contract),'','Ex VAT'],['Certified',aed(T.certified)],['Paid till date',aed(T.paid),'ok'],['Still due',aed(T.due),'bad']]},
+  {id:'wf',type:'pipe',icon:'users',title:'Crew today',sub:'Present of assigned workers, by team.',link:'Workforce',src:'live',
+   stages:[['Workshop · Babu Thomas',18,'ok','21 assigned · 1 not marked'],['Site team Nexus',22,'ok','24 assigned · 2 not marked'],['Site team Al Reem',16,'ok','17 assigned'],['Insulation',8,'ok','9 assigned']],
+   foot:'Approved hours are evidence of work, never a productivity score.'},
+  {id:'rent',type:'money',icon:'bldg',title:'Rentals',sub:'Aggregate only. Tenant details stay in Rental Properties.',link:'Rental Properties',src:'live',
+   rows:[['Occupied units','46 of 50'],['Collected this month','AED 312,500.00','ok'],['Overdue','AED 54,500.00','bad'],['Cheques to deposit this week','4 · AED 186,000.00']]},
+  {id:'health',type:'list',icon:'signal',title:'System health',src:'live',
+   items:[
+    {i:'cloud',t:'ok',h:'Workspace sync',d:'All devices connected',r:'Connected',rt:'ok'},
+    {i:'bell',t:'ok',h:'Push notifications',d:'Last delivered 4 minutes ago',r:'Delivering',rt:'ok'},
+    {i:'shield',t:'ok',h:'Data integrity checks',d:'All checks passed this morning',r:'100%',rt:'ok'},
+   ]},
+ ],
+ phone:['admin','flow','acct','wf','rent'],
+ notes:{who:'The company owner and administrators. They can see everything and override with a reason.',
+  does:['Controls users, access and configuration','Resumes projects on hold and archives safely','Approves Workforce periods and oversees rentals','Reviews critical audit events'],
+  needs:['How the company is doing, on one screen','Only the things that need an Administrator','A trustworthy record of who changed what'],
+  not:['Doing Engineering or Procurement work for them — Admin is not a substitute for missing workflow history'],
+  today:'“Needs Your Action” shows 143 because Admin can act on almost every record. Recent activity repeats “YRA-322 · Owner” without saying what changed. A link grid repeats the sidebar.',
+  data:'Company totals come from the existing company projection. An Admin-only attention list (role mappings, on-hold projects, unpublished drafts) and audit entries with a plain summary need small additions.'}};
+
+/* ---------------- Senior Mechanical Engineer ---------------- */
+R.sme={role:'Senior Mechanical Engineer',short:'Senior Mech.',person:'Rajesh Nair',ini:'RN',
+ nav:ENG({inventory:1,users:1}),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'Lead engineering decisions across Yorks: approvals, supply constraints and who can access which project.',
+ scope:'Organisation-wide · stock is read only',
+ actions:[['check','Review approvals','navy'],['usercog','User Management'],['box','Browse inventory']],
+ kpis:[
+  {i:'check',t:'pri',l:'Approvals waiting',v:'12',s:'Across 7 projects · 3 urgent',go:'approve',act:1},
+  {i:'alert',t:'bad',l:'Lines that cannot be supplied',v:'6',s:'In 4 requests · may need another item',go:'@supply',cls:'bad'},
+  {i:'box',t:'org',l:'Below minimum stock',v:'11',s:'Read only · 4 block requests',go:'@supply'},
+  {i:'hier',t:'gold',l:'Projects without a Project Engineer',v:'1',s:'A draft cannot be activated',go:'@nope'},
+  {i:'usercog',t:'vio',l:'Access to review',v:'3',s:'New accounts with no project yet',go:'@access'},
+ ],
+ left:[
+  {id:'appr',type:'queue',icon:'check',title:'Engineering approvals across Yorks',sub:'You can approve any project as an organisation-wide Project Engineer. Oldest first.',src:'live',
+   tabs:[],limit:6,total:12,
+   clear:['No approval is waiting','Every submitted request has an Engineering decision.'],
+   foot:'The assigned Project Engineer is shown so you can decide whether to step in.',
+   rows:[
+    {k:'approve',ref:'YRA-315-MR029',t:'Approve request',m:'Shakhbout School · Block A · 18 lines',by:'Assigned Project Engineer: Hassan Ali · no action for 4 days',age:'4 d',at:'bad',b:'Review',p:1},
+    {k:'approve',ref:'YRA-322-MR021',t:'Approve request',m:'Nexus · DF4W · 12 lines',tag:['Urgent','bad'],by:'Assigned Project Engineer: Faisal Rahman',age:'2 d',at:'warn',b:'Review'},
+    {k:'approve',ref:'YRA-315-MR032',t:'Approve request',m:'Shakhbout School · AHU-3 · 6 lines',tag:['Urgent','bad'],by:'Assigned Project Engineer: Hassan Ali',age:'1 d',b:'Review'},
+    {k:'approve',ref:'YRA-318-MR008',t:'Approve request',m:'Al Reem Tower C · Level 14 · 5 lines',tag:['Scheduled 15 Nov','pri'],by:'Assigned Project Engineer: Faisal Rahman',age:'1 d',b:'Review'},
+    {k:'approve',ref:'CMR-000021',t:'Approve company-use request',m:'Workshop · welding consumables · 3 lines',by:'Requested by Babu Thomas · Workshop In-Charge',age:'5 h',b:'Review'},
+    {k:'approve',ref:'YRA-322-MR022',t:'Approve request',m:'Nexus · Common · 3 lines',by:'Assigned Project Engineer: Faisal Rahman',age:'6 h',b:'Review'},
+    {k:'approve',ref:'YRA-326-MR012',t:'Approve request',m:'Mussafah M-44 · Building A · 7 lines',by:'Assigned Project Engineer: Faisal Rahman',age:'3 h',b:'Review'},
+   ]},
+  {id:'supply',type:'table',icon:'box',title:'Supply constraints by item',sub:'Lines Procurement could not fully supply, with stock (read only).',src:'part',
+   cols:['Item','Requests','Short by','Available stock','Why'],num:[1,2,3],mcols:[1,2,3],
+   rows:[
+    [ft('Motorized fire damper 600×400','Dampers'),'2','14 Nos','<span class="bad-t">0</span>','Supplier 6 days late'],
+    [ft('Package unit 10 TR R410A','AC units'),'1','2 Nos','<span class="bad-t">0</span>','No supplier committed yet'],
+    [ft('Copper pipe 1-1/8″ ACR','Copper'),'1','20 m','<span class="bad-t">0</span>','Supplier 3 days late'],
+    [ft('VRF outdoor unit 22.4 kW','AC units'),'1','1 No','<span class="bad-t">0</span>','Lead time 6 weeks'],
+   ]},
+ ],
+ right:[
+  {id:'access',type:'list',icon:'usercog',title:'Access to review',sub:'New accounts that cannot open any project yet.',link:'User Management',src:'part',
+   items:[
+    {i:'usercog',t:'vio',h:'Omar Siddiqui · Site Engineer',d:'Added 6 Nov · no project membership',r:'Assign',rt:'vio'},
+    {i:'usercog',t:'vio',h:'Ravi Kumar · Site Engineer',d:'Added 4 Nov · no project membership',r:'Assign',rt:'vio'},
+    {i:'usercog',t:'vio',h:'Hamdan Saeed · Project Engineer',d:'Added 2 Nov · no project membership',r:'Assign',rt:'vio'},
+   ]},
+  {id:'nope',type:'list',icon:'hier',title:'Projects without a Project Engineer',sub:'Activation needs at least one.',src:'live',
+   items:[{i:'hier',t:'gold',h:'YRA-334 · Al Ain Clinic Extension',d:'Draft · created by Omar Siddiqui · Site Engineer · 6 Nov',r:'Assign',rt:'warn'}]},
+  {id:'roles',type:'pipe',icon:'users',title:'People by role',sub:'15 active accounts.',src:'live',
+   stages:[['Site Engineer',4,'pri'],['Project Engineer',3,'pri'],['Procurement',2,'vio'],['Senior Mechanical Engineer',1,'navy'],['Project Manager',1,'navy'],['Workshop In-Charge',1,'navy'],['Document Controller',1,'navy'],['Accountant',1,'gold'],['Admin',1,'bad']]},
+  {id:'tools',type:'tools',icon:'ruler',title:'Engineering tools',
+   items:[['ruler','Duct Sizer','Duct sizes and velocity'],['gauge','ESP Calculator','External static pressure']]},
+ ],
+ phone:['appr','supply','access','nope'],
+ notes:{who:'Head of engineering. Works across every project without a per-project membership.',
+  does:['Can make any project’s Engineering approval','Decides on items that cannot be supplied','Manages users and their project access (audited)','Reads stock, never changes it'],
+  needs:['Which engineering decisions are waiting across Yorks','Where supply is blocking work','Who needs access, and which projects have no Project Engineer'],
+  not:['Stock changes and Procurement actions','Accounts figures unless separately granted','Configuration and other Admin-only areas'],
+  today:'A generic “Engineering portfolio control” page with five counters. It does not show who the approval belongs to, which items block work or who is waiting for access.',
+  data:'Approvals, stock attention and user lists exist. Grouping supply problems by item and listing accounts with no project need small new read projections.'}};
+
+/* ---------------- Project Manager ---------------- */
+R.pm={role:'Project Manager',short:'Project Mgr',person:'Sameer Haddad',ini:'SH',
+ nav:ENG({accounts:1}),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'See which projects need a decision, where material is stuck, and how billing and collection stand.',
+ scope:'Organisation-wide · Accounts granted',
+ actions:[['check','Review approvals','navy'],['grid','Accounts'],['hier','Projects']],
+ kpis:[
+  {i:'hier',t:'pri',l:'Active projects',v:'17',s:'2 on hold · 1 draft',go:'@risk'},
+  {i:'check',t:'pri',l:'Approvals waiting',v:'12',s:'Across 7 projects · oldest 4 days',go:'approve',act:1},
+  {i:'alert',t:'bad',l:'Delivery exceptions',v:'9',s:'Partial, unavailable, missing or damaged',cls:'bad',go:'@risk'},
+  {i:'wallet',t:'bad',l:'Still due',v:aed(T.due),s:'Certified, not yet paid',m:1,cls:'bad',go:'@acct'},
+  {i:'cheque',t:'gold',l:'Cheques in hand',v:aed(T.pdc),s:'2 cheques · next on 13 Nov',m:1,go:'@due'},
+ ],
+ left:[
+  {id:'risk',type:'table',icon:'hier',title:'Projects needing attention',sub:'Sorted by what is blocking delivery or money. No weighted “% complete”.',link:'All projects',src:'part',
+   cols:['Project','State','Project Engineer','Waiting approval','Exceptions','Claimed','Still due','Next'],num:[3,4,5,6],mcols:[3,4,6],
+   rows:[
+    [pj('YRA-315','Shakhbout City School','Shakhbout City'),st('Active'),'Hassan Ali','<span class="bad-t">3</span>','<span class="bad-t">2</span>','40.0%','480,660.12','<span class="bad-t">Invoice overdue 12 days</span>'],
+    [pj('YRA-322','Nexus 132/33kV Substations','Al Dhafra'),st('Active'),'Faisal Rahman','2','<span class="bad-t">3</span>','42.6%','6,282,777.33','<span class="ok-t">Cheque matures 13 Nov</span>'],
+    [pj('YRA-309','Khalifa City Villa Compound','Khalifa City'),st('On hold'),'Hassan Ali',z(0),z(0),'10.0%','120,000.00','<span class="warn-t">On hold 21 days</span>'],
+    [pj('YRA-318','Al Reem Tower C','Al Reem Island'),st('Active'),'Faisal Rahman','1','<span class="bad-t">1</span>','10.0%','0.00','Claim #02 ready to prepare'],
+    [pj('YRA-334','Al Ain Clinic Extension','Al Ain'),st('Draft'),'<span class="bad-t">None</span>',z(0),z(0),'—','—','<span class="bad-t">Needs a Project Engineer</span>'],
+    [pj('YRA-326','Mussafah Warehouse M-44','Mussafah'),st('Active'),'Faisal Rahman','1','<span class="bad-t">1</span>','50.0%','214,800.00','Invoice YRA32603 returned'],
+   ]},
+  {id:'appr',type:'queue',icon:'check',title:'Approvals you can make',sub:'You approve as an organisation-wide Project Engineer. Oldest first.',src:'live',
+   tabs:[],limit:4,total:12,
+   clear:['No approval is waiting','Every submitted request has an Engineering decision.'],
+   foot:'Showing the oldest first. The assigned Project Engineer can still decide.',
+   rows:[
+    {k:'approve',ref:'YRA-315-MR029',t:'Approve request',m:'Shakhbout School · Block A · 18 lines',by:'Assigned: Hassan Ali · no action for 4 days',age:'4 d',at:'bad',b:'Review',p:1},
+    {k:'approve',ref:'YRA-322-MR021',t:'Approve request',m:'Nexus · DF4W · 12 lines',tag:['Urgent','bad'],by:'Assigned: Faisal Rahman',age:'2 d',at:'warn',b:'Review'},
+    {k:'approve',ref:'YRA-315-MR032',t:'Approve request',m:'Shakhbout School · AHU-3 · 6 lines',tag:['Urgent','bad'],by:'Assigned: Hassan Ali',age:'1 d',b:'Review'},
+    {k:'approve',ref:'YRA-318-MR008',t:'Approve request',m:'Al Reem Tower C · Level 14 · 5 lines',by:'Assigned: Faisal Rahman',age:'1 d',b:'Review'},
+    {k:'approve',ref:'CMR-000021',t:'Approve company-use request',m:'Workshop · 3 lines',by:'Requested by Babu Thomas',age:'5 h',b:'Review'},
+   ]},
+ ],
+ right:[
+  {id:'acct',type:'money',icon:'wallet',title:'Billing and collection',sub:'AED · 5 projects with a contract.',link:'Accounts',src:'live',
+   bar:[['Paid',T.paid,'ok'],['Cheques in hand',T.pdc,'gold'],['Still to collect',T.due-T.pdc,'bad'],['Not yet certified',T.contract*1.05-T.certified,'neu']],
+   rows:[['Contract baseline',aed(T.contract),'','Ex VAT'],['Claimed',aed(T.claimed),'pri','Ex VAT'],['Certified',aed(T.certified)],['Amount paid till date',aed(T.paid),'ok'],['Still due',aed(T.due),'bad']]},
+  {id:'claims',type:'list',icon:'receipt',title:'Ready to claim',sub:'Confirmed progress not yet claimed.',src:'live',
+   items:[
+    {i:'receipt',t:'pri',h:'YRA-318 · Material supply',d:'Confirmed 5 Nov by Faisal Rahman',r:'AED 412,500.00',rt:''},
+    {i:'receipt',t:'pri',h:'YRA-322 · Design',d:'Added by the contract correction today',r:'AED 89,346.80',rt:''},
+   ]},
+  {id:'due',type:'list',icon:'cal',title:'Due in the next 30 days',src:'live',
+   items:[
+    {i:'alert',t:'bad',h:'YRA31503 overdue · Shakhbout School',d:'Was due 27 Oct',r:'AED 480,660.12',rt:'bad'},
+    {i:'cheque',t:'ok',h:'Cheque 004893 · YRA-322',d:'L&T · in hand',r:'13 Nov',rt:'ok'},
+    {i:'cheque',t:'ok',h:'Cheque 007731 · YRA-326',d:'In hand',r:'25 Nov',rt:'ok'},
+   ]},
+  {id:'hold',type:'list',icon:'pause',title:'Projects on hold',sub:'New requests and dispatch are blocked.',src:'live',
+   items:[{i:'pause',t:'org',h:'YRA-309 · Khalifa City Villas',d:'Since 18 Oct · client site access · Admin resumes',r:'21 d',rt:'warn'},
+    {i:'pause',t:'org',h:'YRA-312 · Corniche Showroom',d:'Since 1 Nov · design change by client',r:'7 d',rt:'warn'}]},
+ ],
+ phone:['risk','appr','acct','due'],
+ notes:{who:'Manages the project portfolio across Yorks. No per-project membership is needed.',
+  does:['Can make any project’s Engineering approval','Follows delivery, exceptions and projects on hold','Sees Accounts position when granted and can set up project contracts'],
+  needs:['Which projects need a decision','Where material is stuck','How billing and collection stand'],
+  not:['User management','Stock and Procurement actions'],
+  today:'“Portfolio at a glance” has five operational counters and no money. Accounts is a separate set of menu items with no summary on the home screen.',
+  data:'Operational and Accounts figures exist separately. The combined per-project row (exceptions + claimed + still due + next step) needs a new read projection that respects both permissions.'}};
+
+/* ---------------- Workshop In-Charge ---------------- */
+R.wic={role:'Workshop In-Charge',short:'Workshop',person:'Babu Thomas',ini:'BT',
+ nav:ENG({workforce:1}),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'Run the workshop day: your crew, the material the workshop needs and what is ready to go out.',
+ scope:'Organisation-wide · supervises the Workshop team',
+ actions:[['plus','New Material Request','navy'],['users','Daily roster'],['ruler','Duct Sizer']],
+ kpis:[
+  {i:'users',t:'ok',l:'Crew present today',v:'18 <small>of 21</small>',s:'2 on leave · 1 not marked',go:'roster',act:1},
+  {i:'clip',t:'pri',l:'Workshop requests open',v:'6',s:'Workshop Materials and company use',go:'@wreq'},
+  {i:'check',t:'pri',l:'Approvals waiting',v:'2',s:'Workshop requests you can approve',go:'approve',act:1},
+  {i:'box',t:'gold',l:'Ready for delivery',v:'2',s:'Reserved and waiting for dispatch',go:'@wreq'},
+  {i:'clock',t:'vio',l:'October timesheet',v:'Due',s:'1 team · 2 days need review',go:'timesheet',act:1,cls:'warn'},
+ ],
+ left:[
+  {id:'work',type:'queue',icon:'list',title:'Your next actions',sub:'Crew first, then material decisions.',src:'part',
+   tabs:[['all','All'],['roster','Crew'],['approve','Approve'],['timesheet','Timesheet']],
+   clear:['Workshop is up to date','Attendance is marked and nothing is waiting for your decision.'],
+   foot:'Crew cards appear only while you hold a dated supervisor responsibility in Workforce.',
+   rows:[
+    {k:'roster',ref:'Daily roster',t:'Mark 1 worker',m:'Workshop · duct fabrication · Anil Kumar not marked',by:'Today, 8 Nov',age:'today',b:'Open roster',p:1},
+    {k:'approve',ref:'YRA-322-MR024',t:'Approve request',m:'Nexus · DF7W · Workshop Materials · 9 lines',by:'Submitted by Imran Qureshi · Site Engineer',age:'4 h',b:'Review'},
+    {k:'approve',ref:'YRA-326-MR015',t:'Approve request',m:'Mussafah M-44 · Building A · Workshop Materials · 5 lines',by:'Submitted by Karthik Raj · Site Engineer',age:'1 d',at:'warn',b:'Review'},
+    {k:'timesheet',ref:'Timesheets',t:'Submit October timesheet',m:'Workshop · 21 workers · 2 days flagged for review',by:'Admin approves after you submit',age:'2 d',b:'Review'},
+   ]},
+  {id:'crew',type:'table',icon:'users',title:'Workshop crew today',sub:'Who is in and what they are working on.',link:'Daily roster',src:'live',
+   cols:['Group','Present','On leave','Not marked','Working on'],num:[1,2,3],mcols:[1,2,4],
+   rows:[
+    [ft('Duct fabrication','9 workers'),'8',z(0),'<span class="warn-t">1</span>','YRA-322 · DF7W ducts'],
+    [ft('Welding','5 workers'),'4','1',z(0),'YRA-322 · DF6W supports'],
+    [ft('Painting','4 workers'),'4',z(0),z(0),'YRA-326 · Building A'],
+    [ft('Store and helpers','3 workers'),'2','1',z(0),'Workshop'],
+   ],
+   foot:['Total · 21','18','2','1','']},
+  {id:'wreq',type:'track',icon:'clip',title:'Workshop material requests',sub:'Workshop Materials folders and company-use requests.',link:'All requests',src:'part',
+   items:[
+    {ref:'YRA-322-MR024',t:'DF7W fabrication material',s:2,o:'You — approve',age:'4 h'},
+    {ref:'YRA-326-MR015',t:'Building A brackets',s:2,o:'You — approve',age:'1 d',n:'Waiting 1 day',nt:'warn'},
+    {ref:'CMR-000019',t:'Workshop consumables',s:3,o:'Procurement — arranging',age:'9 h'},
+    {ref:'CMR-000017',t:'Grinding discs and rivets',s:4,o:'Procurement — dispatch',age:'6 h'},
+    {ref:'YRA-318-MR004',t:'Level 14 hangers',s:4,o:'Procurement — dispatch',age:'1 d'},
+    {ref:'YRA-322-MR016',t:'DF6W GI sheets',s:5,o:'Site — confirm receipt',age:'2 d'},
+   ]},
+ ],
+ right:[
+  {id:'wpipe',type:'pipe',icon:'layers',title:'Workshop requests by stage',src:'part',
+   stages:[['Engineering approval',2,'pri'],['Procurement arrangement',1,'vio'],['Ready for delivery',2,'gold'],['Dispatched',1,'ok']]},
+  {id:'leave',type:'list',icon:'cal',title:'Leave this week',src:'live',
+   items:[{i:'cal',t:'neu',h:'Joseph Mathew · Welding',d:'Annual leave · 6–12 Nov',r:'Back 13 Nov'},{i:'cal',t:'neu',h:'Sanjay Pillai · Store',d:'Sick leave · today',r:'1 day'}]},
+  {id:'tools',type:'tools',icon:'ruler',title:'Workshop tools',
+   items:[['ruler','Duct Sizer','Duct sizes for fabrication'],['gauge','ESP Calculator','Fan static pressure']]},
+ ],
+ phone:['work','crew','wreq','tools'],
+ notes:{who:'Runs the workshop and its crew. Has organisation-wide Project Engineer authority for requests.',
+  does:['Raises and approves workshop material requests (Workshop Materials folders, company use)','Marks daily attendance and submits timesheets when assigned as supervisor','Fabricates ducts using the Duct Sizer'],
+  needs:['Who is in today','What material the workshop is waiting for','What is ready to go out'],
+  not:['Stock changes, Procurement and user management','Accounts changes (read only if granted)'],
+  today:'The same delivery counters as other engineers. No crew view and no way to see only workshop material.',
+  data:'Crew and leave come from Workforce. Filtering requests to Workshop Materials folders and company use needs a small filter on the request projection.'}};
+
+/* ---------------- Document Controller ---------------- */
+R.dc={role:'Document Controller',short:'Doc Control',person:'Aisha Karim',ini:'AK',
+ nav:ENG(),mnav:MNAV_ENG,crumb:'Overview',title:'Overview',
+ desc:'Keep every project’s controlled records complete: Delivery Orders, receipt evidence, returns and file versions.',
+ scope:'Organisation-wide',
+ actions:[['hier','Projects','navy'],['clip','Material Requests']],
+ kpis:[
+  {i:'doc',t:'pri',l:'Delivery Orders to issue',v:'3',s:'Dispatched, no Delivery Order yet',go:'do',act:1},
+  {i:'camera',t:'org',l:'Receipts without photos',v:'2',s:'Missing or damaged lines, last 14 days',go:'photos',act:1},
+  {i:'layers',t:'vio',l:'New file versions',v:'7',s:'This week · 4 projects',go:'@docs'},
+  {i:'archive',t:'ok',l:'Closed this week',v:'5',s:'Requests ready to file',go:'@closed'},
+  {i:'check',t:'pri',l:'Approvals waiting',v:'2',s:'You can approve as Project Engineer',go:'approve',act:1},
+ ],
+ left:[
+  {id:'rec',type:'queue',icon:'list',title:'Records to complete',sub:'Gaps in controlled records, oldest first.',src:'new',
+   tabs:[['all','All'],['do','Delivery Orders'],['photos','Evidence'],['version','Versions'],['approve','Approvals']],
+   clear:['Records are complete','Every dispatch has a Delivery Order and every exception has evidence.'],
+   foot:'A Delivery Order is a fixed snapshot of what was dispatched. Later receipt results stay separate.',
+   rows:[
+    {k:'do',ref:'YRA-315-MR027',t:'Generate Delivery Order',m:'Shakhbout School · dispatch of 3 Nov · 3 lines',by:'Dispatched by Naveed Akhtar · Procurement',age:'5 d',at:'bad',b:'Generate',p:1},
+    {k:'photos',ref:'YRA-326-MR009',t:'Ask site for photos',m:'6 damaged GI sheets · no photo on the receipt',by:'Receipt by Karthik Raj · 4 Nov',age:'4 d',at:'warn',b:'Message site'},
+    {k:'do',ref:'YRA-318-MR005',t:'Generate Delivery Order',m:'Al Reem Tower C · partial dispatch of 5 Nov · 8 lines',by:'Dispatched by Naveed Akhtar · Procurement',age:'3 d',at:'warn',b:'Generate'},
+    {k:'photos',ref:'YRA-322-MR012',t:'Ask site for photos',m:'4 rolls of flexible duct missing · no photo',by:'Receipt by Imran Qureshi · 6 Nov',age:'2 d',b:'Message site'},
+    {k:'approve',ref:'YRA-322-MR022',t:'Approve request',m:'Nexus · Common · 3 lines',by:'Assigned: Faisal Rahman',age:'6 h',b:'Review'},
+    {k:'approve',ref:'YRA-326-MR012',t:'Approve request',m:'Mussafah M-44 · Building A · 7 lines',by:'Assigned: Faisal Rahman',age:'3 h',b:'Review'},
+    {k:'do',ref:'CMR-000017',t:'Generate Delivery Order',m:'Company use · Workshop · 2 lines',by:'Dispatched today 07:40',age:'2 h',b:'Generate'},
+    {k:'version',ref:'YRA-322',t:'Check new drawing version',m:'DF6W HVAC layout · Rev C replaces Rev B',by:'Uploaded by Faisal Rahman · today 09:12',age:'today',b:'Open'},
+   ]},
+  {id:'docs',type:'table',icon:'doc',title:'Recent document activity',sub:'Across every project you can read.',src:'new',
+   cols:['File','Project','Kind','Version','By','When'],mcols:[1,3,5],
+   rows:[
+    [ft('DF6W HVAC Layout.pdf','Linked to BOQ · DF6W'),'YRA-322','Drawing','<span class="chip vio">Rev C</span>','Faisal Rahman','Today 09:12'],
+    [pj('YRA-322-DO009.pdf','Controlled document'),'YRA-322','Delivery Order','—','Naveed Akhtar','Today 08:10'],
+    [ft('L14 Valve Schedule.xlsx','Linked to YRA-318-MR008'),'YRA-318','Schedule','<span class="chip vio">v2</span>','Yusuf Ibrahim','Yesterday 17:05'],
+    [ft('Receipt photos (6)','YRA-326-MR011 receipt'),'YRA-326','Site photos','—','Karthik Raj','6 Nov'],
+    [ft('Method Statement Ventilation.pdf','Project file'),'YRA-326','Submittal','<span class="chip">v1</span>','Faisal Rahman','5 Nov'],
+   ]},
+ ],
+ right:[
+  {id:'closed',type:'list',icon:'archive',title:'Closed this week',sub:'Ready to file. Their Delivery Orders and receipts are complete.',src:'live',
+   items:[
+    {i:'archive',t:'ok',h:'YRA-326-MR011 · 9 lines',d:'Closed by Karthik Raj · 6 Nov · 1 DO · 6 photos',r:'Complete',rt:'ok'},
+    {i:'archive',t:'ok',h:'YRA-322-MR014 · 22 lines',d:'Closed by Imran Qureshi · 5 Nov · 2 DOs',r:'Complete',rt:'ok'},
+    {i:'archive',t:'ok',h:'YRA-315-MR024 · 7 lines',d:'Closed by Hassan Ali · 4 Nov · 1 DO',r:'Complete',rt:'ok'},
+   ]},
+  {id:'byproj',type:'pipe',icon:'folder',title:'Files by project',sub:'Controlled documents and attachments.',src:'new',
+   stages:[['YRA-322 · Nexus',48,'pri'],['YRA-318 · Al Reem',22,'pri'],['YRA-326 · Mussafah',17,'pri'],['YRA-315 · Shakhbout',15,'pri'],['YRA-329 · Masdar',6,'pri']]},
+ ],
+ phone:['rec','closed','docs'],
+ notes:{who:'Keeps project records complete and controlled across every project. Has organisation-wide Project Engineer authority.',
+  does:['Generates Delivery Orders and controlled PDFs','Checks receipts with missing or damaged lines have evidence','Manages file versions and links','Can make Engineering approvals'],
+  needs:['Which records are incomplete','What changed this week','Which requests are ready to file'],
+  not:['Stock and Procurement actions','Accounts figures'],
+  today:'“Records ready for the next handover” shows request counters only. Documents are reachable only inside each project, so nothing shows what is missing across Yorks.',
+  data:'Closed requests and approvals exist. “Dispatch without a Delivery Order”, “exception without photos” and a cross-project document feed need a new read projection.'}};
+
+const ORDER=['pe','se','proc','acc','admin','sme','pm','wic','dc'];
+/* wide tables read better across the full page than squeezed into a column */
+Object.assign(R.pe,{fullIds:['proj']});Object.assign(R.acc,{fullIds:['accts']});Object.assign(R.dc,{fullIds:['docs']});
+Object.assign(R.admin,{fullIds:['projects']});Object.assign(R.pm,{topIds:['risk']});
+for(const r of Object.values(R)){const pick=ids=>(ids||[]).map(id=>{const i=r.left.findIndex(s=>s.id===id);return i<0?null:r.left.splice(i,1)[0]}).filter(Boolean);r.top=pick(r.topIds);r.full=pick(r.fullIds);}
+{const h=R.admin.right.findIndex(s=>s.id==='health');R.admin.left.push(R.admin.right.splice(h,1)[0]);}
+{const h=R.pm.right.findIndex(s=>s.id==='hold');R.pm.left.push(R.pm.right.splice(h,1)[0]);}
+
+/* =====================================================================
+   RENDERING
+   ===================================================================== */
+const S={role:'pe',view:'desktop',state:'normal',notes:true,tab:{},more:{},open:true,menu:false,updated:'09:42',sel:null};
+try{const h=new URLSearchParams(location.hash.slice(1));if(R[h.get('role')])S.role=h.get('role');if(h.get('view')==='phone')S.view='phone';if(h.get('notes')==='0')S.notes=false;}catch(e){}
+
+const loading=()=>S.state==='loading';
+const srcChip=s=>S.notes&&s.src?`<span class="src ${s.src}" title="${s.src==='live'?'Uses an existing protected server projection':s.src==='part'?'Mostly existing data; some figures need a small server extension':'Needs a new protected read projection'}">${s.src==='live'?'Data ready':s.src==='part'?'Partly new data':'Needs new data'}</span>`:'';
+const head=(s)=>`<div class="ch">${s.icon?`<span class="ci">${ic(s.icon)}</span>`:''}<div class="cht"><h3>${s.title}</h3>${s.sub?`<p>${s.sub}</p>`:''}</div><div class="ca">${srcChip(s)}${s.link?`<button class="btn ghost sm" data-go="${esc(s.link)}">${s.link}</button>`:''}</div></div>`;
+const skel=n=>Array.from({length:n},()=>`<div class="skrow"><span class="sk" style="width:40px;height:40px;border-radius:10px"></span><span><span class="sk" style="height:12px;width:62%"></span><span class="sk" style="height:10px;width:40%;margin-top:7px"></span></span><span class="sk" style="height:12px"></span></div>`).join('');
+
+function kpiTile(k){
+  const cleared=S.state==='clear'&&k.act;
+  const v=loading()?`<span class="sk" style="height:24px;width:${k.m?80:40}%;margin-top:10px"></span>`:`<div class="kv ${k.m?'money':''} ${cleared?'ok':k.cls||''}">${cleared?(/^\d/.test(k.v)?'0':'Done'):k.v}</div>`;
+  const s=loading()?`<span class="sk" style="height:10px;width:70%;margin-top:8px"></span>`:`<div class="ks">${S.state==='clear'&&k.act?'Nothing waiting':k.s}</div>`;
+  return `<button class="kt ${S.sel===k.go?'sel':''}" data-kpi="${esc(k.go||'')}" data-label="${esc(k.l)}"><div class="kh"><span class="ti ${TONE[k.t]}">${ic(k.i)}</span><span class="kl">${k.l}</span></div>${v}${s}</button>`;
+}
+
+function qrow(x,phone){
+  const [icn,tone]=KIND[x.k]||['doc','pri'];
+  return `<div class="qrow" data-go="${esc((x.ref||'')+' · '+x.t)}"><span class="ti ${TONE[tone]}">${ic(icn)}</span><div class="qb"><div class="q1"><b>${x.t}</b><span class="qref">${x.ref||''}</span></div><div class="qm">${x.m}${x.tag?` <span class="chip ${x.tag[1]}">${x.tag[0]}</span>`:''}</div>${x.q?`<div class="qq">${x.q}</div>`:''}${x.by?`<div class="qby">${x.by}</div>`:''}</div><div class="age ${x.at||''}"><b>${x.age||''}</b><span>${x.age==='today'?'':'waiting'}</span></div><button class="btn sm ${x.p?'pri':''}" data-go="${esc((x.b||'Open')+' · '+(x.ref||x.t))}">${x.b||'Open'}</button></div>`;
+}
+
+function secQueue(s,phone){
+  const rows=S.state==='clear'?[]:s.rows;
+  const total=S.state==='clear'?0:(s.total||rows.length);
+  const key=x=>x.g||x.k;
+  const cur=S.tab[s.id]||'all';
+  const shown=cur==='all'?rows:rows.filter(x=>key(x)===cur);
+  const lim=phone?4:(s.limit||8);
+  const all=S.more[s.id];
+  const tabs=(s.tabs&&s.tabs.length&&rows.length)?`<div class="qtabs" role="tablist">${s.tabs.map(([k,l])=>{const n=k==='all'?rows.length:rows.filter(x=>key(x)===k).length;return n||k==='all'?`<button class="qt ${cur===k?'on':''}" role="tab" aria-selected="${cur===k}" data-tab="${s.id}:${k}">${l}<b>${n}</b></button>`:''}).join('')}</div>`:'';
+  let body;
+  if(loading())body=skel(4);
+  else if(!shown.length)body=`<div class="clear"><span class="ti t-green">${ic('check')}</span><div><b>${s.clear[0]}</b><span>${s.clear[1]}</span></div></div>`;
+  else body=shown.slice(0,all?99:lim).map(x=>qrow(x,phone)).join('')+(shown.length>lim&&!all?`<button class="qmore" data-more="${s.id}">Show all ${shown.length}</button>`:'')+(total>rows.length&&(all||shown.length<=lim)?`<button class="qmore" data-go="All ${total} in Material Requests">Open all ${total} in Material Requests</button>`:'');
+  return `<section class="card" id="s-${s.id}">${head({...s,title:s.title+(total&&!loading()?` <span class="chip pri">${total}</span>`:'')})}${tabs}${body}${s.foot&&!loading()?`<div class="qfoot">${ic('info')}<span>${s.foot}</span></div>`:''}</section>`;
+}
+
+function secTable(s,phone){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(3)}</section>`;
+  const num=s.num||[];
+  if(phone){
+    const mc=s.mcols||[1,2];
+    return `<section class="card" id="s-${s.id}">${head(s)}${s.rows.map(r=>`<div class="mcard" data-go="${esc(strip(r[0]))}"><div class="mc-t">${r[0]}</div><div class="mc-g">${mc.map(i=>`<div><span>${s.cols[i]}</span><b>${r[i]}</b></div>`).join('')}</div></div>`).join('')}</section>`;
+  }
+  return `<section class="card" id="s-${s.id}">${head(s)}<div class="tw"><table><thead><tr>${s.cols.map((c,i)=>`<th class="${num.includes(i)?'n':''}">${c}</th>`).join('')}</tr></thead><tbody>${s.rows.map(r=>`<tr class="click" data-go="${esc(strip(r[0]))}">${r.map((c,i)=>`<td class="${num.includes(i)?'n':''}">${c}</td>`).join('')}</tr>`).join('')}</tbody>${s.foot?`<tfoot><tr>${s.foot.map((c,i)=>`<td class="${num.includes(i)?'n':''}">${c}</td>`).join('')}</tr></tfoot>`:''}</table></div></section>`;
+}
+
+function secPipe(s){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(3)}</section>`;
+  const max=Math.max(...s.stages.map(x=>x[1]),1);
+  return `<section class="card" id="s-${s.id}">${head(s)}<div class="cbody">${s.stages.map(x=>`<div class="pv" data-go="${esc(x[0])}"><span class="pl">${x[0]}${x[3]?`<small>${x[3]}</small>`:''}</span><span class="pbw"><i style="width:${Math.max(3,x[1]/max*100)}%;background:${COL[x[2]]}"></i></span><b class="pn">${x[1]}</b></div>`).join('')}</div>${s.foot?`<div class="pfoot">${s.foot}</div>`:''}</section>`;
+}
+
+function secList(s){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(3)}</section>`;
+  return `<section class="card" id="s-${s.id}">${head(s)}<div class="cbody">${s.items.map(x=>`<div class="li" data-go="${esc(strip(x.h))}"><span class="ti ${TONE[x.t]}">${ic(x.i)}</span><div><div class="lt">${x.h}</div><div class="ld">${x.d}</div></div>${x.r?`<div class="lr ${x.rt||''}">${x.r}</div>`:''}</div>`).join('')}</div></section>`;
+}
+
+function secMoney(s){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(2)}</section>`;
+  let bar='';
+  if(s.bar){const tot=s.bar.reduce((a,b)=>a+Math.max(0,b[1]),0);
+    bar=`<div class="mbar">${s.bar.map(b=>`<i style="width:${Math.max(0,b[1])/tot*100}%;background:${COL[b[2]]}" title="${esc(b[0])}"></i>`).join('')}</div><div class="mleg">${s.bar.map(b=>`<span><i class="dot" style="background:${COL[b[2]]}"></i>${b[0]}</span>`).join('')}</div>`;}
+  return `<section class="card" id="s-${s.id}">${head(s)}${bar}<div class="cbody">${s.rows.map(r=>`<div class="kvr"><span>${r[0]}${r[3]?`<small>${r[3]}</small>`:''}</span><b class="${r[2]||''}">${r[1]}</b></div>`).join('')}</div></section>`;
+}
+
+function secBars(s){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(2)}</section>`;
+  const max=Math.max(...s.data.map(d=>d[1]),1);
+  return `<section class="card" id="s-${s.id}">${head(s)}<div class="bars">${s.data.map(([l,v])=>`<div class="bc"><b>${v?m2(v):'—'}</b><span class="bw"><i style="height:${v?Math.max(3,v/max*100):0}%"></i></span><small>${l}</small></div>`).join('')}</div></section>`;
+}
+
+function secTrack(s){
+  if(loading())return `<section class="card" id="s-${s.id}">${head(s)}${skel(3)}</section>`;
+  return `<section class="card" id="s-${s.id}">${head(s)}${s.items.map(x=>`<div class="tr" data-go="${esc(x.ref)}"><div class="tr-h"><span class="qref">${x.ref}</span><b>${x.t}</b><span class="age"><b>${x.age}</b></span></div><div class="steps ${x.w?'warn':''}" aria-label="${STAGES[x.s-1]}">${STAGES.map((n,i)=>`<i class="${i+1<x.s?'d':i+1===x.s?'c':''}" title="${n}"></i>`).join('')}</div><div class="tr-s"><b>${STAGES[x.s-1]}</b> · ${x.o}${x.n?` · <span class="${x.nt||''}">${x.n}</span>`:''}</div></div>`).join('')}</section>`;
+}
+
+function secTools(s){
+  return `<section class="card" id="s-${s.id}">${head(s)}<div class="tools">${s.items.map(([i,l,d])=>`<button class="tool" data-go="${esc(l)}"><span class="ti t-blue">${ic(i)}</span><span><b>${l}</b><small>${d}</small></span></button>`).join('')}</div></section>`;
+}
+
+const SEC={queue:secQueue,table:secTable,pipe:secPipe,list:secList,money:secMoney,bars:secBars,track:secTrack,tools:secTools};
+const sec=(s,phone)=>SEC[s.type](s,phone);
+const allSecs=r=>[...r.top,...r.left,...r.right,...r.full];
+
+function notesCard(r){
+  const n=r.notes,li=a=>a.map(x=>`<li>${x}</li>`).join('');
+  return `<section class="card rn"><div class="rn-h"><span class="ti t-vio">${ic('book')}</span><div class="cht"><h3>Understanding the ${r.role} role</h3><p>${n.who}</p></div><button class="btn ghost sm" data-act="notes">Hide notes</button></div>
+  <div class="rn-g"><div><h5>Responsible for</h5><ul>${li(n.does)}</ul></div><div><h5>Needs from Overview</h5><ul>${li(n.needs)}</ul></div><div><h5>Not their job</h5><ul>${li(n.not)}</ul></div></div>
+  <div class="rn-f"><div><b>Today’s screen:</b> ${n.today}</div><div><b>Data:</b> ${n.data}</div></div></section>`;
+}
+
+function navHtml(items){
+  return items.map(x=>{
+    if(x[0]==='h')return `<h6>${x[1]}</h6>`;
+    const [i,l,on,suf,b]=x;
+    return `<button class="nav ${on?'on':''}" data-go="${esc(l)}" title="${esc(l)}">${ic(i)}<span>${l}</span>${suf?`<small>${suf}</small>`:''}${b?`<small style="background:var(--bad);color:#fff">${b}</small>`:''}</button>`;
+  }).join('');
+}
+
+function header(r){
+  const acts=r.actions.map(([i,l,c])=>`<button class="btn ${c||''}" data-go="${esc(l)}">${ic(i)}${l}</button>`).join('');
+  return `<div class="ph"><div class="ph-t"><div class="eb">${r.person}</div><h1>${r.title} <span class="rchip">${r.role}</span></h1><p>${r.desc}</p>
+   <div class="meta"><span class="chip pri">${ic('eye')}${r.scope}</span><span class="dotsep"></span><span>${loading()?'Checking with the server…':`Updated ${S.updated} · server-confirmed`}</span><button class="btn ghost sm" data-act="refresh">${ic('refresh')}Refresh</button></div></div>
+   <div class="ph-a">${acts}</div></div>`;
+}
+
+function deskView(r){
+  const k=r.kpis.map(kpiTile).join('');
+  return `<div class="app ${S.open?'open':''}">
+  <aside class="side"><div class="brand"><img src="${LOGO}" alt="Yorks emblem"><div class="bt"><b>Yorks AC. &amp; Ref.</b><span>Yorks Air Conditioning &amp; Refrigeration LLC-SPC</span></div></div>
+   <nav aria-label="Main">${navHtml(r.nav)}</nav>
+   <button class="me" data-act="me" aria-haspopup="menu"><span class="av">${r.ini}</span><span class="mt"><b>${r.person}</b><span>${r.role}</span></span><span class="chev">${ic('chevUD','sm')}</span></button>
+   <div class="sfoot"><b>${ic('cloud')}Connected</b>Procurement Control &amp; Inventory</div></aside>
+  <main><div class="topbar"><button class="tbi" data-act="side" title="Collapse panel">${ic('panel')}</button><button class="tbi dim">${ic('arrowL')}</button><button class="tbi dim">${ic('arrowR')}</button>
+   <span class="crumb">Yorks AC. &amp; Ref. <span style="margin:0 6px">/</span><b>${r.crumb}</b></span>
+   <div class="search" data-go="Search">${ic('search','sm')}<span>Search or jump to…</span><span class="kbd">⌘K</span></div>
+   <button class="tbi" data-go="Full screen">${ic('expand')}</button><button class="tbi" data-go="Team Chat">${ic('msgs')}<span class="badge">3</span></button><button class="tbi" data-go="Notifications">${ic('bell')}<span class="badge">5</span></button><span class="conn">${ic('cloud','sm')}<span>Connected</span></span></div>
+   <div class="wrap">${header(r)}${S.notes?notesCard(r):''}${S.state==='partial'?'':''}<div class="kgrid" style="--kc:${r.kpis.length===6?3:r.kpis.length}">${k}</div>
+   ${r.top.map(s=>`<div class="fullw">${sec(s)}</div>`).join('')}<div class="cols"><div class="stack">${r.left.map(s=>sec(s)).join('')}</div><div class="stack">${r.right.map(s=>sec(s)).join('')}</div></div>${r.full.map(s=>`<div class="full">${sec(s)}</div>`).join('')}</div></main></div>
+  ${S.menu?meMenu(r):''}`;
+}
+
+function meMenu(r){
+  return `<div id="meMenu" role="menu"><h6>Switch role (prototype)</h6>${ORDER.map((k,i)=>`<button class="mm ${S.role===k?'on':''}" data-role="${k}" role="menuitem"><span class="av" style="width:30px;height:30px">${R[k].ini}</span><span><b>${R[k].person}</b><small>${R[k].role} · key ${i+1}</small></span></button>`).join('')}<h6>Account</h6><button class="mm" data-go="Open My Yorks"><span>${ic('users')}</span><span><b>Open My Yorks</b><small>Profile, access and preferences</small></span></button></div>`;
+}
+
+function phoneView(r,bare){
+  const first=r.actions[0];
+  const rest=r.actions.slice(1,3);
+  const ks=(r.mk||[0,1,2,3]).map(i=>kpiTile(r.kpis[i])).join('');
+  const greet=r.role==='Admin'?'Good morning':'Good morning, '+r.person.split(' ')[0];
+  const body=`<div class="m-hi"><div class="eb">${greet}</div><h2>${r.title} <span class="rchip">${r.role}</span></h2><p>${r.desc}</p><div class="meta"><span>${loading()?'Checking with the server…':`Updated ${S.updated}`}</span><span class="dotsep"></span><span>${r.scope}</span></div></div>
+   <div class="m-act"><button class="btn navy block" data-go="${esc(first[1])}">${ic(first[0])}${first[1]}</button>${rest.length?`<div class="row2">${rest.map(([i,l])=>`<button class="btn" data-go="${esc(l)}">${ic(i)}${l}</button>`).join('')}</div>`:''}</div>
+   <div class="m-k">${ks}</div>
+   ${r.phone.map(id=>{const s=allSecs(r).find(x=>x.id===id);return s?sec(s,true):''}).join('')}`;
+  const nav=r.mnav.map(([i,l,on,b])=>`<button class="mn ${on?'on':''}" data-go="${esc(l)}"><span class="mni">${ic(i)}${b?`<span class="badge">${b}</span>`:''}</span>${l}</button>`).join('');
+  const ph=`<div class="phone ${bare?'bare':''}"><div class="m-status"><span>9:41</span><span>●●●● ▮</span></div><div class="m-head"><img src="${LOGO}" alt=""><b>${r.title}</b><button class="m-ic" data-go="Notifications" aria-label="Notifications">${ic('bell')}<span class="badge">5</span></button><button class="m-ic" data-act="me" aria-label="Account"><span class="av" style="width:32px;height:32px">${r.ini}</span></button></div><div class="m-body">${bare&&S.notes?notesCard(r):''}${body}</div><nav class="m-nav" aria-label="Main">${nav}</nav></div>`;
+  return (bare?ph:`<div class="pwrap">${ph}${S.notes?`<div class="pnotes">${notesCard(r)}</div>`:''}</div>`)+(S.menu?meMenu(r):'');
+}
+
+function protoBar(){
+  return `<div class="pb-in"><span class="pb-tag" title="Prototype with sample data · keys 1–9 or ← → switch role">${ic('eye')}Role overviews</span>
+  <div class="pb-roles" role="tablist" aria-label="Role">${ORDER.map((k,i)=>`<button class="pr ${S.role===k?'on':''}" data-role="${k}" role="tab" aria-selected="${S.role===k}" title="${R[k].role} — key ${i+1}">${R[k].short}</button>`).join('')}</div>
+  <select class="pb-sel" data-sel="role" aria-label="Role">${ORDER.map((k,i)=>`<option value="${k}" ${S.role===k?'selected':''}>${i+1}. ${R[k].role}</option>`).join('')}</select>
+  <div class="seg dev" role="group" aria-label="Device">${[['desktop','monitor','Desktop'],['phone','phone','Phone']].map(([v,i,l])=>`<button class="${S.view===v?'on':''}" data-view="${v}">${ic(i)}<span>${l}</span></button>`).join('')}</div>
+  <div class="seg" role="group" aria-label="State">${[['normal','Normal'],['clear','All clear'],['loading','Loading']].map(([v,l])=>`<button class="${S.state===v?'on':''}" data-state="${v}"><span>${l}</span></button>`).join('')}</div>
+  <button class="pb-btn ${S.notes?'on':''}" data-act="notes">${ic('book')}Notes</button></div>`;
+}
+
+function render(keepScroll){
+  const r=R[S.role];
+  const y=window.scrollY;
+  const pb=document.getElementById('pbar');
+  pb.innerHTML=protoBar();
+  document.documentElement.style.setProperty('--pb',pb.offsetHeight+'px');
+  const small=matchMedia('(max-width:720px)').matches;
+  // On tablet the sidebar is an overlay, so it starts closed there and open on desktop.
+  const tablet=innerWidth<=1050;if(tablet!==S.tablet){S.tablet=tablet;S.open=!tablet;}
+  const phone=S.view==='phone'||small;
+  const stg=document.getElementById('stage');
+  stg.innerHTML=phone?phoneView(r,small):deskView(r);
+  document.title=`${r.role} · Yorks Role Overviews`;
+  const h=`role=${S.role}${S.view==='phone'?'&view=phone':''}${S.notes?'':'&notes=0'}`;
+  if(location.hash.slice(1)!==h)history.replaceState(null,'','#'+h);
+  window.scrollTo(0,keepScroll?y:0);
+}
+
+let tt;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2600);}
+
+function setRole(k){if(!R[k])return;S.role=k;S.tab={};S.more={};S.sel=null;S.menu=false;render();}
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-role],[data-view],[data-state],[data-act],[data-tab],[data-more],[data-kpi],[data-go]');
+  if(!el){if(S.menu){S.menu=false;render(true)}return;}
+  const d=el.dataset;
+  if(d.role)return setRole(d.role);
+  if(d.view){S.view=d.view;S.menu=false;return render();}
+  if(d.state){S.state=d.state;return render(true);}
+  if(d.act==='notes'){S.notes=!S.notes;return render(true);}
+  if(d.act==='side'){S.open=!S.open;return render(true);}
+  if(d.act==='me'){S.menu=!S.menu;return render(true);}
+  if(d.act==='refresh'){S.state='loading';render(true);setTimeout(()=>{S.state='normal';const n=new Date();S.updated=n.toTimeString().slice(0,5);render(true);toast('Refreshed from the server. Nothing you were looking at moved.');},700);return;}
+  if(d.tab){const [id,k]=d.tab.split(':');S.tab[id]=k;S.more[id]=false;return render(true);}
+  if(d.more){S.more[d.more]=true;return render(true);}
+  if(d.kpi!==undefined){
+    const go=d.kpi;const r=R[S.role];
+    if(!go)return toast(`${d.label}: opens the filtered register.`);
+    S.sel=S.sel===go?null:go;
+    if(go.startsWith('@')){render(true);const t=document.getElementById('s-'+go.slice(1));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return;}
+    const q=allSecs(r).find(s=>s.type==='queue'&&s.rows.some(x=>(x.g||x.k)===go));
+    if(q){S.tab[q.id]=S.sel?go:'all';S.more[q.id]=false;render(true);const t=document.getElementById('s-'+q.id);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});}
+    else render(true);
+    return;
+  }
+  if(d.go){e.stopPropagation();if(S.menu){S.menu=false;render(true);}return toast(`Prototype: opens “${d.go}”. The real screen re-checks access when it opens.`);}
+});
+document.addEventListener('change',e=>{if(e.target.dataset.sel==='role')setRole(e.target.value);});
+document.addEventListener('keydown',e=>{
+  const tg=e.target;if((tg&&tg.closest&&tg.closest('input,select,textarea'))||e.metaKey||e.ctrlKey||e.altKey)return;
+  if(/^[1-9]$/.test(e.key))setRole(ORDER[+e.key-1]);
+  else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const i=ORDER.indexOf(S.role);setRole(ORDER[(i+(e.key==='ArrowRight'?1:ORDER.length-1))%ORDER.length]);}
+  else if(e.key==='Escape'&&S.menu){S.menu=false;render(true);}
+});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>render(true),150);});
+render();
+</script>
+</body>
+</html>

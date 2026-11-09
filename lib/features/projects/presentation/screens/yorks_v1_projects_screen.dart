@@ -49,6 +49,7 @@ import '../../../../shared/providers/yorks_v1_team_chat_provider.dart';
 import 'yorks_v1_boq_screens.dart';
 import 'yorks_v1_documents_screen.dart';
 import 'yorks_v1_executive_overview.dart';
+import '../overview/yorks_v1_role_overview_deferred.dart';
 import '../../../company_overview/application/company_analytics_providers.dart';
 import '../../../company_overview/domain/company_analytics_models.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
@@ -98,6 +99,9 @@ class YorksV1OverviewScreen extends ConsumerWidget {
     // administration provider.
     if (role == YorksV1Role.accountant) {
       return _AccountantRolloutLockedState(language: language);
+    }
+    if (ref.watch(yorksV1FeatureFlagsProvider).roleOverviewV2) {
+      return const YorksV1RoleOverviewDeferred();
     }
 
     ref.watch(yorksV1MaterialRequestLiveRefreshProvider);
