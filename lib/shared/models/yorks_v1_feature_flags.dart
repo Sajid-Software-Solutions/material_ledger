@@ -27,6 +27,7 @@ class YorksV1FeatureFlags {
     bool teamChat = false,
     bool inventorySuppliers = false,
     bool companyMaterialRequests = false,
+    bool roleOverviewV2 = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -44,7 +45,8 @@ class YorksV1FeatureFlags {
        _analytics = analytics,
        _teamChat = teamChat,
        _inventorySuppliers = inventorySuppliers,
-       _companyMaterialRequests = companyMaterialRequests;
+       _companyMaterialRequests = companyMaterialRequests,
+       _roleOverviewV2 = roleOverviewV2;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -112,6 +114,10 @@ class YorksV1FeatureFlags {
       _companyMaterialRequests = const bool.fromEnvironment(
         'YORKS_V1_COMPANY_MATERIAL_REQUESTS',
         defaultValue: false,
+      ),
+      _roleOverviewV2 = const bool.fromEnvironment(
+        'YORKS_V1_ROLE_OVERVIEW_V2',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -132,6 +138,7 @@ class YorksV1FeatureFlags {
   final bool _teamChat;
   final bool _inventorySuppliers;
   final bool _companyMaterialRequests;
+  final bool _roleOverviewV2;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -186,6 +193,12 @@ class YorksV1FeatureFlags {
   /// request remains available even while the company routing matrix is being
   /// configured and reviewed.
   bool get companyMaterialRequests => requests && _companyMaterialRequests;
+
+  /// The role-based Overview: one home screen per exact role, built from the
+  /// existing protected request, project and inventory projections. It is a
+  /// read-only navigation surface and defaults off until its UI acceptance;
+  /// when off, the retained R35 overview stays in place.
+  bool get roleOverviewV2 => requests && _roleOverviewV2;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.
