@@ -125,7 +125,9 @@ void main() {
     );
   });
 
-  test('repository invokes only the protected bounded RPC', () async {
+  test('retired Analytics never calls its projection', () async {
+    // Analytics is retired (PRODUCT_DECISIONS.md section 31): even a build
+    // that asks for it cannot reach the server projection.
     final rpc = _FakeRpcClient(_response());
     final repository = SupabaseCompanyAnalyticsRepository(
       featureFlags: _analyticsFlags,
@@ -133,35 +135,9 @@ void main() {
       rpcClient: rpc,
     );
 
-    final result = await repository.getProjection(
-      const CompanyAnalyticsFilters(projectId: 'project-1', months: 3),
-    );
-
-    expect(result.months, 3);
-    expect(rpc.functionName, 'v1_get_operational_analytics_foundation');
-    expect(rpc.parameters, {'p_project_id': 'project-1', 'p_months': 3});
-  });
-
-  test('repository has no offline or flag-disabled fallback', () async {
-    final rpc = _FakeRpcClient(_response());
-    final disabled = SupabaseCompanyAnalyticsRepository(
-      featureFlags: const YorksV1FeatureFlags(),
-      connectivity: _Connectivity(true),
-      rpcClient: rpc,
-    );
-    final offline = SupabaseCompanyAnalyticsRepository(
-      featureFlags: _analyticsFlags,
-      connectivity: _Connectivity(false),
-      rpcClient: rpc,
-    );
-
     await expectLater(
-      disabled.getProjection(const CompanyAnalyticsFilters()),
+      repository.getProjection(const CompanyAnalyticsFilters()),
       _domainError(YorksV1DomainErrorCode.featureDisabled),
-    );
-    await expectLater(
-      offline.getProjection(const CompanyAnalyticsFilters()),
-      _domainError(YorksV1DomainErrorCode.offline),
     );
     expect(rpc.calls, 0);
   });

@@ -2043,3 +2043,20 @@ master-file import was. The original YRA32202, the prototype's draft claim #03
 and its sample supplier bills are not recorded. After the invoices, the
 contract value is AED 18,085,468.00 (it had been entered as AED 1,808,546.80 on
 20 October 2026); issued invoices keep their amounts.
+
+## 31. Operational Analytics retired (owner decision, 9 November 2026)
+
+The Analytics screen (`/yorks/analytics`) is retired. It repeated what the
+role-based Overview now shows each role (projects, requests, exceptions, stock,
+rentals and recent activity) and waited on one heavy projection
+(`v1_get_operational_analytics_foundation`, 20-second timeout), so the owner saw
+a spinner rather than decisions.
+
+- `YorksV1FeatureFlags.analytics` is always false. No build can reach the route,
+  sidebar entry, search target or profile link, whatever
+  `YORKS_V1_ANALYTICS` says.
+- Nothing is deleted on the server: the protected projection, its capability
+  and every source record stay as they are. Retiring is reversible by restoring
+  the getter.
+- A future owner view should be a card on the Admin Overview backed by a
+  focused projection, not a separate screen.

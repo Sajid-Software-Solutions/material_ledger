@@ -310,7 +310,7 @@ echo "Yorks Accounts rollout: ${accounts_flag}" >&2
 echo "Yorks Company Material Requests rollout: ${company_material_requests_flag}" >&2
 echo "Yorks Role Overview V2 rollout: ${role_overview_v2_flag}" >&2
 echo "Yorks Workforce rollout: ${workforce_flag}" >&2
-echo "Yorks Analytics rollout: ${analytics_flag}" >&2
+echo "Yorks Analytics rollout: retired (requested ${analytics_flag})" >&2
 echo "Yorks PostHog telemetry: ${posthog_enabled}" >&2
 
 # The VAPID public key is not a secret, but it is environment-specific. It is
