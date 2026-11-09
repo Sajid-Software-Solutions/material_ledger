@@ -723,6 +723,75 @@ void main() {
     );
   }
 
+  testWidgets('an Accountant without Accounts access keeps Overview', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(1366, 1000));
+    addTearDown(() => _resetViewport(tester));
+    final preferences = await SharedPreferences.getInstance();
+    final controller = YorksV1CurrentPermissionSnapshotController(
+      enabled: true,
+      authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      client: null,
+      repository: _ResolvedPermissionRepository(
+        _permissionSnapshot(usersView: false, exactRole: 'accountant'),
+      ),
+      revisionSignalSubscription:
+          ({required onSignal, required onUnavailable}) async => true,
+    );
+    await controller.start();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const YorksV1WorkspaceShell(
+            child: Scaffold(body: SizedBox.expand()),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          supabaseClientProvider.overrideWithValue(
+            SupabaseClient(
+              'https://example.supabase.co',
+              'test-publishable-key',
+              authOptions: const AuthClientOptions(autoRefreshToken: false),
+            ),
+          ),
+          yorksV1CurrentRoleProvider.overrideWithValue(YorksV1Role.accountant),
+          yorksV1FeatureFlagsProvider.overrideWithValue(
+            const YorksV1FeatureFlags(
+              foundation: true,
+              projects: true,
+              boq: true,
+              excel: true,
+              requests: true,
+              arrangement: true,
+              logistics: true,
+              returnsDocuments: true,
+              documents: true,
+              accounts: true,
+            ),
+          ),
+          yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+            (ref) => controller,
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(YorksV1ShellStrings.accounts.primary), findsNothing);
+    // Sidebar Overview plus the page breadcrumb.
+    expect(find.text(YorksV1ShellStrings.overview.primary), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('senior staff reach Accounts as one More entry', (tester) async {
     _setViewport(tester, const Size(390, 844));
     addTearDown(() => _resetViewport(tester));

@@ -322,6 +322,7 @@ class YorksOverviewListSection extends YorksOverviewSection {
     required this.items,
     required this.emptyText,
     this.limit = 6,
+    this.footnote,
     super.subtitle,
     super.linkLabel,
     super.onLink,
@@ -332,6 +333,9 @@ class YorksOverviewListSection extends YorksOverviewSection {
   final List<YorksOverviewListItem> items;
   final String emptyText;
   final int limit;
+
+  /// Shown under the list, for example when it covers only part of the data.
+  final String? footnote;
 }
 
 class YorksOverviewTrackItem {

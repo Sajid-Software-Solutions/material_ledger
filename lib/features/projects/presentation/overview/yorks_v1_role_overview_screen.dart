@@ -7,6 +7,7 @@ import '../../../../app/router.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
+import '../../../../shared/models/yorks_v1_project_portfolio.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/providers/language_provider.dart';
@@ -55,7 +56,20 @@ final _activeQuery = YorksV1MaterialRequestSummaryQuery(
 final _mineQuery = YorksV1MaterialRequestSummaryQuery(
   registerView: YorksV1MaterialRequestRegisterView.mine,
   states: yorksOverviewOpenStates,
-  limit: 20,
+  limit: 100,
+);
+
+/// Deliveries in flight, oldest first, so a long-waiting dispatch is never
+/// pushed out by newer activity.
+final _deliveryQuery = YorksV1MaterialRequestSummaryQuery(
+  states: const [
+    YorksV1MaterialRequestState.approved,
+    YorksV1MaterialRequestState.partiallyDispatched,
+    YorksV1MaterialRequestState.dispatched,
+    YorksV1MaterialRequestState.partiallyReceived,
+  ],
+  newestFirst: false,
+  limit: 100,
 );
 
 YorksV1MaterialRequestSummaryQuery _closedQuery(DateTime now) {
@@ -87,11 +101,20 @@ class _YorksV1RoleOverviewScreenState
     final user = ref.watch(currentUserProvider);
     final authUserId = ref.watch(yorksV1AuthUserIdProvider);
 
+    // Each role loads only the projections its cards use.
     final needsActive = switch (role) {
       YorksV1Role.projectEngineer ||
-      YorksV1Role.siteEngineer ||
-      YorksV1Role.procurement ||
       YorksV1Role.projectManager ||
+      YorksV1Role.admin ||
+      null => true,
+      _ => false,
+    };
+    final needsDelivery =
+        role == YorksV1Role.siteEngineer || role == YorksV1Role.procurement;
+    final needsPortfolio = switch (role) {
+      YorksV1Role.projectEngineer ||
+      YorksV1Role.projectManager ||
+      YorksV1Role.seniorMechanicalEngineer ||
       YorksV1Role.admin ||
       null => true,
       _ => false,
@@ -126,7 +149,9 @@ class _YorksV1RoleOverviewScreenState
     );
 
     final projects = ref.watch(yorksV1ProjectOverviewProvider);
-    final portfolio = ref.watch(yorksV1ProjectPortfolioProvider);
+    final portfolio = needsPortfolio
+        ? ref.watch(yorksV1ProjectPortfolioProvider)
+        : const AsyncData<List<YorksV1ProjectPortfolioItem>>([]);
     final requests = ref.watch(yorksV1MaterialRequestOverviewProvider(6));
     final myWork = ref.watch(
       yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery),
@@ -136,6 +161,9 @@ class _YorksV1RoleOverviewScreenState
     );
     final active = needsActive
         ? ref.watch(yorksV1MaterialRequestSummaryPageProvider(_activeQuery))
+        : null;
+    final delivery = needsDelivery
+        ? ref.watch(yorksV1MaterialRequestSummaryPageProvider(_deliveryQuery))
         : null;
     final mine = needsMine
         ? ref.watch(yorksV1MaterialRequestSummaryPageProvider(_mineQuery))
@@ -183,6 +211,7 @@ class _YorksV1RoleOverviewScreenState
       myWork: myWork,
       exceptions: exceptions,
       active: active,
+      delivery: delivery,
       mine: mine,
       closed: closed,
       inventory: inventory,
@@ -191,6 +220,7 @@ class _YorksV1RoleOverviewScreenState
       rentals: rentals,
       audit: audit?.workspace,
       auditLoading: audit?.isLoading ?? false,
+      auditFailed: audit?.error != null && audit?.workspace == null,
       canCreateProject: createProject.isVisible,
       canCreateRequest: createRequest.isVisible,
       canBrowseInventory: canBrowseInventory,
@@ -245,6 +275,9 @@ class _YorksV1RoleOverviewScreenState
           ? () => context.go(RoutePaths.rentals)
           : null,
       openAudit: admin ? () => context.go(RoutePaths.activityLog) : null,
+      retryAudit: admin
+          ? () => ref.read(yorksV1AuditControllerProvider.notifier).load()
+          : null,
     );
 
     final spec = buildYorksRoleOverviewSpec(input, nav);
@@ -255,6 +288,8 @@ class _YorksV1RoleOverviewScreenState
       refreshing: _refreshing || !ready,
       onRefresh: () => _refresh(
         includeActive: needsActive,
+        includeDelivery: needsDelivery,
+        includePortfolio: needsPortfolio,
         includeMine: needsMine,
         includeInventory: needsInventory,
         role: role,
@@ -265,6 +300,8 @@ class _YorksV1RoleOverviewScreenState
 
   Future<void> _refresh({
     required bool includeActive,
+    required bool includeDelivery,
+    required bool includePortfolio,
     required bool includeMine,
     required bool includeInventory,
     required YorksV1Role? role,
@@ -273,7 +310,7 @@ class _YorksV1RoleOverviewScreenState
     setState(() => _refreshing = true);
     final futures = <Future<Object?>>[
       ref.refresh(yorksV1ProjectOverviewProvider.future),
-      ref.refresh(yorksV1ProjectPortfolioProvider.future),
+      if (includePortfolio) ref.refresh(yorksV1ProjectPortfolioProvider.future),
       ref.refresh(yorksV1MaterialRequestOverviewProvider(6).future),
       ref.refresh(
         yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery).future,
@@ -284,6 +321,10 @@ class _YorksV1RoleOverviewScreenState
       if (includeActive)
         ref.refresh(
           yorksV1MaterialRequestSummaryPageProvider(_activeQuery).future,
+        ),
+      if (includeDelivery)
+        ref.refresh(
+          yorksV1MaterialRequestSummaryPageProvider(_deliveryQuery).future,
         ),
       if (includeMine)
         ref.refresh(

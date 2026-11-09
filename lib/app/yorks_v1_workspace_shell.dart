@@ -820,8 +820,11 @@ List<_YorksDestination> _destinationsFor(
     final path = destination.path;
     if (path == RoutePaths.engineerHome) {
       // With Accounts on, the Accountant's home redirects to Accounts, so a
-      // separate Overview entry would only repeat "Accounts".
-      return !(accountsEnabled && role == YorksV1Role.accountant);
+      // separate Overview entry would only repeat "Accounts". Without the
+      // Accounts capability it stays, so the sidebar is never empty.
+      return !(accountsEnabled &&
+          role == YorksV1Role.accountant &&
+          allows(YorksV1CapabilityKeys.viewProjectAccounts, false));
     }
     if (role == YorksV1Role.accountant &&
         !(companyRequestsEnabled &&

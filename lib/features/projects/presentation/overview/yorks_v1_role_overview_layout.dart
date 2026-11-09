@@ -1975,88 +1975,98 @@ class _ListBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final item in s.items.take(s.limit))
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: item.onTap,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 10,
-                ),
-                decoration: const BoxDecoration(
-                  border: Border(top: _rowBorder),
-                ),
-                child: Row(
-                  children: [
-                    _ToneIcon(
-                      icon: item.icon,
-                      tone: item.tone,
-                      size: 36,
-                      iconSize: 17,
-                      radius: 10,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            style: AppTypography.titleSmall.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            item.detail,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.inkSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (item.trailing != null) ...[
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            item.trailing!,
-                            style: AppTypography.labelMedium.copyWith(
-                              color: item.trailingEmphasis.color(),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                          if (item.trailingSub != null)
-                            Text(
-                              item.trailingSub!,
-                              style: AppTypography.labelSmall.copyWith(
-                                color: AppColors.muted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
+        ..._items(s),
+        if (s.footnote != null)
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+            decoration: const BoxDecoration(border: Border(top: _rowBorder)),
+            child: Text(
+              s.footnote!,
+              style: AppTypography.labelSmall.copyWith(
+                color: AppColors.muted,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
       ],
     );
   }
+
+  Iterable<Widget> _items(YorksOverviewListSection s) => [
+    for (final item in s.items.take(s.limit))
+      Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: item.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: const BoxDecoration(border: Border(top: _rowBorder)),
+            child: Row(
+              children: [
+                _ToneIcon(
+                  icon: item.icon,
+                  tone: item.tone,
+                  size: 36,
+                  iconSize: 17,
+                  radius: 10,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: AppTypography.titleSmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        item.detail,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.inkSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (item.trailing != null) ...[
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        item.trailing!,
+                        style: AppTypography.labelMedium.copyWith(
+                          color: item.trailingEmphasis.color(),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      if (item.trailingSub != null)
+                        Text(
+                          item.trailingSub!,
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.muted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+  ];
 }
 
 // Track ---------------------------------------------------------------------
