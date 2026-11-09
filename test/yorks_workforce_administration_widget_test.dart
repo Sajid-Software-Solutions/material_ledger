@@ -33,6 +33,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('new worker keeps optional details out of the quick form', (
+    tester,
+  ) async {
+    await _pump(tester, const Size(360, 800));
+    await tester.tap(find.byKey(const Key('workforce-admin-add-worker')));
+    await tester.pumpAndSettle();
+    expect(find.text('More details (optional)'), findsOneWidget);
+    expect(find.byType(ExpansionTile), findsOneWidget);
+    expect(
+      tester
+          .widget<ExpansionTile>(find.byType(ExpansionTile))
+          .initiallyExpanded,
+      isFalse,
+    );
+    await tester.ensureVisible(find.byType(ExpansionTile));
+    await tester.tap(find.text('More details (optional)'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(DropdownButtonFormField<YorksWorkforceWorkerType>),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('mobile administration keeps access guidance reachable', (
     tester,
   ) async {

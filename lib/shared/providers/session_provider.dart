@@ -479,7 +479,15 @@ class AuthController {
           mustChangePassword: mustChange,
         );
 
+    if (generation != _sessionGeneration ||
+        client.auth.currentSession?.accessToken != sessionAccessToken ||
+        client.auth.currentUser?.id != authUser.id) {
+      throw StateError('Auth identity changed during local materialization');
+    }
     await _ref.read(authSessionProvider.notifier).setUser(appUserId);
+    if (generation != _sessionGeneration) {
+      throw StateError('Auth identity changed during session persistence');
+    }
     final revisionIdentityKey = [
       authUser.id,
       appUserId,

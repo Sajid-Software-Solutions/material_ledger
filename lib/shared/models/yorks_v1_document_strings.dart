@@ -128,6 +128,42 @@ abstract final class YorksV1DocumentStrings {
     ur: 'کنٹرول شدہ دستاویز ورژن اپ لوڈ ہو گیا۔',
     hi: 'नियंत्रित दस्तावेज़ संस्करण अपलोड हो गया।',
   );
+  static const uploadConfirmedRefreshPending = TranslatableString(
+    en: 'Upload confirmed. The document list could not be refreshed.',
+    ar: 'تم تأكيد الرفع. تعذر تحديث قائمة المستندات.',
+    ur: 'اپ لوڈ کی تصدیق ہو گئی۔ دستاویزات کی فہرست تازہ نہیں ہو سکی۔',
+    hi: 'अपलोड की पुष्टि हुई। दस्तावेज़ सूची ताज़ा नहीं हो सकी।',
+  );
+  static const uploadInProgress = TranslatableString(
+    en: 'Uploading and checking the document…',
+    ar: 'جارٍ رفع المستند والتحقق منه…',
+    ur: 'دستاویز اپ لوڈ اور چیک ہو رہی ہے…',
+    hi: 'दस्तावेज़ अपलोड और जाँच हो रही है…',
+  );
+  static const uploadOutcomeUnknown = TranslatableString(
+    en: 'Upload not confirmed yet. Reselect the same file to check and continue safely.',
+    ar: 'لم يتم تأكيد الرفع بعد. أعد تحديد الملف نفسه للتحقق والمتابعة بأمان.',
+    ur: 'اپ لوڈ کی تصدیق ابھی نہیں ہوئی۔ محفوظ طور پر جانچنے اور جاری رکھنے کے لیے وہی فائل دوبارہ منتخب کریں۔',
+    hi: 'अपलोड की पुष्टि अभी नहीं हुई। सुरक्षित जाँच और आगे बढ़ने के लिए वही फ़ाइल फिर चुनें।',
+  );
+  static const uploadNotSent = TranslatableString(
+    en: 'Upload did not start. This attempt did not send the file.',
+    ar: 'لم يبدأ الرفع. لم ترسل هذه المحاولة الملف.',
+    ur: 'اپ لوڈ شروع نہیں ہوا۔ اس کوشش میں فائل نہیں بھیجی گئی۔',
+    hi: 'अपलोड शुरू नहीं हुआ। इस प्रयास में फ़ाइल नहीं भेजी गई।',
+  );
+  static const reselectUpload = TranslatableString(
+    en: 'Reselect file',
+    ar: 'إعادة تحديد الملف',
+    ur: 'فائل دوبارہ منتخب کریں',
+    hi: 'फ़ाइल फिर चुनें',
+  );
+  static const uploadFileMismatch = TranslatableString(
+    en: 'Select the original file with the same name and contents.',
+    ar: 'حدد الملف الأصلي بنفس الاسم والمحتوى.',
+    ur: 'اسی نام اور مواد والی اصل فائل منتخب کریں۔',
+    hi: 'उसी नाम और सामग्री वाली मूल फ़ाइल चुनें।',
+  );
   static const uploadVersion = TranslatableString(
     en: 'Upload new version',
     ar: 'رفع إصدار جديد',

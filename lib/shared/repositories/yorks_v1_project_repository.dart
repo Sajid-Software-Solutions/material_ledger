@@ -70,6 +70,12 @@ abstract interface class YorksV1ProjectReviewedCommandRepository {
   );
 }
 
+abstract interface class YorksV1ProjectCommandOutcomeRepository {
+  Future<Map<String, dynamic>?> lookupReviewedCommand(
+    YorksV1ProjectSetupCommand command,
+  );
+}
+
 /// Readiness failed before any request left this repository. Transport errors
 /// after invoke starts deliberately do not use this marker.
 class YorksV1ProjectCommandNotDispatchedException implements Exception {
@@ -83,7 +89,8 @@ class YorksV1ProjectCommandNotDispatchedException implements Exception {
 class YorksV1SupabaseProjectRepository
     implements
         YorksV1ProjectRepository,
-        YorksV1ProjectReviewedCommandRepository {
+        YorksV1ProjectReviewedCommandRepository,
+        YorksV1ProjectCommandOutcomeRepository {
   const YorksV1SupabaseProjectRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -98,6 +105,56 @@ class YorksV1SupabaseProjectRepository
   final ConnectivityService _connectivity;
   final YorksV1ProjectRpcClient? _rpcClient;
   final AnalyticsService _analytics;
+
+  @override
+  Future<Map<String, dynamic>?> lookupReviewedCommand(
+    YorksV1ProjectSetupCommand command,
+  ) async {
+    try {
+      final value = await _readyRpc()
+          .invoke(
+            functionName: 'v1_get_project_setup_command_outcome',
+            parameters: {
+              'p_command_name': command.kind.functionName,
+              'p_idempotency_key': command.idempotencyKey,
+            },
+          )
+          .timeout(const Duration(seconds: 4));
+      if (value['command_name'] != command.kind.functionName ||
+          value['command_key'] != command.idempotencyKey ||
+          !const ['unknown', 'confirmed'].contains(value['status'])) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+        );
+      }
+      if (value['status'] != 'confirmed') return null;
+      final raw = value['response'];
+      if (raw is! Map) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+        );
+      }
+      final result = Map<String, dynamic>.from(raw);
+      final project = YorksV1Project.fromRpcJson(_projectJson(result));
+      if (project.id != value['entity_id'] ||
+          (command.kind != YorksV1ProjectSetupCommandKind.create &&
+              project.id != command.payload['project_id'])) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+        );
+      }
+      return result;
+    } on YorksV1DomainException {
+      rethrow;
+    } on PostgrestException catch (error) {
+      throw _mapPostgrestException(error);
+    } catch (error) {
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+        cause: error,
+      );
+    }
+  }
 
   @override
   Future<Map<String, dynamic>> executeReviewedCommand(
@@ -511,7 +568,14 @@ class YorksV1SupabaseProjectRepository
     final domainCode = switch (code) {
       '42501' || '28000' => YorksV1DomainErrorCode.unauthorized,
       '23505' || '40001' => YorksV1DomainErrorCode.conflict,
-      'PGRST002' || 'PGRST003' => YorksV1DomainErrorCode.backendUnavailable,
+      'PGRST000' ||
+      'PGRST001' ||
+      'PGRST002' ||
+      'PGRST003' ||
+      '500' ||
+      '502' ||
+      '503' ||
+      '504' => YorksV1DomainErrorCode.backendUnavailable,
       '22023' ||
       '22007' ||
       '22P02' ||

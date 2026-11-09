@@ -79,9 +79,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Senior Mechanical Engineer'), findsOneWidget);
+    expect(find.text('Senior Mechanical Engineer'), findsWidgets);
     expect(find.byType(FloatingActionButton), findsNothing);
-    expect(find.text('Add user'), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-management-create')), findsOneWidget);
+    expect(find.text('New User'), findsOneWidget);
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/mobile_touchups/user_management_360x800.png'),
@@ -116,8 +117,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('User Directory'), findsOneWidget);
-    expect(find.text('Senior Mechanical Engineer'), findsOneWidget);
+    expect(find.text('Total accounts'), findsOneWidget);
+    expect(find.byKey(const ValueKey('user-management-search')), findsOneWidget);
+    expect(find.text('Senior Mechanical Engineer'), findsWidgets);
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/mobile_touchups/user_management_1366x768.png'),

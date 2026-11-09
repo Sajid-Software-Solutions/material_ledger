@@ -1,0 +1,20 @@
+{
+  "project_ref": "czykuksmlwswjsgotrpo",
+  "observed_at": "2026-10-20T12:00:19.945837Z",
+  "inspection": "read_only_production_sql",
+  "job_name": "yorks-rental-notifications",
+  "schedule": "0 * * * *",
+  "active": true,
+  "first_scheduled_run": {
+    "status": "succeeded",
+    "start_time": "2026-10-20T12:00:00.146982Z",
+    "end_time": "2026-10-20T12:00:00.268290Z",
+    "return_message": "1 row"
+  },
+  "producer_last_success_at": "2026-10-20T12:00:00.147157Z",
+  "producer_last_business_date": "2026-10-20",
+  "producer_last_emitted_count": 0,
+  "rental_inbox_events": 69,
+  "pending_or_retrying_rental_push_jobs": 0,
+  "limits": "Scheduler and server transport evidence; does not witness physical OS receipt or click."
+}

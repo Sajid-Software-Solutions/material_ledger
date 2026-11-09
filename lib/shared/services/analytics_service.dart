@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -309,7 +311,10 @@ class GuardedAnalyticsService implements AnalyticsService {
       service: this,
       operation: operation,
       startedAt: _now(),
-      properties: Map.unmodifiable(properties),
+      properties: Map.unmodifiable({
+        AnalyticsProperty.screenName: ?_currentScreen,
+        ...properties,
+      }),
     );
   }
 
@@ -509,7 +514,11 @@ class GuardedAnalyticsService implements AnalyticsService {
     for (final entry in values.entries) {
       final value = entry.value;
       if (value == null) continue;
-      final normalized = _safeValue(value);
+      final normalized = entry.key == AnalyticsProperty.commandFingerprint
+          ? (value is String && RegExp(r'^[0-9a-f]{32}$').hasMatch(value)
+                ? value
+                : null)
+          : _safeValue(value);
       if (normalized != null) safe[entry.key.wireName] = normalized;
     }
     safe[AnalyticsProperty.schemaVersion.wireName] = analyticsSchemaVersion;
@@ -526,7 +535,8 @@ class GuardedAnalyticsService implements AnalyticsService {
     if (_identifiedRole != null) {
       safe[AnalyticsProperty.role.wireName] = _identifiedRole!;
     }
-    if (_currentScreen != null) {
+    if (_currentScreen != null &&
+        !safe.containsKey(AnalyticsProperty.screenName.wireName)) {
       safe[AnalyticsProperty.screenName.wireName] = _currentScreen!.wireName;
     }
     return Map.unmodifiable(safe);
@@ -749,3 +759,7 @@ bool _analyticsErrorIsRetryable(AnalyticsErrorCategory category) =>
       AnalyticsErrorCategory.database => true,
       _ => false,
     };
+
+/// Opaque correlation only; never send raw command keys or business payloads.
+String analyticsCommandFingerprint(String command, String key) =>
+    sha256.convert(utf8.encode('$command|$key')).toString().substring(0, 32);

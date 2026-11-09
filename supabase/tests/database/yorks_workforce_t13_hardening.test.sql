@@ -207,6 +207,8 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_get_workforce_collaboration(p_period_id uuid)'),
   ('v1_get_workforce_configuration(p_on_date date)'),
   ('v1_get_workforce_daily_roster(p_work_date date, p_team_id uuid, p_project_id uuid, p_project_scope_id uuid, p_internal_location_id uuid, p_query text, p_limit integer, p_offset integer)'),
+  ('v1_get_workforce_team_workers(p_team_id uuid, p_offset integer)'),
+  ('v1_create_workforce_team_worker(p_team_id uuid, p_payload jsonb, p_idempotency_key uuid)'),
   ('v1_get_workforce_foundation(p_query text, p_status text, p_limit integer, p_offset integer, p_on_date date)'),
   ('v1_get_workforce_monthly_lifecycle(p_period_id uuid)'),
   ('v1_get_workforce_monthly_period(p_team_id uuid, p_period_month date, p_query text, p_issue_severity text, p_issue_code text, p_worker_limit integer, p_worker_offset integer)'),

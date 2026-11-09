@@ -97,11 +97,14 @@ class CurrencyNotifier extends StateNotifier<AppCurrency> {
 
 /// The signed-in user's id, or `null` when logged out. Set only after
 /// credentials are verified (see `authControllerProvider` in session_provider).
-/// This is the seam that becomes the Firebase Auth uid.
+/// Connected startup waits for AuthController to verify the Supabase session.
 final authSessionProvider = StateNotifierProvider<AuthSessionNotifier, String?>(
   (ref) {
     final prefs = ref.watch(sharedPreferencesProvider);
-    return AuthSessionNotifier(prefs);
+    return AuthSessionNotifier(
+      prefs,
+      restoreLocalSession: ref.watch(supabaseClientProvider) == null,
+    );
   },
 );
 
@@ -111,20 +114,24 @@ final isLoggedInProvider = Provider<bool>(
 );
 
 class AuthSessionNotifier extends StateNotifier<String?> {
-  AuthSessionNotifier(this._prefs)
-    : super(_prefs.getString(kAuthUserIdPrefKey));
+  AuthSessionNotifier(this._prefs, {bool restoreLocalSession = true})
+    : super(restoreLocalSession ? _prefs.getString(kAuthUserIdPrefKey) : null);
 
   final SharedPreferences _prefs;
+  int _generation = 0;
 
   Future<void> setUser(String userId) async {
     if (state == userId) return;
+    final generation = ++_generation;
     await _prefs.setString(kAuthUserIdPrefKey, userId);
-    state = userId;
+    if (generation == _generation) state = userId;
   }
 
   Future<void> logout() async {
-    if (state == null) return;
-    await _prefs.remove(kAuthUserIdPrefKey);
+    // Revoke presentation access before waiting for device storage. Also
+    // invalidate an in-flight setUser so it cannot restore a signed-out user.
+    _generation++;
     state = null;
+    await _prefs.remove(kAuthUserIdPrefKey);
   }
 }

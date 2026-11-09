@@ -7,12 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/company_overview/application/company_analytics_providers.dart';
 import 'package:material_ledger/features/company_overview/domain/company_analytics_models.dart';
+import 'package:material_ledger/features/company_overview/domain/company_analytics_strings.dart';
 import 'package:material_ledger/features/company_overview/presentation/company_analytics_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
-import 'package:material_ledger/shared/providers/yorks_v1_project_portfolio_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -56,8 +56,8 @@ void main() {
           overrides: [
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
-            yorksV1AuthorizedProjectPortfolioProvider.overrideWithValue(
-              const AsyncData([]),
+            companyAnalyticsProjectOptionsProvider.overrideWith(
+              (ref) async => [],
             ),
             companyAnalyticsProjectionProvider.overrideWith(
               (ref, filters) async => _projection,
@@ -88,12 +88,12 @@ void main() {
         expect(firstKpi.width, greaterThan(evidence.size.width - 40));
         expect(secondKpi.top, greaterThan(firstKpi.bottom));
       }
-      if (evidence.size.width == 820) {
-        final finalKpi = tester.getRect(
-          find.byKey(const ValueKey('company-analytics-kpi-card-4')),
-        );
-        expect(finalKpi.center.dx, closeTo(evidence.size.width / 2, 1));
-      }
+      final action = tester.getRect(
+        find.text(
+          CompanyAnalyticsStrings.importantForYou.active(evidence.language),
+        ),
+      );
+      expect(action.top, lessThan(evidence.size.height * .65));
       await expectLater(
         find.byType(CompanyAnalyticsScreen),
         matchesGoldenFile('goldens/analytics/${evidence.name}'),

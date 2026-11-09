@@ -518,47 +518,65 @@ void main() {
     },
   );
 
-  testWidgets('compact overview never exposes a mutation-shaped action', (
-    tester,
-  ) async {
-    for (final repository in [
-      _Repository(
-        YorksWorkforceOverviewKind.supervisor,
-        actionFlags: const {'can_complete_today_attendance': true},
-      ),
-      _Repository(
-        YorksWorkforceOverviewKind.management,
-        actionFlags: const {
-          'can_open_review_queue': true,
-          'can_open_final_approval_queue': true,
-        },
-      ),
-      _Repository(
-        YorksWorkforceOverviewKind.admin,
-        actionFlags: const {
-          'can_open_reopen_queue': true,
-          'can_open_final_approval_queue': true,
-        },
-      ),
-    ]) {
-      await _pumpOverview(
-        tester,
-        viewport: const Size(360, 800),
-        language: AppLanguage.english,
-        repository: repository,
-        kind: repository.kind,
-      );
-      for (final key in const [
-        'workforce-overview-complete-attendance',
-        'workforce-overview-review-queue',
-        'workforce-overview-final-approval-queue',
-        'workforce-overview-reopen-queue',
+  testWidgets(
+    'compact overview exposes only server-authorized workflow destinations',
+    (tester) async {
+      for (final repository in [
+        _Repository(
+          YorksWorkforceOverviewKind.supervisor,
+          actionFlags: const {'can_complete_today_attendance': true},
+        ),
+        _Repository(
+          YorksWorkforceOverviewKind.management,
+          actionFlags: const {
+            'can_open_review_queue': true,
+            'can_open_final_approval_queue': true,
+          },
+        ),
+        _Repository(
+          YorksWorkforceOverviewKind.admin,
+          actionFlags: const {
+            'can_open_reopen_queue': true,
+            'can_open_final_approval_queue': true,
+          },
+        ),
       ]) {
-        expect(find.byKey(Key(key)), findsNothing, reason: key);
+        await _pumpOverview(
+          tester,
+          viewport: const Size(360, 800),
+          language: AppLanguage.english,
+          repository: repository,
+          kind: repository.kind,
+        );
+        final expected = switch (repository.kind) {
+          YorksWorkforceOverviewKind.supervisor => {
+            'workforce-overview-complete-attendance',
+          },
+          YorksWorkforceOverviewKind.management => {
+            'workforce-overview-review-queue',
+            'workforce-overview-final-approval-queue',
+          },
+          YorksWorkforceOverviewKind.admin => {
+            'workforce-overview-reopen-queue',
+            'workforce-overview-final-approval-queue',
+          },
+        };
+        for (final key in const [
+          'workforce-overview-complete-attendance',
+          'workforce-overview-review-queue',
+          'workforce-overview-final-approval-queue',
+          'workforce-overview-reopen-queue',
+        ]) {
+          expect(
+            find.byKey(Key(key)),
+            expected.contains(key) ? findsOneWidget : findsNothing,
+            reason: key,
+          );
+        }
+        expect(tester.takeException(), isNull);
       }
-      expect(tester.takeException(), isNull);
-    }
-  });
+    },
+  );
 }
 
 Future<GoRouter> _pumpOverview(

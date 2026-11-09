@@ -18,6 +18,68 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test(
+    'quick marking uses shift hours and stale undo cannot overwrite a newer edit',
+    () async {
+      final projection = YorksWorkforceDailyRosterProjection.fromRpcJson(
+        _rosterResponse(
+          _currentDate,
+          rows: [
+            _rowJson(
+              workerId: _worker1,
+              workerNumber: 'WF-001',
+              workerName: 'Worker',
+            ),
+          ],
+        ),
+      );
+      final repository = _RosterRepository(onGet: (_, _) async => projection);
+      final controller = await _controller(repository);
+      addTearDown(controller.dispose);
+      await controller.load(workDate: _currentDate);
+      final before = controller.state.rows.single;
+      expect(controller.markPresent(_worker1), isTrue);
+      final after = controller.state.rows.single;
+      expect(after.regularMinutes, 480);
+      expect(after.overtimeMinutes, 0);
+      expect(repository.saveCalls, isEmpty);
+      controller.updateRow(_worker1, regularMinutes: 420);
+      controller.undoQuickMark(before, after);
+      expect(controller.state.rows.single.regularMinutes, 420);
+      controller.purgeProtectedState();
+      expect(controller.markPresent(_worker1), isFalse);
+      controller.undoQuickMark(before, after);
+      expect(controller.state.rows, isEmpty);
+    },
+  );
+
+  test(
+    'quick Present never invents hours when the retained suggestion is zero',
+    () async {
+      final row = _rowJson(
+        workerId: _worker1,
+        workerNumber: 'WF-001',
+        workerName: 'Worker',
+      );
+      (row['schedule_suggestion']
+              as Map<String, dynamic>)['suggested_regular_minutes'] =
+          0;
+      (row['schedule_suggestion']
+              as Map<String, dynamic>)['suggested_attendance_status'] =
+          'not_entered';
+      final projection = YorksWorkforceDailyRosterProjection.fromRpcJson(
+        _rosterResponse(_currentDate, rows: [row]),
+      );
+      final controller = await _controller(
+        _RosterRepository(onGet: (_, _) async => projection),
+      );
+      addTearDown(controller.dispose);
+      await controller.load(workDate: _currentDate);
+      expect(controller.markPresent(_worker1), isFalse);
+      expect(controller.state.dirtyRows, isEmpty);
+    },
+  );
+
   test('strict worker and restricted allocation shapes fail closed', () {
     final restricted = YorksWorkforceDailyRosterProjection.fromRpcJson(
       _rosterResponse(

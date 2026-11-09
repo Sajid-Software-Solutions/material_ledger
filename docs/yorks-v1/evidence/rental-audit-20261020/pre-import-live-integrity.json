@@ -1,0 +1,38 @@
+{
+  "checked_functions": 22,
+  "all_bodies_match": true,
+  "mismatches": [],
+  "all7_tables_rls": true,
+  "no_anon_or_authenticated_crud": true,
+  "no_anon_function_execute": true,
+  "all_functions_fixed_empty_search_path": true,
+  "row_counts": {
+    "leases": 0,
+    "cheques": 0,
+    "periods": 0,
+    "receipts": 0,
+    "properties": 0
+  },
+  "migrations": [
+    {
+      "name": "yorks_rental_record_integrity",
+      "version": "20261020114049"
+    },
+    {
+      "name": "yorks_rental_flexible_source_intake",
+      "version": "20261020114054"
+    },
+    {
+      "name": "yorks_rental_notification_support",
+      "version": "20261020114058"
+    }
+  ],
+  "producer": {
+    "enabled": false,
+    "last_emitted_count": 0
+  },
+  "cron": {
+    "active": false,
+    "schedule": "0 * * * *"
+  }
+}

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/yorks_v1_project_portfolio.dart';
+import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_permission_management.dart';
 import '../repositories/yorks_v1_project_portfolio_repository.dart';
 import '../services/analytics_service.dart';
@@ -94,6 +95,7 @@ final yorksV1ProjectPortfolioProvider =
       // Accounts. Preserve it across short route gaps; explicit project,
       // identity, role, and permission invalidations still recreate it.
       ref.keepAlive();
+      _requireVerifiedProjectSession(ref);
       yorksV1RefreshProtectedProjectionOnPermissionRevision(ref);
       return ref.watch(yorksV1ProjectPortfolioLoadCoordinatorProvider).load();
     });
@@ -103,6 +105,7 @@ final yorksV1ProjectPortfolioProvider =
 /// portfolio provider so there is no second source of truth.
 final yorksV1ProjectOverviewProvider =
     FutureProvider.autoDispose<YorksV1ProjectOverview>((ref) async {
+      _requireVerifiedProjectSession(ref);
       yorksV1RefreshProtectedProjectionOnPermissionRevision(ref);
       final client = ref.watch(yorksV1ProjectOverviewDataClientProvider);
       if (client == null) {
@@ -147,3 +150,20 @@ final yorksV1AuthorizedProjectPortfolioProvider =
             .toList(growable: false);
       });
     });
+
+/// Route transitions can briefly retain a listener after sign-out. Stop here,
+/// before repositories measure an operation or send a protected network read.
+/// Watching the verified presentation session resumes the read after sign-in.
+void _requireVerifiedProjectSession(Ref ref) {
+  final client = ref.watch(supabaseClientProvider);
+  if (client == null) return; // Explicit local/test data sources.
+  final localId = ref.watch(authSessionProvider);
+  final authId = ref.watch(yorksV1AuthUserIdProvider);
+  final expectedId = client.auth.currentUser?.appMetadata['app_user_id'];
+  final appId = expectedId is String && expectedId.trim().isNotEmpty
+      ? expectedId.trim()
+      : authId;
+  if (localId == null || authId == null || localId != appId) {
+    throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthenticated);
+  }
+}

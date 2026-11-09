@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
@@ -9,15 +11,20 @@ import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_dispatch_preparation.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_document.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
+import '../../../../shared/models/yorks_v1_material_return_composer_strings.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_quantity.dart';
 import '../../../../shared/models/yorks_v1_shell_strings.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/providers/yorks_v1_procurement_progress_provider.dart';
+import '../../../../shared/widgets/yorks_v1_procurement_progress_panel.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart';
 import '../../../../shared/providers/yorks_v1_logistics_provider.dart';
@@ -25,6 +32,8 @@ import '../../../../shared/providers/yorks_v1_material_request_provider.dart';
 import '../../../../shared/providers/yorks_v1_material_workflow_command_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/services/yorks_v1_logistics_document_service.dart';
+import '../../../../shared/services/yorks_v1_procurement_unload_guard.dart';
+import '../../../../shared/sync/connectivity_service.dart';
 import '../../../../shared/services/yorks_v1_material_request_document_service.dart';
 import '../yorks_v1_feature_action_access.dart';
 import '../widgets/yorks_v1_request_information.dart';
@@ -305,7 +314,8 @@ class _LogisticsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (YorksMobileUi.isActive(context)) {
+    if (YorksMobileUi.isActive(context) ||
+        MediaQuery.sizeOf(context).width < 720) {
       if (showDispatch) {
         return _DispatchEditor(
           workspace: workspace,
@@ -320,6 +330,113 @@ class _LogisticsBody extends StatelessWidget {
         onChanged: onChanged,
         showReceiptReview: showReceiptReview,
         canConfirmReceipt: canConfirmReceipt,
+      );
+    }
+    if (showDispatch) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          YorksV1LogisticsStrings.prepareDispatch.active(
+                            language,
+                          ),
+                          style: AppTypography.headlineSmall,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          '${workspace.requestNumber ?? ''} · ${workspace.projectName} · ${workspace.scopeName}',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (workspace.dispatches.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => Dialog(
+                          child: SizedBox(
+                            width: 1000,
+                            height: 640,
+                            child: Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.md),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          YorksV1LogisticsStrings
+                                              .dispatchHistory
+                                              .active(language),
+                                          style: AppTypography.titleMedium,
+                                        ),
+                                      ),
+                                      CloseButton(),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: ListView(
+                                    padding: const EdgeInsets.all(
+                                      AppSpacing.md,
+                                    ),
+                                    children: [
+                                      for (final dispatch
+                                          in workspace.dispatches)
+                                        _DispatchCard(
+                                          dispatch: dispatch,
+                                          workspace: workspace,
+                                          onChanged: onChanged,
+                                          showReceiptReview: showReceiptReview,
+                                          canConfirmReceipt: canConfirmReceipt,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: Text(
+                        YorksV1LogisticsStrings.dispatchHistoryOpen.active(
+                          language,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Expanded(
+                child: _DispatchEditor(
+                  workspace: workspace,
+                  onChanged: onChanged,
+                  enabled: canDispatch,
+                  initialDispatchDate: initialDispatchDate,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     }
     return SafeArea(
@@ -604,14 +721,37 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
   final Map<String, TextEditingController> _quantities = {};
   late String _commandIdempotencyKey;
   late DateTime _dispatchDate;
+  bool _reviewOpen = false;
   bool _saving = false;
+  bool _restoring = false, _allowPop = false, _committed = false;
+  final _unloadGuard = createYorksV1ProcurementUnloadGuard();
+  late int _baseRequestVersion;
+  YorksV1ProcurementProgressController? _progress;
+  late final YorksV1ProcurementExitGuard _exitGuard;
+  YorksV1ProcurementProgressScope get _scope => YorksV1ProcurementProgressScope(
+    requestId: widget.workspace.requestId,
+    editorKind: YorksV1ProcurementEditorKind.dispatch,
+  );
+  bool get _editable =>
+      widget.enabled && !_saving && (_progress?.state.canEdit ?? false);
+
+  Map<String, YorksV1DispatchQuantityIssue> _quantityErrors = {};
+  String t(TranslatableString text) => text.active(ref.read(languageProvider));
 
   @override
   void initState() {
     super.initState();
     _dispatchDate = widget.initialDispatchDate ?? DateTime.now();
     _commandIdempotencyKey = const Uuid().v4();
+    _baseRequestVersion = widget.workspace.requestRecordVersion;
     _syncControllers();
+    for (final controller in [_deliveryReference, _driver, _vehicle]) {
+      controller.addListener(_inputChanged);
+    }
+    _exitGuard = ref.read(yorksV1ProcurementExitGuardProvider);
+    _exitGuard.check = _canLeave;
+    _exitGuard.beforeNavigation = _canLeave;
+    HardwareKeyboard.instance.addHandler(_keyboard);
   }
 
   @override
@@ -619,12 +759,29 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.workspace.requestRecordVersion !=
         widget.workspace.requestRecordVersion) {
-      _syncControllers();
+      // Keep the immutable edit base and raw input until explicit reload.
+      Future<void>.microtask(() {
+        if (mounted && _committed) {
+          unawaited(_reloadProgress());
+        } else if (mounted) {
+          _progress?.observeLiveBase(
+            _snapshot(baseVersion: widget.workspace.requestRecordVersion),
+          );
+        }
+      });
     }
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_keyboard);
+    if (_exitGuard.check == _canLeave) {
+      _exitGuard.check = null;
+      _exitGuard.beforeNavigation = null;
+    }
+    _progress?.removeListener(_progressChanged);
+    if (!_committed) unawaited(_progress?.flushRecovery());
+    _unloadGuard.dispose();
     _deliveryReference.dispose();
     _driver.dispose();
     _vehicle.dispose();
@@ -646,34 +803,208 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
         _quantities.remove(entry.key);
       }
     }
+    final suggestions = YorksV1DispatchPreparation.suggest(
+      widget.workspace.dispatchCandidates,
+    );
     for (final candidate in widget.workspace.dispatchCandidates) {
       if (_quantities.containsKey(candidate.requestLineId)) continue;
-      // An approved request already has an outstanding quantity.  Seed the
-      // editor with the dispatchable amount so Procurement can dispatch the
-      // approved line immediately, while still allowing a partial dispatch.
-      // For warehouse lines, never suggest more than what is currently
-      // available at the warehouse; the server remains the final authority.
-      var suggested =
-          YorksV1DecimalQuantity.tryParse(candidate.stillNeededQuantity) ??
-          YorksV1DecimalQuantity.zero;
-      final available =
-          YorksV1DecimalQuantity.tryParse(
-            candidate.warehouseAvailableQuantity ?? '',
-          ) ??
-          YorksV1DecimalQuantity.zero;
-      if (candidate.source == YorksV1LogisticsSource.warehouse) {
-        suggested = available.isPositive && suggested.isPositive
-            ? suggested.min(available)
-            : YorksV1DecimalQuantity.zero;
-      }
       _quantities[candidate.requestLineId] = TextEditingController(
-        text: suggested.isPositive ? suggested.canonicalText : '',
+        text: suggestions[candidate.requestLineId] ?? '',
+      )..addListener(_inputChanged);
+    }
+  }
+
+  YorksV1ProcurementProgressDraft _snapshot({int? baseVersion}) =>
+      YorksV1ProcurementProgressDraft(
+        requestId: widget.workspace.requestId,
+        editorKind: YorksV1ProcurementEditorKind.dispatch,
+        baseRequestVersion: baseVersion ?? _baseRequestVersion,
+        inputs: {
+          'dispatch_date': _dispatchDate.toIso8601String().split('T').first,
+          'delivery_reference': _deliveryReference.text,
+          'driver_name': _driver.text,
+          'vehicle_reference': _vehicle.text,
+          'lines': [
+            for (final entry in _quantities.entries)
+              {'request_line_id': entry.key, 'dispatch_qty': entry.value.text},
+          ],
+        },
+      );
+
+  void _inputChanged() {
+    if (_restoring || !mounted) return;
+    _progress?.update(_snapshot());
+    setState(() {
+      _quantityErrors = {};
+    });
+  }
+
+  void _progressChanged() {
+    if (!mounted) return;
+    if (_progress?.state.outcome?.isConfirmed == true && !_committed) {
+      unawaited(
+        Future<void>.microtask(() async {
+          if (mounted) await _confirmedRecovery();
+        }),
       );
     }
+    _unloadGuard.setActive(
+      _progress?.state.isDirty == true || _progress?.state.isPending == true,
+    );
+    final current = _progress?.state.current;
+    if (current != null &&
+        current.fingerprint != _snapshot().fingerprint &&
+        !_progress!.state.isLoading) {
+      _restoring = true;
+      _deliveryReference.text =
+          current.inputs['delivery_reference'] as String? ?? '';
+      _driver.text = current.inputs['driver_name'] as String? ?? '';
+      _vehicle.text = current.inputs['vehicle_reference'] as String? ?? '';
+      _dispatchDate =
+          DateTime.tryParse(current.inputs['dispatch_date'] as String? ?? '') ??
+          _dispatchDate;
+      final quantities = {
+        for (final line in current.inputs['lines'] as List)
+          (line as Map)['request_line_id'] as String:
+              line['dispatch_qty'] as String? ?? '',
+      };
+      for (final entry in _quantities.entries) {
+        entry.value.text = quantities[entry.key] ?? '';
+      }
+      _restoring = false;
+    }
+    setState(() {});
+  }
+
+  void _bindProgress(YorksV1ProcurementProgressController controller) {
+    if (identical(_progress, controller)) return;
+    _progress?.removeListener(_progressChanged);
+    _progress = controller;
+    controller.addListener(_progressChanged);
+    Future<void>.microtask(() async {
+      if (mounted) await controller.initialize(_snapshot());
+    });
+  }
+
+  Future<bool> _canLeave() async {
+    if (_saving) return false;
+    final progress = _progress;
+    if (progress == null) return true;
+    progress.update(_snapshot());
+    return confirmYorksV1ProcurementLeave(
+      context,
+      controller: progress,
+      language: ref.read(languageProvider),
+      isOnline: ref.read(connectivityProvider).isOnline,
+    );
+  }
+
+  bool _keyboard(KeyEvent event) {
+    if (event is! KeyDownEvent || !_editable) return false;
+    if ((HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed) &&
+        event.logicalKey == LogicalKeyboardKey.keyS) {
+      unawaited(_saveProgress());
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _saveProgress() async {
+    _progress?.update(_snapshot());
+    await _progress?.saveProgress();
+  }
+
+  Future<void> _reloadProgress() async {
+    final progress = _progress;
+    if (progress == null || progress.state.isPending) return;
+    _baseRequestVersion = widget.workspace.requestRecordVersion;
+    _restoring = true;
+    _deliveryReference.clear();
+    _driver.clear();
+    _vehicle.clear();
+    for (final controller in _quantities.values) {
+      controller.dispose();
+    }
+    _quantities.clear();
+    _syncControllers();
+    _restoring = false;
+    await progress.reload(_snapshot());
+    _committed = false;
+    if (mounted) setState(() {});
+  }
+
+  Widget _progressPanel() => YorksV1ProcurementProgressPanel(
+    controller: _progress!,
+    language: ref.watch(languageProvider),
+    onRetryPending: _retryPending,
+    onReload: () => unawaited(_reloadProgress()),
+    onConfirmed: () => unawaited(_confirmedRecovery()),
+    onCommandAbandoned: (command) => ref
+        .read(yorksV1MaterialWorkflowCommandControllerProvider)
+        .releaseRejectedPreparedCommand(
+          operation: 'dispatch_materials',
+          entityId: widget.workspace.requestId,
+          idempotencyKey: command.commandKey,
+        ),
+  );
+
+  Future<void> _confirmedRecovery() async {
+    if (_committed) return;
+    _committed = true;
+    final reference =
+        _progress?.state.outcome?.effectReference ??
+        _progress?.state.outcome?.effectId;
+    try {
+      await _progress?.retireAfterCommit();
+      if (!mounted) return;
+      widget.onChanged();
+      YorksAppToast.show(
+        context,
+        title: reference == null
+            ? t(YorksV1ProcurementProgressStrings.confirmedResult)
+            : t(YorksV1ProcurementProgressStrings.confirmedDispatch(reference)),
+        tone: YorksAppToastTone.success,
+      );
+    } catch (_) {
+      _progress?.markViewRefreshDegraded();
+    }
+  }
+
+  Future<void> _retryPending() async {
+    final progress = _progress;
+    if (progress == null || _saving) return;
+    final payload = progress.pendingCommandPayload;
+    final pending = progress.state.pendingCommand;
+    if (payload == null ||
+        pending == null ||
+        payload['request_id'] != widget.workspace.requestId) {
+      return;
+    }
+    final input = YorksV1DispatchInput(
+      requestId: payload['request_id'] as String,
+      expectedRequestVersion: payload['expected_version'] as int,
+      dispatchDate: DateTime.parse(payload['dispatch_date'] as String),
+      deliveryReference: payload['delivery_reference'] as String? ?? '',
+      driverName: payload['driver_name'] as String?,
+      vehicleReference: payload['vehicle_reference'] as String?,
+      lines: [
+        for (final raw in payload['lines'] as List)
+          YorksV1DispatchLineInput(
+            requestLineId: (raw as Map)['request_line_id'] as String,
+            dispatchQuantity: raw['dispatch_qty'] as String,
+          ),
+      ],
+      idempotencyKey: pending.commandKey,
+    );
+    await _commit(input, retryKey: pending.commandKey);
   }
 
   @override
   Widget build(BuildContext context) {
+    _bindProgress(
+      ref.watch(yorksV1ProcurementProgressControllerProvider(_scope)),
+    );
     final candidates = widget.workspace.dispatchCandidates
         .where(
           (candidate) =>
@@ -683,96 +1014,308 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
               true,
         )
         .toList(growable: false);
-    if (widget.mobileFlow) {
-      return PopScope(
-        canPop: !_saving,
-        child: _MobileDispatchEditor(
-          workspace: widget.workspace,
-          deliveryReference: _deliveryReference,
-          driver: _driver,
-          vehicle: _vehicle,
-          quantities: _quantities,
-          dispatchDate: _dispatchDate,
-          saving: _saving,
-          enabled: widget.enabled,
-          onDate: _pickDate,
-          onChanged: () => setState(() {}),
-          onDispatch: _dispatch,
-        ),
-      );
-    }
-    return PopScope(
-      canPop: !_saving,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.md,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (widget.mobileFlow || constraints.maxWidth < 600) {
+          return PopScope(
+            canPop:
+                _allowPop ||
+                (!_saving &&
+                    _progress?.state.isDirty != true &&
+                    _progress?.state.isPending != true),
+            onPopInvokedWithResult: (didPop, result) async {
+              if (!didPop && await _canLeave() && mounted) {
+                setState(() => _allowPop = true);
+                if (context.mounted) Navigator.of(context).pop(result);
+              }
+            },
+            child: _MobileDispatchEditor(
+              workspace: widget.workspace,
+              deliveryReference: _deliveryReference,
+              driver: _driver,
+              vehicle: _vehicle,
+              quantities: _quantities,
+              dispatchDate: _dispatchDate,
+              saving: _saving,
+              enabled: _editable,
+              progressPanel: _progressPanel(),
+              onSaveProgress: _saveProgress,
+              canSaveProgress: _editable,
+              onDate: _pickDate,
+              onChanged: () => setState(() {}),
+              onDispatch: _reviewDispatch,
+              errors: _quantityErrors,
+              language: ref.watch(languageProvider),
+            ),
+          );
+        }
+        final selected = _selectedLines();
+        return PopScope(
+          canPop:
+              _allowPop ||
+              (!_saving &&
+                  _progress?.state.isDirty != true &&
+                  _progress?.state.isPending != true),
+          onPopInvokedWithResult: (didPop, result) async {
+            if (!didPop && await _canLeave() && mounted) {
+              setState(() => _allowPop = true);
+              if (context.mounted) Navigator.of(context).pop(result);
+            }
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: 240,
-                child: _TextInput(
-                  controller: _deliveryReference,
-                  label: YorksV1LogisticsStrings.deliveryReference.primary,
-                  enabled: widget.enabled && !_saving,
+              _progressPanel(),
+              Expanded(
+                child: _DispatchCandidateList(
+                  candidates: candidates,
+                  controllers: _quantities,
+                  enabled: _editable,
+                  errors: _quantityErrors,
+                  language: ref.watch(languageProvider),
+                  onChanged: () => setState(() => _quantityErrors = {}),
+                  header: Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Wrap(
+                          spacing: AppSpacing.md,
+                          runSpacing: AppSpacing.md,
+                          children: [
+                            SizedBox(
+                              width: 260,
+                              child: _TextInput(
+                                controller: _deliveryReference,
+                                label: t(
+                                  YorksV1LogisticsStrings
+                                      .optionalSupplierReference,
+                                ),
+                                enabled: _editable,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 180,
+                              child: SecondaryButton(
+                                label: _dateLabel(_dispatchDate),
+                                isExpanded: false,
+                                icon: Icons.calendar_today_outlined,
+                                onPressed: !_editable ? null : _pickDate,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 240,
+                              child: _TextInput(
+                                controller: _driver,
+                                label: t(YorksV1LogisticsStrings.driver),
+                                enabled: _editable,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 240,
+                              child: _TextInput(
+                                controller: _vehicle,
+                                label: t(YorksV1LogisticsStrings.vehicle),
+                                enabled: _editable,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          t(YorksV1LogisticsStrings.dispatchExcluded),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              SizedBox(
-                width: 220,
-                child: SecondaryButton(
-                  label: _dateLabel(_dispatchDate),
-                  isExpanded: false,
-                  icon: Icons.calendar_today_outlined,
-                  onPressed: !widget.enabled || _saving ? null : _pickDate,
-                ),
-              ),
-              SizedBox(
-                width: 240,
-                child: _TextInput(
-                  controller: _driver,
-                  label: YorksV1LogisticsStrings.driver.primary,
-                  enabled: widget.enabled && !_saving,
-                ),
-              ),
-              SizedBox(
-                width: 240,
-                child: _TextInput(
-                  controller: _vehicle,
-                  label: YorksV1LogisticsStrings.vehicle.primary,
-                  enabled: widget.enabled && !_saving,
+              const Divider(height: 1),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          t(
+                            YorksV1LogisticsStrings.dispatchSelection(
+                              selected.length,
+                              candidates.length - selected.length,
+                            ),
+                          ),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _editable ? _saveProgress : null,
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: Text(
+                          t(YorksV1ProcurementProgressStrings.saveProgress),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      PrimaryButton(
+                        label: t(YorksV1LogisticsStrings.reviewDispatch),
+                        icon: Icons.fact_check_outlined,
+                        isExpanded: false,
+                        isLoading: _saving,
+                        onPressed: candidates.isEmpty || !_editable
+                            ? null
+                            : _reviewDispatch,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          if (candidates.isEmpty)
-            Text(
-              YorksV1LogisticsStrings.noDispatch.primary,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-            )
-          else
-            _DispatchCandidateList(
-              candidates: candidates,
-              controllers: _quantities,
-              enabled: widget.enabled && !_saving,
+        );
+      },
+    );
+  }
+
+  List<YorksV1DispatchLineInput> _selectedLines() => [
+    for (final candidate in widget.workspace.dispatchCandidates)
+      if (YorksV1DecimalQuantity.tryParse(
+            _quantities[candidate.requestLineId]?.text ?? '',
+          )?.isPositive ==
+          true)
+        YorksV1DispatchLineInput(
+          requestLineId: candidate.requestLineId,
+          dispatchQuantity: _quantities[candidate.requestLineId]!.text.trim(),
+        ),
+  ];
+
+  Future<void> _reviewDispatch() async {
+    if (!_editable || _reviewOpen) return;
+    final errors = YorksV1DispatchPreparation.validate(
+      widget.workspace.dispatchCandidates,
+      {for (final entry in _quantities.entries) entry.key: entry.value.text},
+    );
+    setState(() {
+      _quantityErrors = errors;
+    });
+    if (errors.isNotEmpty) return;
+    final lines = _selectedLines();
+    if (lines.isEmpty) {
+      _showError(t(YorksV1LogisticsStrings.invalidDispatch));
+      return;
+    }
+    _reviewOpen = true;
+    var answered = false;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t(YorksV1LogisticsStrings.reviewDispatch)),
+        content: SizedBox(
+          width: 720,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${widget.workspace.requestNumber ?? ''} · ${widget.workspace.projectName}',
+                ),
+                Text(widget.workspace.scopeName),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  [
+                    if (_deliveryReference.text.trim().isNotEmpty)
+                      _deliveryReference.text.trim(),
+                    _dateLabel(_dispatchDate),
+                  ].join(' · '),
+                ),
+                if (_driver.text.trim().isNotEmpty ||
+                    _vehicle.text.trim().isNotEmpty)
+                  Text('${_driver.text.trim()} · ${_vehicle.text.trim()}'),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  t(YorksV1LogisticsStrings.dispatchReviewHelp),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                for (final line in lines) ...[
+                  Builder(
+                    builder: (context) {
+                      final candidate = widget.workspace.dispatchCandidates
+                          .firstWhere(
+                            (c) => c.requestLineId == line.requestLineId,
+                          );
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _CandidateName(candidate: candidate),
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Text(
+                              '${_displayQuantity(line.dispatchQuantity)} ${candidate.unit}',
+                              style: AppTypography.labelLarge,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  t(
+                    YorksV1LogisticsStrings.dispatchSelection(
+                      lines.length,
+                      widget.workspace.dispatchCandidates
+                              .where(
+                                (c) =>
+                                    YorksV1DecimalQuantity.tryParse(
+                                      c.stillNeededQuantity,
+                                    )?.isPositive ==
+                                    true,
+                              )
+                              .length -
+                          lines.length,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          const SizedBox(height: AppSpacing.lg),
-          Align(
-            alignment: Alignment.centerRight,
-            child: PrimaryButton(
-              label: YorksV1LogisticsStrings.dispatchNow.primary,
-              icon: Icons.local_shipping_outlined,
-              isExpanded: false,
-              isLoading: _saving,
-              onPressed: candidates.isEmpty || _saving || !widget.enabled
-                  ? null
-                  : _dispatch,
-            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(t(YorksV1LogisticsStrings.editDispatch)),
+          ),
+          FilledButton.icon(
+            key: const ValueKey('confirm-dispatch'),
+            onPressed: () {
+              if (answered) return;
+              answered = true;
+              Navigator.of(context).pop(true);
+            },
+            icon: const Icon(Icons.local_shipping_outlined, size: 18),
+            label: Text(t(YorksV1LogisticsStrings.confirmDispatch)),
           ),
         ],
       ),
     );
+    _reviewOpen = false;
+    if (accepted == true && mounted) await _dispatch();
   }
 
   Future<void> _pickDate() async {
@@ -782,60 +1325,69 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (selected != null && mounted) setState(() => _dispatchDate = selected);
+    if (selected != null && mounted) {
+      setState(() => _dispatchDate = selected);
+      _inputChanged();
+    }
   }
 
   Future<void> _dispatch() async {
-    if (!widget.enabled) return;
-    if (_deliveryReference.text.trim().isEmpty) {
-      _showError(YorksV1LogisticsStrings.deliveryReferenceRequired.primary);
+    if (!_editable) return;
+    final errors = YorksV1DispatchPreparation.validate(
+      widget.workspace.dispatchCandidates,
+      {for (final entry in _quantities.entries) entry.key: entry.value.text},
+    );
+    if (errors.isNotEmpty) {
+      setState(() {
+        _quantityErrors = errors;
+      });
       return;
     }
-    final lines = <YorksV1DispatchLineInput>[];
-    for (final candidate in widget.workspace.dispatchCandidates) {
-      final quantity = _quantities[candidate.requestLineId]?.text.trim() ?? '';
-      if (quantity.isEmpty) continue;
-      final parsedQuantity = YorksV1DecimalQuantity.tryParse(quantity);
-      if (parsedQuantity == null) {
-        _showError(YorksV1LogisticsStrings.invalidDispatch.primary);
-        return;
-      }
-      if (parsedQuantity.isPositive) {
-        final stillNeeded = YorksV1DecimalQuantity.tryParse(
-          candidate.stillNeededQuantity,
-        );
-        if (stillNeeded == null || parsedQuantity.compareTo(stillNeeded) > 0) {
-          _showError(YorksV1LogisticsStrings.invalidDispatch.primary);
-          return;
-        }
-        lines.add(
-          YorksV1DispatchLineInput(
-            requestLineId: candidate.requestLineId,
-            dispatchQuantity: quantity,
-          ),
-        );
-      }
-    }
-    if (lines.isEmpty) {
-      _showError(YorksV1LogisticsStrings.invalidDispatch.primary);
-      return;
-    }
+    final lines = _selectedLines();
+    if (lines.isEmpty) return;
+    await _commit(
+      YorksV1DispatchInput(
+        requestId: widget.workspace.requestId,
+        expectedRequestVersion: _baseRequestVersion,
+        dispatchDate: _dispatchDate,
+        deliveryReference: _deliveryReference.text,
+        driverName: _driver.text,
+        vehicleReference: _vehicle.text,
+        lines: lines,
+        idempotencyKey: _commandIdempotencyKey,
+      ),
+    );
+  }
+
+  Future<void> _commit(YorksV1DispatchInput input, {String? retryKey}) async {
     setState(() => _saving = true);
     try {
+      _progress?.update(_snapshot());
       final updated = await ref
           .read(yorksV1MaterialWorkflowCommandControllerProvider)
           .dispatch(
-            YorksV1DispatchInput(
-              requestId: widget.workspace.requestId,
-              expectedRequestVersion: widget.workspace.requestRecordVersion,
-              dispatchDate: _dispatchDate,
-              deliveryReference: _deliveryReference.text,
-              driverName: _driver.text,
-              vehicleReference: _vehicle.text,
-              lines: lines,
-              idempotencyKey: _commandIdempotencyKey,
-            ),
+            input,
+            recoveredIdempotencyKey: retryKey,
+            beforeInvoke: (key) async {
+              if (retryKey != null && retryKey != key) {
+                throw const YorksV1DomainException(
+                  YorksV1DomainErrorCode.conflict,
+                );
+              }
+              await _progress!.prepareFinalIntent(
+                commandName: 'v1_dispatch_materials',
+                commandKey: key,
+                commandPayload: input.toRpcPayload(),
+              );
+              _progress!.markFinalCommandSent();
+            },
           );
+      _committed = true;
+      try {
+        await _progress?.retireAfterCommit();
+      } catch (_) {
+        /* Commit remains confirmed if local cleanup fails. */
+      }
       if (!mounted) return;
       _commandIdempotencyKey = const Uuid().v4();
       widget.onChanged();
@@ -850,21 +1402,67 @@ class _DispatchEditorState extends ConsumerState<_DispatchEditor> {
             : YorksV1LogisticsStrings.dispatchConfirmedSummary(
                 number: confirmedDispatch.number,
                 lines: confirmedDispatch.lines.isEmpty
-                    ? lines.length
+                    ? input.lines.length
                     : confirmedDispatch.lines.length,
               ).primary,
         tone: YorksAppToastTone.success,
       );
+      _restoring = true;
       for (final controller in _quantities.values) {
         controller.clear();
       }
+      _restoring = false;
     } on YorksV1DomainException catch (error) {
+      if (_committed) {
+        _progress?.markViewRefreshDegraded();
+        return;
+      }
+      final rejected = _progress?.state.pendingCommand;
+      await _progress?.rejectFinalIntent(error);
+      if (_progress?.state.outcome?.isConfirmed == true) {
+        await _confirmedRecovery();
+        return;
+      }
+      // An uncertain write has its own live status panel; a failure toast
+      // would contradict that state and invite an unsafe second dispatch.
+      if (_progress?.state.isPending == true) return;
+      if (rejected != null && _progress?.state.pendingCommand == null) {
+        await ref
+            .read(yorksV1MaterialWorkflowCommandControllerProvider)
+            .releaseRejectedPreparedCommand(
+              operation: 'dispatch_materials',
+              entityId: widget.workspace.requestId,
+              idempotencyKey: rejected.commandKey,
+            );
+      }
       if (mounted) {
         _showError(
           YorksV1MaterialRequestStrings.commandFailure(error.code).primary,
         );
       }
-    } catch (_) {
+    } catch (error) {
+      if (_committed) {
+        _progress?.markViewRefreshDegraded();
+        return;
+      }
+      final rejected = _progress?.state.pendingCommand;
+      await _progress?.rejectFinalIntent(error);
+      if (_progress?.state.outcome?.isConfirmed == true) {
+        await _confirmedRecovery();
+        return;
+      }
+      // An uncertain write has its own live status panel; a failure toast
+      // would contradict that state and invite an unsafe second dispatch.
+      if (_progress?.state.isPending == true) return;
+      if (rejected != null && _progress?.state.pendingCommand == null) {
+        await ref
+            .read(yorksV1MaterialWorkflowCommandControllerProvider)
+            .releaseRejectedPreparedCommand(
+              operation: 'dispatch_materials',
+              entityId: widget.workspace.requestId,
+              idempotencyKey: rejected.commandKey,
+            );
+      }
       if (mounted) _showError(YorksV1LogisticsStrings.savingFailed.primary);
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -888,6 +1486,11 @@ class _MobileDispatchEditor extends StatelessWidget {
     required this.onDate,
     required this.onChanged,
     required this.onDispatch,
+    required this.errors,
+    required this.progressPanel,
+    required this.onSaveProgress,
+    required this.canSaveProgress,
+    required this.language,
   });
 
   final YorksV1LogisticsWorkspace workspace;
@@ -901,16 +1504,26 @@ class _MobileDispatchEditor extends StatelessWidget {
   final VoidCallback onDate;
   final VoidCallback onChanged;
   final VoidCallback onDispatch;
+  final Map<String, YorksV1DispatchQuantityIssue> errors;
+  final Widget progressPanel;
+  final VoidCallback onSaveProgress;
+  final bool canSaveProgress;
+  final AppLanguage language;
 
   @override
   Widget build(BuildContext context) {
     final candidates = workspace.dispatchCandidates
         .where((candidate) => _number(candidate.stillNeededQuantity) > 0)
         .toList(growable: false);
-    final total = candidates.fold<double>(
-      0,
-      (sum, item) => sum + _number(quantities[item.requestLineId]?.text ?? ''),
-    );
+    final included = candidates
+        .where(
+          (item) =>
+              YorksV1DecimalQuantity.tryParse(
+                quantities[item.requestLineId]?.text ?? '',
+              )?.isPositive ==
+              true,
+        )
+        .length;
     return Column(
       key: const ValueKey('mobile-dispatch-create'),
       children: [
@@ -920,18 +1533,20 @@ class _MobileDispatchEditor extends StatelessWidget {
             children: [
               YorksMobilePageTitle(
                 eyebrow: workspace.requestNumber ?? '',
-                title: YorksV1LogisticsStrings.createDispatch.primary,
-                description:
-                    YorksV1LogisticsStrings.dispatchOutstandingOnly.primary,
+                title: YorksV1LogisticsStrings.createDispatch.active(language),
+                description: YorksV1LogisticsStrings.dispatchOutstandingOnly
+                    .active(language),
               ),
               const SizedBox(height: 16),
+              progressPanel,
               YorksMobileCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _TextInput(
                       controller: deliveryReference,
-                      label: YorksV1LogisticsStrings.deliveryReference.primary,
+                      label: YorksV1LogisticsStrings.optionalSupplierReference
+                          .active(language),
                       enabled: enabled && !saving,
                       onChanged: (_) => onChanged(),
                     ),
@@ -941,8 +1556,8 @@ class _MobileDispatchEditor extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       child: InputDecorator(
                         decoration: InputDecoration(
-                          labelText:
-                              YorksV1LogisticsStrings.dispatchDate.primary,
+                          labelText: YorksV1LogisticsStrings.dispatchDate
+                              .active(language),
                           suffixIcon: const Icon(
                             Icons.calendar_today_outlined,
                             size: 19,
@@ -957,7 +1572,9 @@ class _MobileDispatchEditor extends StatelessWidget {
                         Expanded(
                           child: _TextInput(
                             controller: driver,
-                            label: YorksV1LogisticsStrings.driver.primary,
+                            label: YorksV1LogisticsStrings.driver.active(
+                              language,
+                            ),
                             enabled: enabled && !saving,
                           ),
                         ),
@@ -965,7 +1582,9 @@ class _MobileDispatchEditor extends StatelessWidget {
                         Expanded(
                           child: _TextInput(
                             controller: vehicle,
-                            label: YorksV1LogisticsStrings.vehicle.primary,
+                            label: YorksV1LogisticsStrings.vehicle.active(
+                              language,
+                            ),
                             enabled: enabled && !saving,
                           ),
                         ),
@@ -976,13 +1595,17 @@ class _MobileDispatchEditor extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               YorksMobileSectionHeader(
-                title: YorksV1LogisticsStrings.dispatchApprovedItems.primary,
+                title: YorksV1LogisticsStrings.dispatchApprovedItems.active(
+                  language,
+                ),
                 subtitle: workspace.scopeName,
               ),
               const SizedBox(height: 10),
               if (candidates.isEmpty)
                 YorksMobileCard(
-                  child: Text(YorksV1LogisticsStrings.noDispatch.primary),
+                  child: Text(
+                    YorksV1LogisticsStrings.noDispatch.active(language),
+                  ),
                 )
               else
                 for (var index = 0; index < candidates.length; index++) ...[
@@ -992,23 +1615,33 @@ class _MobileDispatchEditor extends StatelessWidget {
                     controller: quantities[candidates[index].requestLineId]!,
                     enabled: enabled && !saving,
                     onChanged: onChanged,
+                    error: errors[candidates[index].requestLineId],
+                    language: language,
                   ),
                   const SizedBox(height: 10),
                 ],
               YorksMobileCallout(
                 icon: Icons.shield_outlined,
-                title: YorksV1LogisticsStrings.stockProtected.primary,
-                message:
-                    YorksV1LogisticsStrings.stockRecheckedOnDispatch.primary,
+                title: YorksV1LogisticsStrings.stockProtected.active(language),
+                message: YorksV1LogisticsStrings.stockRecheckedOnDispatch
+                    .active(language),
               ),
             ],
           ),
         ),
         YorksMobileStickyActions(
-          summary: YorksV1LogisticsStrings.dispatchUnits(
-            _quantityText(total),
-          ).primary,
+          summary: YorksV1LogisticsStrings.dispatchSelection(
+            included,
+            candidates.length - included,
+          ).active(language),
           children: [
+            OutlinedButton.icon(
+              onPressed: canSaveProgress ? onSaveProgress : null,
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: Text(
+                YorksV1ProcurementProgressStrings.saveProgress.active(language),
+              ),
+            ),
             FilledButton.icon(
               onPressed: candidates.isEmpty || saving || !enabled
                   ? null
@@ -1019,7 +1652,9 @@ class _MobileDispatchEditor extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.local_shipping_outlined, size: 19),
-              label: Text(YorksV1LogisticsStrings.dispatchNow.primary),
+              label: Text(
+                YorksV1LogisticsStrings.reviewDispatch.active(language),
+              ),
             ),
           ],
         ),
@@ -1035,6 +1670,8 @@ class _MobileDispatchCandidate extends StatelessWidget {
     required this.controller,
     required this.enabled,
     required this.onChanged,
+    this.error,
+    required this.language,
   });
 
   final int index;
@@ -1042,6 +1679,8 @@ class _MobileDispatchCandidate extends StatelessWidget {
   final TextEditingController controller;
   final bool enabled;
   final VoidCallback onChanged;
+  final YorksV1DispatchQuantityIssue? error;
+  final AppLanguage language;
 
   @override
   Widget build(BuildContext context) => YorksMobileCard(
@@ -1070,14 +1709,14 @@ class _MobileDispatchCandidate extends StatelessWidget {
           children: [
             Expanded(
               child: _MobileDispatchFact(
-                label: YorksV1LogisticsStrings.approved.primary,
+                label: YorksV1LogisticsStrings.approved.active(language),
                 value:
                     '${_displayQuantity(candidate.approvedQuantity)} ${candidate.unit}',
               ),
             ),
             Expanded(
               child: _MobileDispatchFact(
-                label: YorksV1LogisticsStrings.stillNeeded.primary,
+                label: YorksV1LogisticsStrings.stillNeeded.active(language),
                 value:
                     '${_displayQuantity(candidate.stillNeededQuantity)} ${candidate.unit}',
               ),
@@ -1087,7 +1726,7 @@ class _MobileDispatchCandidate extends StatelessWidget {
         if (candidate.source == YorksV1LogisticsSource.warehouse) ...[
           const SizedBox(height: 8),
           _MobileDispatchFact(
-            label: YorksV1LogisticsStrings.available.primary,
+            label: YorksV1LogisticsStrings.available.active(language),
             value:
                 '${_displayQuantity(candidate.warehouseAvailableQuantity ?? '0')} ${candidate.unit}',
           ),
@@ -1095,7 +1734,8 @@ class _MobileDispatchCandidate extends StatelessWidget {
         const SizedBox(height: 12),
         _QuantityInput(
           controller: controller,
-          label: YorksV1LogisticsStrings.dispatchQuantity.primary,
+          errorText: _dispatchError(error, language),
+          label: YorksV1LogisticsStrings.dispatchQuantity.active(language),
           enabled: enabled,
           onChanged: (_) => onChanged(),
         ),
@@ -1133,180 +1773,196 @@ class _DispatchCandidateList extends StatelessWidget {
     required this.candidates,
     required this.controllers,
     required this.enabled,
+    required this.errors,
+    required this.language,
+    required this.onChanged,
+    required this.header,
   });
-
   final List<YorksV1DispatchCandidate> candidates;
   final Map<String, TextEditingController> controllers;
   final bool enabled;
-
+  final Map<String, YorksV1DispatchQuantityIssue> errors;
+  final AppLanguage language;
+  final VoidCallback onChanged;
+  final Widget header;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      if (constraints.maxWidth >= AppSpacing.yorksV1DesktopBreakpoint) {
-        return Column(
-          children: [
-            const _DispatchCandidateHeader(),
-            const Divider(height: 1),
-            for (final candidate in candidates)
-              _DispatchCandidateDesktopRow(
-                candidate: candidate,
-                controller: controllers[candidate.requestLineId]!,
-                enabled: enabled,
-              ),
-          ],
-        );
-      }
-      return Column(
-        children: [
-          for (final candidate in candidates)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: _DispatchCandidateMobileCard(
-                candidate: candidate,
-                controller: controllers[candidate.requestLineId]!,
-                enabled: enabled,
+      final compact = constraints.maxWidth < 720;
+      return CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: header),
+          if (!compact)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _DispatchPinnedHeader(
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  color: AppColors.surfaceContainerLow,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: Text(
+                          YorksV1LogisticsStrings.itemDescription.active(
+                            language,
+                          ),
+                          style: AppTypography.labelMedium,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          YorksV1LogisticsStrings.stillNeeded.active(language),
+                          style: AppTypography.labelMedium,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          YorksV1LogisticsStrings.available.active(language),
+                          style: AppTypography.labelMedium,
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          YorksV1LogisticsStrings.sendNow.active(language),
+                          style: AppTypography.labelMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
+          if (candidates.isEmpty)
+            SliverToBoxAdapter(
+              child: Text(YorksV1LogisticsStrings.noDispatch.active(language)),
+            ),
+          SliverList.builder(
+            itemCount: candidates.length,
+            itemBuilder: (context, index) {
+              final candidate = candidates[index];
+              return Container(
+                key: ValueKey('dispatch-row-${candidate.requestLineId}'),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.md,
+                  horizontal: AppSpacing.sm,
+                ),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.line)),
+                ),
+                child: compact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _CandidateName(candidate: candidate),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            '${YorksV1LogisticsStrings.stillNeeded.active(language)}: ${_displayQuantity(candidate.stillNeededQuantity)} ${candidate.unit}',
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          _QuantityInput(
+                            controller: controllers[candidate.requestLineId]!,
+                            label: YorksV1LogisticsStrings.sendNow.active(
+                              language,
+                            ),
+                            enabled: enabled,
+                            errorText: _dispatchError(
+                              errors[candidate.requestLineId],
+                              language,
+                            ),
+                            onChanged: (_) => onChanged(),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 4,
+                            child: _CandidateName(candidate: candidate),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: _Quantity(
+                              value: _displayQuantity(
+                                candidate.stillNeededQuantity,
+                              ),
+                              unit: candidate.unit,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              candidate.source ==
+                                      YorksV1LogisticsSource.warehouse
+                                  ? '${candidate.warehouseAvailableQuantity == null ? '—' : _displayQuantity(candidate.warehouseAvailableQuantity!)} ${candidate.unit}'
+                                  : '—',
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: _QuantityInput(
+                              controller: controllers[candidate.requestLineId]!,
+                              label: YorksV1LogisticsStrings.sendNow.active(
+                                language,
+                              ),
+                              enabled: enabled,
+                              errorText: _dispatchError(
+                                errors[candidate.requestLineId],
+                                language,
+                              ),
+                              onChanged: (_) => onChanged(),
+                            ),
+                          ),
+                        ],
+                      ),
+              );
+            },
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
         ],
       );
     },
   );
 }
 
-class _DispatchCandidateHeader extends StatelessWidget {
-  const _DispatchCandidateHeader();
-
+class _DispatchPinnedHeader extends SliverPersistentHeaderDelegate {
+  _DispatchPinnedHeader({required this.child});
+  final Widget child;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-    child: Row(
-      children: [
-        Expanded(
-          flex: 4,
-          child: _ColumnLabel(YorksV1LogisticsStrings.itemDescription),
-        ),
-        Expanded(child: _ColumnLabel(YorksV1LogisticsStrings.approved)),
-        Expanded(child: _ColumnLabel(YorksV1LogisticsStrings.goodReceived)),
-        Expanded(child: _ColumnLabel(YorksV1LogisticsStrings.inTransit)),
-        Expanded(child: _ColumnLabel(YorksV1LogisticsStrings.stillNeeded)),
-        Expanded(
-          flex: 2,
-          child: _ColumnLabel(YorksV1LogisticsStrings.dispatchQuantity),
-        ),
-      ],
-    ),
-  );
+  double get minExtent => 56;
+  @override
+  double get maxExtent => 56;
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => SizedBox.expand(child: child);
+  @override
+  bool shouldRebuild(_DispatchPinnedHeader oldDelegate) =>
+      oldDelegate.child != child;
 }
 
-class _DispatchCandidateDesktopRow extends StatelessWidget {
-  const _DispatchCandidateDesktopRow({
-    required this.candidate,
-    required this.controller,
-    required this.enabled,
-  });
-
-  final YorksV1DispatchCandidate candidate;
-  final TextEditingController controller;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-    child: Row(
-      children: [
-        Expanded(flex: 4, child: _CandidateName(candidate: candidate)),
-        Expanded(
-          child: _Quantity(
-            value: _displayQuantity(candidate.approvedQuantity),
-            unit: candidate.unit,
-          ),
-        ),
-        Expanded(
-          child: _Quantity(
-            value: _displayQuantity(candidate.goodReceivedQuantity),
-            unit: candidate.unit,
-          ),
-        ),
-        Expanded(
-          child: _Quantity(
-            value: _displayQuantity(candidate.inTransitQuantity),
-            unit: candidate.unit,
-          ),
-        ),
-        Expanded(
-          child: _Quantity(
-            value: _displayQuantity(candidate.stillNeededQuantity),
-            unit: candidate.unit,
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: _QuantityInput(
-            controller: controller,
-            label: YorksV1LogisticsStrings.dispatchQuantity.primary,
-            enabled: enabled,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _DispatchCandidateMobileCard extends StatelessWidget {
-  const _DispatchCandidateMobileCard({
-    required this.candidate,
-    required this.controller,
-    required this.enabled,
-  });
-
-  final YorksV1DispatchCandidate candidate;
-  final TextEditingController controller;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _CandidateName(candidate: candidate),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.lg,
-          runSpacing: AppSpacing.md,
-          children: [
-            _Fact(
-              label: YorksV1LogisticsStrings.approved.primary,
-              value: _displayQuantity(candidate.approvedQuantity),
-            ),
-            _Fact(
-              label: YorksV1LogisticsStrings.goodReceived.primary,
-              value: _displayQuantity(candidate.goodReceivedQuantity),
-            ),
-            _Fact(
-              label: YorksV1LogisticsStrings.inTransit.primary,
-              value: _displayQuantity(candidate.inTransitQuantity),
-            ),
-            _Fact(
-              label: YorksV1LogisticsStrings.stillNeeded.primary,
-              value: _displayQuantity(candidate.stillNeededQuantity),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _QuantityInput(
-          controller: controller,
-          label: YorksV1LogisticsStrings.dispatchQuantity.primary,
-          enabled: enabled,
-        ),
-      ],
-    ),
-  );
-}
+String? _dispatchError(
+  YorksV1DispatchQuantityIssue? issue,
+  AppLanguage language,
+) => switch (issue) {
+  null => null,
+  YorksV1DispatchQuantityIssue.invalid =>
+    YorksV1LogisticsStrings.dispatchQuantityInvalid.active(language),
+  YorksV1DispatchQuantityIssue.negative =>
+    YorksV1LogisticsStrings.dispatchQuantityNegative.active(language),
+  YorksV1DispatchQuantityIssue.exceedsRemaining =>
+    YorksV1LogisticsStrings.dispatchQuantityRemaining.active(language),
+  YorksV1DispatchQuantityIssue.unavailable =>
+    YorksV1LogisticsStrings.dispatchStockUnknown.active(language),
+  YorksV1DispatchQuantityIssue.exceedsStock =>
+    YorksV1LogisticsStrings.dispatchQuantityStock.active(language),
+};
 
 class _DispatchCard extends ConsumerStatefulWidget {
   const _DispatchCard({
@@ -1990,6 +2646,10 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   late String _photoIdempotencyKey;
   bool _allReviewed = false;
   bool _saving = false;
+  bool get _pendingReceipt => ref
+      .read(yorksV1MaterialWorkflowCommandControllerProvider)
+      .hasPendingReceipt(widget.dispatch.id);
+  bool get _locked => _saving || _pendingReceipt;
 
   @override
   void initState() {
@@ -2036,10 +2696,13 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
             outcomes: _outcomes,
             reviewed: _reviewed,
             saving: _saving,
+            outcomeUnknown: _pendingReceipt,
             onClose: () => Navigator.of(context).pop(),
             onReceiveAll: _receiveAll,
             onOutcome: _selectMobileOutcome,
-            onConfirm: _reviewed.length == widget.dispatch.lines.length
+            onConfirm:
+                _pendingReceipt ||
+                    _reviewed.length == widget.dispatch.lines.length
                 ? _confirm
                 : null,
           ),
@@ -2172,12 +2835,17 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
                             : () => Navigator.of(context).pop(),
                       ),
                       PrimaryButton(
-                        label:
-                            YorksV1LogisticsStrings.saveReceiptReview.primary,
+                        label: _pendingReceipt
+                            ? YorksV1MaterialRequestStrings
+                                  .checkSubmissionStatus
+                                  .primary
+                            : YorksV1LogisticsStrings.saveReceiptReview.primary,
                         icon: Icons.verified_outlined,
                         isExpanded: false,
                         isLoading: _saving,
-                        onPressed: _allReviewed && !_saving ? _confirm : null,
+                        onPressed: (_pendingReceipt || _allReviewed) && !_saving
+                            ? _confirm
+                            : null,
                       ),
                     ],
                   ),
@@ -2191,6 +2859,41 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   }
 
   Future<void> _confirm() async {
+    if (_pendingReceipt) {
+      setState(() => _saving = true);
+      try {
+        final result = await ref
+            .read(yorksV1MaterialWorkflowCommandControllerProvider)
+            .checkReceiptStatus(widget.workspace.requestId, widget.dispatch.id);
+        if (result != null && mounted) {
+          widget.onChanged();
+          Navigator.of(context).pop(true);
+        }
+      } on YorksV1CommittedViewUnavailable {
+        if (mounted) {
+          widget.onChanged();
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        }
+      } catch (_) {
+        if (mounted) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+            tone: YorksAppToastTone.information,
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _saving = false);
+      }
+      return;
+    }
     if (YorksMobileUi.isActive(context) &&
         _reviewed.length != widget.dispatch.lines.length) {
       _showFailure(YorksV1LogisticsStrings.allLinesReviewed.primary);
@@ -2260,6 +2963,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
       );
     }
     setState(() => _saving = true);
+    var acknowledged = false;
     try {
       final confirmedWorkspace = await ref
           .read(yorksV1MaterialWorkflowCommandControllerProvider)
@@ -2273,6 +2977,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
               idempotencyKey: _receiptIdempotencyKey,
             ),
           );
+      acknowledged = true;
       if (!mounted) return;
       _receiptIdempotencyKey = const Uuid().v4();
       widget.onChanged();
@@ -2337,14 +3042,67 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
       }
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } on YorksV1DomainException catch (error) {
+    } on YorksV1CommittedViewUnavailable {
       if (mounted) {
+        widget.onChanged();
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings
+              .commandCommittedViewUnavailable
+              .primary,
+          tone: YorksAppToastTone.success,
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+          tone: YorksAppToastTone.information,
+        );
+      }
+    } on YorksV1DomainException catch (error) {
+      if (acknowledged) {
+        if (mounted) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
+      if (mounted) {
+        final belowReturns = (error.serverMessage ?? '').toUpperCase().contains(
+          'V1_RECEIPT_BELOW_ACTIVE_RETURNS',
+        );
         _showFailure(
-          YorksV1MaterialRequestStrings.commandFailure(error.code).primary,
+          belowReturns
+              ? YorksV1MaterialReturnComposerStrings.receiptBelowReturns.primary
+              : YorksV1MaterialRequestStrings.commandFailure(
+                  error.code,
+                ).primary,
         );
       }
     } catch (_) {
-      if (mounted) _showFailure(YorksV1LogisticsStrings.savingFailed.primary);
+      if (mounted) {
+        if (acknowledged) {
+          YorksAppToast.show(
+            context,
+            title: YorksV1MaterialRequestStrings
+                .commandCommittedViewUnavailable
+                .primary,
+            tone: YorksAppToastTone.success,
+          );
+          Navigator.of(context).pop(true);
+        } else {
+          _showFailure(YorksV1LogisticsStrings.savingFailed.primary);
+        }
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -2357,7 +3115,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
   );
 
   void _receiveAll() {
-    if (_saving) return;
+    if (_locked) return;
     setState(() {
       for (final line in widget.dispatch.lines) {
         _outcomes[line.id] = YorksV1ReceiptOutcome.received;
@@ -2376,7 +3134,7 @@ class _ReceiptReviewSheetState extends ConsumerState<_ReceiptReviewSheet> {
     YorksV1DispatchLine line,
     YorksV1ReceiptOutcome outcome,
   ) async {
-    if (_saving) return;
+    if (_locked) return;
     if (outcome == YorksV1ReceiptOutcome.received) {
       setState(() {
         _outcomes[line.id] = outcome;
@@ -2426,6 +3184,7 @@ class _MobileReceiptReview extends StatelessWidget {
     required this.outcomes,
     required this.reviewed,
     required this.saving,
+    this.outcomeUnknown = false,
     required this.onClose,
     required this.onReceiveAll,
     required this.onOutcome,
@@ -2436,6 +3195,7 @@ class _MobileReceiptReview extends StatelessWidget {
   final Map<String, YorksV1ReceiptOutcome> outcomes;
   final Set<String> reviewed;
   final bool saving;
+  final bool outcomeUnknown;
   final VoidCallback onClose;
   final VoidCallback onReceiveAll;
   final void Function(YorksV1DispatchLine, YorksV1ReceiptOutcome) onOutcome;
@@ -2469,7 +3229,7 @@ class _MobileReceiptReview extends StatelessWidget {
               _ReceiptDispatchBanner(dispatch: dispatch),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: saving ? null : onReceiveAll,
+                onPressed: saving || outcomeUnknown ? null : onReceiveAll,
                 icon: const Icon(Icons.done_all_rounded, size: 19),
                 label: Text(
                   YorksV1LogisticsStrings.receiveAllAsDispatched.primary,
@@ -2482,7 +3242,7 @@ class _MobileReceiptReview extends StatelessWidget {
                   line: dispatch.lines[index],
                   reviewed: reviewed.contains(dispatch.lines[index].id),
                   outcome: outcomes[dispatch.lines[index].id],
-                  enabled: !saving,
+                  enabled: !saving && !outcomeUnknown,
                   onOutcome: (value) => onOutcome(dispatch.lines[index], value),
                 ),
                 const SizedBox(height: 10),
@@ -2504,7 +3264,13 @@ class _MobileReceiptReview extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.verified_outlined, size: 19),
-              label: Text(YorksV1LogisticsStrings.confirmReceipt.primary),
+              label: Text(
+                outcomeUnknown
+                    ? YorksV1MaterialRequestStrings
+                          .checkSubmissionStatus
+                          .primary
+                    : YorksV1LogisticsStrings.confirmReceipt.primary,
+              ),
             ),
           ],
         ),
@@ -3191,17 +3957,6 @@ class _Fact extends StatelessWidget {
   );
 }
 
-class _ColumnLabel extends StatelessWidget {
-  const _ColumnLabel(this.copy);
-  final TranslatableString copy;
-
-  @override
-  Widget build(BuildContext context) => Text(
-    copy.primary,
-    style: AppTypography.labelSmall.copyWith(color: AppColors.muted),
-  );
-}
-
 class _Quantity extends StatelessWidget {
   const _Quantity({required this.value, required this.unit});
   final String value;
@@ -3217,11 +3972,13 @@ class _QuantityInput extends StatelessWidget {
     required this.label,
     this.enabled = true,
     this.onChanged,
+    this.errorText,
   });
   final TextEditingController controller;
   final String label;
   final bool enabled;
   final ValueChanged<String>? onChanged;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) => TextField(
@@ -3231,6 +3988,8 @@ class _QuantityInput extends StatelessWidget {
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     decoration: InputDecoration(
       labelText: label,
+      errorText: errorText,
+      errorMaxLines: 3,
       border: const OutlineInputBorder(),
     ),
   );

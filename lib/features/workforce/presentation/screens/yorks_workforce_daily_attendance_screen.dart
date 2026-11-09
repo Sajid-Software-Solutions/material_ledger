@@ -1484,7 +1484,12 @@ class _RosterHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = YorksV1WorkforceStrings.text(language, 'daily_attendance');
+    final title = YorksV1WorkforceStrings.text(
+      language,
+      MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint
+          ? 'mobile_attendance_title'
+          : 'daily_attendance',
+    );
     final actions = Wrap(
       spacing: AppSpacing.sm,
       runSpacing: AppSpacing.sm,
@@ -1513,7 +1518,10 @@ class _RosterHeader extends StatelessWidget {
                 Text(
                   YorksV1WorkforceStrings.text(
                     language,
-                    'daily_attendance_body',
+                    MediaQuery.sizeOf(context).width <
+                            AppSpacing.compactBreakpoint
+                        ? 'mobile_attendance_hint'
+                        : 'daily_attendance_body',
                   ),
                   style: AppTypography.bodyMedium,
                 ),
@@ -1538,7 +1546,9 @@ class _RosterHeader extends StatelessWidget {
                       Text(
                         YorksV1WorkforceStrings.text(
                           language,
-                          'daily_attendance_body',
+                          compact
+                              ? 'mobile_attendance_hint'
+                              : 'daily_attendance_body',
                         ),
                         style: AppTypography.bodyMedium,
                       ),
@@ -4134,6 +4144,29 @@ class _MobileTodayRoster extends StatelessWidget {
   final ValueChanged<String> onOpenWorker;
   final VoidCallback onBulk;
 
+  void _quickMark(
+    BuildContext context,
+    YorksWorkforceDailyRosterDraftRow before,
+    VoidCallback action,
+  ) {
+    action();
+    final after = controller.currentRow(before.workerId);
+    if (after == null || identical(before, after)) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            YorksV1WorkforceStrings.text(language, 'attendance_changed'),
+          ),
+          action: SnackBarAction(
+            label: YorksV1WorkforceStrings.text(language, 'undo_mark'),
+            onPressed: () => controller.undoQuickMark(before, after),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final entered = state.rows
@@ -4267,6 +4300,25 @@ class _MobileTodayRoster extends StatelessWidget {
                 selected: state.selectedWorkerIds.contains(row.workerId),
                 onToggle: controller.toggleSelection,
                 onOpen: onOpenWorker,
+                onPresent: state.isBusy || !row.isEditable
+                    ? null
+                    : () {
+                        _quickMark(context, row, () {
+                          if (!controller.markPresent(row.workerId)) {
+                            onOpenWorker(row.workerId);
+                          }
+                        });
+                      },
+                onAbsent: state.isBusy || !row.isEditable
+                    ? null
+                    : () => _quickMark(
+                        context,
+                        row,
+                        () => controller.updateRow(
+                          row.workerId,
+                          status: YorksWorkforceAttendanceStatus.absent,
+                        ),
+                      ),
               ),
             ),
         if (state.canLoadMore) ...[
@@ -4324,6 +4376,8 @@ class _MobileWorkerCard extends StatelessWidget {
     required this.selected,
     required this.onToggle,
     required this.onOpen,
+    required this.onPresent,
+    required this.onAbsent,
   });
 
   final AppLanguage language;
@@ -4332,6 +4386,8 @@ class _MobileWorkerCard extends StatelessWidget {
   final bool selected;
   final ValueChanged<String> onToggle;
   final ValueChanged<String> onOpen;
+  final VoidCallback? onPresent;
+  final VoidCallback? onAbsent;
 
   @override
   Widget build(BuildContext context) {
@@ -4340,7 +4396,7 @@ class _MobileWorkerCard extends StatelessWidget {
       button: true,
       selected: selected,
       label:
-          '${row.source.workerName}, ${row.source.workerNumber}, $status, ${_minutes(row.regularMinutes)} regular, ${_minutes(row.overtimeMinutes)} overtime',
+          '${row.source.workerName}, ${row.source.workerNumber}, $status, ${_minutes(row.regularMinutes)} ${YorksV1WorkforceStrings.text(language, 'regular_hours')}, ${_minutes(row.overtimeMinutes)} ${YorksV1WorkforceStrings.text(language, 'overtime_hours')}',
       child: Card(
         margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
@@ -4378,8 +4434,6 @@ class _MobileWorkerCard extends StatelessWidget {
                       children: [
                         Text(
                           row.source.workerName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: AppTypography.titleSmall,
                         ),
                         Text(
@@ -4437,6 +4491,63 @@ class _MobileWorkerCard extends StatelessWidget {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            OutlinedButton(
+                              key: Key('workforce-present-${row.workerId}'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                backgroundColor:
+                                    row.status ==
+                                        YorksWorkforceAttendanceStatus.present
+                                    ? AppColors.successContainer
+                                    : null,
+                              ),
+                              onPressed: onPresent,
+                              child: Text(
+                                _statusLabel(
+                                  language,
+                                  YorksWorkforceAttendanceStatus.present,
+                                ),
+                              ),
+                            ),
+                            OutlinedButton(
+                              key: Key('workforce-absent-${row.workerId}'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 48),
+                                backgroundColor:
+                                    row.status ==
+                                        YorksWorkforceAttendanceStatus.absent
+                                    ? AppColors.warningContainer
+                                    : null,
+                              ),
+                              onPressed: onAbsent,
+                              child: Text(
+                                _statusLabel(
+                                  language,
+                                  YorksWorkforceAttendanceStatus.absent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        TextButton.icon(
+                          key: Key('workforce-mobile-details-${row.workerId}'),
+                          onPressed: () => onOpen(row.workerId),
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(0, 48),
+                          ),
+                          icon: const Icon(Icons.tune, size: 18),
+                          label: Text(
+                            YorksV1WorkforceStrings.text(
+                              language,
+                              'mobile_more',
+                            ),
+                          ),
                         ),
                         if (row.isDirty || !row.isValid) ...[
                           const SizedBox(height: AppSpacing.xs),
@@ -4498,6 +4609,16 @@ class _MobileCompletionFooter extends StatelessWidget {
         !state.isBusy &&
         state.projection?.isFuture != true;
     final canSave = state.isReviewing && canReview;
+    final hint = state.isBusy || state.projection?.isFuture == true
+        ? null
+        : !state.isOnline
+        ? 'mobile_save_offline'
+        : state.invalidWorkerIds.isNotEmpty
+        ? 'mobile_save_invalid'
+        : state.dirtyRows.isEmpty
+        ? 'mobile_save_idle'
+        : null;
+
     return Material(
       key: const Key('workforce-mobile-completion-footer'),
       elevation: 12,
@@ -4528,7 +4649,7 @@ class _MobileCompletionFooter extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${state.dirtyRows.length} ${YorksV1WorkforceStrings.text(language, 'changed_rows')}',
+                      '${state.dirtyRows.length} ${YorksV1WorkforceStrings.text(language, 'mobile_unsaved')}',
                       style: AppTypography.labelSmall.copyWith(
                         color: state.invalidWorkerIds.isEmpty
                             ? AppColors.muted
@@ -4538,6 +4659,14 @@ class _MobileCompletionFooter extends StatelessWidget {
                   ],
                 ),
               ),
+              if (hint != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  YorksV1WorkforceStrings.text(language, hint),
+                  key: const Key('workforce-mobile-save-hint'),
+                  style: AppTypography.bodySmall,
+                ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               if (state.isReviewing)
                 Row(
@@ -4581,7 +4710,10 @@ class _MobileCompletionFooter extends StatelessWidget {
                     onPressed: canReview ? () => onReview() : null,
                     icon: const Icon(Icons.fact_check_outlined),
                     label: Text(
-                      YorksV1WorkforceStrings.text(language, 'review_day'),
+                      YorksV1WorkforceStrings.text(
+                        language,
+                        'mobile_check_save',
+                      ),
                     ),
                   ),
                 ),
