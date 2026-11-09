@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'deferred/yorks_deferred_screens.dart';
 import '../core/constants/constants.dart';
 
 import '../features/accounts/presentation/widgets/yorks_accounts_section_tabs.dart';
@@ -15,9 +16,6 @@ import '../features/admin/presentation/screens/admin_requests_screen.dart';
 import '../features/admin/presentation/screens/data_sync_screen.dart';
 import '../features/admin/presentation/screens/more_hub_screen.dart';
 import '../features/admin/presentation/screens/material_masters_screen.dart';
-import '../features/admin/presentation/screens/user_management_screen.dart';
-import '../features/admin/presentation/screens/yorks_v1_user_access_screen.dart';
-import '../features/admin/presentation/screens/yorks_v1_configuration_screen.dart';
 import '../features/accounts/presentation/screens/yorks_accounts_screens.dart';
 import '../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../shared/providers/yorks_v1_identity_provider.dart';
@@ -56,9 +54,6 @@ import '../features/inventory/presentation/screens/stock_history_screen.dart';
 import '../features/materials/presentation/screens/materials_hub_screen.dart';
 import '../features/materials/presentation/screens/material_line_grid_demo_screen.dart';
 import '../features/materials/presentation/screens/yorks_v1_arrangement_screen.dart';
-import '../features/materials/presentation/screens/yorks_v1_inventory_import_screen.dart';
-import '../features/materials/presentation/screens/yorks_v1_inventory_screen.dart';
-import '../features/materials/presentation/screens/yorks_v1_inventory_supplier_screens.dart';
 import '../features/materials/presentation/screens/yorks_v1_logistics_screen.dart';
 import '../features/materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../features/materials/presentation/screens/yorks_v1_company_material_request_screen.dart'
@@ -85,10 +80,7 @@ import '../features/company_overview/presentation/company_analytics_screen.dart'
     deferred as company_analytics;
 import '../features/company_overview/domain/company_analytics_models.dart';
 import '../features/transactions/presentation/screens/transactions_screen.dart';
-import '../features/workforce/presentation/screens/yorks_workforce_daily_attendance_screen.dart';
-import '../features/workforce/presentation/screens/yorks_workforce_administration_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_overview_screen.dart';
-import '../features/workforce/presentation/screens/yorks_workforce_timesheets_screen.dart';
 import '../shared/models/app_config.dart';
 import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
@@ -2099,23 +2091,21 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1Inventory,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1InventoryScreen(initialTab: state.uri.queryParameters['tab']),
+          yorksInventoryScreen(initialTab: state.uri.queryParameters['tab']),
         ),
       ),
       if (yorksV1InventorySuppliersEnabled)
         GoRoute(
           path: RoutePaths.yorksV1InventorySuppliers,
-          pageBuilder: (context, state) => _yorksV1Slide(
-            state.pageKey,
-            const YorksV1InventorySupplierDirectoryScreen(),
-          ),
+          pageBuilder: (context, state) =>
+              _yorksV1Slide(state.pageKey, yorksSupplierDirectoryScreen()),
         ),
       if (yorksV1InventorySuppliersEnabled)
         GoRoute(
           path: RoutePaths.yorksV1InventorySupplier,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            YorksV1InventorySupplierFolderScreen(
+            yorksSupplierFolderScreen(
               supplierId: state.pathParameters['supplierId'] ?? '',
             ),
           ),
@@ -2125,7 +2115,7 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1InventoryImport,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            YorksV1InventoryImportScreen(
+            yorksInventoryImportScreen(
               preselectedSupplierId: state.uri.queryParameters['supplierId'],
               onCancel: () {
                 if (context.canPop()) {
@@ -2145,7 +2135,7 @@ GoRouter createAppRouter({
       GoRoute(
         path: RoutePaths.yorksV1Configuration,
         pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const YorksV1ConfigurationScreen()),
+            _yorksV1Slide(state.pageKey, yorksConfigurationScreen()),
       ),
       if (yorksV1WorkforceEnabled)
         GoRoute(
@@ -2160,7 +2150,7 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceAdministration,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            const YorksWorkforceAdministrationScreen(),
+            yorksWorkforceAdministrationScreen(),
           ),
         ),
       if (yorksV1WorkforceEnabled)
@@ -2168,7 +2158,7 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceAttendance,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            YorksWorkforceDailyAttendanceScreen(
+            yorksWorkforceAttendanceScreen(
               initialTeamId: state.uri.queryParameters['team_id'],
               initialWorkDate: state.uri.queryParameters['date'],
             ),
@@ -2179,7 +2169,7 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceTimesheets,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            YorksWorkforceTimesheetsScreen(
+            yorksWorkforceTimesheetsScreen(
               initialPeriodId: state.uri.queryParameters['period_id'],
             ),
           ),
@@ -2399,13 +2389,13 @@ GoRouter createAppRouter({
       GoRoute(
         path: RoutePaths.users,
         pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const UserManagementScreen()),
+            _yorksV1Slide(state.pageKey, yorksUserManagementScreen()),
       ),
       GoRoute(
         path: RoutePaths.yorksV1UserAccess,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1UserAccessScreen(
+          yorksUserAccessScreen(
             targetAppUserId: state.pathParameters['appUserId'] ?? '',
           ),
         ),
