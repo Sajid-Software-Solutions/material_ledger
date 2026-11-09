@@ -697,28 +697,30 @@ List<_YorksDestination> _destinationsFor(
       role == YorksV1Role.accountant ||
       role == YorksV1Role.projectManager ||
       role == YorksV1Role.seniorMechanicalEngineer;
-  final accountsOffice = accountsEnabled && accountsOfficeEligible
-      ? <_YorksDestination>[
-          _YorksDestination(
-            label: YorksV1ShellStrings.accounts,
-            icon: Icons.dashboard_outlined,
-            selectedIcon: Icons.dashboard_rounded,
-            path: RoutePaths.yorksV1Accounts,
-            group: role == YorksV1Role.accountant
-                ? YorksV1ShellStrings.accountantWorkspace
-                : null,
-          ),
+  // Accounts is one destination for Admin, Project Manager and Senior
+  // Mechanical Engineer; its pages are tabs inside Accounts. The Accountant,
+  // whose whole workspace is Accounts, keeps a short list of daily pages.
+  // Every other Accounts page stays routable from the in-page tabs.
+  final accountsOverview = _YorksDestination(
+    label: YorksV1ShellStrings.accounts,
+    icon: Icons.dashboard_outlined,
+    selectedIcon: Icons.dashboard_rounded,
+    path: RoutePaths.yorksV1Accounts,
+    group: role == YorksV1Role.accountant
+        ? YorksV1ShellStrings.accountantWorkspace
+        : null,
+  );
+  final accountsOffice = !(accountsEnabled && accountsOfficeEligible)
+      ? const <_YorksDestination>[]
+      : role != YorksV1Role.accountant
+      ? <_YorksDestination>[accountsOverview]
+      : <_YorksDestination>[
+          accountsOverview,
           _YorksDestination(
             label: YorksV1ShellStrings.projectAccounts,
             icon: Icons.folder_outlined,
             selectedIcon: Icons.folder_rounded,
             path: RoutePaths.yorksV1AccountsProjects,
-          ),
-          _YorksDestination(
-            label: YorksV1ShellStrings.billingProgress,
-            icon: Icons.stacked_bar_chart_outlined,
-            selectedIcon: Icons.stacked_bar_chart_rounded,
-            path: RoutePaths.yorksV1AccountsBillingProgress,
           ),
           _YorksDestination(
             label: YorksV1ShellStrings.accountsClaims,
@@ -744,26 +746,7 @@ List<_YorksDestination> _destinationsFor(
             selectedIcon: Icons.calendar_month_rounded,
             path: RoutePaths.yorksV1AccountsDueSchedule,
           ),
-          _YorksDestination(
-            label: YorksV1ShellStrings.accountsDocuments,
-            icon: Icons.folder_copy_outlined,
-            selectedIcon: Icons.folder_copy_rounded,
-            path: RoutePaths.yorksV1AccountsDocuments,
-          ),
-          _YorksDestination(
-            label: YorksV1ShellStrings.accountsReports,
-            icon: Icons.analytics_outlined,
-            selectedIcon: Icons.analytics_rounded,
-            path: RoutePaths.yorksV1AccountsReports,
-          ),
-          _YorksDestination(
-            label: YorksV1ShellStrings.accountsAuditTrail,
-            icon: Icons.policy_outlined,
-            selectedIcon: Icons.policy_rounded,
-            path: RoutePaths.yorksV1AccountsActivity,
-          ),
-        ]
-      : const <_YorksDestination>[];
+        ];
   final candidates = <_YorksDestination>[
     if (!(accountsEnabled && role == YorksV1Role.accountant))
       ..._legacyDestinationsFor(
@@ -835,7 +818,11 @@ List<_YorksDestination> _destinationsFor(
 
   bool destinationAllowed(_YorksDestination destination) {
     final path = destination.path;
-    if (path == RoutePaths.engineerHome) return true;
+    if (path == RoutePaths.engineerHome) {
+      // With Accounts on, the Accountant's home redirects to Accounts, so a
+      // separate Overview entry would only repeat "Accounts".
+      return !(accountsEnabled && role == YorksV1Role.accountant);
+    }
     if (role == YorksV1Role.accountant &&
         !(companyRequestsEnabled &&
             path == RoutePaths.yorksV1MaterialRequests) &&

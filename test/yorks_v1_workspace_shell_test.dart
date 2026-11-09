@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
+import 'package:material_ledger/features/accounts/presentation/widgets/yorks_accounts_section_tabs.dart';
 import 'package:material_ledger/features/login/presentation/screens/login_screen.dart';
 import 'package:material_ledger/shared/models/app_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
@@ -373,111 +374,114 @@ void main() {
     );
     expect(accounts.top, greaterThan(requests.top));
     expect(accounts.top - requests.bottom, lessThanOrEqualTo(24));
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120));
-    await tester.pumpAndSettle();
-    final accountsAudit = tester.getRect(
+    // Accounts is a single entry; its pages are tabs inside Accounts.
+    expect(
       find.text(YorksV1ShellStrings.accountsAuditTrail.primary),
+      findsNothing,
     );
     final workforce = tester.getRect(
       find.text(YorksV1ShellStrings.workforce.primary),
     );
-    expect(workforce.top, greaterThan(accountsAudit.top));
-    expect(workforce.top - accountsAudit.bottom, lessThanOrEqualTo(24));
+    expect(workforce.top, greaterThan(accounts.top));
+    expect(workforce.top - accounts.bottom, lessThanOrEqualTo(24));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'authorized senior staff receive the complete Accounts office navigation',
-    (tester) async {
-      _setViewport(tester, const Size(1366, 1400));
-      addTearDown(() => _resetViewport(tester));
-      final preferences = await SharedPreferences.getInstance();
-      final client = SupabaseClient(
-        'https://example.supabase.co',
-        'test-publishable-key',
-        authOptions: const AuthClientOptions(autoRefreshToken: false),
-      );
+  testWidgets('authorized senior staff receive one Accounts entry, not ten', (
+    tester,
+  ) async {
+    _setViewport(tester, const Size(1366, 1400));
+    addTearDown(() => _resetViewport(tester));
+    final preferences = await SharedPreferences.getInstance();
+    final client = SupabaseClient(
+      'https://example.supabase.co',
+      'test-publishable-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
 
-      for (final role in const [
-        YorksV1Role.admin,
-        YorksV1Role.projectManager,
-        YorksV1Role.seniorMechanicalEngineer,
-      ]) {
-        final controller = YorksV1CurrentPermissionSnapshotController(
-          enabled: true,
-          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-          client: null,
-          repository: _ResolvedPermissionRepository(
-            _permissionSnapshot(
-              usersView: role != YorksV1Role.projectManager,
-              accountsView: true,
-              supplierCostsView: true,
+    for (final role in const [
+      YorksV1Role.admin,
+      YorksV1Role.projectManager,
+      YorksV1Role.seniorMechanicalEngineer,
+    ]) {
+      final controller = YorksV1CurrentPermissionSnapshotController(
+        enabled: true,
+        authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        client: null,
+        repository: _ResolvedPermissionRepository(
+          _permissionSnapshot(
+            usersView: role != YorksV1Role.projectManager,
+            accountsView: true,
+            supplierCostsView: true,
+          ),
+        ),
+        revisionSignalSubscription:
+            ({required onSignal, required onUnavailable}) async => true,
+      );
+      await controller.start();
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const YorksV1WorkspaceShell(
+              child: Scaffold(body: SizedBox.expand()),
             ),
           ),
-          revisionSignalSubscription:
-              ({required onSignal, required onUnavailable}) async => true,
-        );
-        await controller.start();
-        final router = GoRouter(
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const YorksV1WorkspaceShell(
-                child: Scaffold(body: SizedBox.expand()),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          key: ValueKey(role),
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            supabaseClientProvider.overrideWithValue(client),
+            yorksV1CurrentRoleProvider.overrideWithValue(role),
+            yorksV1FeatureFlagsProvider.overrideWithValue(
+              const YorksV1FeatureFlags(
+                foundation: true,
+                projects: true,
+                boq: true,
+                excel: true,
+                requests: true,
+                arrangement: true,
+                logistics: true,
+                returnsDocuments: true,
+                documents: true,
+                accounts: true,
               ),
+            ),
+            yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+              (ref) => controller,
             ),
           ],
-        );
-        addTearDown(router.dispose);
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.pumpWidget(
-          ProviderScope(
-            key: ValueKey(role),
-            overrides: [
-              sharedPreferencesProvider.overrideWithValue(preferences),
-              supabaseClientProvider.overrideWithValue(client),
-              yorksV1CurrentRoleProvider.overrideWithValue(role),
-              yorksV1FeatureFlagsProvider.overrideWithValue(
-                const YorksV1FeatureFlags(
-                  foundation: true,
-                  projects: true,
-                  boq: true,
-                  excel: true,
-                  requests: true,
-                  arrangement: true,
-                  logistics: true,
-                  returnsDocuments: true,
-                  documents: true,
-                  accounts: true,
-                ),
-              ),
-              yorksV1CurrentPermissionSnapshotProvider.overrideWith(
-                (ref) => controller,
-              ),
-            ],
-            child: MaterialApp.router(routerConfig: router),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        for (final label in [
-          YorksV1ShellStrings.accounts,
-          YorksV1ShellStrings.projectAccounts,
-          YorksV1ShellStrings.billingProgress,
-          YorksV1ShellStrings.accountsClaims,
-          YorksV1ShellStrings.receiptsPdc,
-          YorksV1ShellStrings.supplierBills,
-          YorksV1ShellStrings.dueSchedule,
-          YorksV1ShellStrings.accountsDocuments,
-          YorksV1ShellStrings.accountsReports,
-          YorksV1ShellStrings.accountsAuditTrail,
-        ]) {
-          expect(find.text(label.primary), findsOneWidget, reason: role.name);
-        }
-        expect(tester.takeException(), isNull);
+      expect(
+        find.text(YorksV1ShellStrings.accounts.primary),
+        findsOneWidget,
+        reason: role.name,
+      );
+      for (final label in [
+        YorksV1ShellStrings.projectAccounts,
+        YorksV1ShellStrings.billingProgress,
+        YorksV1ShellStrings.accountsClaims,
+        YorksV1ShellStrings.receiptsPdc,
+        YorksV1ShellStrings.supplierBills,
+        YorksV1ShellStrings.dueSchedule,
+        YorksV1ShellStrings.accountsDocuments,
+        YorksV1ShellStrings.accountsReports,
+        YorksV1ShellStrings.accountsAuditTrail,
+      ]) {
+        expect(find.text(label.primary), findsNothing, reason: role.name);
       }
-    },
-  );
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets(
     'senior staff Accounts navigation hides Supplier Bills without supplier-cost authority',
@@ -546,10 +550,6 @@ void main() {
 
       expect(find.text(YorksV1ShellStrings.accounts.primary), findsOneWidget);
       expect(
-        find.text(YorksV1ShellStrings.accountsClaims.primary),
-        findsOneWidget,
-      );
-      expect(
         find.text(YorksV1ShellStrings.supplierBills.primary),
         findsNothing,
       );
@@ -557,9 +557,173 @@ void main() {
     },
   );
 
-  testWidgets('senior staff can reach the complete Accounts office from More', (
+  testWidgets('the Accountant keeps six daily Accounts pages in the sidebar', (
     tester,
   ) async {
+    _setViewport(tester, const Size(1366, 1000));
+    addTearDown(() => _resetViewport(tester));
+    final preferences = await SharedPreferences.getInstance();
+    final controller = YorksV1CurrentPermissionSnapshotController(
+      enabled: true,
+      authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      client: null,
+      repository: _ResolvedPermissionRepository(
+        _permissionSnapshot(
+          usersView: false,
+          accountsView: true,
+          supplierCostsView: true,
+          exactRole: 'accountant',
+        ),
+      ),
+      revisionSignalSubscription:
+          ({required onSignal, required onUnavailable}) async => true,
+    );
+    await controller.start();
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const YorksV1WorkspaceShell(
+            child: Scaffold(body: SizedBox.expand()),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          supabaseClientProvider.overrideWithValue(
+            SupabaseClient(
+              'https://example.supabase.co',
+              'test-publishable-key',
+              authOptions: const AuthClientOptions(autoRefreshToken: false),
+            ),
+          ),
+          yorksV1CurrentRoleProvider.overrideWithValue(YorksV1Role.accountant),
+          yorksV1FeatureFlagsProvider.overrideWithValue(
+            const YorksV1FeatureFlags(
+              foundation: true,
+              projects: true,
+              boq: true,
+              excel: true,
+              requests: true,
+              arrangement: true,
+              logistics: true,
+              returnsDocuments: true,
+              documents: true,
+              accounts: true,
+            ),
+          ),
+          yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+            (ref) => controller,
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final label in [
+      YorksV1ShellStrings.accounts,
+      YorksV1ShellStrings.projectAccounts,
+      YorksV1ShellStrings.accountsClaims,
+      YorksV1ShellStrings.receiptsPdc,
+      YorksV1ShellStrings.supplierBills,
+      YorksV1ShellStrings.dueSchedule,
+    ]) {
+      expect(find.text(label.primary), findsOneWidget, reason: label.primary);
+    }
+    // Home redirects to Accounts, so it is not repeated as a sidebar
+    // "Overview"; the only remaining "Overview" is the page breadcrumb.
+    expect(find.text(YorksV1ShellStrings.overview.primary), findsOneWidget);
+    for (final label in [
+      YorksV1ShellStrings.billingProgress,
+      YorksV1ShellStrings.accountsDocuments,
+      YorksV1ShellStrings.accountsReports,
+      YorksV1ShellStrings.accountsAuditTrail,
+    ]) {
+      expect(find.text(label.primary), findsNothing, reason: label.primary);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final supplierCosts in [true, false]) {
+    testWidgets(
+      'Accounts tabs link every page (supplier costs: $supplierCosts)',
+      (tester) async {
+        _setViewport(tester, const Size(1366, 800));
+        addTearDown(() => _resetViewport(tester));
+        final preferences = await SharedPreferences.getInstance();
+        final controller = YorksV1CurrentPermissionSnapshotController(
+          enabled: true,
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          client: null,
+          repository: _ResolvedPermissionRepository(
+            _permissionSnapshot(
+              usersView: false,
+              accountsView: true,
+              supplierCostsView: supplierCosts,
+            ),
+          ),
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async => true,
+        );
+        await controller.start();
+        GoRoute page(String path) => GoRoute(
+          path: path,
+          builder: (_, _) => YorksAccountsSectionFrame(
+            currentPath: path,
+            child: Text('page $path'),
+          ),
+        );
+        final router = GoRouter(
+          initialLocation: RoutePaths.yorksV1AccountsClaims,
+          routes: [for (final s in yorksAccountsSections) page(s.path)],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(preferences),
+              yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+                (ref) => controller,
+              ),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(YorksV1ShellStrings.accountsOverviewTab.primary),
+          findsOneWidget,
+        );
+        expect(
+          find.text(YorksV1ShellStrings.accountsAuditTrail.primary),
+          findsOneWidget,
+        );
+        expect(
+          find.text(YorksV1ShellStrings.supplierBills.primary),
+          supplierCosts ? findsOneWidget : findsNothing,
+        );
+        expect(find.text('page ${RoutePaths.yorksV1AccountsClaims}'), findsOne);
+
+        await tester.tap(
+          find.text(YorksV1ShellStrings.accountsProjectsTab.primary),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('page ${RoutePaths.yorksV1AccountsProjects}'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('senior staff reach Accounts as one More entry', (tester) async {
     _setViewport(tester, const Size(390, 844));
     addTearDown(() => _resetViewport(tester));
     final preferences = await SharedPreferences.getInstance();
@@ -626,24 +790,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Accounts is one More entry; its pages are tabs inside Accounts.
     expect(find.text(YorksV1ShellStrings.accounts.primary), findsOneWidget);
-    expect(
-      find.text(YorksV1ShellStrings.projectAccounts.primary),
-      findsOneWidget,
-    );
-    await tester.scrollUntilVisible(
-      find.text(YorksV1ShellStrings.accountsAuditTrail.primary),
-      320,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(
-      find.text(YorksV1ShellStrings.accountsAuditTrail.primary),
-      findsOneWidget,
-    );
-    expect(
-      find.text(YorksV1ShellStrings.supplierBills.primary),
-      findsOneWidget,
-    );
+    for (final label in [
+      YorksV1ShellStrings.projectAccounts,
+      YorksV1ShellStrings.accountsAuditTrail,
+      YorksV1ShellStrings.supplierBills,
+    ]) {
+      expect(find.text(label.primary), findsNothing);
+    }
     expect(tester.takeException(), isNull);
   });
 
@@ -1239,6 +1394,7 @@ YorksV1CurrentPermissionSnapshot _permissionSnapshot({
   bool accountsView = false,
   bool supplierCostsView = false,
   bool workforceView = false,
+  String exactRole = 'admin',
 }) => YorksV1CurrentPermissionSnapshot.fromRpcJson({
   'schema_version': YorksV1PermissionSchema.current,
   'authorization_mode': 'mixed',
@@ -1247,7 +1403,7 @@ YorksV1CurrentPermissionSnapshot _permissionSnapshot({
   'user': {
     'app_user_id': 'usr-admin',
     'display_name': 'Admin',
-    'exact_role': 'admin',
+    'exact_role': exactRole,
     'is_active': true,
   },
   'revision': 1,

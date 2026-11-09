@@ -89,11 +89,32 @@ abstract final class YorksV1ShellStrings {
     ur: 'رپورٹس',
     hi: 'रिपोर्ट',
   );
+
+  /// The Accounts activity tab. Named apart from the company Audit Trail so
+  /// Admin never sees two pages with the same name.
   static const accountsAuditTrail = TranslatableString(
-    en: 'Audit Trail',
-    ar: 'سجل التدقيق',
-    ur: 'آڈٹ ٹریل',
-    hi: 'ऑडिट ट्रेल',
+    en: 'Activity',
+    ar: 'النشاط',
+    ur: 'سرگرمی',
+    hi: 'गतिविधि',
+  );
+  static const accountsOverviewTab = TranslatableString(
+    en: 'Overview',
+    ar: 'نظرة عامة',
+    ur: 'جائزہ',
+    hi: 'अवलोकन',
+  );
+  static const accountsProjectsTab = TranslatableString(
+    en: 'Projects',
+    ar: 'المشاريع',
+    ur: 'پراجیکٹس',
+    hi: 'प्रोजेक्ट',
+  );
+  static const accountsSections = TranslatableString(
+    en: 'Accounts sections',
+    ar: 'أقسام الحسابات',
+    ur: 'اکاؤنٹس کے حصے',
+    hi: 'अकाउंट्स अनुभाग',
   );
   static const collaboration = TranslatableString(
     en: 'Collaboration',

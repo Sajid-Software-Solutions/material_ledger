@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/constants/constants.dart';
 
+import '../features/accounts/presentation/widgets/yorks_accounts_section_tabs.dart';
 import '../features/admin/presentation/screens/access_roles_screen.dart';
 import '../features/leave/presentation/screens/leave_requests_screen.dart';
 import '../features/leave/presentation/screens/my_leave_screen.dart';
@@ -566,6 +567,13 @@ Page<void> _slide(
 /// their behavior by accident.
 Page<void> _yorksV1Slide(LocalKey key, Widget child) =>
     _slide(key, YorksV1WorkspaceShell(child: child));
+
+/// Company-wide Accounts pages share one Accounts tab row above the page.
+Page<void> _yorksAccountsSection(LocalKey key, String path, Widget child) =>
+    _yorksV1Slide(
+      key,
+      YorksAccountsSectionFrame(currentPath: path, child: child),
+    );
 
 /// Setup uses the universal Yorks chrome. Its draft-aware feature guard owns
 /// system Back while the same workspace history and route exit guard remain.
@@ -1729,29 +1737,33 @@ GoRouter createAppRouter({
         ),
       GoRoute(
         path: RoutePaths.yorksV1Accounts,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1Accounts,
           const YorksAccountsPortfolioScreen(controlCentre: true),
         ),
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsProjects,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsProjects,
           const YorksAccountsPortfolioScreen(controlCentre: false),
         ),
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsBillingProgress,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsBillingProgress,
           const YorksAccountsPortfolioScreen(billingProgress: true),
         ),
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsClaims,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsClaims,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.claims,
           ),
@@ -1759,8 +1771,9 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsClientPayments,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsClientPayments,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.clientPayments,
           ),
@@ -1768,8 +1781,9 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsSupplierBills,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsSupplierBills,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.supplierBills,
           ),
@@ -1777,8 +1791,9 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsDueSchedule,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsDueSchedule,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.dueSchedule,
           ),
@@ -1786,8 +1801,9 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsDocuments,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsDocuments,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.documents,
           ),
@@ -1795,13 +1811,17 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsReports,
-        pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const YorksAccountsReportsScreen()),
+        pageBuilder: (context, state) => _yorksAccountsSection(
+          state.pageKey,
+          RoutePaths.yorksV1AccountsReports,
+          const YorksAccountsReportsScreen(),
+        ),
       ),
       GoRoute(
         path: RoutePaths.yorksV1AccountsActivity,
-        pageBuilder: (context, state) => _yorksV1Slide(
+        pageBuilder: (context, state) => _yorksAccountsSection(
           state.pageKey,
+          RoutePaths.yorksV1AccountsActivity,
           const YorksAccountsOfficeScreen(
             section: YorksAccountsOfficeSection.activity,
           ),
