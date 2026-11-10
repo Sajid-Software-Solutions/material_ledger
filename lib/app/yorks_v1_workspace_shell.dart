@@ -106,6 +106,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled = !isAccountant && featureFlags.teamChat;
     // Protected Accounts and Workforce routes are explicit runtime consumers.
@@ -116,6 +117,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
         (!isAccountant ||
             accountsEnabled ||
             workforceEnabled ||
+            workerRecordsEnabled ||
             companyRequestsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
@@ -144,6 +146,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
     // Keep granular destinations for search and internal navigation while the
@@ -397,6 +400,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                               companyRequestsEnabled: companyRequestsEnabled,
                               accountsEnabled: accountsEnabled,
                               workforceEnabled: workforceEnabled,
+                              workerRecordsEnabled: workerRecordsEnabled,
                               analyticsEnabled: analyticsEnabled,
                             ),
                             activePath: location,
@@ -623,6 +627,7 @@ List<_YorksDestination> _mobileDestinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final all = _destinationsFor(
@@ -633,6 +638,7 @@ List<_YorksDestination> _mobileDestinationsFor(
     companyRequestsEnabled: companyRequestsEnabled,
     accountsEnabled: accountsEnabled,
     workforceEnabled: workforceEnabled,
+    workerRecordsEnabled: workerRecordsEnabled,
     analyticsEnabled: analyticsEnabled,
   );
   _YorksDestination? path(String route) {
@@ -755,6 +761,7 @@ List<_YorksDestination> _destinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final accountsOfficeEligible =
@@ -897,6 +904,7 @@ List<_YorksDestination> _destinationsFor(
         path != RoutePaths.yorksV1Accounts &&
         path != RoutePaths.yorksV1Calculators &&
         path != RoutePaths.yorksV1Workforce &&
+        path != RoutePaths.users &&
         (path == null || !path.startsWith('${RoutePaths.yorksV1Accounts}/'))) {
       return false;
     }
@@ -975,10 +983,17 @@ List<_YorksDestination> _destinationsFor(
       );
     }
     if (path == RoutePaths.users) {
+      // Worker Records lives in User Management. A holder of
+      // `worker_records.view` (Accountant by default, PR staff per person)
+      // reaches it without any login-account authority; the screen then
+      // shows only the Workers register.
       return allows(
-        YorksV1CapabilityKeys.usersView,
-        role?.canConfigureUsers ?? false,
-      );
+            YorksV1CapabilityKeys.usersView,
+            role?.canConfigureUsers ?? false,
+          ) ||
+          (workerRecordsEnabled &&
+              role != null &&
+              allows(YorksV1CapabilityKeys.workerRecordsView, false));
     }
     if (path == RoutePaths.activityLog) {
       return allows(YorksV1CapabilityKeys.auditView, role == YorksV1Role.admin);
@@ -1388,6 +1403,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled =
         role != YorksV1Role.accountant && featureFlags.teamChat;
@@ -1395,6 +1411,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
         (role != YorksV1Role.accountant ||
             accountsEnabled ||
             workforceEnabled ||
+            workerRecordsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
     final permissionState = connectedV1Permissions
@@ -1411,6 +1428,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
     final primaryRoutes = _mobileDestinationsFor(
@@ -1422,6 +1440,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     ).map((destination) => destination.path).whereType<String>().toSet();
     final moreDestinations = _workspaceDestinations(all)

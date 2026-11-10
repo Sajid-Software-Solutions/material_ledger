@@ -35,7 +35,11 @@ import '../../../../shared/providers/yorks_v1_commercial_capability_provider.dar
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/providers/yorks_v1_user_project_access_provider.dart';
+import '../../../../shared/models/yorks_v1_worker_record_strings.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
+import '../../../../shared/providers/yorks_v1_worker_record_provider.dart';
 import '../widgets/yorks_v1_user_management_views.dart';
+import '../widgets/yorks_v1_worker_records_tab.dart';
 
 /// Strips the `Exception: ` prefix so remote-provisioning errors read cleanly in
 /// a snackbar.
@@ -149,12 +153,15 @@ class YorksV1UserManagementAccess {
     required this.canViewAudit,
     required this.isConfigurationActor,
     required this.connectedV1,
+    this.canViewWorkerRecords = false,
+    this.canManageWorkerRecords = false,
   });
 
   factory YorksV1UserManagementAccess.resolve({
     required bool connectedV1,
     required YorksV1Role? role,
     required YorksV1CurrentPermissionSnapshotState permissionState,
+    bool workerRecordsEnabled = false,
   }) {
     if (!connectedV1) {
       return const YorksV1UserManagementAccess(
@@ -198,6 +205,23 @@ class YorksV1UserManagementAccess {
       // addition to the scoped permission decision.
       isConfigurationActor: role?.canConfigureUsers ?? false,
       connectedV1: true,
+      // Worker Records has no legacy role authority: only the server
+      // permission snapshot can open it, for any role.
+      canViewWorkerRecords:
+          workerRecordsEnabled &&
+          permissionState.hybridAllows(
+            YorksV1CapabilityKeys.workerRecordsView,
+            legacyAllowed: false,
+            organizationSummary: true,
+          ),
+      canManageWorkerRecords:
+          workerRecordsEnabled &&
+          permissionState.hybridAllows(
+            YorksV1CapabilityKeys.workerRecordsManage,
+            legacyAllowed: false,
+            requireWrite: true,
+            organizationSummary: true,
+          ),
     );
   }
 
@@ -212,6 +236,12 @@ class YorksV1UserManagementAccess {
   final bool canViewAudit;
   final bool isConfigurationActor;
   final bool connectedV1;
+
+  /// Worker employment records (company, licence, passport, salary, photo).
+  /// Independent of every `users.*` capability: a holder may see the Workers
+  /// tab without seeing or changing a login account.
+  final bool canViewWorkerRecords;
+  final bool canManageWorkerRecords;
 
   bool get canManageUser =>
       canEditProfile ||
@@ -466,7 +496,15 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       connectedV1: connectedV1,
       role: ref.watch(yorksV1CurrentRoleProvider),
       permissionState: permissionState,
+      workerRecordsEnabled: ref
+          .watch(yorksV1FeatureFlagsProvider)
+          .workerRecords,
     );
+    if (!access.canView && access.canViewWorkerRecords) {
+      // Accounting and PR staff: the Workers register only. No login account,
+      // role, project access or audit surface is built for them.
+      return _WorkerRecordsOnlyView(language: language);
+    }
     if (!access.canView) {
       return _UserDirectoryAccessGate(
         loading: permissionState.isInitialLoading,
@@ -607,7 +645,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       ),
     ];
     final tab =
-        _tab == YorksV1UserManagementTab.accessHistory && !access.canViewAudit
+        (_tab == YorksV1UserManagementTab.accessHistory &&
+                !access.canViewAudit) ||
+            (_tab == YorksV1UserManagementTab.workers &&
+                !access.canViewWorkerRecords)
         ? YorksV1UserManagementTab.users
         : _tab;
     final compact =
@@ -658,6 +699,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   language: language,
                   selected: tab,
                   showAccessHistory: access.canViewAudit,
+                  showWorkers: access.canViewWorkerRecords,
                   onChanged: (value) => setState(() => _tab = value),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -690,11 +732,100 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       roleLabels: roleLabels,
                       onOpenUser: (appUserId) => _openUser(appUserId, access),
                     ),
+                  YorksV1UserManagementTab.workers => YorksV1WorkerRecordsTab(
+                    language: language,
+                  ),
                   YorksV1UserManagementTab.accessHistory => _AccessHistoryPanel(
                     entries: ref.watch(auditLogProvider),
                     language: language,
                   ),
                 },
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// User Management for a person who holds only `worker_records.view`.
+class _WorkerRecordsOnlyView extends ConsumerWidget {
+  const _WorkerRecordsOnlyView({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final compact =
+        MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Directionality(
+          textDirection: language.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: RefreshIndicator(
+            onRefresh: () => ref
+                .read(yorksV1WorkerRecordsControllerProvider.notifier)
+                .refresh(),
+            child: ListView(
+              key: const ValueKey('worker-records-only'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                compact ? AppSpacing.md : AppSpacing.xl,
+                compact ? AppSpacing.md : AppSpacing.lg,
+                compact ? AppSpacing.md : AppSpacing.xxl,
+                AppSpacing.xxxl,
+              ),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: compact ? 40 : 46,
+                      height: compact ? 40 : 46,
+                      decoration: BoxDecoration(
+                        color: AppColors.blueContainer,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.badge_outlined,
+                        color: AppColors.blue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            YorksV1WorkerRecordStrings.workersTab.active(
+                              language,
+                            ),
+                            style:
+                                (compact
+                                        ? AppTypography.headlineMedium
+                                        : AppTypography.displaySmall)
+                                    .copyWith(color: AppColors.ink),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            YorksV1WorkerRecordStrings.recordsOnlyDescription
+                                .active(language),
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                YorksV1WorkerRecordsTab(language: language),
               ],
             ),
           ),

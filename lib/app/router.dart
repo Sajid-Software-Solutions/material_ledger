@@ -626,8 +626,9 @@ bool? _isAllowedForRole(
   AppUser? user,
   RolePermissions perms,
   YorksV1Role? yorksV1Role,
-  YorksV1HybridPermissionResolver? permissionResolver,
-) {
+  YorksV1HybridPermissionResolver? permissionResolver, {
+  bool workerRecordsEnabled = false,
+}) {
   // Grantable boundaries resolve through: per-user override → editable role
   // default (Access & Roles matrix) → built-in baseline.
   final canReceiveGoods = resolveCapability(
@@ -672,6 +673,23 @@ bool? _isAllowedForRole(
   if (_isYorksV1AccountsPath(path)) return true;
   if (_isYorksV1WorkforcePath(path)) return true;
   if (_isYorksV1AnalyticsPath(path)) return true;
+
+  // Worker Records lives on the User Management page itself (never its
+  // per-user access sub-pages). Any role may reach it once the confirmed
+  // permission snapshot grants `worker_records.view`; there is no legacy
+  // authority. Without the grant the ordinary User Management rule applies.
+  if (workerRecordsEnabled &&
+      path == RoutePaths.users &&
+      yorksV1Role != null &&
+      permissionResolver != null) {
+    final recordsAllowed = _hybridRouteAllows(
+      permissionResolver,
+      YorksV1CapabilityKeys.workerRecordsView,
+      legacyAllowed: false,
+    );
+    if (recordsAllowed == true) return true;
+    if (recordsAllowed == null && role == UserRole.accountant) return null;
+  }
 
   // The protected V1 guard resolves Company flag/scope separately. Accept
   // only its shared home and Company paths at this compatibility layer.
@@ -1162,6 +1180,7 @@ GoRouter createAppRouter({
   bool yorksV1AccountsEnabled = false,
   bool yorksV1AccountsWorkspaceV2Enabled = false,
   bool yorksV1WorkforceEnabled = false,
+  bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1AnalyticsEnabled = false,
   YorksV1Role? yorksV1Role,
   YorksV1HybridPermissionResolver? yorksV1PermissionResolver,
@@ -1440,6 +1459,7 @@ GoRouter createAppRouter({
         perms,
         yorksV1Role,
         yorksV1PermissionResolver,
+        workerRecordsEnabled: yorksV1WorkerRecordsEnabled,
       );
       if (roleAllowed == false) {
         return RoutePaths.engineerHome;
@@ -2697,7 +2717,6 @@ class _DeferredEngineerProfileScreenState
 Future<void> debugPreloadDeferredRoutes() async {
   await _DeferredEngineerProfileScreenState._startLoad();
 }
-
 
 /// Loads the Material Return centre, editor and detail only after a returns
 /// route is opened. Routes, permissions and server checks are unchanged; this

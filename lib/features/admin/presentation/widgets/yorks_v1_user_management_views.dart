@@ -12,12 +12,13 @@ import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_project.dart';
 import '../../../../shared/models/yorks_v1_user_management_strings.dart';
 import '../../../../shared/models/yorks_v1_user_project_access.dart';
+import '../../../../shared/models/yorks_v1_worker_record_strings.dart';
 import '../../../../shared/providers/yorks_v1_user_project_access_provider.dart';
 import '../../../../shared/repositories/yorks_v1_user_project_access_repository.dart';
 
 typedef _S = YorksV1UserManagementStrings;
 
-enum YorksV1UserManagementTab { users, projectAccess, accessHistory }
+enum YorksV1UserManagementTab { users, projectAccess, workers, accessHistory }
 
 // ─── Header ─────────────────────────────────────────────────────────────────
 
@@ -325,11 +326,15 @@ class YorksV1UserManagementTabs extends StatelessWidget {
     required this.selected,
     required this.showAccessHistory,
     required this.onChanged,
+    this.showWorkers = false,
   });
 
   final AppLanguage language;
   final YorksV1UserManagementTab selected;
   final bool showAccessHistory;
+
+  /// Worker Records tab, for holders of `worker_records.view`.
+  final bool showWorkers;
   final ValueChanged<YorksV1UserManagementTab> onChanged;
 
   @override
@@ -341,6 +346,12 @@ class YorksV1UserManagementTabs extends StatelessWidget {
         _S.projectAccessTab,
         Icons.account_tree_outlined,
       ),
+      if (showWorkers)
+        (
+          YorksV1UserManagementTab.workers,
+          YorksV1WorkerRecordStrings.workersTab,
+          Icons.badge_outlined,
+        ),
       if (showAccessHistory)
         (
           YorksV1UserManagementTab.accessHistory,
