@@ -628,6 +628,23 @@ class _GuardedAnalyticsOperation implements AnalyticsOperation {
     _finished = true;
     final category = analyticsErrorCategory(error);
     final durationMs = _service._now().difference(startedAt).inMilliseconds;
+    if (analyticsOperationWasBlocked(error)) {
+      _service.capture(
+        AnalyticsEvent.operationBlocked,
+        properties: {
+          ...this.properties,
+          ...properties,
+          AnalyticsProperty.operation: operation,
+          AnalyticsProperty.durationMs: durationMs,
+          AnalyticsProperty.errorCategory: category,
+          AnalyticsProperty.networkState:
+              category == AnalyticsErrorCategory.offline
+              ? 'offline'
+              : 'unknown',
+        },
+      );
+      return;
+    }
     final failureProperties = <AnalyticsProperty, Object?>{
       ...this.properties,
       ...properties,
@@ -714,6 +731,18 @@ class _ValidationFailureState {
         reported: reported ?? this.reported,
       );
 }
+
+/// True when the app refused to send a request at all: the device reported no
+/// network, or no user was signed in (for example a tab left open after its
+/// session expired). These are expected client states, not failures of the
+/// operation, and they never carry a server response.
+bool analyticsOperationWasBlocked(Object error) =>
+    error is YorksV1DomainException &&
+    error.serverCode == null &&
+    error.serverMessage == null &&
+    error.cause == null &&
+    (error.code == YorksV1DomainErrorCode.offline ||
+        error.code == YorksV1DomainErrorCode.unauthenticated);
 
 AnalyticsErrorCategory analyticsErrorCategory(Object error) {
   if (error is YorksV1DomainException) {

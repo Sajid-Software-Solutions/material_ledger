@@ -176,12 +176,8 @@ class _ProjectMaterialRequestsScreen extends ConsumerWidget {
     final ownerAuthUserId = ref.watch(yorksV1AuthUserIdProvider);
     final deviceDrafts = ownerAuthUserId == null || ownerAuthUserId.isEmpty
         ? const <YorksV1MaterialRequestDraft>[]
-        : ref
-              .watch(yorksV1MaterialRequestLocalDraftsProvider(ownerAuthUserId))
-              .where(
-                (draft) => projectId == null || draft.projectId == projectId,
-              )
-              .toList(growable: false);
+        // Project filtering happens after merging with account copies.
+        : ref.watch(yorksV1MaterialRequestLocalDraftsProvider(ownerAuthUserId));
     final accountDrafts =
         ownerAuthUserId == null ||
             ownerAuthUserId.isEmpty ||
@@ -195,7 +191,7 @@ class _ProjectMaterialRequestsScreen extends ConsumerWidget {
                   )
                   .valueOrNull ??
               const <YorksV1PrivateMaterialRequestDraftRecord>[];
-    final savedDrafts = _mergeRecoverableDrafts(
+    final savedDrafts = mergeRecoverableMaterialRequestDrafts(
       _visibleDeviceRecoveryDrafts(ref, deviceDrafts, ownerAuthUserId),
       accountDrafts.map((record) => record.draft),
       projectId: projectId,
@@ -473,14 +469,8 @@ class _YorksMobileMaterialRequestsPageState
     final ownerAuthUserId = ref.watch(yorksV1AuthUserIdProvider);
     final deviceDrafts = ownerAuthUserId == null || ownerAuthUserId.isEmpty
         ? const <YorksV1MaterialRequestDraft>[]
-        : ref
-              .watch(yorksV1MaterialRequestLocalDraftsProvider(ownerAuthUserId))
-              .where(
-                (draft) =>
-                    widget.projectId == null ||
-                    draft.projectId == widget.projectId,
-              )
-              .toList(growable: false);
+        // Project filtering happens after merging with account copies.
+        : ref.watch(yorksV1MaterialRequestLocalDraftsProvider(ownerAuthUserId));
     final repository = ref.watch(yorksV1MaterialRequestRepositoryProvider);
     final phase2 = repository is YorksV1MaterialRequestPhase2Repository;
     final operations =
@@ -501,7 +491,7 @@ class _YorksMobileMaterialRequestsPageState
                   )
                   .valueOrNull ??
               const <YorksV1PrivateMaterialRequestDraftRecord>[];
-    final savedDrafts = _mergeRecoverableDrafts(
+    final savedDrafts = mergeRecoverableMaterialRequestDrafts(
       _visibleDeviceRecoveryDrafts(ref, deviceDrafts, ownerAuthUserId),
       accountDrafts.map((record) => record.draft),
       projectId: widget.projectId,
@@ -1395,7 +1385,14 @@ class _RecoverableMaterialDraftNotice extends StatelessWidget {
             draft: draft,
             compact: compact,
             onResume: () => onResume(draft),
-            onDelete: onDelete == null ? null : () => onDelete!(draft),
+            // A draft whose save or submission outcome is still unconfirmed
+            // cannot be deleted; Resume resolves it first.
+            onDelete:
+                onDelete == null ||
+                    draft.hasPendingSave ||
+                    draft.pendingSubmissionApproval != null
+                ? null
+                : () => onDelete!(draft),
           ),
       ],
     );
@@ -1546,14 +1543,17 @@ List<YorksV1MaterialRequestDraft> _visibleDeviceRecoveryDrafts(
       .toList();
 }
 
-List<YorksV1MaterialRequestDraft> _mergeRecoverableDrafts(
+@visibleForTesting
+List<YorksV1MaterialRequestDraft> mergeRecoverableMaterialRequestDrafts(
   Iterable<YorksV1MaterialRequestDraft> deviceDrafts,
   Iterable<YorksV1MaterialRequestDraft> accountDrafts, {
   String? projectId,
 }) {
+  // Merge every copy of a draft before filtering by project. A draft moved to
+  // another project on this device must not leave its older account copy
+  // listed under the first project, where deleting it reports a conflict.
   final byId = <String, YorksV1MaterialRequestDraft>{};
   for (final draft in [...deviceDrafts, ...accountDrafts]) {
-    if (projectId != null && draft.projectId != projectId) continue;
     final current = byId[draft.id];
     if (current == null || draft.updatedAt.isAfter(current.updatedAt)) {
       byId[draft.id] = draft;
@@ -1564,8 +1564,11 @@ List<YorksV1MaterialRequestDraft> _mergeRecoverableDrafts(
       );
     }
   }
-  final result = byId.values.toList(growable: false)
-    ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+  final result =
+      byId.values
+          .where((draft) => projectId == null || draft.projectId == projectId)
+          .toList(growable: false)
+        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
   return List.unmodifiable(result);
 }
 
