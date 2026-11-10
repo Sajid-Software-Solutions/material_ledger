@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/admin/presentation/screens/user_management_screen.dart';
 import 'package:material_ledger/features/admin/presentation/widgets/yorks_v1_worker_records_tab.dart';
@@ -16,6 +18,7 @@ import 'package:material_ledger/shared/models/yorks_v1_worker_record.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_worker_record_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_worker_record_repository.dart';
+import 'package:material_ledger/shared/services/yorks_v1_worker_photo_service.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 
 import 'support/yorks_v1_permission_test_support.dart';
@@ -111,6 +114,16 @@ class _DataClient implements YorksV1WorkerRecordDataClient {
   @override
   Future<String> signedPhotoUrl(String objectPath, {required int seconds}) =>
       Future.value('https://example.invalid/$objectPath');
+
+  Object? uploadError;
+  final uploads = <String>[];
+
+  @override
+  Future<void> uploadPhoto(String objectPath, Uint8List jpegBytes) async {
+    uploads.add(objectPath);
+    final error = uploadError;
+    if (error is Exception) throw error;
+  }
 }
 
 class _Repository implements YorksV1WorkerRecordRepository {
@@ -135,6 +148,44 @@ class _Repository implements YorksV1WorkerRecordRepository {
 
   @override
   Future<String> photoUrl(String objectPath) => throw UnimplementedError();
+
+  final saves = <YorksV1SaveWorkerRecordInput>[];
+  final photos = <({String workerId, int expectedVersion, String key})>[];
+  Object? saveError;
+  Object? photoError;
+
+  @override
+  Future<YorksV1WorkerRecord> saveRecord(
+    YorksV1SaveWorkerRecordInput input,
+  ) async {
+    saves.add(input);
+    final error = saveError;
+    if (error is YorksV1DomainException) throw error;
+    return YorksV1WorkerRecord.fromRpcJson({
+      ..._row(9, name: input.fullName, company: input.employerCompany),
+      'record_version': (input.expectedVersion ?? 0) + 1,
+    });
+  }
+
+  @override
+  Future<YorksV1WorkerRecord> setPhoto({
+    required String workerId,
+    required Uint8List jpegBytes,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async {
+    photos.add((
+      workerId: workerId,
+      expectedVersion: expectedVersion,
+      key: idempotencyKey,
+    ));
+    final error = photoError;
+    if (error is YorksV1DomainException) throw error;
+    return YorksV1WorkerRecord.fromRpcJson({
+      ..._row(9),
+      'record_version': expectedVersion + 1,
+    });
+  }
 }
 
 YorksV1SupabaseWorkerRecordRepository _repository(
@@ -265,6 +316,69 @@ void main() {
     });
   });
 
+  group('amounts and photos', () {
+    test('sums entered amounts exactly', () {
+      expect(yorksV1SumWorkerAmounts(['950.50', '500', '150']), '1600.50');
+      expect(yorksV1SumWorkerAmounts(['0.1', '0.2']), '0.30');
+      expect(yorksV1SumWorkerAmounts(['', ' ']), isNull);
+      expect(yorksV1SumWorkerAmounts(['700', 'abc']), isNull);
+      expect(yorksV1IsValidWorkerAmount('1000.999'), isFalse);
+      expect(yorksV1IsValidWorkerAmount('-1'), isFalse);
+      expect(yorksV1IsValidWorkerAmount(''), isTrue);
+    });
+
+    test('a photo is stored square, 512 px, as JPEG', () {
+      final source = Uint8List.fromList(
+        img.encodePng(img.Image(width: 900, height: 600)),
+      );
+      final prepared = yorksV1PrepareWorkerPhoto(source)!;
+      final decoded = img.decodeJpg(prepared)!;
+      expect((decoded.width, decoded.height), (512, 512));
+      expect(prepared.take(2), [0xFF, 0xD8]);
+    });
+
+    test('a file that is not an accepted image is refused', () {
+      expect(
+        yorksV1PrepareWorkerPhoto(Uint8List.fromList('%PDF-1.7'.codeUnits)),
+        isNull,
+      );
+      expect(yorksV1PrepareWorkerPhoto(Uint8List(0)), isNull);
+    });
+
+    test('a photo retry reuses its stored object', () async {
+      final client = _DataClient(_row(1));
+      final repository = _repository(client);
+      client.uploadError = const StorageException(
+        'The resource already exists',
+        statusCode: '409',
+      );
+      final record = await repository.setPhoto(
+        workerId: '7a000000-0000-4000-8000-000000000001',
+        jpegBytes: Uint8List(4),
+        expectedVersion: 1,
+        idempotencyKey: '7b000000-0000-4000-8000-000000000001',
+      );
+      expect(record.workerId, '7a000000-0000-4000-8000-000000000001');
+      expect(
+        client.uploads.single,
+        endsWith('/7b000000-0000-4000-8000-000000000001.jpg'),
+      );
+      expect(client.calls.single['fn'], 'v1_set_worker_photo');
+
+      client.uploadError = const StorageException('denied', statusCode: '403');
+      await expectLater(
+        repository.setPhoto(
+          workerId: '7a000000-0000-4000-8000-000000000001',
+          jpegBytes: Uint8List(4),
+          expectedVersion: 1,
+          idempotencyKey: '7b000000-0000-4000-8000-000000000002',
+        ),
+        throwsA(isA<YorksV1DomainException>()),
+      );
+      expect(client.calls, hasLength(1), reason: 'no attach after a refusal');
+    });
+  });
+
   group('controller', () {
     test('loads, pages without duplicates and keeps rows on failure', () async {
       final first = YorksV1WorkerRecordPage.fromRpcJson(
@@ -371,7 +485,14 @@ void main() {
       await Future.wait([font.load(), icons.load()]);
     });
 
-    Future<void> pump(WidgetTester tester, double width, Object page) async {
+    Future<_Repository> pump(
+      WidgetTester tester,
+      double width,
+      Object page, {
+      bool canManage = false,
+      Uint8List? pickedPhoto,
+    }) async {
+      final repository = _Repository([page]);
       tester.view.physicalSize = Size(width, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(() {
@@ -381,8 +502,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            yorksV1WorkerRecordRepositoryProvider.overrideWithValue(
-              _Repository([page]),
+            yorksV1WorkerRecordRepositoryProvider.overrideWithValue(repository),
+            yorksV1WorkerPhotoPickerProvider.overrideWithValue(
+              () async => (picked: true, bytes: pickedPhoto),
             ),
             yorksV1AuthUserIdProvider.overrideWithValue('auth-accountant'),
             yorksV1CurrentRoleProvider.overrideWithValue(
@@ -392,15 +514,37 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const Scaffold(
+            home: Scaffold(
               body: SingleChildScrollView(
-                padding: EdgeInsets.all(16),
-                child: YorksV1WorkerRecordsTab(language: AppLanguage.english),
+                padding: const EdgeInsets.all(16),
+                child: YorksV1WorkerRecordsTab(
+                  language: AppLanguage.english,
+                  canManage: canManage,
+                ),
               ),
             ),
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    Future<void> fillNewWorker(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('worker-records-add')));
+      await tester.pumpAndSettle();
+      Future<void> enter(String key, String text) =>
+          tester.enterText(find.byKey(ValueKey('worker-record-$key')), text);
+      await enter('name', 'SADIL HASIM');
+      await enter('designation', 'Technician');
+      await enter('joining-date', '2026-11-01');
+      await enter('company', 'Yorks Airconditioning and Refrigeration LLC');
+      await enter('license', 'CN-6772173');
+      await enter('passport', 'AW437776');
+      await enter('basic', '800');
+      await enter('housing', '550');
+      await enter('other', '0');
+      FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
     }
 
@@ -446,6 +590,194 @@ void main() {
       );
       expect(find.text('AED 1,600.00'), findsOneWidget);
       expect(find.textContaining('Local Accountant (Accountant)'), findsOne);
+    });
+
+    testWidgets('a view-only holder sees no Add or Edit control', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        1366,
+        YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
+      );
+      expect(find.byKey(const ValueKey('worker-records-add')), findsNothing);
+      await tester.tap(find.text('MD TALIB REZA'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('worker-record-edit')), findsNothing);
+    });
+
+    for (final (width, name) in [(1366.0, 'desktop'), (360.0, 'mobile')]) {
+      testWidgets('adds a worker with a live total at $name width', (
+        tester,
+      ) async {
+        final repository = await pump(
+          tester,
+          width,
+          YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
+          canManage: true,
+        );
+        await tester.tap(find.byKey(const ValueKey('worker-records-add')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+        await tester.pumpAndSettle();
+        expect(find.text('Required'), findsNWidgets(4));
+        expect(repository.saves, isEmpty);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        await fillNewWorker(tester);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('worker-record-total')))
+              .data,
+          'AED 1,350.00',
+        );
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/yorks_v1_worker_record_form_$name.png'),
+        );
+        await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+        await tester.pumpAndSettle();
+
+        final input = repository.saves.single;
+        expect(input.workerId, isNull);
+        expect(input.expectedVersion, isNull);
+        expect(input.toRpcPayload(), {
+          'full_name': 'SADIL HASIM',
+          'designation': 'Technician',
+          'employer_company': 'Yorks Airconditioning and Refrigeration LLC',
+          'joining_date': '2026-11-01',
+          'trade_license_no': 'CN-6772173',
+          'passport_no': 'AW437776',
+          'basic_salary': '800',
+          'housing_allowance': '550',
+          'other_allowance': '0',
+        });
+        expect(find.byKey(const ValueKey('worker-record-form')), findsNothing);
+        expect(find.text('Worker record saved'), findsOneWidget);
+        // The register reloaded from the server after the confirmed save.
+        expect(repository.queries.length, 2);
+      });
+    }
+
+    testWidgets('edits at the opened version and rejects a bad amount', (
+      tester,
+    ) async {
+      final repository = await pump(
+        tester,
+        1366,
+        YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
+        canManage: true,
+      );
+      await tester.tap(find.text('MD TALIB REZA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('worker-record-edit')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('worker-record-basic')),
+        '1000.999',
+      );
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a number with up to 2 decimals'), findsOne);
+      expect(repository.saves, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('worker-record-basic')),
+        '1000',
+      );
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      final input = repository.saves.single;
+      expect(input.workerId, '7a000000-0000-4000-8000-000000000002');
+      expect(input.expectedVersion, 1);
+      expect(input.toRpcPayload().containsKey('joining_date'), isFalse);
+      expect(input.basicSalary, '1000');
+    });
+
+    testWidgets('a refused save changes nothing and a retry reuses its key', (
+      tester,
+    ) async {
+      final repository = await pump(
+        tester,
+        1366,
+        YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
+        canManage: true,
+      );
+      repository.saveError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.invalidInput,
+        serverMessage: 'V1_WORKER_RECORD_PASSPORT_DUPLICATE',
+      );
+      await fillNewWorker(tester);
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('This passport number already belongs to another worker.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('worker-record-form')), findsOneWidget);
+
+      repository.saveError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      expect(
+        repository.saves[1].idempotencyKey,
+        repository.saves[0].idempotencyKey,
+        reason: 'the same input must retry under the same key',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('worker-record-passport')),
+        'AW437777',
+      );
+      repository.saveError = null;
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      expect(
+        repository.saves[2].idempotencyKey,
+        isNot(repository.saves[0].idempotencyKey),
+        reason: 'a changed input must use a new key',
+      );
+    });
+
+    testWidgets('a failed photo keeps the saved record and can be retried', (
+      tester,
+    ) async {
+      final repository = await pump(
+        tester,
+        1366,
+        YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
+        canManage: true,
+        pickedPhoto: Uint8List.fromList(
+          img.encodeJpg(img.Image(width: 8, height: 8)),
+        ),
+      );
+      repository.photoError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+      await fillNewWorker(tester);
+      await tester.tap(find.byKey(const ValueKey('worker-record-photo')));
+      await tester.pumpAndSettle();
+      expect(find.text('New photo ready to save'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('The record was saved, but the photo was not.'),
+        findsOneWidget,
+      );
+
+      repository.photoError = null;
+      await tester.tap(find.byKey(const ValueKey('worker-record-save')));
+      await tester.pumpAndSettle();
+      // The retry updates the already-created worker; it never creates two.
+      expect(repository.saves, hasLength(2));
+      expect(repository.saves[1].workerId, isNotNull);
+      expect(repository.saves[1].expectedVersion, 1);
+      expect(repository.photos, hasLength(2));
+      expect(repository.photos[1].key, repository.photos[0].key);
+      expect(find.byKey(const ValueKey('worker-record-form')), findsNothing);
     });
 
     testWidgets('a failed load shows an error, never an empty register', (

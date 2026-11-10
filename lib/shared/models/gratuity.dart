@@ -41,7 +41,11 @@ GratuityEstimate calculateGratuity({
   final years = serviceDays / 365.25;
 
   if (years < 1 || basicWageAED <= 0) {
-    return GratuityEstimate(yearsOfService: years, entitled: false, amountAED: 0);
+    return GratuityEstimate(
+      yearsOfService: years,
+      entitled: false,
+      amountAED: 0,
+    );
   }
 
   final dailyWage = basicWageAED / 30;

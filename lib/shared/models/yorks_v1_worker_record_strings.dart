@@ -225,4 +225,148 @@ abstract final class YorksV1WorkerRecordStrings {
     ur: 'رقوم درہم میں',
     hi: 'राशियाँ AED में',
   );
+  static const addWorker = TranslatableString(
+    en: 'Add worker',
+    ar: 'إضافة عامل',
+    ur: 'کارکن شامل کریں',
+    hi: 'कर्मचारी जोड़ें',
+  );
+  static const editRecord = TranslatableString(
+    en: 'Edit record',
+    ar: 'تعديل السجل',
+    ur: 'ریکارڈ میں ترمیم',
+    hi: 'रिकॉर्ड संपादित करें',
+  );
+  static const newWorkerRecord = TranslatableString(
+    en: 'New worker record',
+    ar: 'سجل عامل جديد',
+    ur: 'نیا کارکن ریکارڈ',
+    hi: 'नया कर्मचारी रिकॉर्ड',
+  );
+  static const save = TranslatableString(
+    en: 'Save',
+    ar: 'حفظ',
+    ur: 'محفوظ کریں',
+    hi: 'सहेजें',
+  );
+  static const saving = TranslatableString(
+    en: 'Saving…',
+    ar: 'جارٍ الحفظ…',
+    ur: 'محفوظ ہو رہا ہے…',
+    hi: 'सहेजा जा रहा है…',
+  );
+  static const cancel = TranslatableString(
+    en: 'Cancel',
+    ar: 'إلغاء',
+    ur: 'منسوخ',
+    hi: 'रद्द करें',
+  );
+  static const joiningDate = TranslatableString(
+    en: 'Joining date',
+    ar: 'تاريخ الالتحاق',
+    ur: 'شمولیت کی تاریخ',
+    hi: 'शामिल होने की तिथि',
+  );
+  static const joiningDateHint = TranslatableString(
+    en: 'YYYY-MM-DD',
+    ar: 'YYYY-MM-DD',
+    ur: 'YYYY-MM-DD',
+    hi: 'YYYY-MM-DD',
+  );
+  static const choosePhoto = TranslatableString(
+    en: 'Choose photo',
+    ar: 'اختر صورة',
+    ur: 'تصویر منتخب کریں',
+    hi: 'फ़ोटो चुनें',
+  );
+  static const changePhoto = TranslatableString(
+    en: 'Change photo',
+    ar: 'تغيير الصورة',
+    ur: 'تصویر بدلیں',
+    hi: 'फ़ोटो बदलें',
+  );
+  static const photoReady = TranslatableString(
+    en: 'New photo ready to save',
+    ar: 'الصورة الجديدة جاهزة للحفظ',
+    ur: 'نئی تصویر محفوظ کرنے کے لیے تیار',
+    hi: 'नई फ़ोटो सहेजने के लिए तैयार',
+  );
+  static const fieldRequired = TranslatableString(
+    en: 'Required',
+    ar: 'مطلوب',
+    ur: 'لازمی',
+    hi: 'आवश्यक',
+  );
+  static const invalidAmount = TranslatableString(
+    en: 'Enter a number with up to 2 decimals',
+    ar: 'أدخل رقمًا بحد أقصى خانتين عشريتين',
+    ur: 'زیادہ سے زیادہ 2 اعشاریہ والا عدد درج کریں',
+    hi: 'अधिकतम 2 दशमलव वाली संख्या दर्ज करें',
+  );
+  static const invalidDate = TranslatableString(
+    en: 'Enter a date as YYYY-MM-DD',
+    ar: 'أدخل التاريخ بصيغة YYYY-MM-DD',
+    ur: 'تاریخ YYYY-MM-DD میں درج کریں',
+    hi: 'तिथि YYYY-MM-DD में दर्ज करें',
+  );
+  static const passportDuplicate = TranslatableString(
+    en: 'This passport number already belongs to another worker.',
+    ar: 'رقم الجواز هذا مسجل لعامل آخر.',
+    ur: 'یہ پاسپورٹ نمبر پہلے ہی کسی اور کارکن کا ہے۔',
+    hi: 'यह पासपोर्ट नंबर पहले से किसी अन्य कर्मचारी का है।',
+  );
+  static const saveConflict = TranslatableString(
+    en: 'This record was changed by someone else. Close and open it again.',
+    ar: 'تم تغيير هذا السجل من شخص آخر. أغلقه وافتحه مجددًا.',
+    ur: 'یہ ریکارڈ کسی اور نے بدل دیا ہے۔ بند کر کے دوبارہ کھولیں۔',
+    hi: 'यह रिकॉर्ड किसी और ने बदल दिया है। बंद करके फिर खोलें।',
+  );
+  static const saveFailed = TranslatableString(
+    en: 'The record could not be saved. Nothing was changed.',
+    ar: 'تعذر حفظ السجل. لم يتغير شيء.',
+    ur: 'ریکارڈ محفوظ نہیں ہو سکا۔ کچھ تبدیل نہیں ہوا۔',
+    hi: 'रिकॉर्ड सहेजा नहीं जा सका। कुछ नहीं बदला।',
+  );
+  static const saveOffline = TranslatableString(
+    en: 'You are offline. Connect and save again.',
+    ar: 'أنت غير متصل. اتصل ثم احفظ مجددًا.',
+    ur: 'آپ آف لائن ہیں۔ جڑ کر دوبارہ محفوظ کریں۔',
+    hi: 'आप ऑफ़लाइन हैं। कनेक्ट करके फिर सहेजें।',
+  );
+  static const saveNotAllowed = TranslatableString(
+    en: 'You are not allowed to change worker records.',
+    ar: 'غير مسموح لك بتغيير سجلات العمال.',
+    ur: 'آپ کو ریکارڈ بدلنے کی اجازت نہیں۔',
+    hi: 'आपको रिकॉर्ड बदलने की अनुमति नहीं है।',
+  );
+  static const photoNotSaved = TranslatableString(
+    en: 'The record was saved, but the photo was not. Save again to retry the photo.',
+    ar: 'تم حفظ السجل دون الصورة. احفظ مجددًا لإعادة محاولة الصورة.',
+    ur: 'ریکارڈ محفوظ ہو گیا مگر تصویر نہیں۔ تصویر کے لیے دوبارہ محفوظ کریں۔',
+    hi: 'रिकॉर्ड सहेजा गया, पर फ़ोटो नहीं। फ़ोटो के लिए फिर सहेजें।',
+  );
+  static const photoUnreadable = TranslatableString(
+    en: 'That file is not a JPEG, PNG or WebP image.',
+    ar: 'هذا الملف ليس صورة JPEG أو PNG أو WebP.',
+    ur: 'یہ فائل JPEG، PNG یا WebP تصویر نہیں۔',
+    hi: 'यह फ़ाइल JPEG, PNG या WebP चित्र नहीं है।',
+  );
+  static const recordSaved = TranslatableString(
+    en: 'Worker record saved',
+    ar: 'تم حفظ سجل العامل',
+    ur: 'کارکن کا ریکارڈ محفوظ ہو گیا',
+    hi: 'कर्मचारी रिकॉर्ड सहेजा गया',
+  );
+  static const identity = TranslatableString(
+    en: 'Identity',
+    ar: 'الهوية',
+    ur: 'شناخت',
+    hi: 'पहचान',
+  );
+  static const salary = TranslatableString(
+    en: 'Salary (AED per month)',
+    ar: 'الراتب (درهم شهريًا)',
+    ur: 'تنخواہ (درہم ماہانہ)',
+    hi: 'वेतन (AED प्रति माह)',
+  );
 }

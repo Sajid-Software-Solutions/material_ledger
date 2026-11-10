@@ -503,7 +503,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     if (!access.canView && access.canViewWorkerRecords) {
       // Accounting and PR staff: the Workers register only. No login account,
       // role, project access or audit surface is built for them.
-      return _WorkerRecordsOnlyView(language: language);
+      return _WorkerRecordsOnlyView(
+        language: language,
+        canManage: access.canManageWorkerRecords,
+      );
     }
     if (!access.canView) {
       return _UserDirectoryAccessGate(
@@ -734,6 +737,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                     ),
                   YorksV1UserManagementTab.workers => YorksV1WorkerRecordsTab(
                     language: language,
+                    canManage: access.canManageWorkerRecords,
                   ),
                   YorksV1UserManagementTab.accessHistory => _AccessHistoryPanel(
                     entries: ref.watch(auditLogProvider),
@@ -751,9 +755,13 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
 /// User Management for a person who holds only `worker_records.view`.
 class _WorkerRecordsOnlyView extends ConsumerWidget {
-  const _WorkerRecordsOnlyView({required this.language});
+  const _WorkerRecordsOnlyView({
+    required this.language,
+    required this.canManage,
+  });
 
   final AppLanguage language;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -825,7 +833,10 @@ class _WorkerRecordsOnlyView extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                YorksV1WorkerRecordsTab(language: language),
+                YorksV1WorkerRecordsTab(
+                  language: language,
+                  canManage: canManage,
+                ),
               ],
             ),
           ),

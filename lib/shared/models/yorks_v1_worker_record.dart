@@ -287,3 +287,87 @@ class YorksV1WorkerRecordPage {
     );
   }
 }
+
+/// Whether [text] is an amount the server accepts: digits with at most two
+/// decimal places. Blank is valid and means "not entered".
+bool yorksV1IsValidWorkerAmount(String text) {
+  final trimmed = text.trim();
+  return trimmed.isEmpty || RegExp(r'^\d{1,10}(\.\d{1,2})?$').hasMatch(trimmed);
+}
+
+/// Exact sum of entered amounts, in whole fils, without binary floats.
+/// Returns null when no amount is entered or any amount is malformed.
+String? yorksV1SumWorkerAmounts(Iterable<String> amounts) {
+  var total = BigInt.zero;
+  var any = false;
+  for (final raw in amounts) {
+    final text = raw.trim();
+    if (text.isEmpty) continue;
+    if (!yorksV1IsValidWorkerAmount(text)) return null;
+    final parts = text.split('.');
+    final fraction = (parts.length > 1 ? parts[1] : '').padRight(2, '0');
+    total +=
+        BigInt.parse(parts.first) * BigInt.from(100) + BigInt.parse(fraction);
+    any = true;
+  }
+  if (!any) return null;
+  final whole = total ~/ BigInt.from(100);
+  final fils = (total % BigInt.from(100)).toString().padLeft(2, '0');
+  return '$whole.$fils';
+}
+
+/// One create-or-update command. [workerId] null creates a new worker, which
+/// then needs [joiningDate]. [expectedVersion] is the employment record
+/// version the form was opened with (0 when the worker had no record yet).
+class YorksV1SaveWorkerRecordInput {
+  const YorksV1SaveWorkerRecordInput({
+    required this.fullName,
+    required this.designation,
+    required this.employerCompany,
+    required this.idempotencyKey,
+    this.workerId,
+    this.expectedVersion,
+    this.joiningDate,
+    this.tradeLicenseNo = '',
+    this.passportNo = '',
+    this.basicSalary = '',
+    this.housingAllowance = '',
+    this.otherAllowance = '',
+  });
+
+  final String? workerId;
+  final int? expectedVersion;
+  final String fullName;
+  final String designation;
+  final String employerCompany;
+
+  /// `yyyy-MM-dd`; required for a new worker only.
+  final String? joiningDate;
+  final String tradeLicenseNo;
+  final String passportNo;
+  final String basicSalary;
+  final String housingAllowance;
+  final String otherAllowance;
+  final String idempotencyKey;
+
+  static String? _blankToNull(String value) =>
+      value.trim().isEmpty ? null : value.trim();
+
+  Map<String, Object?> toRpcPayload() => {
+    if (workerId != null) 'worker_id': workerId,
+    'full_name': fullName.trim(),
+    'designation': designation.trim(),
+    'employer_company': employerCompany.trim(),
+    if (workerId == null) 'joining_date': joiningDate,
+    'trade_license_no': _blankToNull(tradeLicenseNo),
+    'passport_no': _blankToNull(passportNo),
+    'basic_salary': _blankToNull(basicSalary),
+    'housing_allowance': _blankToNull(housingAllowance),
+    'other_allowance': _blankToNull(otherAllowance),
+  };
+
+  /// Stable text of everything the command sends, so a retry of the same
+  /// input can reuse its idempotency key and a changed input gets a new one.
+  String get signature =>
+      '$workerId|$expectedVersion|${toRpcPayload().values.join('|')}';
+}

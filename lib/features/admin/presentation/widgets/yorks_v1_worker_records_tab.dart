@@ -11,6 +11,7 @@ import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/models/yorks_v1_worker_record.dart';
 import '../../../../shared/models/yorks_v1_worker_record_strings.dart';
 import '../../../../shared/providers/yorks_v1_worker_record_provider.dart';
+import 'yorks_v1_worker_record_form.dart';
 
 typedef _S = YorksV1WorkerRecordStrings;
 
@@ -21,9 +22,17 @@ typedef _S = YorksV1WorkerRecordStrings;
 /// scrolls vertically itself. Desktop shows the full table; narrow screens
 /// show one card per worker.
 class YorksV1WorkerRecordsTab extends ConsumerStatefulWidget {
-  const YorksV1WorkerRecordsTab({super.key, required this.language});
+  const YorksV1WorkerRecordsTab({
+    super.key,
+    required this.language,
+    this.canManage = false,
+  });
 
   final AppLanguage language;
+
+  /// Whether the signed-in person holds `worker_records.manage`. The server
+  /// rechecks it on every save; this only decides which controls are shown.
+  final bool canManage;
 
   @override
   ConsumerState<YorksV1WorkerRecordsTab> createState() =>
@@ -68,6 +77,21 @@ class _YorksV1WorkerRecordsTabState
             onCompany: controller.setCompany,
             onStatus: controller.setStatus,
           ),
+          if (widget.canManage) ...[
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: SizedBox(
+                height: AppSpacing.minTapTarget,
+                child: FilledButton.icon(
+                  key: const ValueKey('worker-records-add'),
+                  onPressed: () => _edit(null),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: Text(_S.addWorker.active(language)),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           if (state.isLoading) const LinearProgressIndicator(minHeight: 2),
           if (state.error != null) ...[
@@ -142,11 +166,37 @@ class _YorksV1WorkerRecordsTabState
     );
   }
 
-  void _open(YorksV1WorkerRecord record) {
-    showDialog<void>(
+  Future<void> _open(YorksV1WorkerRecord record) async {
+    final edit = await showDialog<bool>(
       context: context,
-      builder: (_) =>
-          _WorkerRecordDialog(language: widget.language, record: record),
+      builder: (_) => _WorkerRecordDialog(
+        language: widget.language,
+        record: record,
+        canManage: widget.canManage,
+      ),
+    );
+    if (edit == true && mounted) await _edit(record);
+  }
+
+  Future<void> _edit(YorksV1WorkerRecord? record) async {
+    final saved = await YorksV1WorkerRecordFormDialog.show(
+      context,
+      language: widget.language,
+      record: record,
+    );
+    if (saved != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    // Reload from the server: the register shows only confirmed rows.
+    final controller = ref.read(
+      yorksV1WorkerRecordsControllerProvider.notifier,
+    );
+    if (record?.photoObjectPath != null) {
+      ref.invalidate(yorksV1WorkerPhotoUrlProvider(record!.photoObjectPath!));
+    }
+    await controller.refresh();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(_S.recordSaved.active(widget.language))),
     );
   }
 }
@@ -722,10 +772,15 @@ class _CompactTotals extends StatelessWidget {
 }
 
 class _WorkerRecordDialog extends StatelessWidget {
-  const _WorkerRecordDialog({required this.language, required this.record});
+  const _WorkerRecordDialog({
+    required this.language,
+    required this.record,
+    required this.canManage,
+  });
 
   final AppLanguage language;
   final YorksV1WorkerRecord record;
+  final bool canManage;
 
   @override
   Widget build(BuildContext context) {
@@ -853,9 +908,16 @@ class _WorkerRecordDialog extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(false),
             child: Text(_S.close.active(language)),
           ),
+          if (canManage)
+            FilledButton.icon(
+              key: const ValueKey('worker-record-edit'),
+              onPressed: () => Navigator.of(context).pop(true),
+              icon: const Icon(Icons.edit_outlined),
+              label: Text(_S.editRecord.active(language)),
+            ),
         ],
       ),
     );
