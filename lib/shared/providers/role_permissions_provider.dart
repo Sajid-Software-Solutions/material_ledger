@@ -16,17 +16,18 @@ final rolePermissionsProvider =
     StateNotifierProvider<RolePermissionsNotifier, RolePermissions>((ref) {
       return RolePermissionsNotifier(
         ref,
-        ref.watch(storageProvider).collection<RolePermissions>(
-          _kRolePermsKey,
-          toJson: (p) => p.toJson(),
-          fromJson: RolePermissions.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<RolePermissions>(
+              _kRolePermsKey,
+              toJson: (p) => p.toJson(),
+              fromJson: RolePermissions.fromJson,
+            ),
       );
     });
 
 class RolePermissionsNotifier extends StateNotifier<RolePermissions> {
-  RolePermissionsNotifier(this._ref, this._store)
-    : super(_load(_store)) {
+  RolePermissionsNotifier(this._ref, this._store) : super(_load(_store)) {
     if (!_store.isSeeded) _store.writeAll([state]);
   }
 
@@ -79,7 +80,9 @@ class RolePermissionsNotifier extends StateNotifier<RolePermissions> {
     await _persist();
     var failures = 0;
     for (final role in editableRoles) {
-      failures += await _ref.read(usersProvider.notifier).restampRoleClaims(role);
+      failures += await _ref
+          .read(usersProvider.notifier)
+          .restampRoleClaims(role);
     }
     return failures;
   }

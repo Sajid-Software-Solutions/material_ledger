@@ -343,6 +343,8 @@ There is no `order recorded` stage: Yorks V1 deliberately has no PO/RFQ suite.
    `project_list_load`, `project_create`, `project_update`,
    `material_request_load`, `material_request_submit`, `document_upload`,
    `procurement_workspace_load`, `arrangement_begin`, `arrangement_save`,
+   `worker_records_load`, `worker_record_save`, `worker_record_photo_set`,
+   `worker_records_import`,
    `inventory_load`, `inventory_search`, `inventory_adjust`,
    `inventory_import`, `dispatch_materials`, and `receipt_review`.
 2. Failure rate formula as above, breakdown by `operation`.

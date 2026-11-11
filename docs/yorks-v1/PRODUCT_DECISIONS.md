@@ -2108,6 +2108,54 @@ layout adjustment. CI web/startup-budget and ephemeral-signed APK builds are
 verification artifacts only. This navigation update was deployed with owner authorization on 8 October 2026; see [release evidence](NAVIGATION_PRODUCTION_UPDATE_20261008.md).
 
 
+## 33. Worker Records in User Management (owner decision, 10 November 2026)
+
+The owner asked for the workforce sheet (name, company, trade licence number,
+passport number, basic salary, housing, others, total salary) and a photo of
+each worker to be kept in the app, managed and seen by Accounting and the PR
+team, inside User Management.
+
+- **Scope.** Worker Records adds a protected employment record beside each
+  existing Workforce worker. It is stored reference data only. Payroll
+  calculation, payslips, WPS or bank files, salary history reports and
+  document scans remain out of scope, and the general deferral of payroll in
+  section 1 is unchanged. The attendance prototype in
+  `designs/workforce-attendance-prototype.html` is not part of this work.
+- **Workforce stays pay-free.** No Workforce attendance, timesheet, monthly,
+  report or worker projection gains a pay, passport or licence field. This
+  narrows, and does not reopen, the section 24 Workforce contract.
+- **Access.** Two enforced, assignable, organization-scoped capabilities in
+  their own `worker_records` module: `worker_records.view` and
+  `worker_records.manage`. They are not part of the twelve-key `workforce.*`
+  family and do not depend on `workforce.view`.
+  - Admin holds both and may delegate them. Accountant holds both.
+  - PR staff have no role of their own: Admin grants the capability per
+    person in User Access. No tenth role is added.
+  - Every other role, including Senior Mechanical Engineer, has neither by
+    default.
+  - **Narrow exception to the R39 Accountant boundary.** R39 makes
+    Accountant an Accounts-only role, enforced by the permission resolver
+    and the assignment guard. This decision adds exactly the two
+    `worker_records.*` keys to what an Accountant may hold
+    (`v1_accountant_may_hold_capability`). Every other non-Accounts
+    capability stays refused for Accountant, and the frozen R39 Accounts key
+    list is unchanged.
+- **User Management.** A holder sees a **Workers** tab. A holder without
+  `users.view` (Accountant, PR) sees only that register: no login account,
+  role, password, project access or audit surface. No `users.*` or
+  `permissions.*` authority changes. Accountant remains outside technical
+  project membership and team management.
+- **Data rules.** Salary and passport values live only in protected relations
+  with no client grants; all reads and writes go through trusted functions
+  that recheck the capability. An amount that was not entered is reported as
+  not entered, never as zero. A passport number belongs to one worker.
+  Records are never hard-deleted; each change appends a protected revision,
+  and the general audit trail records which fields changed, not their values.
+  Photos sit in a private bucket authorized by capability, not by path.
+- **Rollout.** Flag `YORKS_V1_WORKER_RECORDS`, default off. The database
+  bundle is applied by hand on staging, then production, before the flag is
+  enabled. See [`WORKER_RECORDS.md`](WORKER_RECORDS.md).
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

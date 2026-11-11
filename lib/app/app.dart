@@ -228,6 +228,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         .read(yorksV1FeatureFlagsProvider)
         .accountsWorkspaceV2,
     yorksV1WorkforceEnabled: yorksV1WorkforceEnabled,
+    yorksV1WorkerRecordsEnabled: ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .workerRecords,
     yorksV1AnalyticsEnabled: yorksV1AnalyticsEnabled,
     yorksV1Role: yorksV1Role,
     yorksV1PermissionResolver: connectedV1Permissions

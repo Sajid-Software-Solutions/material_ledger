@@ -27,11 +27,13 @@ final employeesProvider =
     StateNotifierProvider<EmployeesNotifier, List<Employee>>((ref) {
       return EmployeesNotifier(
         ref,
-        ref.watch(storageProvider).collection<Employee>(
-          _kEmployeesKey,
-          toJson: (e) => e.toJson(),
-          fromJson: Employee.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<Employee>(
+              _kEmployeesKey,
+              toJson: (e) => e.toJson(),
+              fromJson: Employee.fromJson,
+            ),
       );
     });
 
@@ -146,11 +148,13 @@ final attendanceProvider =
     StateNotifierProvider<AttendanceNotifier, List<AttendanceRecord>>((ref) {
       return AttendanceNotifier(
         ref,
-        ref.watch(storageProvider).collection<AttendanceRecord>(
-          _kAttendanceKey,
-          toJson: (a) => a.toJson(),
-          fromJson: AttendanceRecord.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<AttendanceRecord>(
+              _kAttendanceKey,
+              toJson: (a) => a.toJson(),
+              fromJson: AttendanceRecord.fromJson,
+            ),
       );
     });
 
@@ -183,7 +187,10 @@ class AttendanceNotifier extends StateNotifier<List<AttendanceRecord>> {
       recordedBy: recordedBy,
     );
     state = idx >= 0
-        ? [for (var i = 0; i < state.length; i++) if (i == idx) record else state[i]]
+        ? [
+            for (var i = 0; i < state.length; i++)
+              if (i == idx) record else state[i],
+          ]
         : [record, ...state];
     await _store.writeAll(state);
     await _ref.enqueueSync(
@@ -213,11 +220,13 @@ final leaveRecordsProvider =
     StateNotifierProvider<LeaveNotifier, List<LeaveRecord>>((ref) {
       return LeaveNotifier(
         ref,
-        ref.watch(storageProvider).collection<LeaveRecord>(
-          _kLeaveKey,
-          toJson: (l) => l.toJson(),
-          fromJson: LeaveRecord.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<LeaveRecord>(
+              _kLeaveKey,
+              toJson: (l) => l.toJson(),
+              fromJson: LeaveRecord.fromJson,
+            ),
       );
     });
 
@@ -268,7 +277,10 @@ class LeaveNotifier extends StateNotifier<List<LeaveRecord>> {
   }) async {
     state = [
       for (final l in state)
-        if (l.id == id) l.copyWith(status: status, approvedBy: approvedBy) else l,
+        if (l.id == id)
+          l.copyWith(status: status, approvedBy: approvedBy)
+        else
+          l,
     ];
     await _store.writeAll(state);
     for (final l in state) {
@@ -293,7 +305,9 @@ class LeaveNotifier extends StateNotifier<List<LeaveRecord>> {
     // Hard-block an overlapping request: two overlapping active leaves would each
     // subtract from the balance and double-count the same days.
     if (leaveOverlaps(employeeId, startDate, endDate)) {
-      throw StateError('This overlaps an existing leave request for these dates.');
+      throw StateError(
+        'This overlaps an existing leave request for these dates.',
+      );
     }
     final days = endDate.difference(startDate).inDays + 1;
     final record = LeaveRecord(
@@ -350,9 +364,7 @@ class LeaveNotifier extends StateNotifier<List<LeaveRecord>> {
     LeaveRecord? updated;
     state = [
       for (final l in state)
-        if (l.id == id &&
-            l.isPending &&
-            l.requestedByUserId != decidedByUserId)
+        if (l.id == id && l.isPending && l.requestedByUserId != decidedByUserId)
           updated = l.copyWith(
             status: approve
                 ? LeaveRecordStatus.approved
@@ -434,7 +446,9 @@ int _annualDaysInYear(LeaveRecord l, int year) {
   DateTime dateOnly(DateTime x) => DateTime(x.year, x.month, x.day);
   final yStart = DateTime(year, 1, 1);
   final yEnd = DateTime(year, 12, 31);
-  final s = dateOnly(l.startDate).isAfter(yStart) ? dateOnly(l.startDate) : yStart;
+  final s = dateOnly(l.startDate).isAfter(yStart)
+      ? dateOnly(l.startDate)
+      : yStart;
   final e = dateOnly(l.endDate).isBefore(yEnd) ? dateOnly(l.endDate) : yEnd;
   if (e.isBefore(s)) return 0;
   return e.difference(s).inDays + 1;
@@ -506,19 +520,21 @@ int _sickDaysUsedThisYear(List<LeaveRecord> records, String employeeId) {
 /// this year. `(employeeId, days)` as the family key.
 final sickLeaveTierProvider =
     Provider.family<SickLeaveTierSplit, (String employeeId, int days)>((
-  ref,
-  arg,
-) {
-  final records = ref.watch(leaveRecordsProvider);
-  final used = _sickDaysUsedThisYear(records, arg.$1);
-  return splitSickLeaveTiers(alreadyUsedDays: used, requestedDays: arg.$2);
-});
+      ref,
+      arg,
+    ) {
+      final records = ref.watch(leaveRecordsProvider);
+      final used = _sickDaysUsedThisYear(records, arg.$1);
+      return splitSickLeaveTiers(alreadyUsedDays: used, requestedDays: arg.$2);
+    });
 
 /// End-of-service gratuity ESTIMATE for [employeeId] as of today — an HR
 /// planning figure, not a certified payout (see gratuity.dart). Null when the
 /// employee has no join date or no basic-wage figure to compute from.
-final gratuityEstimateProvider =
-    Provider.family<GratuityEstimate?, String>((ref, employeeId) {
+final gratuityEstimateProvider = Provider.family<GratuityEstimate?, String>((
+  ref,
+  employeeId,
+) {
   Employee? emp;
   for (final e in ref.watch(employeesProvider)) {
     if (e.id == employeeId) {
@@ -555,11 +571,10 @@ final totalGratuityLiabilityProvider = Provider<double>((ref) {
 /// request first.
 final pendingLeaveRequestsProvider = Provider<List<LeaveRecord>>((ref) {
   final records = ref.watch(leaveRecordsProvider);
-  return records.where((l) => l.isPending).toList()
-    ..sort(
-      (a, b) =>
-          (b.requestedAt ?? b.startDate).compareTo(a.requestedAt ?? a.startDate),
-    );
+  return records.where((l) => l.isPending).toList()..sort(
+    (a, b) =>
+        (b.requestedAt ?? b.startDate).compareTo(a.requestedAt ?? a.startDate),
+  );
 });
 
 /// The HR [Employee] linked to the signed-in login, or null when unlinked.
@@ -576,7 +591,10 @@ final currentUserEmployeeProvider = Provider<Employee?>((ref) {
 final myLeaveRecordsProvider = Provider<List<LeaveRecord>>((ref) {
   final emp = ref.watch(currentUserEmployeeProvider);
   if (emp == null) return const [];
-  return ref.watch(leaveRecordsProvider).where((l) => l.employeeId == emp.id).toList()
+  return ref
+      .watch(leaveRecordsProvider)
+      .where((l) => l.employeeId == emp.id)
+      .toList()
     ..sort((a, b) => b.startDate.compareTo(a.startDate));
 });
 

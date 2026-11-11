@@ -69,6 +69,8 @@ dependencies:
   firebase_core: ^4.11.0
   firebase_messaging: ^16.4.1
   flutter_local_notifications: ^22.0.1
+  # Worker photo preparation (crop, resize, re-encode) and build-time icons.
+  image: ^4.3.0
 
 dev_dependencies:
   http: ^1.6.0
@@ -77,7 +79,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Icon generation (build-time only)
   flutter_launcher_icons: ^0.14.4
-  image: ^4.3.0
   shared_preferences_platform_interface: ^2.4.2
 
 # App launcher icon: the approved complete black Yorks seal. The source is
