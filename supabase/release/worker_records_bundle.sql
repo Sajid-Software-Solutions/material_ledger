@@ -1,19 +1,23 @@
 -- =============================================================================
 -- Worker Records — apply script for the Supabase SQL editor
 -- =============================================================================
--- Concatenation, in order, of:
---   supabase/migrations/20261110120000_worker_records_foundation.sql
---   supabase/migrations/20261110130000_worker_records_save_and_photo.sql
---   supabase/migrations/20261111100000_worker_records_import.sql
--- Additive and repeatable. No existing data is changed.
+-- The three Worker Records migrations, in order, inside ONE transaction:
+--   20261110120000_worker_records_foundation.sql
+--   20261110130000_worker_records_save_and_photo.sql
+--   20261111100000_worker_records_import.sql
+-- Any error rolls everything back. It ends with self-checks and prints
+-- `worker_records_applied`. Safe to run again, including after the rollback.
 --
--- BEFORE YOU RUN THIS:
---   1. Run it on STAGING first and confirm it succeeds.
---   2. Then run the identical script on PRODUCTION.
---   3. Do NOT run `supabase db push` or `supabase migration repair`.
--- ROLLBACK: see the header of each migration below.
+-- Run on STAGING first, then the identical script on PRODUCTION.
+-- Do NOT run `supabase db push` or `supabase migration repair`.
+-- Undo: supabase/release/worker_records_rollback.sql
 -- =============================================================================
 
+-- Worker Records: all three migrations in ONE transaction.
+-- Any error rolls everything back; nothing is half-applied.
+begin;
+
+-- ===== 20261110120000_worker_records_foundation.sql =====
 -- Worker Records foundation (owner decision, 10 November 2026;
 -- PRODUCT_DECISIONS.md section 33).
 --
@@ -36,7 +40,6 @@
 -- Accountant rule, run the same replacement in reverse. Retain every record,
 -- revision and stored photo.
 
-begin;
 
 -- ---------------------------------------------------------------------------
 -- Capabilities
@@ -568,8 +571,8 @@ grant execute on function public.v1_get_worker_record(uuid) to authenticated;
 
 notify pgrst, 'reload schema';
 
-commit;
 
+-- ===== 20261110130000_worker_records_save_and_photo.sql =====
 -- Worker Records slice 2: create/update a record and set a photo
 -- (PRODUCT_DECISIONS.md section 33).
 --
@@ -586,7 +589,6 @@ commit;
 -- Data preservation: additive only (one sequence, three functions). Rollback:
 -- revoke execute on the two public functions; retain all rows and photos.
 
-begin;
 
 create sequence if not exists public.v1_worker_record_number_seq;
 revoke all on sequence public.v1_worker_record_number_seq
@@ -981,8 +983,8 @@ grant execute on function public.v1_set_worker_photo(uuid, text, bigint, uuid)
 
 notify pgrst, 'reload schema';
 
-commit;
 
+-- ===== 20261111100000_worker_records_import.sql =====
 -- Worker Records slice 3: Excel import with a server preview
 -- (PRODUCT_DECISIONS.md section 33).
 --
@@ -1004,7 +1006,6 @@ commit;
 -- execute on the two public functions; imported rows remain ordinary records
 -- with their revisions.
 
-begin;
 
 create or replace function public.v1_worker_import_normalized(p_value text)
 returns text
@@ -1458,4 +1459,39 @@ grant execute on function public.v1_import_worker_records(jsonb, uuid)
 
 notify pgrst, 'reload schema';
 
+
+
+-- After a rollback the catalogue rows already exist (switched off); make
+-- sure they are operational again.
+update public.v1_capability_catalog
+set status = 'operational', authorization_mode = 'enforced', is_assignable = true
+where capability_key in ('worker_records.view', 'worker_records.manage')
+  and (status, authorization_mode, is_assignable)
+    is distinct from ('operational', 'enforced', true);
+
+-- Sanity checks before committing.
+do $check$
+begin
+  if (select count(*) from public.v1_capability_catalog where capability_key in ('worker_records.view','worker_records.manage')) <> 2 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: capabilities';
+  end if;
+  if position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_candidate_raw(uuid,text,uuid)'::regprocedure)) = 0
+    or position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_legacy_raw(uuid,text,uuid)'::regprocedure)) = 0
+    or position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_guard_assignment()'::regprocedure)) = 0 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: accountant boundary';
+  end if;
+  if (select count(*) from public.v1_capability_catalog
+      where capability_key in ('worker_records.view','worker_records.manage')
+        and status = 'operational' and authorization_mode = 'enforced'
+        and is_assignable) <> 2 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: capabilities off';
+  end if;
+  if to_regprocedure('public.v1_import_worker_records(jsonb,uuid)') is null then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: import';
+  end if;
+end;
+$check$;
+
 commit;
+
+select 'worker_records_applied' as result;

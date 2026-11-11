@@ -116,7 +116,8 @@ shows an error with the last confirmed rows, never an empty register.
    (`yorks_worker_records_foundation`, `yorks_worker_records_save_and_photo`
    and `yorks_worker_records_import` in `supabase/tests/database/`).
 2. Paste `supabase/release/worker_records_bundle.sql` into the SQL editor on
-   staging. Do not use `supabase db push` or `supabase migration repair`.
+   staging. It runs all three migrations in one transaction and ends with
+   self-checks; `supabase/release/worker_records_rollback.sql` undoes it. Do not use `supabase db push` or `supabase migration repair`.
 3. Build staging with `YORKS_V1_WORKER_RECORDS=true` and check as Admin,
    Accountant, a person granted `worker_records.view`, and an engineer
    without it.
