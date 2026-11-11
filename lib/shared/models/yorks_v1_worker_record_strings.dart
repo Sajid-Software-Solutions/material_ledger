@@ -369,4 +369,250 @@ abstract final class YorksV1WorkerRecordStrings {
     ur: 'تنخواہ (درہم ماہانہ)',
     hi: 'वेतन (AED प्रति माह)',
   );
+  static const importFromExcel = TranslatableString(
+    en: 'Import from Excel',
+    ar: 'استيراد من Excel',
+    ur: 'Excel سے درآمد',
+    hi: 'Excel से आयात',
+  );
+  static const importWorkers = TranslatableString(
+    en: 'Import workers',
+    ar: 'استيراد العمال',
+    ur: 'کارکن درآمد کریں',
+    hi: 'कर्मचारी आयात करें',
+  );
+  static const chooseFile = TranslatableString(
+    en: 'Choose Excel file',
+    ar: 'اختر ملف Excel',
+    ur: 'Excel فائل منتخب کریں',
+    hi: 'Excel फ़ाइल चुनें',
+  );
+  static const downloadTemplate = TranslatableString(
+    en: 'Download template',
+    ar: 'تنزيل النموذج',
+    ur: 'ٹیمپلیٹ ڈاؤن لوڈ کریں',
+    hi: 'टेम्पलेट डाउनलोड करें',
+  );
+  static const importIntro = TranslatableString(
+    en: 'Use your worker sheet with the columns Names, Company, Trade License No., Passport No., Basic Salary, Housing, Others and Total Salary. Nothing is saved until you confirm.',
+    ar: 'استخدم جدول العمال بالأعمدة: الاسم، الشركة، رقم الرخصة، رقم الجواز، الأساسي، السكن، أخرى، الإجمالي. لا يُحفظ شيء قبل التأكيد.',
+    ur: 'نام، کمپنی، ٹریڈ لائسنس، پاسپورٹ، بنیادی، رہائش، دیگر اور کل تنخواہ کے کالموں والی شیٹ استعمال کریں۔ تصدیق تک کچھ محفوظ نہیں ہوتا۔',
+    hi: 'नाम, कंपनी, ट्रेड लाइसेंस, पासपोर्ट, मूल, आवास, अन्य और कुल वेतन कॉलम वाली शीट इस्तेमाल करें। पुष्टि तक कुछ सहेजा नहीं जाता।',
+  );
+  static const worksheet = TranslatableString(
+    en: 'Worksheet',
+    ar: 'ورقة العمل',
+    ur: 'ورک شیٹ',
+    hi: 'वर्कशीट',
+  );
+  static const fileUnreadable = TranslatableString(
+    en: 'That file is not a readable .xlsx workbook.',
+    ar: 'هذا الملف ليس مصنف xlsx قابلًا للقراءة.',
+    ur: 'یہ فائل قابلِ مطالعہ .xlsx نہیں۔',
+    hi: 'यह फ़ाइल पढ़ने योग्य .xlsx नहीं है।',
+  );
+  static const columnsMissing = TranslatableString(
+    en: 'No heading row with Names and Company was found in this worksheet.',
+    ar: 'لم يُعثر على صف عناوين يحوي الاسم والشركة في هذه الورقة.',
+    ur: 'اس شیٹ میں نام اور کمپنی والی سرخی کی قطار نہیں ملی۔',
+    hi: 'इस वर्कशीट में नाम और कंपनी वाली शीर्षक पंक्ति नहीं मिली।',
+  );
+  static const tooManyRows = TranslatableString(
+    en: 'A file can hold at most 500 workers. Split it and import each part.',
+    ar: 'يمكن أن يحوي الملف 500 عامل كحد أقصى. قسّمه واستورد كل جزء.',
+    ur: 'ایک فائل میں زیادہ سے زیادہ 500 کارکن۔ تقسیم کر کے درآمد کریں۔',
+    hi: 'एक फ़ाइल में अधिकतम 500 कर्मचारी। बाँटकर आयात करें।',
+  );
+  static const noRows = TranslatableString(
+    en: 'This worksheet has no worker rows.',
+    ar: 'لا تحوي هذه الورقة صفوف عمال.',
+    ur: 'اس شیٹ میں کارکنوں کی کوئی قطار نہیں۔',
+    hi: 'इस वर्कशीट में कर्मचारी पंक्तियाँ नहीं हैं।',
+  );
+  static const checking = TranslatableString(
+    en: 'Checking with the server…',
+    ar: 'جارٍ التحقق مع الخادم…',
+    ur: 'سرور سے جانچ ہو رہی ہے…',
+    hi: 'सर्वर से जाँच हो रही है…',
+  );
+  static const summaryNew = TranslatableString(
+    en: '{n} new',
+    ar: '{n} جديد',
+    ur: '{n} نئے',
+    hi: '{n} नए',
+  );
+  static const summaryUpdate = TranslatableString(
+    en: '{n} to update',
+    ar: '{n} للتحديث',
+    ur: '{n} اپ ڈیٹ ہوں گے',
+    hi: '{n} अपडेट होंगे',
+  );
+  static const summaryUnchanged = TranslatableString(
+    en: '{n} unchanged',
+    ar: '{n} بدون تغيير',
+    ur: '{n} بغیر تبدیلی',
+    hi: '{n} अपरिवर्तित',
+  );
+  static const summaryProblems = TranslatableString(
+    en: '{n} with problems',
+    ar: '{n} بها مشكلات',
+    ur: '{n} میں مسائل',
+    hi: '{n} में समस्याएँ',
+  );
+  static const row = TranslatableString(
+    en: 'Row',
+    ar: 'الصف',
+    ur: 'قطار',
+    hi: 'पंक्ति',
+  );
+  static const result = TranslatableString(
+    en: 'Result',
+    ar: 'النتيجة',
+    ur: 'نتیجہ',
+    hi: 'परिणाम',
+  );
+  static const actionCreate = TranslatableString(
+    en: 'New worker',
+    ar: 'عامل جديد',
+    ur: 'نیا کارکن',
+    hi: 'नया कर्मचारी',
+  );
+  static const actionUpdate = TranslatableString(
+    en: 'Update',
+    ar: 'تحديث',
+    ur: 'اپ ڈیٹ',
+    hi: 'अपडेट',
+  );
+  static const actionUnchanged = TranslatableString(
+    en: 'No change',
+    ar: 'بلا تغيير',
+    ur: 'کوئی تبدیلی نہیں',
+    hi: 'कोई बदलाव नहीं',
+  );
+  static const actionError = TranslatableString(
+    en: 'Problem',
+    ar: 'مشكلة',
+    ur: 'مسئلہ',
+    hi: 'समस्या',
+  );
+  static const newWorkerDefaults = TranslatableString(
+    en: 'For the new workers',
+    ar: 'للعمال الجدد',
+    ur: 'نئے کارکنوں کے لیے',
+    hi: 'नए कर्मचारियों के लिए',
+  );
+  static const newWorkerDefaultsHint = TranslatableString(
+    en: 'The sheet has no designation or joining date. These apply to every new worker and can be changed afterwards.',
+    ar: 'لا يحوي الجدول المسمى أو تاريخ الالتحاق. تنطبق هذه القيم على كل عامل جديد ويمكن تغييرها لاحقًا.',
+    ur: 'شیٹ میں عہدہ یا شمولیت کی تاریخ نہیں۔ یہ ہر نئے کارکن پر لاگو ہوں گے اور بعد میں بدلے جا سکتے ہیں۔',
+    hi: 'शीट में पदनाम या शामिल होने की तिथि नहीं है। ये हर नए कर्मचारी पर लागू होंगे और बाद में बदले जा सकते हैं।',
+  );
+  static const blankKeeps = TranslatableString(
+    en: 'Blank cells keep what is already saved.',
+    ar: 'الخلايا الفارغة تُبقي القيم المحفوظة.',
+    ur: 'خالی خانے محفوظ قدر برقرار رکھتے ہیں۔',
+    hi: 'खाली सेल पहले से सहेजा मान रखते हैं।',
+  );
+  static const fixProblems = TranslatableString(
+    en: 'Fix the rows with problems in the sheet, then choose the file again.',
+    ar: 'أصلح الصفوف ذات المشكلات في الجدول ثم اختر الملف مجددًا.',
+    ur: 'مسائل والی قطاریں شیٹ میں درست کریں، پھر فائل دوبارہ منتخب کریں۔',
+    hi: 'समस्या वाली पंक्तियाँ शीट में ठीक करें, फिर फ़ाइल दोबारा चुनें।',
+  );
+  static const importN = TranslatableString(
+    en: 'Import {n} workers',
+    ar: 'استيراد {n} عامل',
+    ur: '{n} کارکن درآمد کریں',
+    hi: '{n} कर्मचारी आयात करें',
+  );
+  static const importing = TranslatableString(
+    en: 'Importing…',
+    ar: 'جارٍ الاستيراد…',
+    ur: 'درآمد ہو رہی ہے…',
+    hi: 'आयात हो रहा है…',
+  );
+  static const nothingToImport = TranslatableString(
+    en: 'Nothing to import: every row matches what is saved.',
+    ar: 'لا شيء للاستيراد: كل الصفوف مطابقة للمحفوظ.',
+    ur: 'درآمد کو کچھ نہیں: ہر قطار محفوظ ریکارڈ جیسی ہے۔',
+    hi: 'आयात को कुछ नहीं: हर पंक्ति सहेजे जैसी है।',
+  );
+  static const importStale = TranslatableString(
+    en: 'Records changed after this check. Check again before importing.',
+    ar: 'تغيرت السجلات بعد هذا الفحص. افحص مجددًا قبل الاستيراد.',
+    ur: 'اس جانچ کے بعد ریکارڈ بدلے۔ درآمد سے پہلے دوبارہ جانچیں۔',
+    hi: 'इस जाँच के बाद रिकॉर्ड बदले। आयात से पहले फिर जाँचें।',
+  );
+  static const checkAgain = TranslatableString(
+    en: 'Check again',
+    ar: 'افحص مجددًا',
+    ur: 'دوبارہ جانچیں',
+    hi: 'फिर जाँचें',
+  );
+  static const importFailed = TranslatableString(
+    en: 'The import could not be completed. Nothing was saved.',
+    ar: 'تعذر إكمال الاستيراد. لم يُحفظ شيء.',
+    ur: 'درآمد مکمل نہ ہو سکی۔ کچھ محفوظ نہیں ہوا۔',
+    hi: 'आयात पूरा नहीं हो सका। कुछ सहेजा नहीं गया।',
+  );
+  static const importDone = TranslatableString(
+    en: 'Imported: {created} new, {updated} updated',
+    ar: 'تم الاستيراد: {created} جديد، {updated} محدث',
+    ur: 'درآمد مکمل: {created} نئے، {updated} اپ ڈیٹ',
+    hi: 'आयात पूरा: {created} नए, {updated} अपडेट',
+  );
+  static const errName = TranslatableString(
+    en: 'Name missing',
+    ar: 'الاسم مفقود',
+    ur: 'نام موجود نہیں',
+    hi: 'नाम नहीं है',
+  );
+  static const errCompany = TranslatableString(
+    en: 'Company missing',
+    ar: 'الشركة مفقودة',
+    ur: 'کمپنی موجود نہیں',
+    hi: 'कंपनी नहीं है',
+  );
+  static const errTooLong = TranslatableString(
+    en: 'A value is too long',
+    ar: 'قيمة طويلة جدًا',
+    ur: 'ایک قدر بہت لمبی ہے',
+    hi: 'एक मान बहुत लंबा है',
+  );
+  static const errAmount = TranslatableString(
+    en: 'Amount is not a number',
+    ar: 'المبلغ ليس رقمًا',
+    ur: 'رقم عدد نہیں',
+    hi: 'राशि संख्या नहीं है',
+  );
+  static const errTotal = TranslatableString(
+    en: 'Total does not equal Basic + Housing + Others',
+    ar: 'الإجمالي لا يساوي الأساسي + السكن + أخرى',
+    ur: 'کل، بنیادی + رہائش + دیگر کے برابر نہیں',
+    hi: 'कुल, मूल + आवास + अन्य के बराबर नहीं',
+  );
+  static const errDuplicate = TranslatableString(
+    en: 'Same person appears twice in the file',
+    ar: 'الشخص نفسه مكرر في الملف',
+    ur: 'ایک ہی شخص فائل میں دو بار',
+    hi: 'एक ही व्यक्ति फ़ाइल में दो बार',
+  );
+  static const errAmbiguous = TranslatableString(
+    en: 'Two saved workers share this name and company',
+    ar: 'عاملان محفوظان بنفس الاسم والشركة',
+    ur: 'دو محفوظ کارکنوں کا یہی نام اور کمپنی',
+    hi: 'दो सहेजे कर्मचारियों का यही नाम और कंपनी',
+  );
+  static const errPassportOther = TranslatableString(
+    en: 'This passport belongs to another worker',
+    ar: 'هذا الجواز لعامل آخر',
+    ur: 'یہ پاسپورٹ کسی اور کارکن کا ہے',
+    hi: 'यह पासपोर्ट किसी और कर्मचारी का है',
+  );
+  static const errPassportDiffers = TranslatableString(
+    en: 'A different passport is saved for this worker',
+    ar: 'جواز مختلف محفوظ لهذا العامل',
+    ur: 'اس کارکن کا مختلف پاسپورٹ محفوظ ہے',
+    hi: 'इस कर्मचारी का अलग पासपोर्ट सहेजा है',
+  );
 }

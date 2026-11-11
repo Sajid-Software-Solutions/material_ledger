@@ -1,7 +1,8 @@
 # Worker Records
 
-Status: slices 1 and 2 (database, register, add/edit and photo) implemented;
-not yet applied to any database. Slice 3 (Excel import) is not built. Authority:
+Status: all three slices implemented (register; add/edit and photo; Excel
+import). Database tests pass locally. Not yet applied to staging or
+production. Authority:
 [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 33.
 
 ## What it is
@@ -16,7 +17,7 @@ reference data, not payroll.
 | Capability | Allows | Default holders |
 |---|---|---|
 | `worker_records.view` | Read the register, a record and photos | Admin, Accountant |
-| `worker_records.manage` | Create and edit a record, set a photo (import: slice 3) | Admin, Accountant |
+| `worker_records.manage` | Create and edit a record, set a photo, import a sheet | Admin, Accountant |
 
 Admin may grant either capability to one person in User Access; that is how
 PR staff receive it.
@@ -37,9 +38,10 @@ boundary: every function below rechecks the capability and the active actor.
 
 ## Database
 
-Migrations `20261110120000_worker_records_foundation.sql` and
-`20261110130000_worker_records_save_and_photo.sql` in `supabase/migrations/`;
-both, in order, in the apply script `supabase/release/worker_records_bundle.sql`.
+Migrations `20261110120000_worker_records_foundation.sql`,
+`20261110130000_worker_records_save_and_photo.sql` and
+`20261111100000_worker_records_import.sql` in `supabase/migrations/`; all
+three, in order, in the apply script `supabase/release/worker_records_bundle.sql`.
 
 | Object | Purpose |
 |---|---|
@@ -49,6 +51,8 @@ both, in order, in the apply script `supabase/release/worker_records_bundle.sql`
 | `v1_get_worker_record(worker_id)` | One record. |
 | `v1_save_worker_record(payload, expected_version, idempotency_key)` | Create a worker with a record, or update one record. Version-checked and retry-safe. |
 | `v1_set_worker_photo(worker_id, object_path, expected_version, idempotency_key)` | Attach an already-stored photo. Version-checked and retry-safe. |
+| `v1_preview_worker_records_import(rows)` | Classifies each sheet row (new, update, unchanged, problem). Writes nothing. |
+| `v1_import_worker_records(payload, idempotency_key)` | Imports every row or none; refuses if any row has a problem or the data changed since the preview. |
 | `yorks-worker-photos` bucket | Private. Read needs `view`; upload needs `manage` and an existing worker. Path `workers/<worker_id>/<uuid>.<jpg|png|webp>`. |
 
 Money is `numeric(12,2)` in Postgres and decimal text on the wire. A null
@@ -70,6 +74,18 @@ function or projection is changed.
 - The idempotency ledger and the audit trail store the worker id, the record
   version and the names of changed fields — never a salary or passport value.
   The full before/after is in the protected revisions table.
+- Import matching: passport number first (names must agree), then exact
+  name + company (spacing and case ignored), otherwise a new worker. A
+  passport held by a differently named worker, a different stored passport,
+  two saved workers with the same name and company, or a person repeated in
+  the file is a row problem, and any problem blocks the whole file. On the
+  device, a Total Salary that is not Basic + Housing + Others, or an amount
+  that is not a number, is also a problem.
+- An import never renames or re-dates an existing worker, and a blank cell
+  keeps the stored value. New workers take one designation and joining date
+  chosen in the preview, because the sheet has neither.
+- At most 500 rows per file. The import's audit event and idempotency entry
+  hold counts only; each changed worker gets one `imported` revision.
 - A photo is cropped square, resized to 512 px and re-encoded as JPEG on the
   device (which also drops camera metadata such as location), uploaded, then
   attached. Replaced photos are kept.
@@ -84,6 +100,8 @@ function or projection is changed.
 - `lib/features/admin/presentation/widgets/yorks_v1_worker_records_tab.dart`
 - `lib/features/admin/presentation/widgets/yorks_v1_worker_record_form.dart`
 - `lib/shared/services/yorks_v1_worker_photo_service.dart`
+- `lib/shared/services/yorks_v1_worker_workbook_service.dart` (sheet reader, template)
+- `lib/features/admin/presentation/widgets/yorks_v1_worker_import_dialog.dart`
 - access in `YorksV1UserManagementAccess`
   (`lib/features/admin/presentation/screens/user_management_screen.dart`),
   the sidebar (`lib/app/yorks_v1_workspace_shell.dart`) and the route guard
@@ -95,8 +113,8 @@ shows an error with the last confirmed rows, never an empty register.
 ## Release
 
 1. Run `supabase db reset` and `supabase test db` locally
-   (`supabase/tests/database/yorks_worker_records_foundation.test.sql` and
-   `yorks_worker_records_save_and_photo.test.sql`).
+   (`yorks_worker_records_foundation`, `yorks_worker_records_save_and_photo`
+   and `yorks_worker_records_import` in `supabase/tests/database/`).
 2. Paste `supabase/release/worker_records_bundle.sql` into the SQL editor on
    staging. Do not use `supabase db push` or `supabase migration repair`.
 3. Build staging with `YORKS_V1_WORKER_RECORDS=true` and check as Admin,
@@ -114,7 +132,6 @@ catalogue rows. Keep every record, revision and stored photo.
 
 ## Not yet built
 
-- Slice 3: Excel import with a preview.
 - A "Worker records" link from Workforce Administration.
 
 ## Not included

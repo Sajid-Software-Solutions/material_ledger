@@ -67,6 +67,20 @@ abstract interface class YorksV1WorkerRecordRepository {
     required int expectedVersion,
     required String idempotencyKey,
   });
+
+  /// Classifies sheet rows on the server. Writes nothing.
+  Future<YorksV1WorkerImportPreview> previewImport(
+    List<Map<String, Object?>> rows,
+  );
+
+  /// Imports every row or none. [expected] is the preview's rows, unchanged.
+  Future<YorksV1WorkerImportResult> importRecords({
+    required List<Map<String, Object?>> rows,
+    required List<Map<String, dynamic>> expected,
+    String? newWorkerDesignation,
+    String? newWorkerJoiningDate,
+    required String idempotencyKey,
+  });
 }
 
 final class YorksV1SupabaseWorkerRecordRepository
@@ -218,6 +232,70 @@ final class YorksV1SupabaseWorkerRecordRepository
       final record = _record(response);
       operation.complete();
       return record;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<YorksV1WorkerImportPreview> previewImport(
+    List<Map<String, Object?>> rows,
+  ) async {
+    final response = await _invoke(
+      (client) =>
+          client.rpc('v1_preview_worker_records_import', {'p_rows': rows}),
+    );
+    try {
+      return YorksV1WorkerImportPreview.fromRpcJson(_map(response));
+    } on FormatException catch (error) {
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<YorksV1WorkerImportResult> importRecords({
+    required List<Map<String, Object?>> rows,
+    required List<Map<String, dynamic>> expected,
+    String? newWorkerDesignation,
+    String? newWorkerJoiningDate,
+    required String idempotencyKey,
+  }) async {
+    final operation = _analytics.beginOperation(
+      'worker_records_import',
+      properties: {
+        AnalyticsProperty.workflow: 'worker_records',
+        AnalyticsProperty.itemCount: rows.length,
+      },
+    );
+    try {
+      final response = await _invoke(
+        (client) => client.rpc('v1_import_worker_records', {
+          'p_payload': {
+            'rows': rows,
+            'expected': expected,
+            'new_worker_designation': ?newWorkerDesignation,
+            'new_worker_joining_date': ?newWorkerJoiningDate,
+          },
+          'p_idempotency_key': idempotencyKey,
+        }),
+      );
+      final YorksV1WorkerImportResult result;
+      try {
+        result = YorksV1WorkerImportResult.fromRpcJson(_map(response));
+      } on FormatException catch (error) {
+        throw YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+          cause: error,
+        );
+      }
+      operation.complete(
+        resultCount: result.createdCount + result.updatedCount,
+      );
+      return result;
     } catch (error) {
       operation.fail(error);
       rethrow;
