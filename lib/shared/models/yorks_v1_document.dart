@@ -2,6 +2,11 @@ import 'dart:typed_data';
 
 import 'yorks_v1_domain_error.dart';
 
+/// This attempt stopped before the file-transfer/finalization boundary.
+class YorksV1DocumentUploadNotSent extends YorksV1DomainException {
+  const YorksV1DocumentUploadNotSent(super.code, {super.cause});
+}
+
 enum YorksV1DocumentClassification {
   operational('operational'),
   commercial('commercial'),
@@ -508,6 +513,7 @@ class YorksV1DocumentUploadInput {
     required this.idempotencyKey,
     this.documentId,
     this.origin = YorksV1DocumentOrigin.uploaded,
+    this.hasDurableIntent = false,
     this.sourceEntityType,
     this.sourceEntityId,
     this.sourceRevision,
@@ -527,6 +533,10 @@ class YorksV1DocumentUploadInput {
   final String idempotencyKey;
   final String? documentId;
   final YorksV1DocumentOrigin origin;
+
+  /// The caller already owns a durable key/hash journal (project setup).
+  /// A generic upload journal must never substitute that command identity.
+  final bool hasDurableIntent;
   final YorksV1DocumentEntityType? sourceEntityType;
   final String? sourceEntityId;
   final String? sourceRevision;

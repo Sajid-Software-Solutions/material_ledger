@@ -167,6 +167,24 @@ void main() {
       );
       final failed = _spec(YorksV1Role.projectEngineer, failed: true);
       expect(failed.left.first.load, YorksOverviewLoad.error);
+      // A failed projection is never shown as a green zero.
+      for (final id in ['approve', 'receipt', 'exceptions']) {
+        final tile = failed.kpis.firstWhere((k) => k.id == id);
+        expect(tile.value, '—', reason: id);
+        expect(tile.caption, isNot('Nothing waiting'), reason: id);
+        expect(tile.load, YorksOverviewLoad.error, reason: id);
+      }
+    });
+
+    test('a failed audit load shows an error, not endless loading', () {
+      final spec = _spec(YorksV1Role.admin, auditFailed: true);
+      final act = spec.allSections.firstWhere((s) => s.id == 'act');
+      expect(act.load, YorksOverviewLoad.error);
+    });
+
+    test('a capped request page is shown as a lower bound', () {
+      final spec = _spec(YorksV1Role.siteEngineer, mineHasMore: true);
+      expect(spec.kpis.firstWhere((k) => k.id == 'mine').value, endsWith('+'));
     });
 
     test('Admin keeps the rental and audit summaries', () {
@@ -296,6 +314,8 @@ YorksRoleOverviewSpec _spec(
   bool empty = false,
   bool loading = false,
   bool failed = false,
+  bool auditFailed = false,
+  bool mineHasMore = false,
   bool Function(String projectId)? canRead,
 }) {
   AsyncValue<T> wrap<T>(T value) => loading
@@ -339,7 +359,8 @@ YorksRoleOverviewSpec _spec(
       myWork: wrap(_page(work)),
       exceptions: wrap(_page(empty ? const [] : _exceptions)),
       active: AsyncData(_page(_active)),
-      mine: AsyncData(_page(_active.take(5).toList())),
+      delivery: AsyncData(_page(_active)),
+      mine: AsyncData(_page(_active.take(5).toList(), hasMore: mineHasMore)),
       closed: AsyncData(_page(_closedItems)),
       inventory: AsyncData(_inventory),
       operations: const AsyncData(
@@ -356,7 +377,8 @@ YorksRoleOverviewSpec _spec(
       ),
       drafts: AsyncData(_drafts),
       rentals: role == YorksV1Role.admin ? AsyncData(_rentals) : null,
-      audit: role == YorksV1Role.admin ? _audit : null,
+      audit: role == YorksV1Role.admin && !auditFailed ? _audit : null,
+      auditFailed: role == YorksV1Role.admin && auditFailed,
       canCreateProject: role != YorksV1Role.procurement,
       canCreateRequest: role != YorksV1Role.procurement,
       canBrowseInventory: true,
@@ -657,13 +679,14 @@ final _closedItems = [
 ];
 
 YorksV1MaterialRequestSummaryPage _page(
-  List<YorksV1MaterialRequestSummary> items,
-) => YorksV1MaterialRequestSummaryPage(
+  List<YorksV1MaterialRequestSummary> items, {
+  bool hasMore = false,
+}) => YorksV1MaterialRequestSummaryPage(
   items: items,
-  totalCount: items.length,
+  totalCount: hasMore ? items.length + 50 : items.length,
   limit: 100,
   offset: 0,
-  hasMore: false,
+  hasMore: hasMore,
   metrics: YorksV1MaterialRequestSummaryMetrics(
     total: items.length,
     open: items.length,

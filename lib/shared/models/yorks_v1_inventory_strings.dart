@@ -3,6 +3,114 @@ import 'app_strings.dart';
 /// Centralized R38.3 warehouse copy. No operational warehouse surface owns
 /// literal user-facing text, so locale expansion remains a data-only change.
 abstract final class YorksV1InventoryStrings {
+  static const previousPage = TranslatableString(
+    en: 'Previous',
+    ar: 'السابق',
+    ur: 'پچھلا',
+    hi: 'पिछला',
+  );
+  static const nextPage = TranslatableString(
+    en: 'Next',
+    ar: 'التالي',
+    ur: 'اگلا',
+    hi: 'अगला',
+  );
+  static const saveRejected = TranslatableString(
+    en: 'The server rejected this save. Review the current stock and your access before trying again.',
+    ar: 'رفض الخادم هذا الحفظ. راجع المخزون الحالي وصلاحياتك قبل المحاولة مجددًا.',
+    ur: 'سرور نے یہ تبدیلی مسترد کر دی۔ دوبارہ کوشش سے پہلے موجودہ اسٹاک اور اجازتیں دیکھیں۔',
+    hi: 'सर्वर ने यह सेव अस्वीकार किया। फिर कोशिश करने से पहले स्टॉक और अपनी अनुमति जाँचें।',
+  );
+  static const refreshedAt = TranslatableString(
+    en: 'Stock checked',
+    ar: 'تم فحص المخزون',
+    ur: 'اسٹاک چیک کیا گیا',
+    hi: 'स्टॉक जाँचा गया',
+  );
+  static const refreshing = TranslatableString(
+    en: 'Refreshing stock…',
+    ar: 'جارٍ تحديث المخزون…',
+    ur: 'اسٹاک تازہ کیا جا رہا ہے…',
+    hi: 'स्टॉक अपडेट हो रहा है…',
+  );
+  static const dateRange = TranslatableString(
+    en: 'Date range',
+    ar: 'الفترة الزمنية',
+    ur: 'تاریخ کی حد',
+    hi: 'तारीख सीमा',
+  );
+  static const allDates = TranslatableString(
+    en: 'All dates',
+    ar: 'كل التواريخ',
+    ur: 'تمام تاریخیں',
+    hi: 'सभी तारीखें',
+  );
+  static const printMovements = TranslatableString(
+    en: 'Print matching movements',
+    ar: 'طباعة الحركات المطابقة',
+    ur: 'متعلقہ نقل و حرکت پرنٹ کریں',
+    hi: 'मिलती गतिविधियाँ प्रिंट करें',
+  );
+  static const recoveryBlocked = TranslatableString(
+    en: 'A saved stock operation could not be read. Contact an administrator before making another stock change. The saved record has been preserved.',
+    ar: 'تعذر قراءة عملية مخزون محفوظة. اتصل بالمسؤول قبل إجراء تغيير آخر. تم الاحتفاظ بالسجل.',
+    ur: 'محفوظ اسٹاک کارروائی نہیں پڑھی جا سکی۔ مزید تبدیلی سے پہلے منتظم سے رابطہ کریں۔ ریکارڈ محفوظ ہے۔',
+    hi: 'सहेजी गई स्टॉक कार्रवाई पढ़ी नहीं जा सकी। अगला बदलाव करने से पहले व्यवस्थापक से संपर्क करें। रिकॉर्ड सुरक्षित है।',
+  );
+  static const uncertainSave = TranslatableString(
+    en: 'The result is not confirmed. Keep this screen open and retry the same save to check its result.',
+    ar: 'لم يتم تأكيد النتيجة. أبقِ هذه الشاشة مفتوحة وأعد محاولة الحفظ نفسه للتحقق من النتيجة.',
+    ur: 'نتیجے کی تصدیق نہیں ہوئی۔ یہ اسکرین کھلی رکھیں اور نتیجہ جاننے کے لیے وہی محفوظ کاری دوبارہ آزمائیں۔',
+    hi: 'परिणाम की पुष्टि नहीं हुई। यह स्क्रीन खुली रखें और परिणाम जाँचने के लिए उसी सेव को फिर से आज़माएँ।',
+  );
+  static const retrySave = TranslatableString(
+    en: 'Retry save',
+    ar: 'إعادة الحفظ',
+    ur: 'دوبارہ محفوظ کریں',
+    hi: 'फिर से सेव करें',
+  );
+  static const loadFailed = TranslatableString(
+    en: 'Stock could not be loaded. Try again.',
+    ar: 'تعذر تحميل المخزون. حاول مرة أخرى.',
+    ur: 'اسٹاک لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔',
+    hi: 'स्टॉक लोड नहीं हो सका। फिर कोशिश करें।',
+  );
+  static const older = TranslatableString(
+    en: 'Older movements',
+    ar: 'حركات أقدم',
+    ur: 'پرانی نقل و حرکت',
+    hi: 'पुराने मूवमेंट',
+  );
+  static const newer = TranslatableString(
+    en: 'Newer movements',
+    ar: 'حركات أحدث',
+    ur: 'نئی نقل و حرکت',
+    hi: 'नए मूवमेंट',
+  );
+  static const exportMovements = TranslatableString(
+    en: 'Export matching movements',
+    ar: 'تصدير الحركات المطابقة',
+    ur: 'مطابق نقل و حرکت برآمد کریں',
+    hi: 'मिलते मूवमेंट निर्यात करें',
+  );
+  static const noMinimum = TranslatableString(
+    en: 'No minimum set',
+    ar: 'لم يحدد الحد الأدنى',
+    ur: 'کم از کم حد مقرر نہیں',
+    hi: 'न्यूनतम तय नहीं',
+  );
+  static const filters = TranslatableString(
+    en: 'Filters',
+    ar: 'عوامل التصفية',
+    ur: 'فلٹرز',
+    hi: 'फ़िल्टर',
+  );
+  static const exportMatchingStock = TranslatableString(
+    en: 'Export stock',
+    ar: 'تصدير المخزون',
+    ur: 'اسٹاک برآمد کریں',
+    hi: 'स्टॉक निर्यात करें',
+  );
   static const warehouse = TranslatableString(
     en: 'Warehouse',
     ar: 'المستودع',

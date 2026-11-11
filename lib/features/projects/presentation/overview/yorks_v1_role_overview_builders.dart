@@ -36,6 +36,8 @@ class YorksRoleOverviewInputs {
     this.active,
     this.mine,
     this.closed,
+    this.delivery,
+    this.auditFailed = false,
     this.inventory,
     this.operations,
     this.drafts,
@@ -78,6 +80,10 @@ class YorksRoleOverviewInputs {
 
   /// Requests closed in the last seven days.
   final AsyncValue<YorksV1MaterialRequestSummaryPage>? closed;
+
+  /// Requests ready, being dispatched or waiting for site receipt, oldest
+  /// first, so the longest-waiting deliveries are never pushed out.
+  final AsyncValue<YorksV1MaterialRequestSummaryPage>? delivery;
   final AsyncValue<YorksV1InventoryWorkspace?>? inventory;
   final AsyncValue<YorksV1MaterialRequestOperationsDashboard>? operations;
   final AsyncValue<List<YorksV1PrivateMaterialRequestDraftRecord>>? drafts;
@@ -88,6 +94,9 @@ class YorksRoleOverviewInputs {
   /// Admin only: the protected audit workspace (`null` when not loaded).
   final YorksV1AuditWorkspace? audit;
   final bool auditLoading;
+
+  /// The audit workspace could not be loaded.
+  final bool auditFailed;
   final bool canCreateProject;
   final bool canCreateRequest;
   final bool canBrowseInventory;
@@ -114,6 +123,8 @@ class YorksRoleOverviewNavigation {
     this.openEspCalculator,
     this.openRentals,
     this.openAudit,
+    this.retryAudit,
+    this.retry,
   });
 
   final void Function(YorksV1MaterialRequestSummary request) openRequest;
@@ -133,6 +144,10 @@ class YorksRoleOverviewNavigation {
   final VoidCallback? openEspCalculator;
   final VoidCallback? openRentals;
   final VoidCallback? openAudit;
+  final VoidCallback? retryAudit;
+
+  /// Reloads every projection on the Overview (the Refresh action).
+  final VoidCallback? retry;
 }
 
 /// Builds the Overview for the signed-in role.
@@ -304,6 +319,19 @@ class _Builder {
   late final List<YorksV1MaterialRequestSummary> activeItems = _visible(
     input.active,
   );
+  late final List<YorksV1MaterialRequestSummary> deliveryItems = _visible(
+    input.delivery,
+  );
+
+  /// Closed-this-week total with any client-hidden rows taken out, so the
+  /// tile and its list agree.
+  int get closedTotal {
+    final page = input.closed?.valueOrNull;
+    if (page == null) return 0;
+    final hidden = page.items.length - _visible(input.closed).length;
+    return page.totalCount - hidden;
+  }
+
   late final List<YorksV1MaterialRequestSummary> mineItems = _visible(
     input.mine,
   );
@@ -569,7 +597,7 @@ class _Builder {
         _loadOf(input.myWork),
         if (extra.isNotEmpty || input.drafts != null) _loadOf(input.drafts),
       ]),
-      onRetry: nav.openRequests,
+      onRetry: nav.retry ?? nav.openRequests,
     );
   }
 
@@ -634,7 +662,7 @@ class _Builder {
       linkLabel: exceptionTotal > 6 ? t(_S.viewAll) : null,
       onLink: nav.openRequests,
       load: _loadOf(input.exceptions),
-      onRetry: nav.openRequests,
+      onRetry: nav.retry ?? nav.openRequests,
     );
   }
 
@@ -692,6 +720,9 @@ class _Builder {
       ],
       emptyText: t(_S.nothingNeededThisWeek),
       load: _loadOf(input.active),
+      footnote: input.active?.valueOrNull?.hasMore == true
+          ? t(_S.recentOpenRequestsOnly)
+          : null,
     );
   }
 
@@ -999,6 +1030,7 @@ class _Builder {
         _loadOf(input.myWork),
         _loadOf(input.exceptions),
       ]),
+      onRetry: nav.retry,
     );
   }
 
@@ -1052,14 +1084,33 @@ class _Builder {
     VoidCallback? onTap,
     YorksOverviewLoad? load,
     bool actionable = false,
+    bool capped = false,
   }) {
+    final effectiveLoad =
+        load ?? (value == null ? countsLoad : YorksOverviewLoad.ready);
+    // A failed projection is never shown as zero or as "nothing waiting".
+    if (effectiveLoad == YorksOverviewLoad.error) {
+      return YorksOverviewKpi(
+        id: id,
+        icon: icon,
+        tone: tone,
+        label: label,
+        value: '—',
+        caption: t(_S.couldNotLoadShort),
+        emphasis: YorksOverviewEmphasis.none,
+        targetSection: target,
+        queueTab: tab,
+        onTap: onTap,
+        load: YorksOverviewLoad.error,
+      );
+    }
     final v = value ?? 0;
     return YorksOverviewKpi(
       id: id,
       icon: icon,
       tone: tone,
       label: label,
-      value: '$v',
+      value: capped ? '$v+' : '$v',
       caption: actionable && v == 0 ? t(_S.nothingWaiting) : caption,
       emphasis: v == 0 && emphasis != YorksOverviewEmphasis.none
           ? (actionable ? YorksOverviewEmphasis.ok : YorksOverviewEmphasis.none)
@@ -1067,7 +1118,7 @@ class _Builder {
       targetSection: target,
       queueTab: tab,
       onTap: onTap,
-      load: load ?? (value == null ? countsLoad : YorksOverviewLoad.ready),
+      load: effectiveLoad,
     );
   }
 
@@ -1224,7 +1275,7 @@ class _Builder {
           ),
         )
         .toList();
-    final onTheWay = activeItems
+    final onTheWay = deliveryItems
         .where(
           (s) =>
               s.state == YorksV1MaterialRequestState.dispatched ||
@@ -1291,6 +1342,7 @@ class _Builder {
           tone: YorksOverviewTone.blue,
           label: t(_S.kpiWaitingOnOthers),
           value: input.mine?.hasValue == true ? waitingOnOthers : null,
+          capped: input.mine?.valueOrNull?.hasMore ?? false,
           load: _loadOf(input.mine),
           caption: t(_S.kpiWaitingOnOthersSub),
           target: 'mine',
@@ -1386,7 +1438,7 @@ class _Builder {
               ),
           ],
           emptyText: t(_S.nothingOnTheWay),
-          load: _loadOf(input.active),
+          load: _loadOf(input.delivery),
         ),
         YorksOverviewListSection(
           id: 'rep',
@@ -1431,7 +1483,7 @@ class _Builder {
         )
         .toList();
     final waitingReceipt =
-        activeItems
+        deliveryItems
             .where(
               (s) =>
                   s.state == YorksV1MaterialRequestState.dispatched ||
@@ -1592,7 +1644,7 @@ class _Builder {
               ),
           ],
           emptyText: t(_S.nothingAwaitingReceipt),
-          load: _loadOf(input.active),
+          load: _loadOf(input.delivery),
         ),
         YorksOverviewMoneySection(
           id: 'ins',
@@ -2108,7 +2160,6 @@ class _Builder {
       YorksOverviewWorkKind.approveArrangement,
     });
     final workLoad = _loadOf(input.myWork);
-    final closed = input.closed?.valueOrNull;
     final c = counts;
     return YorksRoleOverviewSpec(
       greeting: greeting(),
@@ -2178,7 +2229,7 @@ class _Builder {
           icon: Icons.inventory_outlined,
           tone: YorksOverviewTone.green,
           label: t(_S.kpiClosedThisWeek),
-          value: closed?.totalCount,
+          value: input.closed?.hasValue == true ? closedTotal : null,
           load: _loadOf(input.closed),
           caption: t(_S.kpiClosedThisWeekSub),
           target: 'closed',
@@ -2354,9 +2405,12 @@ class _Builder {
           ),
       ],
       emptyText: t(_S.noRecentActivity),
-      load: input.audit == null
-          ? YorksOverviewLoad.loading
-          : YorksOverviewLoad.ready,
+      load: input.audit != null
+          ? YorksOverviewLoad.ready
+          : input.auditFailed
+          ? YorksOverviewLoad.error
+          : YorksOverviewLoad.loading,
+      onRetry: nav.retryAudit,
     );
   }
 
@@ -2468,7 +2522,8 @@ class _Builder {
           title: t(_S.deliveryExceptions),
           subtitle: t(_S.exceptionsToFollowUpSub),
         ),
-        if (input.audit != null || input.auditLoading) recentActivity(),
+        if (input.audit != null || input.auditLoading || input.auditFailed)
+          recentActivity(),
         if (input.canBrowseInventory) stockTable(readOnly: false),
       ],
       right: [

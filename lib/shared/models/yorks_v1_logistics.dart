@@ -360,6 +360,7 @@ class YorksV1InventoryReservation {
     required this.itemDescription,
     required this.unit,
     required this.requestId,
+    this.requestKind = 'project',
     required this.requestNumber,
     required this.projectName,
     required this.scopeName,
@@ -376,6 +377,7 @@ class YorksV1InventoryReservation {
   final String itemDescription;
   final String unit;
   final String requestId;
+  final String requestKind;
   final String requestNumber;
   final String projectName;
   final String scopeName;
@@ -394,6 +396,7 @@ class YorksV1InventoryReservation {
         ),
         unit: _requiredString(json, 'unit'),
         requestId: _requiredString(json, 'request_id'),
+        requestKind: _trimToNull(json['request_kind']) ?? 'project',
         requestNumber: _requiredString(json, 'request_number'),
         projectName: _requiredString(json, 'project_name'),
         scopeName: _requiredString(json, 'scope_name'),
@@ -719,6 +722,11 @@ class YorksV1InventoryWorkspace {
     List<YorksV1InventoryMovement> recentMovements = const [],
     List<YorksV1InventoryReservation> reservations = const [],
     YorksV1InventorySummary? summary,
+    this.fetchedAt,
+    this.totalMatches,
+    this.pageOffset = 0,
+    this.hasMore = false,
+    this.availableUnits = const [],
   }) : items = List.unmodifiable(items),
        categories = List.unmodifiable(categories),
        recentMovements = List.unmodifiable(recentMovements),
@@ -730,6 +738,11 @@ class YorksV1InventoryWorkspace {
   final List<YorksV1InventoryMovement> recentMovements;
   final List<YorksV1InventoryReservation> reservations;
   final YorksV1InventorySummary summary;
+  final DateTime? fetchedAt;
+  final int? totalMatches;
+  final int pageOffset;
+  final bool hasMore;
+  final List<String> availableUnits;
 
   factory YorksV1InventoryWorkspace.fromRpcJson(Map<String, dynamic> json) {
     final rawItems = json['items'];
@@ -750,6 +763,12 @@ class YorksV1InventoryWorkspace {
     ];
     final rawSummary = json['summary'];
     return YorksV1InventoryWorkspace(
+      fetchedAt: DateTime.now(),
+      totalMatches: json['total_matches'] as int?,
+      pageOffset: json['page_offset'] as int? ?? 0,
+      hasMore: json['has_more'] == true,
+      availableUnits:
+          (json['available_units'] as List?)?.cast<String>() ?? const [],
       items: items,
       categories: [
         if (rawCategories is List)
@@ -1497,6 +1516,60 @@ class YorksV1InventoryAdjustmentInput {
   final String? action;
   final String? reference;
 
+  Map<String, Object?> toRecoveryJson() => {
+    'quantityDelta': quantityDelta,
+    'reason': reason,
+    'idempotencyKey': idempotencyKey,
+    'inventoryItemId': inventoryItemId,
+    'description': description,
+    'itemCode': itemCode,
+    'categoryId': categoryId,
+    'newCategoryName': newCategoryName,
+    'sourceCategoryText': sourceCategoryText,
+    'brandOrigin': brandOrigin,
+    'unit': unit,
+    'minimumStock': minimumStock,
+    'locationBin': locationBin,
+    'notes': notes,
+    'sizeText': sizeText,
+    'modelReference': modelReference,
+    'newCategoryParentId': newCategoryParentId,
+    'expectedVersion': expectedVersion,
+    'action': action,
+    'reference': reference,
+  };
+
+  factory YorksV1InventoryAdjustmentInput.fromRecoveryJson(
+    Map<String, dynamic> json,
+  ) {
+    final value = YorksV1InventoryAdjustmentInput(
+      quantityDelta: json['quantityDelta'] as String,
+      reason: json['reason'] as String,
+      idempotencyKey: json['idempotencyKey'] as String,
+      inventoryItemId: json['inventoryItemId'] as String?,
+      description: json['description'] as String?,
+      itemCode: json['itemCode'] as String?,
+      categoryId: json['categoryId'] as String?,
+      newCategoryName: json['newCategoryName'] as String?,
+      sourceCategoryText: json['sourceCategoryText'] as String?,
+      brandOrigin: json['brandOrigin'] as String?,
+      unit: json['unit'] as String?,
+      minimumStock: json['minimumStock'] as String?,
+      locationBin: json['locationBin'] as String?,
+      notes: json['notes'] as String?,
+      sizeText: json['sizeText'] as String?,
+      modelReference: json['modelReference'] as String?,
+      newCategoryParentId: json['newCategoryParentId'] as String?,
+      expectedVersion: json['expectedVersion'] as int?,
+      action: json['action'] as String?,
+      reference: json['reference'] as String?,
+    );
+    if (json.keys.any((key) => !value.toRecoveryJson().containsKey(key))) {
+      throw const FormatException('Unsupported stock recovery fields');
+    }
+    return value;
+  }
+
   bool get createsItem => _trimToNull(inventoryItemId) == null;
 
   YorksV1InventoryAdjustmentInput withIdempotencyKey(String value) =>
@@ -1678,6 +1751,32 @@ class YorksV1InventoryImportRowInput {
   final String? minimumStock;
   final String? locationBin;
   final String? notes;
+
+  factory YorksV1InventoryImportRowInput.fromRecoveryJson(
+    Map<String, dynamic> json,
+  ) {
+    final value = YorksV1InventoryImportRowInput(
+      sourceRowNumber: json['source_row_number'] as int,
+      inventoryItemId: json['inventory_item_id'] as String?,
+      itemCode: json['item_code'] as String?,
+      description: json['item_description'] as String,
+      categoryId: json['category_id'] as String?,
+      newCategoryName: json['new_category_name'] as String?,
+      sourceCategoryText: json['source_category_text'] as String?,
+      brandOrigin: json['brand_origin'] as String?,
+      unit: json['unit'] as String,
+      stockAction: json['stock_action'] as String,
+      quantity: json['quantity'] as String,
+      reason: json['reason'] as String,
+      minimumStock: json['minimum_stock'] as String?,
+      locationBin: json['location_bin'] as String?,
+      notes: json['notes'] as String?,
+    );
+    if (json.keys.any((key) => !value.toRpcJson().containsKey(key))) {
+      throw const FormatException('Unsupported import recovery fields');
+    }
+    return value;
+  }
 
   Map<String, Object?> toRpcJson() => {
     'source_row_number': sourceRowNumber,

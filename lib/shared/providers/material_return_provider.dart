@@ -17,11 +17,13 @@ final returnsProvider =
     StateNotifierProvider<ReturnsNotifier, List<MaterialReturn>>((ref) {
       return ReturnsNotifier(
         ref,
-        ref.watch(storageProvider).collection<MaterialReturn>(
-          _kReturnsKey,
-          toJson: (r) => r.toJson(),
-          fromJson: MaterialReturn.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<MaterialReturn>(
+              _kReturnsKey,
+              toJson: (r) => r.toJson(),
+              fromJson: MaterialReturn.fromJson,
+            ),
       );
     });
 
@@ -71,7 +73,9 @@ class ReturnsNotifier extends StateNotifier<List<MaterialReturn>> {
         clamped.add(it); // free-text/custom — nothing to reconcile against
       } else {
         final cap = _netReturnable(projectName, it.materialId!);
-        clamped.add(it.copyWith(quantity: it.quantity.clamp(0, cap).toDouble()));
+        clamped.add(
+          it.copyWith(quantity: it.quantity.clamp(0, cap).toDouble()),
+        );
       }
     }
 

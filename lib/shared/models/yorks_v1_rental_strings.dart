@@ -1,0 +1,1217 @@
+import 'package:flutter/widgets.dart';
+
+/// Copy for the simplified rental workspace controls, keyed independently of
+/// stored property types, contract states and controlled workbook headings.
+abstract final class RentalWorkspaceStrings {
+  static String missingField(BuildContext context, String key) {
+    final localizedKey = 'missing_$key';
+    return _copy.containsKey(localizedKey)
+        ? text(context, localizedKey)
+        : key.replaceAll('_', ' ');
+  }
+
+  static String savedField(BuildContext context, String key) => switch (key) {
+    'occupancy_state' => missingField(context, 'occupancy'),
+    'billing_start' => text(context, 'billingStart'),
+    'annual_rent' => text(context, 'annualRent'),
+    'monthly_rent' => text(context, 'monthlyRent'),
+    _ =>
+      _copy.containsKey('missing_$key')
+          ? missingField(context, key)
+          : text(context, 'field_$key'),
+  };
+
+  static String text(BuildContext context, String key) {
+    final values = _copy[key]!;
+    return values[Localizations.localeOf(context).languageCode] ??
+        values['en']!;
+  }
+
+  static const _copy = {
+    'saveSummaryNewer': {
+      'en':
+          'This property has changed since your save. The details below reflect its latest state.',
+      'ar': 'تغير هذا العقار بعد الحفظ. البيانات أدناه تعكس حالته الحالية.',
+      'ur':
+          'آپ کے محفوظ کرنے کے بعد یہ جائیداد تبدیل ہوئی ہے۔ نیچے تازہ ترین تفصیلات ہیں۔',
+      'hi': 'आपके सहेजने के बाद यह संपत्ति बदल गई है। नीचे नवीनतम विवरण हैं।',
+    },
+    "saveSummaryUpdated": {
+      "en": "Updated in this save",
+      "ar": "تم التحديث في هذا الحفظ",
+      "ur": "اس بار محفوظ کی گئی تبدیلیاں",
+      "hi": "इस बार किए गए बदलाव",
+    },
+    "saveSummaryCreated": {
+      "en": "Property created",
+      "ar": "تم إنشاء العقار",
+      "ur": "جائیداد بن گئی",
+      "hi": "संपत्ति बनाई गई",
+    },
+    "saveSummaryRecorded": {
+      "en": "Details saved",
+      "ar": "البيانات المحفوظة",
+      "ur": "محفوظ تفصیلات",
+      "hi": "सहेजी गई जानकारी",
+    },
+    "saveSummaryNoChanges": {
+      "en": "No field values changed.",
+      "ar": "لم تتغير قيم الحقول.",
+      "ur": "کسی فیلڈ کی قدر تبدیل نہیں ہوئی۔",
+      "hi": "किसी फ़ील्ड का मान नहीं बदला।",
+    },
+    "saveSummaryCleared": {
+      "en": "Cleared",
+      "ar": "تم المسح",
+      "ur": "صاف کیا گیا",
+      "hi": "हटाया गया",
+    },
+    "saveSummaryMissing": {
+      "en": "Still missing",
+      "ar": "ما زال ناقصاً",
+      "ur": "ابھی نامکمل",
+      "hi": "अभी अधूरा",
+    },
+    "saveSummaryLater": {
+      "en":
+          "Your changes are saved. Add these details whenever they are available.",
+      "ar": "تم حفظ تغييراتك. أضف هذه البيانات عند توفرها.",
+      "ur": "آپ کی تبدیلیاں محفوظ ہیں۔ معلومات دستیاب ہونے پر شامل کریں۔",
+      "hi": "आपके बदलाव सहेज दिए गए हैं। ये विवरण उपलब्ध होने पर जोड़ें।",
+    },
+    "saveSummaryComplete": {
+      "en": "No recommended details are missing.",
+      "ar": "لا توجد بيانات موصى بها ناقصة.",
+      "ur": "تجویز کردہ کوئی تفصیل نامکمل نہیں۔",
+      "hi": "कोई सुझाया गया विवरण अधूरा नहीं है।",
+    },
+    "saveSummaryLoading": {
+      "en": "Checking saved changes and remaining details…",
+      "ar": "جارٍ التحقق من البيانات المتبقية…",
+      "ur": "باقی تفصیلات کی جانچ جاری ہے…",
+      "hi": "बाकी विवरण जाँचे जा रहे हैं…",
+    },
+    "saveSummaryReadFailed": {
+      "en":
+          "Your changes are saved. We could not refresh the change summary and remaining details. Try refreshing again.",
+      "ar":
+          "تم حفظ تغييراتك. تعذر تحديث البيانات المتبقية. حاول التحديث مجدداً.",
+      "ur":
+          "آپ کی تبدیلیاں محفوظ ہیں۔ باقی تفصیلات تازہ نہیں ہو سکیں۔ دوبارہ تازہ کریں۔",
+      "hi":
+          "आपके बदलाव सहेज दिए गए हैं। बाकी विवरण ताज़ा नहीं हो सके। फिर से ताज़ा करें।",
+    },
+    "saveSummaryRefresh": {
+      "en": "Refresh details",
+      "ar": "تحديث البيانات",
+      "ur": "تفصیلات تازہ کریں",
+      "hi": "विवरण ताज़ा करें",
+    },
+    "saveSummaryContinue": {
+      "en": "Complete remaining details",
+      "ar": "إكمال البيانات المتبقية",
+      "ur": "باقی تفصیلات مکمل کریں",
+      "hi": "बाकी विवरण पूरे करें",
+    },
+    "saveSummaryDone": {"en": "Done", "ar": "تم", "ur": "مکمل", "hi": "हो गया"},
+    "saveSummaryBilling": {
+      "en":
+          "Billing setup still needs review. No opening balance has been inferred.",
+      "ar":
+          "ما زال إعداد الفوترة يحتاج إلى مراجعة. لم يتم افتراض رصيد افتتاحي.",
+      "ur": "بلنگ کی ترتیب کا جائزہ باقی ہے۔ ابتدائی بیلنس فرض نہیں کیا گیا۔",
+      "hi":
+          "बिलिंग सेटअप की समीक्षा बाकी है। शुरुआती शेष का अनुमान नहीं लगाया गया है।",
+    },
+    "field_unit_code": {
+      "en": "Unit code",
+      "ar": "رمز الوحدة",
+      "ur": "یونٹ کوڈ",
+      "hi": "यूनिट कोड",
+    },
+    "field_property_name": {
+      "en": "Property name",
+      "ar": "اسم العقار",
+      "ur": "جائیداد کا نام",
+      "hi": "संपत्ति का नाम",
+    },
+    "field_municipality_number": {
+      "en": "Property / municipality number",
+      "ar": "رقم العقار / البلدية",
+      "ur": "جائیداد / بلدیہ نمبر",
+      "hi": "संपत्ति / नगरपालिका नंबर",
+    },
+    "field_description": {
+      "en": "Description",
+      "ar": "الوصف",
+      "ur": "تفصیل",
+      "hi": "विवरण",
+    },
+    "field_trade_licence_number": {
+      "en": "Trade licence number",
+      "ar": "رقم الرخصة التجارية",
+      "ur": "تجارتی لائسنس نمبر",
+      "hi": "व्यापार लाइसेंस नंबर",
+    },
+    "field_email": {
+      "en": "Email",
+      "ar": "البريد الإلكتروني",
+      "ur": "ای میل",
+      "hi": "ईमेल",
+    },
+    "field_contract_type": {
+      "en": "Contract type",
+      "ar": "نوع العقد",
+      "ur": "معاہدے کی قسم",
+      "hi": "अनुबंध का प्रकार",
+    },
+    "field_contract_status": {
+      "en": "Contract status",
+      "ar": "حالة العقد",
+      "ur": "معاہدے کی حالت",
+      "hi": "अनुबंध की स्थिति",
+    },
+    "field_signed_date": {
+      "en": "Signed date",
+      "ar": "تاريخ التوقيع",
+      "ur": "دستخط کی تاریخ",
+      "hi": "हस्ताक्षर की तारीख",
+    },
+    "field_security_deposit": {
+      "en": "Security deposit",
+      "ar": "مبلغ التأمين",
+      "ur": "ضمانتی رقم",
+      "hi": "सुरक्षा जमा",
+    },
+    "field_monthly_due_day": {
+      "en": "Monthly due day",
+      "ar": "يوم الاستحقاق الشهري",
+      "ur": "ماہانہ ادائیگی کا دن",
+      "hi": "मासिक देय दिन",
+    },
+    "field_grace_period_days": {
+      "en": "Grace period",
+      "ar": "فترة السماح",
+      "ur": "مہلت",
+      "hi": "अनुग्रह अवधि",
+    },
+    "field_default_payment_method": {
+      "en": "Payment method",
+      "ar": "طريقة الدفع",
+      "ur": "ادائیگی کا طریقہ",
+      "hi": "भुगतान का तरीका",
+    },
+    "field_payment_frequency": {
+      "en": "Payment frequency",
+      "ar": "دورية الدفع",
+      "ur": "ادائیگی کی مدت",
+      "hi": "भुगतान की आवृत्ति",
+    },
+    "field_contract_cheque_count": {
+      "en": "Number of contract cheques",
+      "ar": "عدد شيكات العقد",
+      "ur": "معاہدے کے چیکوں کی تعداد",
+      "hi": "अनुबंध चेक की संख्या",
+    },
+    "field_annual_escalation_percent": {
+      "en": "Annual escalation",
+      "ar": "الزيادة السنوية",
+      "ur": "سالانہ اضافہ",
+      "hi": "वार्षिक वृद्धि",
+    },
+    "field_renewal_notice_days": {
+      "en": "Renewal notice",
+      "ar": "إشعار التجديد",
+      "ur": "تجدید کا نوٹس",
+      "hi": "नवीनीकरण सूचना",
+    },
+    "field_lease_notes": {
+      "en": "Contract / lease notes",
+      "ar": "ملاحظات العقد",
+      "ur": "معاہدے کے نوٹس",
+      "hi": "अनुबंध / पट्टा नोट्स",
+    },
+    "actionFilter": {
+      "en": "Show actions",
+      "ar": "عرض الإجراءات",
+      "ur": "اقدامات دکھائیں",
+      "hi": "कार्रवाई दिखाएँ",
+    },
+    "actionFilter_all": {
+      "en": "All actions",
+      "ar": "كل الإجراءات",
+      "ur": "تمام اقدامات",
+      "hi": "सभी कार्रवाइयाँ",
+    },
+    "actionFilter_rent": {
+      "en": "Rent",
+      "ar": "الإيجار",
+      "ur": "کرایہ",
+      "hi": "किराया",
+    },
+    "actionFilter_cheques": {
+      "en": "Cheques",
+      "ar": "الشيكات",
+      "ur": "چیک",
+      "hi": "चेक",
+    },
+    "actionFilter_leases": {
+      "en": "Leases",
+      "ar": "العقود",
+      "ur": "معاہدے",
+      "hi": "पट्टे",
+    },
+    "actionFilter_billing": {
+      "en": "Billing setup",
+      "ar": "إعداد الفوترة",
+      "ur": "بلنگ کی ترتیب",
+      "hi": "बिलिंग सेटअप",
+    },
+    "actionFilter_details": {
+      "en": "Missing details",
+      "ar": "البيانات الناقصة",
+      "ur": "نامکمل تفصیلات",
+      "hi": "अधूरी जानकारी",
+    },
+    "actionFilterEmpty": {
+      "en": "No properties need this action right now.",
+      "ar": "لا توجد عقارات تحتاج إلى هذا الإجراء حالياً.",
+      "ur": "فی الحال کسی پراپرٹی کو اس اقدام کی ضرورت نہیں۔",
+      "hi": "अभी किसी संपत्ति को इस कार्रवाई की आवश्यकता नहीं है।",
+    },
+    "actionFilterReset": {
+      "en": "Show all actions",
+      "ar": "عرض كل الإجراءات",
+      "ur": "تمام اقدامات دکھائیں",
+      "hi": "सभी कार्रवाइयाँ दिखाएँ",
+    },
+    "reviewField": {
+      "en": "Go to field",
+      "ar": "الانتقال إلى الحقل",
+      "ur": "فیلڈ پر جائیں",
+      "hi": "फ़ील्ड पर जाएँ",
+    },
+
+    "actionTitle": {
+      "en": "Action required",
+      "ar": "الإجراءات المطلوبة",
+      "ur": "مطلوبہ اقدامات",
+      "hi": "आवश्यक कार्रवाई",
+    },
+    "actionHelp": {
+      "en":
+          "Review the reason, then choose the next step. Optional missing details can be added later.",
+      "ar":
+          "راجع السبب ثم اختر الخطوة التالية. يمكن إضافة البيانات الاختيارية الناقصة لاحقاً.",
+      "ur":
+          "وجہ دیکھیں، پھر اگلا قدم منتخب کریں۔ اختیاری نامکمل تفصیلات بعد میں شامل کر سکتے ہیں۔",
+      "hi":
+          "कारण देखें, फिर अगला कदम चुनें। वैकल्पिक जानकारी बाद में जोड़ सकते हैं।",
+    },
+    "actionEmpty": {
+      "en": "No actions needed right now",
+      "ar": "لا توجد إجراءات مطلوبة حالياً",
+      "ur": "فی الحال کوئی اقدام درکار نہیں",
+      "hi": "अभी कोई कार्रवाई आवश्यक नहीं",
+    },
+    "actionResolved": {
+      "en":
+          "This item no longer needs attention. The latest property details are shown below.",
+      "ar": "لم يعد هذا البند بحاجة إلى إجراء. تظهر أحدث بيانات العقار أدناه.",
+      "ur": "اس معاملے پر اب اقدام درکار نہیں۔ تازہ تفصیلات نیچے ہیں۔",
+      "hi": "इस मद पर अब कार्रवाई आवश्यक नहीं है। नवीनतम विवरण नीचे हैं।",
+    },
+    "action_rent": {
+      "en": "Rent balance to review",
+      "ar": "رصيد إيجار للمراجعة",
+      "ur": "کرایے کا بیلنس دیکھیں",
+      "hi": "किराए का शेष देखें",
+    },
+    "action_rent_help": {
+      "en":
+          "{amount} remains on the tracked rent schedule. Check the periods and record a receipt only when payment is received.",
+      "ar":
+          "يتبقى {amount} في جدول الإيجار. راجع الفترات وسجّل إيصالاً فقط عند استلام الدفع.",
+      "ur":
+          "کرایہ شیڈول میں {amount} باقی ہے۔ مدت دیکھیں اور ادائیگی ملنے پر ہی رسید درج کریں۔",
+      "hi":
+          "किराया अनुसूची में {amount} बाकी है। अवधि जाँचें और भुगतान मिलने पर ही रसीद दर्ज करें।",
+    },
+    "action_rent_cta": {
+      "en": "Review rent schedule",
+      "ar": "مراجعة جدول الإيجار",
+      "ur": "کرایہ شیڈول دیکھیں",
+      "hi": "किराया अनुसूची देखें",
+    },
+    "action_cheque": {
+      "en": "Cheque needs review",
+      "ar": "شيك يحتاج إلى مراجعة",
+      "ur": "چیک کا جائزہ درکار ہے",
+      "hi": "चेक की समीक्षा आवश्यक है",
+    },
+    "action_cheque_help": {
+      "en":
+          "Check the cheque date and status. Update its status only after confirming the bank outcome.",
+      "ar":
+          "تحقق من تاريخ الشيك وحالته. حدّث الحالة بعد تأكيد نتيجة البنك فقط.",
+      "ur": "چیک کی تاریخ اور حالت دیکھیں۔ بینک کی تصدیق کے بعد ہی حالت بدلیں۔",
+      "hi":
+          "चेक की तारीख और स्थिति देखें। बैंक की पुष्टि के बाद ही स्थिति बदलें।",
+    },
+    "action_cheque_cta": {
+      "en": "Review cheques",
+      "ar": "مراجعة الشيكات",
+      "ur": "چیک دیکھیں",
+      "hi": "चेक देखें",
+    },
+    "action_expiredLease": {
+      "en": "Lease expired",
+      "ar": "انتهى العقد",
+      "ur": "معاہدہ ختم ہو چکا ہے",
+      "hi": "पट्टा समाप्त हो गया",
+    },
+    "action_expiredLease_help": {
+      "en":
+          "The recorded lease ended on {date}. Confirm renewal or vacancy, then update the lease details.",
+      "ar":
+          "انتهى العقد المسجّل في {date}. أكد التجديد أو الشغور ثم حدّث بيانات العقد.",
+      "ur":
+          "درج معاہدہ {date} کو ختم ہوا۔ تجدید یا خالی ہونے کی تصدیق کے بعد تفصیلات بدلیں۔",
+      "hi":
+          "दर्ज पट्टा {date} को समाप्त हुआ। नवीनीकरण या रिक्तता की पुष्टि कर विवरण बदलें।",
+    },
+    "action_lease": {
+      "en": "Lease ending soon",
+      "ar": "العقد ينتهي قريباً",
+      "ur": "معاہدہ جلد ختم ہوگا",
+      "hi": "पट्टा जल्द समाप्त होगा",
+    },
+    "action_lease_help": {
+      "en":
+          "The lease ends on {date}. Confirm the next tenancy arrangement and update the record when agreed.",
+      "ar":
+          "ينتهي العقد في {date}. أكد ترتيبات الإيجار القادمة وحدّث السجل عند الاتفاق.",
+      "ur":
+          "معاہدہ {date} کو ختم ہوگا۔ اگلے انتظام کی تصدیق کریں اور اتفاق کے بعد ریکارڈ بدلیں۔",
+      "hi":
+          "पट्टा {date} को समाप्त होगा। अगले किराए की व्यवस्था की पुष्टि कर सहमति होने पर रिकॉर्ड बदलें।",
+    },
+    "action_lease_cta": {
+      "en": "Review lease details",
+      "ar": "مراجعة بيانات العقد",
+      "ur": "معاہدے کی تفصیلات دیکھیں",
+      "hi": "पट्टे का विवरण देखें",
+    },
+    "action_billing": {
+      "en": "Confirm opening balance",
+      "ar": "تأكيد الرصيد الافتتاحي",
+      "ur": "ابتدائی بیلنس کی تصدیق کریں",
+      "hi": "शुरुआती शेष की पुष्टि करें",
+    },
+    "action_billing_help": {
+      "en":
+          "Confirm the opening balance and first rent date before tracking payments. Past rent has not been assumed unpaid.",
+      "ar":
+          "أكد الرصيد الافتتاحي وأول تاريخ إيجار قبل متابعة الدفعات. لم يُفترض أن الإيجار السابق غير مدفوع.",
+      "ur":
+          "ادائیگیاں ٹریک کرنے سے پہلے ابتدائی بیلنس اور پہلی تاریخ کی تصدیق کریں۔ پچھلا کرایہ غیر ادا شدہ فرض نہیں کیا گیا۔",
+      "hi":
+          "भुगतान ट्रैक करने से पहले शुरुआती शेष और पहली तारीख की पुष्टि करें। पिछला किराया अवैतनिक नहीं माना गया है।",
+    },
+    "action_billing_cta": {
+      "en": "Review billing setup",
+      "ar": "مراجعة إعداد الإيجار",
+      "ur": "بلنگ کی تفصیلات دیکھیں",
+      "hi": "बिलिंग सेटअप देखें",
+    },
+    "action_details": {
+      "en": "Add missing details",
+      "ar": "إضافة البيانات الناقصة",
+      "ur": "نامکمل تفصیلات شامل کریں",
+      "hi": "अधूरी जानकारी जोड़ें",
+    },
+    "action_details_help": {
+      "en":
+          "Missing: {fields}. Add these when available; the property is already saved.",
+      "ar":
+          "البيانات الناقصة: {fields}. أضفها عند توفرها؛ العقار محفوظ بالفعل.",
+      "ur": "نامکمل: {fields}۔ دستیاب ہونے پر شامل کریں؛ جائیداد محفوظ ہے۔",
+      "hi":
+          "अधूरा: {fields}। उपलब्ध होने पर जोड़ें; संपत्ति पहले से सहेजी गई है।",
+    },
+    "action_details_cta": {
+      "en": "Complete details",
+      "ar": "استكمال البيانات",
+      "ur": "تفصیلات مکمل کریں",
+      "hi": "विवरण पूरा करें",
+    },
+    "viewAllActions": {
+      "en": "View all {count} properties",
+      "ar": "عرض جميع العقارات ({count})",
+      "ur": "تمام {count} جائیدادیں دیکھیں",
+      "hi": "सभी {count} संपत्तियाँ देखें",
+    },
+    "showFewerActions": {
+      "en": "Show fewer",
+      "ar": "عرض أقل",
+      "ur": "کم دکھائیں",
+      "hi": "कम दिखाएँ",
+    },
+    "additionalActions": {
+      "en": "{count} more to review",
+      "ar": "{count} أخرى للمراجعة",
+      "ur": "مزید {count} جائزے",
+      "hi": "समीक्षा के लिए {count} और",
+    },
+    "registerHelp": {
+      "en": "Open a property to review its tenant, rent and next steps.",
+      "ar": "افتح العقار لمراجعة المستأجر والإيجار والخطوات التالية.",
+      "ur": "کرایہ دار، کرایہ اور اگلے اقدامات دیکھنے کے لیے جائیداد کھولیں۔",
+      "hi": "किरायेदार, किराया और अगले कदम देखने के लिए संपत्ति खोलें।",
+    },
+    "viewRegister": {
+      "en": "View property register",
+      "ar": "عرض سجل العقارات",
+      "ur": "جائیداد رجسٹر دیکھیں",
+      "hi": "संपत्ति रजिस्टर देखें",
+    },
+    "backRentals": {
+      "en": "Back to rental properties",
+      "ar": "العودة إلى العقارات",
+      "ur": "جائیدادوں پر واپس",
+      "hi": "किराये की संपत्तियों पर वापस",
+    },
+    'unfinishedAction': {
+      'en': 'Unfinished rental action',
+      'ar': 'إجراء تأجير غير مكتمل',
+      'ur': 'کرایے کا نامکمل اقدام',
+      'hi': 'अधूरी किराया कार्रवाई',
+    },
+    'unfinishedActionHelp': {
+      'en':
+          'A previous request has no confirmed result on this device. Review it before recording another action.',
+      'ar': 'لم يتأكد طلب سابق على هذا الجهاز. راجعه قبل تسجيل إجراء آخر.',
+      'ur':
+          'اس آلے پر پچھلی درخواست کا نتیجہ تصدیق شدہ نہیں ہے۔ نیا اقدام درج کرنے سے پہلے اسے دیکھیں۔',
+      'hi':
+          'इस उपकरण पर पिछले अनुरोध का परिणाम पुष्ट नहीं है। दूसरी कार्रवाई दर्ज करने से पहले इसकी समीक्षा करें।',
+    },
+    'reviewUnfinishedAction': {
+      'en': 'Review unfinished action',
+      'ar': 'مراجعة الإجراء غير المكتمل',
+      'ur': 'نامکمل اقدام کا جائزہ لیں',
+      'hi': 'अधूरी कार्रवाई की समीक्षा करें',
+    },
+    'resolveAction': {
+      'en': 'Resolve this action',
+      'ar': 'حسم هذا الإجراء',
+      'ur': 'اس اقدام کو حل کریں',
+      'hi': 'इस कार्रवाई का समाधान करें',
+    },
+    'resolveActionHelp': {
+      'en':
+          'The server will keep an action that already completed. If it never completed, it will cancel that attempt and prevent a delayed request from applying. No recorded payment is reversed, and no new action is submitted. Review the refreshed records before starting again.',
+      'ar':
+          'سيحتفظ الخادم بالإجراء الذي اكتمل. وإذا لم يكتمل، فسيلغي المحاولة ويمنع تطبيق أي طلب متأخر. لن تُعكس أي دفعة مسجلة ولن يُرسل إجراء جديد. راجع السجلات المحدثة قبل البدء مجددًا.',
+      'ur':
+          'سرور مکمل شدہ اقدام محفوظ رکھے گا۔ نامکمل کوشش منسوخ ہوگی اور تاخیر سے آنے والی درخواست لاگو نہیں ہوگی۔ کوئی درج ادائیگی واپس نہیں ہوگی اور نیا اقدام نہیں بھیجا جائے گا۔ دوبارہ شروع کرنے سے پہلے تازہ ریکارڈ دیکھیں۔',
+      'hi':
+          'सर्वर पूरी हो चुकी कार्रवाई को सुरक्षित रखेगा। अधूरा प्रयास रद्द होगा और देर से आया अनुरोध लागू नहीं होगा। दर्ज भुगतान वापस नहीं होगा और नई कार्रवाई नहीं भेजी जाएगी। फिर शुरू करने से पहले ताज़ा रिकॉर्ड देखें।',
+    },
+    'resolvedConfirmed': {
+      'en':
+          'The previous action completed and is kept. Review the refreshed records before recording anything else.',
+      'ar':
+          'اكتمل الإجراء السابق وتم الاحتفاظ به. راجع السجلات المحدثة قبل تسجيل أي إجراء آخر.',
+      'ur':
+          'پچھلا اقدام مکمل اور محفوظ ہے۔ کچھ اور درج کرنے سے پہلے تازہ ریکارڈ دیکھیں۔',
+      'hi':
+          'पिछली कार्रवाई पूरी हुई और सुरक्षित है। कुछ और दर्ज करने से पहले ताज़ा रिकॉर्ड देखें।',
+    },
+    'resolvedAbandoned': {
+      'en':
+          'The previous attempt was cancelled safely. Review the refreshed records, then start a new action if needed.',
+      'ar':
+          'أُلغيت المحاولة السابقة بأمان. راجع السجلات المحدثة ثم ابدأ إجراءً جديدًا عند الحاجة.',
+      'ur':
+          'پچھلی کوشش محفوظ طور پر منسوخ ہوئی۔ تازہ ریکارڈ دیکھیں، پھر ضرورت پر نیا اقدام شروع کریں۔',
+      'hi':
+          'पिछला प्रयास सुरक्षित रूप से रद्द हुआ। ताज़ा रिकॉर्ड देखें, फिर आवश्यकता होने पर नई कार्रवाई शुरू करें।',
+    },
+    'resolveFailed': {
+      'en':
+          'The previous action could not be resolved. Its protection remains. Try again when connected.',
+      'ar':
+          'تعذر حسم الإجراء السابق. الحماية ما زالت قائمة. أعد المحاولة عند الاتصال.',
+      'ur':
+          'پچھلا اقدام حل نہیں ہوا۔ حفاظت برقرار ہے۔ رابطہ بحال ہونے پر دوبارہ کوشش کریں۔',
+      'hi':
+          'पिछली कार्रवाई का समाधान नहीं हुआ। उसकी सुरक्षा बनी हुई है। कनेक्शन होने पर फिर प्रयास करें।',
+    },
+    'pending_v1_save_rental_property': {
+      'en': 'Property save',
+      'ar': 'حفظ العقار',
+      'ur': 'جائیداد محفوظ کرنا',
+      'hi': 'संपत्ति सहेजना',
+    },
+    'pending_v1_record_rent_payment': {
+      'en': 'Rent payment',
+      'ar': 'دفعة الإيجار',
+      'ur': 'کرایے کی ادائیگی',
+      'hi': 'किराया भुगतान',
+    },
+    'pending_v1_save_rental_cheque': {
+      'en': 'Cheque save',
+      'ar': 'حفظ الشيك',
+      'ur': 'چیک محفوظ کرنا',
+      'hi': 'चेक सहेजना',
+    },
+    'pending_v1_transition_rental_cheque': {
+      'en': 'Cheque status',
+      'ar': 'حالة الشيك',
+      'ur': 'چیک کی حالت',
+      'hi': 'चेक की स्थिति',
+    },
+    'pending_v1_archive_rental_property': {
+      'en': 'Property archive',
+      'ar': 'أرشفة العقار',
+      'ur': 'جائیداد کا محفوظ ریکارڈ',
+      'hi': 'संपत्ति संग्रह',
+    },
+    'pending_v1_import_rental_workbook': {
+      'en': 'Workbook import',
+      'ar': 'استيراد المصنف',
+      'ur': 'ورک بک درآمد',
+      'hi': 'कार्यपुस्तिका आयात',
+    },
+    'archiveProperty': {
+      'en': 'Archive property',
+      'ar': 'أرشفة العقار',
+      'ur': 'جائیداد محفوظ کریں',
+      'hi': 'संपत्ति संग्रहित करें',
+    },
+    'confirmArchive': {
+      'en': 'Confirm archive',
+      'ar': 'تأكيد الأرشفة',
+      'ur': 'محفوظ کرنے کی تصدیق کریں',
+      'hi': 'संग्रह की पुष्टि करें',
+    },
+    'archiveReasonRequired': {
+      'en': 'Enter a clear archive reason of at least 8 characters.',
+      'ar': 'أدخل سببًا واضحًا للأرشفة لا يقل عن 8 أحرف.',
+      'ur': 'محفوظ کرنے کی واضح وجہ کم از کم 8 حروف میں درج کریں۔',
+      'hi': 'कम से कम 8 अक्षरों में संग्रह का स्पष्ट कारण दर्ज करें।',
+    },
+    'propertyArchived': {
+      'en': 'Rental property archived.',
+      'ar': 'تمت أرشفة العقار المؤجر.',
+      'ur': 'کرایے کی جائیداد محفوظ ہو گئی۔',
+      'hi': 'किराये की संपत्ति संग्रहित हुई।',
+    },
+    'archiveUnconfirmed': {
+      'en':
+          'Archival could not be confirmed. Your reason is kept here. Confirm archive safely retries the same request.',
+      'ar':
+          'تعذر تأكيد الأرشفة. السبب محفوظ هنا. تأكيد الأرشفة يعيد الطلب نفسه بأمان.',
+      'ur':
+          'محفوظ کرنے کی تصدیق نہیں ہوئی۔ وجہ یہاں محفوظ ہے۔ تصدیق اسی درخواست کی محفوظ دوبارہ کوشش کرتی ہے۔',
+      'hi':
+          'संग्रह की पुष्टि नहीं हुई। कारण यहाँ सुरक्षित है। पुष्टि उसी अनुरोध को सुरक्षित दोहराती है।',
+    },
+    'archiveRejected': {
+      'en':
+          'Archival was rejected. Your reason is kept here. Check outstanding obligations and reload the property before trying again.',
+      'ar':
+          'تم رفض الأرشفة. السبب محفوظ هنا. تحقق من الالتزامات القائمة وأعد تحميل العقار قبل المحاولة مجددًا.',
+      'ur':
+          'محفوظ کرنا مسترد ہوا۔ وجہ یہاں محفوظ ہے۔ بقایا ذمہ داریاں دیکھیں اور دوبارہ کوشش سے پہلے جائیداد لوڈ کریں۔',
+      'hi':
+          'संग्रह अस्वीकार हुआ। कारण यहाँ सुरक्षित है। बकाया दायित्व जाँचें और फिर प्रयास से पहले संपत्ति दोबारा लोड करें।',
+    },
+    'addCheque': {
+      'en': 'Add cheque',
+      'ar': 'إضافة شيك',
+      'ur': 'چیک شامل کریں',
+      'hi': 'चेक जोड़ें',
+    },
+    'confirmCheque': {
+      'en': 'Confirm cheque',
+      'ar': 'تأكيد الشيك',
+      'ur': 'چیک کی تصدیق کریں',
+      'hi': 'चेक की पुष्टि करें',
+    },
+    'chequeRequired': {
+      'en': 'Cheque number, bank and a finite positive amount are required.',
+      'ar': 'رقم الشيك والبنك ومبلغ موجب صالح مطلوبة.',
+      'ur': 'چیک نمبر، بینک اور درست مثبت رقم درکار ہے۔',
+      'hi': 'चेक नंबर, बैंक और मान्य धनात्मक राशि आवश्यक हैं।',
+    },
+    'chequeRecorded': {
+      'en': 'Cheque recorded.',
+      'ar': 'تم تسجيل الشيك.',
+      'ur': 'چیک درج ہو گیا۔',
+      'hi': 'चेक दर्ज हुआ।',
+    },
+    'chequeSaveUnconfirmed': {
+      'en':
+          'The cheque could not be confirmed. Your entries are kept here. Confirm cheque safely retries the same request.',
+      'ar':
+          'تعذر تأكيد الشيك. بياناتك محفوظة هنا. تأكيد الشيك يعيد الطلب نفسه بأمان.',
+      'ur':
+          'چیک کی تصدیق نہیں ہو سکی۔ معلومات یہاں محفوظ ہیں۔ تصدیق اسی درخواست کی محفوظ دوبارہ کوشش کرتی ہے۔',
+      'hi':
+          'चेक की पुष्टि नहीं हुई। विवरण यहाँ सुरक्षित हैं। पुष्टि उसी अनुरोध को सुरक्षित दोहराती है।',
+    },
+    'chequeSaveRejected': {
+      'en':
+          'The cheque was rejected. Your entries are kept here. Check the details before trying again.',
+      'ar':
+          'تم رفض الشيك. بياناتك محفوظة هنا. تحقق من التفاصيل قبل المحاولة مجددًا.',
+      'ur':
+          'چیک مسترد ہوا۔ معلومات یہاں محفوظ ہیں۔ دوبارہ کوشش سے پہلے تفصیلات دیکھیں۔',
+      'hi':
+          'चेक अस्वीकार हुआ। विवरण यहाँ सुरक्षित हैं। फिर प्रयास करने से पहले विवरण जाँचें।',
+    },
+    'chequeActions': {
+      'en': 'Cheque actions',
+      'ar': 'إجراءات الشيك',
+      'ur': 'چیک کے اقدامات',
+      'hi': 'चेक की कार्रवाइयाँ',
+    },
+    'chequeAction_received': {
+      'en': 'Mark received',
+      'ar': 'تسجيل الاستلام',
+      'ur': 'موصول درج کریں',
+      'hi': 'प्राप्त दर्ज करें',
+    },
+    'chequeAction_deposited': {
+      'en': 'Mark deposited',
+      'ar': 'تسجيل الإيداع',
+      'ur': 'جمع شدہ درج کریں',
+      'hi': 'जमा दर्ज करें',
+    },
+    'chequeAction_cleared': {
+      'en': 'Mark cleared',
+      'ar': 'تسجيل التحصيل',
+      'ur': 'کلیئر شدہ درج کریں',
+      'hi': 'समाशोधित दर्ज करें',
+    },
+    'chequeAction_returned': {
+      'en': 'Mark returned',
+      'ar': 'تسجيل الارتجاع',
+      'ur': 'واپس شدہ درج کریں',
+      'hi': 'वापस दर्ज करें',
+    },
+    'chequeAction_cancelled': {
+      'en': 'Mark cancelled',
+      'ar': 'تسجيل الإلغاء',
+      'ur': 'منسوخ درج کریں',
+      'hi': 'रद्द दर्ज करें',
+    },
+    'chequeStatus_scheduled': {
+      'en': 'Scheduled',
+      'ar': 'مجدول',
+      'ur': 'طے شدہ',
+      'hi': 'निर्धारित',
+    },
+    'chequeStatus_received': {
+      'en': 'Received',
+      'ar': 'مستلم',
+      'ur': 'موصول',
+      'hi': 'प्राप्त',
+    },
+    'chequeStatus_deposited': {
+      'en': 'Deposited',
+      'ar': 'مودع',
+      'ur': 'جمع شدہ',
+      'hi': 'जमा',
+    },
+    'chequeStatus_cleared': {
+      'en': 'Cleared',
+      'ar': 'محصل',
+      'ur': 'کلیئر شدہ',
+      'hi': 'समाशोधित',
+    },
+    'chequeStatus_returned': {
+      'en': 'Returned',
+      'ar': 'مرتجع',
+      'ur': 'واپس شدہ',
+      'hi': 'वापस',
+    },
+    'chequeStatus_cancelled': {
+      'en': 'Cancelled',
+      'ar': 'ملغى',
+      'ur': 'منسوخ',
+      'hi': 'रद्द',
+    },
+    'chequeReason': {
+      'en': 'Change reason',
+      'ar': 'سبب التغيير',
+      'ur': 'تبدیلی کی وجہ',
+      'hi': 'बदलाव का कारण',
+    },
+    'chequeReasonHelp': {
+      'en':
+          'Returning or cancelling a cheque requires a reason in its audit history.',
+      'ar': 'يتطلب ارتجاع الشيك أو إلغاؤه تسجيل السبب في سجل التدقيق.',
+      'ur': 'چیک واپس یا منسوخ کرنے کی وجہ آڈٹ ریکارڈ میں درج کرنا ضروری ہے۔',
+      'hi':
+          'चेक लौटाने या रद्द करने का कारण उसके ऑडिट इतिहास में दर्ज करना आवश्यक है।',
+    },
+    'chequeReasonRequired': {
+      'en': 'A reason is required.',
+      'ar': 'السبب مطلوب.',
+      'ur': 'وجہ درج کرنا ضروری ہے۔',
+      'hi': 'कारण आवश्यक है।',
+    },
+    'cancelAction': {
+      'en': 'Cancel',
+      'ar': 'إلغاء',
+      'ur': 'منسوخ کریں',
+      'hi': 'रद्द करें',
+    },
+    'chequeUpdated': {
+      'en': 'Cheque status updated.',
+      'ar': 'تم تحديث حالة الشيك.',
+      'ur': 'چیک کی حالت تبدیل ہو گئی۔',
+      'hi': 'चेक की स्थिति अपडेट हुई।',
+    },
+    'chequeNotUpdated': {
+      'en':
+          'Cheque status was not updated. Check the details and reload the property if it changed.',
+      'ar':
+          'لم يتم تحديث حالة الشيك. تحقق من التفاصيل وأعد تحميل العقار إذا تغير.',
+      'ur':
+          'چیک کی حالت تبدیل نہیں ہوئی۔ تفصیلات دیکھیں اور تبدیلی کی صورت میں جائیداد دوبارہ لوڈ کریں۔',
+      'hi':
+          'चेक की स्थिति अपडेट नहीं हुई। विवरण जाँचें और बदलाव होने पर संपत्ति फिर लोड करें।',
+    },
+    'chequeUnconfirmed': {
+      'en':
+          'The status could not be confirmed. Your reason is kept here. Retry the same change safely.',
+      'ar':
+          'تعذر تأكيد الحالة. السبب محفوظ هنا. أعد محاولة التغيير نفسه بأمان.',
+      'ur':
+          'حالت کی تصدیق نہیں ہوئی۔ وجہ یہاں محفوظ ہے۔ اسی تبدیلی کی محفوظ دوبارہ کوشش کریں۔',
+      'hi':
+          'स्थिति की पुष्टि नहीं हुई। कारण यहाँ सुरक्षित है। उसी बदलाव को सुरक्षित दोहराएँ।',
+    },
+    'retryChequeStatus': {
+      'en': 'Confirm status change',
+      'ar': 'تأكيد تغيير الحالة',
+      'ur': 'حالت کی تبدیلی کی تصدیق کریں',
+      'hi': 'स्थिति बदलाव की पुष्टि करें',
+    },
+    'recordPayment': {
+      'en': 'Record payment',
+      'ar': 'تسجيل الدفعة',
+      'ur': 'ادائیگی درج کریں',
+      'hi': 'भुगतान दर्ज करें',
+    },
+    'confirmPayment': {
+      'en': 'Confirm payment',
+      'ar': 'تأكيد الدفعة',
+      'ur': 'ادائیگی کی تصدیق کریں',
+      'hi': 'भुगतान की पुष्टि करें',
+    },
+    'paymentRecorded': {
+      'en': 'Rent payment recorded.',
+      'ar': 'تم تسجيل دفعة الإيجار.',
+      'ur': 'کرایہ کی ادائیگی درج ہو گئی۔',
+      'hi': 'किराया भुगतान दर्ज हुआ।',
+    },
+    'paymentUnconfirmed': {
+      'en':
+          'The payment could not be confirmed. Your entries are kept here. Confirm payment safely retries the same request. Do not record it again as a new payment.',
+      'ar':
+          'تعذر تأكيد الدفعة. بياناتك محفوظة هنا. تأكيد الدفعة يعيد الطلب نفسه بأمان. لا تسجلها كدفعة جديدة.',
+      'ur':
+          'ادائیگی کی تصدیق نہیں ہو سکی۔ معلومات محفوظ ہیں۔ تصدیق سے اسی درخواست کی محفوظ دوبارہ کوشش ہو گی۔ نئی ادائیگی دوبارہ درج نہ کریں۔',
+      'hi':
+          'भुगतान की पुष्टि नहीं हुई। विवरण सुरक्षित है। पुष्टि उसी अनुरोध को सुरक्षित दोहराती है। इसे नया भुगतान बनाकर दोबारा दर्ज न करें।',
+    },
+    'paymentRejected': {
+      'en':
+          'The payment was rejected. Check the details and reload the property if it changed.',
+      'ar': 'تم رفض الدفعة. تحقق من البيانات وأعد تحميل العقار إذا تغير.',
+      'ur':
+          'ادائیگی مسترد ہوئی۔ تفصیلات دیکھیں اور تبدیلی کی صورت میں جائیداد دوبارہ لوڈ کریں۔',
+      'hi':
+          'भुगतान अस्वीकार हुआ। विवरण जाँचें और बदलाव होने पर संपत्ति फिर लोड करें।',
+    },
+    'unconfirmedShort': {
+      'en': 'Not confirmed',
+      'ar': 'غير مؤكد',
+      'ur': 'غیر مصدقہ',
+      'hi': 'पुष्टि बाकी',
+    },
+    'occupied': {
+      'en': 'Occupied',
+      'ar': 'مشغول',
+      'ur': 'آباد',
+      'hi': 'अधिभोगित',
+    },
+    'vacant': {'en': 'Vacant', 'ar': 'شاغر', 'ur': 'خالی', 'hi': 'खाली'},
+    'annualOption': {
+      'en': 'Annual',
+      'ar': 'سنوي',
+      'ur': 'سالانہ',
+      'hi': 'वार्षिक',
+    },
+    'monthlyOption': {
+      'en': 'Monthly',
+      'ar': 'شهري',
+      'ur': 'ماہانہ',
+      'hi': 'मासिक',
+    },
+    'chequeReview': {
+      'en': 'Cheque requires review',
+      'ar': 'الشيك يحتاج إلى مراجعة',
+      'ur': 'چیک کا جائزہ لیں',
+      'hi': 'चेक की समीक्षा करें',
+    },
+    'reviewDetails': {
+      'en': 'Review missing details',
+      'ar': 'مراجعة البيانات الناقصة',
+      'ur': 'نامکمل تفصیلات دیکھیں',
+      'hi': 'अधूरे विवरण देखें',
+    },
+    'perYear': {'en': 'year', 'ar': 'سنة', 'ur': 'سال', 'hi': 'वर्ष'},
+    'perMonth': {'en': 'month', 'ar': 'شهر', 'ur': 'ماہ', 'hi': 'महीना'},
+    'invalidNumber': {
+      'en': 'Enter a valid non-negative number.',
+      'ar': 'أدخل رقماً صحيحاً غير سالب.',
+      'ur': 'درست غیر منفی عدد درج کریں۔',
+      'hi': 'मान्य गैर-ऋणात्मक संख्या दर्ज करें।',
+    },
+    'annualRentRoll': {
+      'en': 'Annual rent roll',
+      'ar': 'إجمالي الإيجار السنوي',
+      'ur': 'سالانہ کرایہ',
+      'hi': 'वार्षिक किराया',
+    },
+    'annualRent': {
+      'en': 'Annual Rent (AED)',
+      'ar': 'الإيجار السنوي (درهم)',
+      'ur': 'سالانہ کرایہ (درہم)',
+      'hi': 'वार्षिक किराया (AED)',
+    },
+    'monthlyRent': {
+      'en': 'Monthly Rent (AED)',
+      'ar': 'الإيجار الشهري (درهم)',
+      'ur': 'ماہانہ کرایہ (درہم)',
+      'hi': 'मासिक किराया (AED)',
+    },
+    'completionTitle': {
+      'en': 'Complete property details',
+      'ar': 'استكمال بيانات العقارات',
+      'ur': 'جائیداد کی تفصیلات مکمل کریں',
+      'hi': 'संपत्ति का विवरण पूरा करें',
+    },
+    'completionHelp': {
+      'en':
+          'These records are saved. Add the missing details whenever available. Open a property and choose Edit property.',
+      'ar':
+          'تم حفظ هذه السجلات. أضف البيانات الناقصة عند توفرها. افتح العقار واختر تعديل العقار.',
+      'ur':
+          'یہ ریکارڈ محفوظ ہیں۔ معلومات دستیاب ہونے پر شامل کریں۔ جائیداد کھول کر ترمیم کریں۔',
+      'hi':
+          'ये रिकॉर्ड सहेजे गए हैं। जानकारी उपलब्ध होने पर जोड़ें। संपत्ति खोलकर संपादित करें।',
+    },
+    'billingStart': {
+      'en': 'First rent date to track',
+      'ar': 'أول تاريخ إيجار للمتابعة',
+      'ur': 'کرایہ ٹریک کرنے کی پہلی تاریخ',
+      'hi': 'किराया ट्रैक करने की पहली तारीख',
+    },
+    'billingStartHelp': {
+      'en':
+          'Leave blank while the opening balance is unconfirmed. Selecting a date creates unpaid rent periods from that date. Historical receipts must be recorded separately.',
+      'ar':
+          'اتركه فارغاً حتى تأكيد الرصيد الافتتاحي. تحديد تاريخ ينشئ فترات إيجار غير مدفوعة من ذلك التاريخ. سجّل الإيصالات السابقة بشكل منفصل.',
+      'ur':
+          'ابتدائی بیلنس غیر مصدقہ ہو تو خالی چھوڑیں۔ تاریخ منتخب کرنے سے اس دن سے غیر ادا شدہ کرایہ بنے گا۔ پچھلی رسیدیں الگ درج کریں۔',
+      'hi':
+          'शुरुआती शेष की पुष्टि तक खाली छोड़ें। तारीख चुनने से उस दिन से अवैतनिक किराया बनेगा। पुरानी रसीदें अलग दर्ज करें।',
+    },
+    'balancePending': {
+      'en': 'Opening balance unconfirmed',
+      'ar': 'الرصيد الافتتاحي غير مؤكد',
+      'ur': 'ابتدائی بیلنس غیر مصدقہ',
+      'hi': 'शुरुआती शेष की पुष्टि बाकी',
+    },
+    'importedSource': {
+      'en': 'Imported source details',
+      'ar': 'بيانات المصدر المستوردة',
+      'ur': 'درآمد شدہ اصل تفصیلات',
+      'hi': 'आयातित स्रोत विवरण',
+    },
+    'unknown': {
+      'en': 'Unknown',
+      'ar': 'غير محدد',
+      'ur': 'نامعلوم',
+      'hi': 'अज्ञात',
+    },
+    'missing_location': {
+      'en': 'Site location',
+      'ar': 'موقع العقار',
+      'ur': 'مقام',
+      'hi': 'स्थान',
+    },
+    'missing_contact_number': {
+      'en': 'Contact number',
+      'ar': 'رقم التواصل',
+      'ur': 'رابطہ نمبر',
+      'hi': 'संपर्क नंबर',
+    },
+    'missing_contract_number': {
+      'en': 'Contract number',
+      'ar': 'رقم العقد',
+      'ur': 'معاہدہ نمبر',
+      'hi': 'अनुबंध नंबर',
+    },
+    'missing_tenant_name': {
+      'en': 'Tenant / company name',
+      'ar': 'اسم المستأجر / الشركة',
+      'ur': 'کرایہ دار / کمپنی کا نام',
+      'hi': 'किरायेदार / कंपनी का नाम',
+    },
+    'missing_lease_start': {
+      'en': 'Lease start',
+      'ar': 'بداية العقد',
+      'ur': 'معاہدہ شروع',
+      'hi': 'पट्टा शुरू',
+    },
+    'missing_lease_end': {
+      'en': 'Lease end',
+      'ar': 'نهاية العقد',
+      'ur': 'معاہدہ ختم',
+      'hi': 'पट्टा समाप्त',
+    },
+    'missing_rent_amount': {
+      'en': 'Rent amount',
+      'ar': 'قيمة الإيجار',
+      'ur': 'کرایہ کی رقم',
+      'hi': 'किराया राशि',
+    },
+    'missing_billing_start': {
+      'en': 'Opening balance and first rent date',
+      'ar': 'الرصيد الافتتاحي وأول تاريخ إيجار',
+      'ur': 'ابتدائی بیلنس اور کرایہ کی پہلی تاریخ',
+      'hi': 'शुरुआती शेष और किराए की पहली तारीख',
+    },
+    'missing_property_type': {
+      'en': 'Property type',
+      'ar': 'نوع العقار',
+      'ur': 'جائیداد کی قسم',
+      'hi': 'संपत्ति का प्रकार',
+    },
+    'missing_occupancy': {
+      'en': 'Occupancy',
+      'ar': 'الإشغال',
+      'ur': 'رہائش کی حالت',
+      'hi': 'अधिभोग',
+    },
+    'missing_source_unit_number': {
+      'en': 'Unit number',
+      'ar': 'رقم الوحدة',
+      'ur': 'یونٹ نمبر',
+      'hi': 'यूनिट नंबर',
+    },
+    'missing_source_property_type': {
+      'en': 'Original property type',
+      'ar': 'نوع العقار الأصلي',
+      'ur': 'اصل جائیداد کی قسم',
+      'hi': 'मूल संपत्ति प्रकार',
+    },
+    'workbookIssues': {
+      'en': 'Workbook issues',
+      'ar': 'مشكلات ملف الاستيراد',
+      'ur': 'ورک بک کے مسائل',
+      'hi': 'वर्कबुक की समस्याएँ',
+    },
+    'importFormatHelp': {
+      'en':
+          'Use the rental import format. Keep each worksheet name and its header row.',
+      'ar':
+          'استخدم قالب استيراد الإيجارات مع الحفاظ على أسماء أوراق العمل وصف العناوين.',
+      'ur':
+          'کرایہ درآمد کا نمونہ استعمال کریں۔ ہر شیٹ کا نام اور عنوانات کی قطار برقرار رکھیں۔',
+      'hi':
+          'किराया आयात टेम्पलेट का उपयोग करें। हर शीट का नाम और शीर्षक पंक्ति बनाए रखें।',
+    },
+    'schedule': {
+      'en': 'Rent Schedule',
+      'ar': 'جدول الإيجار',
+      'ur': 'کرایہ شیڈول',
+      'hi': 'किराया अनुसूची',
+    },
+    'documents': {
+      'en': 'Documents',
+      'ar': 'المستندات',
+      'ur': 'دستاویزات',
+      'hi': 'दस्तावेज़',
+    },
+    'activity': {
+      'en': 'Activity',
+      'ar': 'النشاط',
+      'ur': 'سرگرمی',
+      'hi': 'गतिविधि',
+    },
+    'edit': {
+      'en': 'Edit property',
+      'ar': 'تعديل العقار',
+      'ur': 'جائیداد میں ترمیم',
+      'hi': 'संपत्ति संपादित करें',
+    },
+    'archive': {
+      'en': 'Archive',
+      'ar': 'أرشفة',
+      'ur': 'محفوظات',
+      'hi': 'संग्रह करें',
+    },
+
+    'saved': {
+      'en': 'Rental property saved.',
+      'ar': 'تم حفظ العقار.',
+      'ur': 'جائیداد محفوظ ہو گئی۔',
+      'hi': 'संपत्ति सहेज दी गई।',
+    },
+    'saving': {
+      'en': 'Saving…',
+      'ar': 'جارٍ الحفظ…',
+      'ur': 'محفوظ ہو رہا ہے…',
+      'hi': 'सहेजा जा रहा है…',
+    },
+    'retrySave': {
+      'en': 'Confirm save',
+      'ar': 'تأكيد الحفظ',
+      'ur': 'محفوظ کرنے کی تصدیق',
+      'hi': 'सहेजने की पुष्टि करें',
+    },
+    'create': {
+      'en': 'Create property',
+      'ar': 'إنشاء عقار',
+      'ur': 'جائیداد بنائیں',
+      'hi': 'संपत्ति बनाएँ',
+    },
+    'save': {
+      'en': 'Save property',
+      'ar': 'حفظ العقار',
+      'ur': 'جائیداد محفوظ کریں',
+      'hi': 'संपत्ति सहेजें',
+    },
+    'unconfirmed': {
+      'en':
+          'The save could not be confirmed. Your entries are kept here. Confirm save retries the same request safely before further changes.',
+      'ar':
+          'تعذر تأكيد الحفظ. بياناتك محفوظة هنا. أعد تأكيد الطلب نفسه بأمان قبل إجراء تغييرات أخرى.',
+      'ur':
+          'محفوظ ہونے کی تصدیق نہیں ہوئی۔ آپ کی معلومات یہاں موجود ہیں۔ مزید تبدیلی سے پہلے اسی درخواست کی دوبارہ تصدیق کریں۔',
+      'hi':
+          'सहेजने की पुष्टि नहीं हो सकी। आपकी जानकारी यहाँ रखी गई है। बदलाव से पहले उसी अनुरोध की सुरक्षित पुष्टि करें।',
+    },
+    'conflict': {
+      'en':
+          'This property changed since you opened it. Your entries are kept here. Close and reload the property before applying changes.',
+      'ar':
+          'تغير العقار منذ فتحه. بياناتك موجودة هنا. أغلق وأعد تحميل العقار قبل تطبيق التغييرات.',
+      'ur':
+          'کھولنے کے بعد جائیداد تبدیل ہوئی ہے۔ معلومات یہاں موجود ہیں۔ تبدیلی سے پہلے بند کر کے دوبارہ کھولیں۔',
+      'hi':
+          'खोलने के बाद संपत्ति बदल गई है। आपकी जानकारी यहाँ है। बदलाव से पहले बंद करके फिर लोड करें।',
+    },
+    'saveFailed': {
+      'en':
+          'The property was not saved. Your entries are kept here. Check the details and your connection, then try again.',
+      'ar':
+          'لم يتم حفظ العقار. بياناتك موجودة هنا. تحقق من التفاصيل والاتصال ثم حاول مجدداً.',
+      'ur':
+          'جائیداد محفوظ نہیں ہوئی۔ معلومات یہاں موجود ہیں۔ تفصیلات اور رابطہ دیکھ کر دوبارہ کوشش کریں۔',
+      'hi':
+          'संपत्ति सहेजी नहीं गई। जानकारी यहाँ है। विवरण और कनेक्शन जाँचकर फिर कोशिश करें।',
+    },
+
+    'title': {
+      'en': 'Rental Properties',
+      'ar': 'العقارات المؤجرة',
+      'ur': 'کرائے کی جائیدادیں',
+      'hi': 'किराये की संपत्तियाँ',
+    },
+    'refresh': {
+      'en': 'Refresh rental register',
+      'ar': 'تحديث سجل الإيجارات',
+      'ur': 'کرایہ رجسٹر تازہ کریں',
+      'hi': 'किराया रजिस्टर रीफ़्रेश करें',
+    },
+    'import': {
+      'en': 'Import Excel',
+      'ar': 'استيراد Excel',
+      'ur': 'Excel درآمد کریں',
+      'hi': 'Excel आयात करें',
+    },
+    'template': {
+      'en': 'Download import format',
+      'ar': 'تنزيل قالب الاستيراد',
+      'ur': 'درآمد کا نمونہ ڈاؤن لوڈ کریں',
+      'hi': 'आयात टेम्पलेट डाउनलोड करें',
+    },
+    'export': {
+      'en': 'Export rental registers',
+      'ar': 'تصدير سجلات الإيجار',
+      'ur': 'کرایہ رجسٹر برآمد کریں',
+      'hi': 'किराया रजिस्टर निर्यात करें',
+    },
+    'add': {
+      'en': 'Add property',
+      'ar': 'إضافة عقار',
+      'ur': 'جائیداد شامل کریں',
+      'hi': 'संपत्ति जोड़ें',
+    },
+    'overview': {
+      'en': 'Overview',
+      'ar': 'نظرة عامة',
+      'ur': 'جائزہ',
+      'hi': 'अवलोकन',
+    },
+    'properties': {
+      'en': 'Property register',
+      'ar': 'سجل العقارات',
+      'ur': 'جائیداد رجسٹر',
+      'hi': 'संपत्ति रजिस्टर',
+    },
+    'payments': {
+      'en': 'Payments',
+      'ar': 'الدفعات',
+      'ur': 'ادائیگیاں',
+      'hi': 'भुगतान',
+    },
+    'cheques': {
+      'en': 'CDC / PDC',
+      'ar': 'شيكات حالية / مؤجلة',
+      'ur': 'CDC / PDC',
+      'hi': 'CDC / PDC',
+    },
+    'expiry': {
+      'en': 'Lease expiry',
+      'ar': 'انتهاء الإيجار',
+      'ur': 'لیز کی میعاد',
+      'hi': 'लीज़ की समाप्ति',
+    },
+    'emptyTitle': {
+      'en': 'Add your first rental property',
+      'ar': 'أضف أول عقار مؤجر',
+      'ur': 'اپنی پہلی کرائے کی جائیداد شامل کریں',
+      'hi': 'अपनी पहली किराये की संपत्ति जोड़ें',
+    },
+    'emptyBody': {
+      'en':
+          'Add a property or import your Excel workbook. Then manage its lease, rent and payments here.',
+      'ar': 'أضف عقاراً أو استورد ملف Excel، ثم تابع عقد الإيجار والدفعات هنا.',
+      'ur':
+          'جائیداد شامل کریں یا Excel فائل درآمد کریں۔ پھر یہاں لیز، کرایہ اور ادائیگیوں کا انتظام کریں۔',
+      'hi':
+          'संपत्ति जोड़ें या Excel फ़ाइल आयात करें। फिर यहाँ लीज़, किराया और भुगतान प्रबंधित करें।',
+    },
+  };
+}

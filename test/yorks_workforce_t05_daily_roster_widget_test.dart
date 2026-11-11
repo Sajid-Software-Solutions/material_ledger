@@ -198,7 +198,12 @@ void main() {
 
           expect(
             find.text(
-              YorksV1WorkforceStrings.text(language, 'daily_attendance'),
+              YorksV1WorkforceStrings.text(
+                language,
+                viewport.width < 720
+                    ? 'mobile_attendance_title'
+                    : 'daily_attendance',
+              ),
             ),
             findsOneWidget,
             reason: '${language.code} at $viewport',
@@ -353,7 +358,7 @@ void main() {
       );
 
       await tester.tap(
-        find.byKey(const Key('workforce-mobile-worker-$_workerId')),
+        find.byKey(const Key('workforce-mobile-details-$_workerId')),
       );
       await tester.pumpAndSettle();
       expect(
@@ -394,6 +399,34 @@ void main() {
     },
   );
 
+  testWidgets('direct mobile marks stay local and undo restores hours', (
+    tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final controller = await _pumpRoster(
+      tester,
+      viewport: const Size(390, 844),
+      language: AppLanguage.english,
+    );
+    final before = controller.state.rows.first;
+    await tester.tap(find.byKey(const Key('workforce-absent-$_workerId')));
+    await tester.pumpAndSettle();
+    expect(
+      controller.state.rows.first.status,
+      YorksWorkforceAttendanceStatus.absent,
+    );
+    expect(controller.state.rows.first.regularMinutes, 0);
+    expect(controller.state.isReviewing, isFalse);
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(controller.state.rows.first, same(before));
+    expect(controller.state.dirtyRows, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('mobile focused editor and bulk sheet match visual evidence', (
     tester,
   ) async {
@@ -409,7 +442,7 @@ void main() {
     );
 
     await tester.tap(
-      find.byKey(const Key('workforce-mobile-worker-$_workerId')),
+      find.byKey(const Key('workforce-mobile-details-$_workerId')),
     );
     await tester.pumpAndSettle();
     await expectLater(
@@ -585,6 +618,8 @@ void main() {
       connectivity: connectivity,
     );
 
+    expect(find.text('Make a change to enable saving.'), findsOneWidget);
+
     controller.updateRow(_workerId, regularMinutes: 0);
     await tester.pump();
     expect(
@@ -592,9 +627,23 @@ void main() {
       findsOneWidget,
     );
 
+    expect(
+      find.text('Check the highlighted workers before saving.'),
+      findsOneWidget,
+    );
+
     connectivity.setOnline(false);
     await tester.pump();
     expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('Connect to the internet to save.'), findsOneWidget);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.byKey(const Key('workforce-mobile-review-day')),
+          )
+          .onPressed,
+      isNull,
+    );
 
     controller.purgeProtectedState();
     await tester.pump();

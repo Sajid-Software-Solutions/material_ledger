@@ -3,14 +3,31 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/shared/models/analytics_event.dart';
 import 'package:material_ledger/shared/models/yorks_v1_document.dart';
+import 'package:material_ledger/shared/models/yorks_v1_command_outcome.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
+import 'package:material_ledger/shared/repositories/yorks_v1_project_draft_storage_native.dart';
+import 'package:material_ledger/shared/services/yorks_v1_document_upload_journal.dart';
+import 'package:material_ledger/shared/services/yorks_v1_document_file_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_documents_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_material_request_repository.dart';
 import 'package:material_ledger/shared/services/analytics_service.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 
 void main() {
+  test('upload outcome uses the accepted opaque correlation format', () async {
+    final analytics = _RecordingAnalytics();
+    final fixture = _Fixture(analytics: analytics);
+    await fixture.repository.upload(_input());
+    final outcome = analytics.outcomes.single;
+    expect(
+      outcome[AnalyticsProperty.commandFingerprint],
+      matches(r'^[a-f0-9]{32}$'),
+    );
+    expect(outcome[AnalyticsProperty.commandPhase], 'confirmed');
+  });
+
   for (final analytics in [
     const _ThrowingAnalytics(throwBegin: true),
     const _ThrowingAnalytics(),
@@ -313,7 +330,7 @@ void main() {
         fixture.repository.upload(_input()),
         throwsA(_domainCode(YorksV1DomainErrorCode.unexpectedResponse)),
       );
-      final originalPayload = fixture.rpc.prepareCalls.single['p_payload'];
+      final originalPayload = fixture.rpc.prepareCalls.first['p_payload'];
       // The server has finalized the first immutable upload despite the lost
       // response. Its retained prepare receipt is the retry authority.
       fixture.rpc.retainedReceipt = {
@@ -337,26 +354,312 @@ void main() {
       expect(fixture.rpc.workspaceReads, 1);
     },
   );
+  test(
+    'confirmed finalizer followed by workspace failure stays committed',
+    () async {
+      final fixture = _Fixture();
+      fixture.rpc.workspaceError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+      await expectLater(
+        fixture.repository.upload(_input()),
+        throwsA(
+          isA<YorksV1CommittedViewUnavailable>()
+              .having(
+                (error) => error.receipt.entityId,
+                'document',
+                'document-1',
+              )
+              .having(
+                (error) => error.receipt.commandKey,
+                'key',
+                'reviewed-upload-key',
+              )
+              .having((error) => error.receipt.recordVersion, 'revision', 1),
+        ),
+      );
+      expect(fixture.storage.uploads, 1);
+      expect(fixture.finalizer.calls, ['intent-1']);
+    },
+  );
+  test(
+    'ambiguous finalizer is automatically checked with the original key',
+    () async {
+      final fixture = _Fixture();
+      fixture.finalizer.onFinalize = () {
+        fixture.rpc.retainedReceipt = {
+          'document_id': 'document-1',
+          'document_version_id': 'version-1',
+          'revision_number': 1,
+        };
+      };
+      fixture.finalizer.response = null;
+      expect(
+        (await fixture.repository.upload(_input())).projectId,
+        'project-1',
+      );
+      expect(fixture.rpc.prepareCalls, hasLength(2));
+      expect(fixture.rpc.prepareCalls.first, fixture.rpc.prepareCalls.last);
+      expect(fixture.storage.uploads, 1);
+      expect(fixture.finalizer.calls, ['intent-1']);
+    },
+  );
+  test(
+    'restart reselect uses the durable original key before any Storage replay',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      YorksV1DocumentUploadJournal journal() => YorksV1DocumentUploadJournal(
+        storage: createProjectDraftAtomicStorage(preferences),
+        owner: 'actor-1',
+        backend: 'local',
+      );
+      final first = _Fixture(journal: journal());
+      first.finalizer.response = null;
+      await expectLater(
+        first.repository.upload(_input()),
+        throwsA(_domainCode(YorksV1DomainErrorCode.unexpectedResponse)),
+      );
+      final restarted = _Fixture(journal: journal());
+      restarted.rpc.retainedReceipt = {
+        'document_id': 'document-1',
+        'document_version_id': 'version-1',
+        'revision_number': 1,
+      };
+      await restarted.repository.upload(_input(key: 'new-ui-selection-key'));
+      expect(
+        restarted.rpc.prepareCalls.single['p_idempotency_key'],
+        'reviewed-upload-key',
+      );
+      expect(restarted.storage.uploads, 0);
+      expect(restarted.finalizer.calls, isEmpty);
+      expect(journal().pending('project-1'), isEmpty);
+    },
+  );
+  test(
+    'restart after expiry renews the same journal intent before transfer',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      YorksV1DocumentUploadJournal journal() => YorksV1DocumentUploadJournal(
+        storage: createProjectDraftAtomicStorage(preferences),
+        owner: 'actor-1',
+        backend: 'local',
+      );
+      final first = _Fixture(journal: journal());
+      first.storage.failNext = true;
+      await expectLater(
+        first.repository.upload(_input()),
+        throwsA(_domainCode(YorksV1DomainErrorCode.backendUnavailable)),
+      );
+      final restarted = _Fixture(journal: journal());
+      // The retained prepare receipt is expired. Only the server's locked
+      // resume response authorizes another 15-minute transfer window.
+      restarted.rpc.resumedIntent = {
+        ...restarted.rpc.intentResponse,
+        'expires_at': '2099-10-15T12:15:00Z',
+      };
+      await restarted.repository.upload(_input(key: 'another-selection'));
+      expect(
+        restarted.rpc.prepareCalls.single['p_idempotency_key'],
+        'reviewed-upload-key',
+      );
+      expect(restarted.rpc.resumeCalls, hasLength(2));
+      expect(restarted.rpc.resumeCalls.first, {
+        'p_upload_intent_id': 'intent-1',
+        'p_idempotency_key': 'reviewed-upload-key',
+      });
+      expect(restarted.storage.uploads, 1);
+      expect(restarted.finalizer.calls, ['intent-1']);
+      expect(journal().pending('project-1'), isEmpty);
+    },
+  );
+  test(
+    'server expiry check runs even when device sees a future deadline',
+    () async {
+      final fixture = _Fixture();
+      fixture.rpc.expiresAt = '2099-10-15T12:15:00Z';
+      await fixture.repository.upload(_input());
+      expect(fixture.rpc.resumeCalls, hasLength(2));
+    },
+  );
+  test(
+    'a transfer crossing expiry renews before finalizing without re-upload',
+    () async {
+      final fixture = _Fixture();
+      var serverExpired = false;
+      var renewals = 0;
+      fixture.rpc.onResume = () {
+        if (serverExpired) {
+          serverExpired = false;
+          renewals++;
+        }
+        return {
+          ...fixture.rpc.intentResponse,
+          'expires_at': '2099-10-15T12:15:00Z',
+        };
+      };
+      fixture.storage.onUpload = () => serverExpired = true;
+      fixture.finalizer.onFinalize = () {
+        expect(serverExpired, false);
+        expect(renewals, 1);
+        expect(fixture.rpc.resumeCalls, hasLength(2));
+      };
+      await fixture.repository.upload(_input());
+      expect(fixture.storage.uploads, 1);
+      expect(fixture.finalizer.calls, ['intent-1']);
+    },
+  );
+  test(
+    'finalization during transfer is read back before another finalize',
+    () async {
+      final fixture = _Fixture();
+      fixture.storage.onUpload = () {
+        fixture.rpc.resumedIntent = {
+          ...fixture.rpc.intentResponse,
+          'finalized_document_id': 'document-1',
+          'finalized_version_id': 'version-1',
+        };
+      };
+      await fixture.repository.upload(_input());
+      expect(fixture.rpc.resumeCalls, hasLength(2));
+      expect(fixture.storage.uploads, 1);
+      expect(fixture.finalizer.calls, isEmpty);
+      expect(fixture.rpc.workspaceReads, 1);
+    },
+  );
+  test(
+    'a finalizer winning renewal returns its receipt without transfer',
+    () async {
+      final fixture = _Fixture();
+      fixture.rpc.resumedIntent = {
+        ...fixture.rpc.intentResponse,
+        'finalized_document_id': 'document-1',
+        'finalized_version_id': 'version-1',
+      };
+      await fixture.repository.upload(_input());
+      expect(fixture.rpc.resumeCalls, hasLength(1));
+      expect(fixture.storage.uploads, 0);
+      expect(fixture.finalizer.calls, isEmpty);
+      expect(fixture.rpc.workspaceReads, 1);
+    },
+  );
+  for (final field in [
+    'upload_intent_id',
+    'object_path',
+    'byte_size',
+    'planned_revision_number',
+  ]) {
+    test('renewal cannot substitute $field', () async {
+      final fixture = _Fixture();
+      fixture.rpc.resumedIntent = {
+        ...fixture.rpc.intentResponse,
+        field: field == 'byte_size' || field == 'planned_revision_number'
+            ? 2
+            : 'different',
+      };
+      await expectLater(
+        fixture.repository.upload(_input()),
+        throwsA(_domainCode(YorksV1DomainErrorCode.unexpectedResponse)),
+      );
+      expect(fixture.storage.uploads, 0);
+      expect(fixture.finalizer.calls, isEmpty);
+    });
+  }
+  test(
+    'failed renewal retains the original key for recovery after restart',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      YorksV1DocumentUploadJournal journal() => YorksV1DocumentUploadJournal(
+        storage: createProjectDraftAtomicStorage(preferences),
+        owner: 'actor-1',
+        backend: 'local',
+      );
+      final first = _Fixture(journal: journal());
+      first.rpc.resumeError = const YorksV1DomainException(
+        YorksV1DomainErrorCode.backendUnavailable,
+      );
+      await expectLater(
+        first.repository.upload(_input()),
+        throwsA(_domainCode(YorksV1DomainErrorCode.backendUnavailable)),
+      );
+      expect(first.storage.uploads, 0);
+      expect(
+        journal().pending('project-1').single['key'],
+        'reviewed-upload-key',
+      );
+      final restarted = _Fixture(journal: journal());
+      await restarted.repository.upload(_input(key: 'new-key'));
+      expect(
+        restarted.rpc.resumeCalls.first['p_idempotency_key'],
+        'reviewed-upload-key',
+      );
+      expect(restarted.finalizer.calls, ['intent-1']);
+    },
+  );
+  test('50 MB selection respects the existing 20 MiB document limit', () {
+    expect(
+      () => YorksV1SelectedDocument.checked(
+        fileName: 'large.pdf',
+        bytes: Uint8List(50 * 1024 * 1024),
+      ),
+      throwsA(_domainCode(YorksV1DomainErrorCode.invalidInput)),
+    );
+  });
+  for (final megabytes in [10, 20]) {
+    test(
+      '$megabytes MB interrupted transfer retries without a second version',
+      () async {
+        final fixture = _Fixture();
+        final input = YorksV1DocumentUploadInput(
+          projectId: 'project-1',
+          entityType: YorksV1DocumentEntityType.project,
+          entityId: 'project-1',
+          classification: YorksV1DocumentClassification.operational,
+          fileName: 'large.pdf',
+          mimeType: 'application/pdf',
+          bytes: Uint8List(megabytes * 1024 * 1024),
+          idempotencyKey: 'large-key',
+        );
+        fixture.storage.failNext = true;
+        await expectLater(
+          fixture.repository.upload(input),
+          throwsA(_domainCode(YorksV1DomainErrorCode.backendUnavailable)),
+        );
+        expect(fixture.finalizer.calls, isEmpty);
+        await fixture.repository.upload(input);
+        expect(fixture.rpc.prepareCalls.first, fixture.rpc.prepareCalls.last);
+        expect(fixture.storage.uploads, 2);
+        expect(fixture.finalizer.calls, ['intent-1']);
+      },
+    );
+  }
 }
 
 Matcher _domainCode(YorksV1DomainErrorCode code) =>
     isA<YorksV1DomainException>().having((error) => error.code, 'code', code);
 
-YorksV1DocumentUploadInput _input({String? documentId}) =>
-    YorksV1DocumentUploadInput(
-      projectId: 'project-1',
-      entityType: YorksV1DocumentEntityType.project,
-      entityId: 'project-1',
-      classification: YorksV1DocumentClassification.operational,
-      fileName: 'reviewed.pdf',
-      mimeType: 'application/pdf',
-      bytes: Uint8List.fromList([1, 2, 3]),
-      idempotencyKey: 'reviewed-upload-key',
-      documentId: documentId,
-    );
+YorksV1DocumentUploadInput _input({
+  String? documentId,
+  String key = 'reviewed-upload-key',
+}) => YorksV1DocumentUploadInput(
+  projectId: 'project-1',
+  entityType: YorksV1DocumentEntityType.project,
+  entityId: 'project-1',
+  classification: YorksV1DocumentClassification.operational,
+  fileName: 'reviewed.pdf',
+  mimeType: 'application/pdf',
+  bytes: Uint8List.fromList([1, 2, 3]),
+  idempotencyKey: key,
+  documentId: documentId,
+);
 
 class _Fixture {
-  _Fixture({AnalyticsService analytics = const NoopAnalyticsService()}) {
+  _Fixture({
+    AnalyticsService analytics = const NoopAnalyticsService(),
+    YorksV1DocumentUploadJournal? journal,
+  }) {
     repository = YorksV1SupabaseDocumentsRepository(
       featureFlags: const YorksV1FeatureFlags(
         foundation: true,
@@ -374,6 +677,7 @@ class _Fixture {
       storageClient: storage,
       finalizerClient: finalizer,
       analytics: analytics,
+      uploadJournal: journal,
     );
   }
   final rpc = _Rpc();
@@ -384,11 +688,29 @@ class _Fixture {
 
 class _Rpc implements YorksV1MaterialRequestRpcClient {
   final prepareCalls = <Map<String, Object?>>[];
+  final resumeCalls = <Map<String, Object?>>[];
   int workspaceReads = 0;
   Object? error;
+  Object? workspaceError;
+  Object? resumeError;
+  String expiresAt = '2026-10-04T09:30:00Z';
+  Map<String, Object?>? resumedIntent;
+  Map<String, Object?> Function()? onResume;
   String? finalizedDocumentId;
   String? finalizedVersionId;
   Map<String, Object?> retainedReceipt = const {};
+  Map<String, Object?> get intentResponse => {
+    'upload_intent_id': 'intent-1',
+    'bucket_id': 'v1-controlled-documents',
+    'object_path': 'project/project-1/immutable.pdf',
+    'mime_type': 'application/pdf',
+    'byte_size': 3,
+    'expires_at': expiresAt,
+    'planned_revision_number': 1,
+    'finalized_document_id': finalizedDocumentId,
+    'finalized_version_id': finalizedVersionId,
+    ...retainedReceipt,
+  };
   @override
   Future<Object?> invoke({
     required String functionName,
@@ -397,21 +719,16 @@ class _Rpc implements YorksV1MaterialRequestRpcClient {
     if (error != null) throw error!;
     if (functionName == 'v1_prepare_document_upload') {
       prepareCalls.add(parameters);
-      return {
-        'upload_intent_id': 'intent-1',
-        'bucket_id': 'v1-controlled-documents',
-        'object_path': 'project/project-1/immutable.pdf',
-        'mime_type': 'application/pdf',
-        'byte_size': 3,
-        'expires_at': '2026-10-04T09:30:00Z',
-        'planned_revision_number': 1,
-        'finalized_document_id': finalizedDocumentId,
-        'finalized_version_id': finalizedVersionId,
-        ...retainedReceipt,
-      };
+      return intentResponse;
+    }
+    if (functionName == 'v1_resume_document_upload') {
+      resumeCalls.add(parameters);
+      if (resumeError != null) throw resumeError!;
+      return onResume?.call() ?? resumedIntent ?? intentResponse;
     }
     if (functionName == 'v1_document_workspace_projection') {
       workspaceReads++;
+      if (workspaceError != null) throw workspaceError!;
       return {
         'project_id': 'project-1',
         'documents': <Object?>[],
@@ -424,6 +741,8 @@ class _Rpc implements YorksV1MaterialRequestRpcClient {
 
 class _Storage implements YorksV1DocumentStorageClient {
   int uploads = 0;
+  bool failNext = false;
+  void Function()? onUpload;
   @override
   Future<Uint8List> download({
     required String bucketId,
@@ -437,6 +756,11 @@ class _Storage implements YorksV1DocumentStorageClient {
     required String mimeType,
   }) async {
     uploads++;
+    if (failNext) {
+      failNext = false;
+      throw StateError('Synthetic interrupted transfer');
+    }
+    onUpload?.call();
   }
 }
 
@@ -447,10 +771,24 @@ class _Finalizer implements YorksV1DocumentFinalizerClient {
     'revision_number': 1,
   };
   final calls = <String>[];
+  void Function()? onFinalize;
   @override
   Future<Object?> finalize(String uploadIntentId) async {
     calls.add(uploadIntentId);
+    onFinalize?.call();
     return response;
+  }
+}
+
+class _RecordingAnalytics extends NoopAnalyticsService {
+  final outcomes = <AnalyticsProperties>[];
+
+  @override
+  void capture(
+    AnalyticsEvent event, {
+    AnalyticsProperties properties = const {},
+  }) {
+    if (event == AnalyticsEvent.commandOutcomeChanged) outcomes.add(properties);
   }
 }
 

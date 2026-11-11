@@ -174,14 +174,53 @@ void main() {
     },
   );
 
+  test(
+    'command correlation accepts opaque hashes and rejects identifiers or payloads',
+    () async {
+      for (final value in [
+        'abc-raw-command-id',
+        'Sensitive customer',
+        'a' * 32,
+      ]) {
+        analytics.capture(
+          AnalyticsEvent.commandOutcomeChanged,
+          properties: {
+            AnalyticsProperty.commandFingerprint: value,
+            AnalyticsProperty.outcome: 'confirmed',
+          },
+        );
+      }
+      await analytics.drain();
+      expect(
+        sink.events
+            .take(2)
+            .every((e) => !e.properties.containsKey('command_fingerprint')),
+        isTrue,
+      );
+      expect(sink.events.last.properties['command_fingerprint'], 'a' * 32);
+    },
+  );
+  test(
+    'operation retains originating surface when navigation changes during flight',
+    () async {
+      analytics.screenViewed(AnalyticsScreen.logistics);
+      final operation = analytics.beginOperation('dispatch_materials');
+      analytics.screenViewed(AnalyticsScreen.materialRequests);
+      operation.complete();
+      await analytics.drain();
+      expect(sink.events.last.properties['screen_name'], 'logistics');
+    },
+  );
+
   test('taxonomy stays bounded, stable, and unique', () {
     final names = AnalyticsEvent.values.map((event) => event.wireName).toList();
-    expect(names, hasLength(95));
+    expect(names, hasLength(102));
     expect(names.toSet(), hasLength(names.length));
     expect(names, everyElement(matches(RegExp(r'^[a-z0-9]+(?: [a-z0-9]+)*$'))));
     expect(names, isNot(contains('material_request_opened')));
     expect(names, contains('material request opened'));
     expect(names, contains('reliability error occurred'));
+    expect(names, contains('operation blocked'));
     expect(names, contains('accounts building group toggled'));
     expect(names, contains('protected read coordinated'));
   });
@@ -472,6 +511,59 @@ void main() {
     expect(
       event.properties.values,
       isNot(contains('sensitive backend detail')),
+    );
+  });
+
+  test(
+    'requests refused before sending are blocked, not failed operations',
+    () async {
+      analytics
+          .beginOperation('arrangement_begin')
+          .fail(const YorksV1DomainException(YorksV1DomainErrorCode.offline));
+      analytics
+          .beginOperation('project_list_load')
+          .fail(
+            const YorksV1DomainException(
+              YorksV1DomainErrorCode.unauthenticated,
+            ),
+          );
+      await analytics.drain();
+
+      expect(sink.events.map((event) => event.name), [
+        'operation blocked',
+        'operation blocked',
+      ]);
+      expect(sink.events.first.properties['operation'], 'arrangement_begin');
+      expect(sink.events.first.properties['error_category'], 'offline');
+      expect(sink.events.first.properties['network_state'], 'offline');
+      expect(sink.events.last.properties['error_category'], 'authentication');
+    },
+  );
+
+  test('server refusals and transport failures stay failures', () async {
+    analytics
+        .beginOperation('project_list_load')
+        .fail(
+          const YorksV1DomainException(
+            YorksV1DomainErrorCode.unauthenticated,
+            serverCode: 'PGRST301',
+          ),
+        );
+    analytics
+        .beginOperation('material_request_load')
+        .fail(
+          YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+            cause: Exception('socket closed'),
+          ),
+        );
+    await analytics.drain();
+
+    final names = sink.events.map((event) => event.name).toList();
+    expect(names, isNot(contains('operation blocked')));
+    expect(
+      names.where((name) => name == 'reliability error occurred'),
+      hasLength(2),
     );
   });
 

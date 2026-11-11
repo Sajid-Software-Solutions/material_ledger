@@ -15,7 +15,6 @@ import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
-import 'package:material_ledger/shared/providers/yorks_v1_project_portfolio_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -125,7 +124,9 @@ void main() {
     );
   });
 
-  test('repository invokes only the protected bounded RPC', () async {
+  test('retired Analytics never calls its projection', () async {
+    // Analytics is retired (PRODUCT_DECISIONS.md section 31): even a build
+    // that asks for it cannot reach the server projection.
     final rpc = _FakeRpcClient(_response());
     final repository = SupabaseCompanyAnalyticsRepository(
       featureFlags: _analyticsFlags,
@@ -133,35 +134,9 @@ void main() {
       rpcClient: rpc,
     );
 
-    final result = await repository.getProjection(
-      const CompanyAnalyticsFilters(projectId: 'project-1', months: 3),
-    );
-
-    expect(result.months, 3);
-    expect(rpc.functionName, 'v1_get_operational_analytics_foundation');
-    expect(rpc.parameters, {'p_project_id': 'project-1', 'p_months': 3});
-  });
-
-  test('repository has no offline or flag-disabled fallback', () async {
-    final rpc = _FakeRpcClient(_response());
-    final disabled = SupabaseCompanyAnalyticsRepository(
-      featureFlags: const YorksV1FeatureFlags(),
-      connectivity: _Connectivity(true),
-      rpcClient: rpc,
-    );
-    final offline = SupabaseCompanyAnalyticsRepository(
-      featureFlags: _analyticsFlags,
-      connectivity: _Connectivity(false),
-      rpcClient: rpc,
-    );
-
     await expectLater(
-      disabled.getProjection(const CompanyAnalyticsFilters()),
+      repository.getProjection(const CompanyAnalyticsFilters()),
       _domainError(YorksV1DomainErrorCode.featureDisabled),
-    );
-    await expectLater(
-      offline.getProjection(const CompanyAnalyticsFilters()),
-      _domainError(YorksV1DomainErrorCode.offline),
     );
     expect(rpc.calls, 0);
   });
@@ -181,8 +156,8 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
-          yorksV1AuthorizedProjectPortfolioProvider.overrideWithValue(
-            const AsyncData([]),
+          companyAnalyticsProjectOptionsProvider.overrideWith(
+            (ref) async => [],
           ),
           companyAnalyticsProjectionProvider.overrideWith(
             (ref, filters) async =>
@@ -198,16 +173,16 @@ void main() {
 
     expect(find.text(CompanyAnalyticsStrings.title.primary), findsOneWidget);
     expect(
-      find.text(CompanyAnalyticsStrings.projectReview.primary),
+      find.text(CompanyAnalyticsStrings.projectsAttention.primary),
       findsOneWidget,
     );
     expect(
       find.text(CompanyAnalyticsStrings.financialStatus.primary),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.text(CompanyAnalyticsStrings.approvedWorkforceEvidence.primary),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('company-analytics-domain-dropdown')),
@@ -245,8 +220,8 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
-          yorksV1AuthorizedProjectPortfolioProvider.overrideWithValue(
-            const AsyncData([]),
+          companyAnalyticsProjectOptionsProvider.overrideWith(
+            (ref) async => [],
           ),
           companyAnalyticsProjectionProvider.overrideWith(
             (ref, filters) async =>
@@ -286,8 +261,8 @@ void main() {
           overrides: [
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
-            yorksV1AuthorizedProjectPortfolioProvider.overrideWithValue(
-              const AsyncData([]),
+            companyAnalyticsProjectOptionsProvider.overrideWith(
+              (ref) async => [],
             ),
             companyAnalyticsProjectionProvider.overrideWith(
               (ref, filters) async =>
@@ -340,8 +315,8 @@ void main() {
         overrides: [
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
-          yorksV1AuthorizedProjectPortfolioProvider.overrideWithValue(
-            const AsyncData([]),
+          companyAnalyticsProjectOptionsProvider.overrideWith(
+            (ref) async => [],
           ),
           companyAnalyticsProjectionProvider.overrideWith((ref, filters) async {
             projectionReads += 1;
@@ -412,8 +387,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(
+      find.text(CompanyAnalyticsStrings.companyDetails.primary),
+    );
+    await tester.tap(find.text(CompanyAnalyticsStrings.companyDetails.primary));
+    await tester.pumpAndSettle();
     expect(find.text('AED 125,000.00'), findsOneWidget);
     expect(find.text('EUR 90,000.00'), findsNothing);
+    await tester.ensureVisible(find.byType(DropdownButton<String>));
     await tester.tap(find.byType(DropdownButton<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('EUR').last);
@@ -467,11 +448,17 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var index = 0; index < paths.length; index++) {
+      await tester.ensureVisible(
+        find.byKey(ValueKey('company-analytics-kpi-card-$index')),
+      );
       await tester.tap(
         find.byKey(ValueKey('company-analytics-kpi-card-$index')),
       );
       await tester.pumpAndSettle();
-      expect(router.routeInformationProvider.value.uri.path, paths[index]);
+      expect(
+        router.routerDelegate.currentConfiguration.last.matchedLocation,
+        paths[index],
+      );
       router.go('/overview');
       await tester.pumpAndSettle();
     }
@@ -520,12 +507,162 @@ void main() {
       ),
       findsOneWidget,
     );
+    await tester.ensureVisible(find.text(label));
     await tester.tap(find.text(label));
     await tester.pumpAndSettle();
     expect(
-      router.routeInformationProvider.value.uri.path,
+      router.routerDelegate.currentConfiguration.last.matchedLocation,
       RoutePaths.yorksV1WorkforceAttendance,
     );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'mobile filters apply explicitly and preserve the selected section',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final reads = <CompanyAnalyticsFilters>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
+            companyAnalyticsProjectOptionsProvider.overrideWith(
+              (ref) async => [],
+            ),
+            companyAnalyticsProjectionProvider.overrideWith((
+              ref,
+              filters,
+            ) async {
+              reads.add(filters);
+              return CompanyAnalyticsProjection.fromRpcJson(_response());
+            }),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CompanyAnalyticsScreen(
+                initialMonths: 3,
+                initialDomain: 'materials',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(CompanyAnalyticsStrings.materialPipeline.primary),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.text(CompanyAnalyticsStrings.materialPipeline.primary),
+            )
+            .dy,
+        lessThan(450),
+      );
+      await tester.tap(find.byKey(const ValueKey('analytics-filters-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButton<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('12 months').last);
+      await tester.pumpAndSettle();
+      expect(reads, hasLength(1));
+      await tester.tap(find.text(CompanyAnalyticsStrings.applyFilters.primary));
+      await tester.pumpAndSettle();
+      expect(reads.last.months, 12);
+      expect(
+        find.text(CompanyAnalyticsStrings.materialPipeline.primary),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'rejected refresh clears results and repeated refresh coalesces',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      final rejected = Completer<CompanyAnalyticsProjection>();
+      var reads = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1FeatureFlagsProvider.overrideWithValue(_analyticsFlags),
+            companyAnalyticsProjectOptionsProvider.overrideWith(
+              (ref) async => [],
+            ),
+            companyAnalyticsProjectionProvider.overrideWith((ref, filters) {
+              reads++;
+              return reads == 1
+                  ? Future.value(
+                      CompanyAnalyticsProjection.fromRpcJson(_response()),
+                    )
+                  : rejected.future;
+            }),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: CompanyAnalyticsScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final refresh = find.byTooltip(CompanyAnalyticsStrings.refresh.primary);
+      await tester.tap(refresh);
+      await tester.pump();
+      await tester.tap(refresh);
+      await tester.pump();
+      expect(reads, 2);
+      rejected.completeError(
+        const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          CompanyAnalyticsStrings.errorFor(
+            YorksV1DomainErrorCode.unauthorized,
+          ).primary,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('company-analytics-kpi-grid')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('empty portfolio is not zero percent occupied', (tester) async {
+    final response = _response();
+    final rentals = response['rentals'] as Map<String, dynamic>;
+    rentals['total_properties'] = 0;
+    rentals['occupied'] = 0;
+    final projection = CompanyAnalyticsProjection.fromRpcJson(response);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: CompanyAnalyticsOverviewSummary(
+              language: AppLanguage.english,
+              projection: projection,
+              flags: _analyticsFlags,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(CompanyAnalyticsStrings.noProperties.primary),
+      findsOneWidget,
+    );
+    expect(find.text('0%'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

@@ -43,6 +43,18 @@ abstract final class YorksV1RoleOverviewStrings {
     ur: 'یہ کارڈ لوڈ نہیں ہو سکا۔ کچھ بھی تبدیل نہیں ہوا۔',
     hi: 'यह कार्ड लोड नहीं हो सका। कुछ भी नहीं बदला गया।',
   );
+  static const couldNotLoadShort = TranslatableString(
+    en: 'Could not load · nothing changed',
+    ar: 'تعذر التحميل · لم يتغير شيء',
+    ur: 'لوڈ نہیں ہو سکا · کچھ نہیں بدلا',
+    hi: 'लोड नहीं हुआ · कुछ नहीं बदला',
+  );
+  static const recentOpenRequestsOnly = TranslatableString(
+    en: 'Based on the 100 most recently updated open requests.',
+    ar: 'استنادًا إلى أحدث 100 طلب مفتوح تم تحديثه.',
+    ur: 'حال ہی میں اپڈیٹ ہونے والی 100 کھلی ریکویسٹس کی بنیاد پر۔',
+    hi: 'हाल में अपडेट हुई 100 खुली रिक्वेस्ट के आधार पर।',
+  );
   static const retry = TranslatableString(
     en: 'Retry',
     ar: 'إعادة المحاولة',

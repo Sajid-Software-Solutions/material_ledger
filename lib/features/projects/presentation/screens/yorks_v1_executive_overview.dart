@@ -81,7 +81,10 @@ class YorksV1ExecutiveOverview extends StatelessWidget {
         projects.valueOrNull ?? const <YorksV1ProjectPortfolioItem>[];
     final requestItems =
         requests.valueOrNull ?? const <YorksV1MaterialRequest>[];
-    final companyProjection = companyAnalytics.valueOrNull;
+    final companyProjection =
+        companyAnalytics.hasError || companyAnalytics.isLoading
+        ? null
+        : companyAnalytics.valueOrNull;
     final stats = _ExecutiveStats(
       projectItems,
       requestItems,
@@ -130,9 +133,19 @@ class YorksV1ExecutiveOverview extends StatelessWidget {
                         admin: _admin,
                         compact: compact,
                         canOpenAnalytics: canOpenAnalytics,
+                        onRefresh: companyAnalytics.isLoading
+                            ? null
+                            : onRefresh,
                       ),
                       const SizedBox(height: 20),
-                      if (_admin && companyProjection != null) ...[
+                      if (_admin &&
+                          canOpenAnalytics &&
+                          companyAnalytics.isLoading)
+                        const Padding(
+                          padding: EdgeInsets.all(AppSpacing.xl),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (_admin && companyProjection != null) ...[
                         CompanyAnalyticsOverviewSummary(
                           language: language,
                           projection: companyProjection,
@@ -184,7 +197,9 @@ class YorksV1ExecutiveOverview extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 16),
-                      if (_admin)
+                      if (_admin &&
+                          companyProjection == null &&
+                          !companyAnalytics.isLoading)
                         _AdminControlGrid(
                           language: language,
                           stacked: stacked,
@@ -192,7 +207,7 @@ class YorksV1ExecutiveOverview extends StatelessWidget {
                           audit: audit,
                           activeUsers: activeUsers,
                         )
-                      else
+                      else if (!_admin)
                         _LeadershipDetailGrid(
                           language: language,
                           stacked: stacked,
@@ -201,14 +216,17 @@ class YorksV1ExecutiveOverview extends StatelessWidget {
                           requests: requestItems,
                         ),
                       const SizedBox(height: 16),
-                      _WorkspaceLinks(
-                        language: language,
-                        admin: _admin,
-                        role: role,
-                        compact: compact,
-                        canBrowseInventory: canBrowseInventory,
-                        canAccessRentals: canAccessRentals,
-                      ),
+                      if (!_admin ||
+                          (companyProjection == null &&
+                              !companyAnalytics.isLoading))
+                        _WorkspaceLinks(
+                          language: language,
+                          admin: _admin,
+                          role: role,
+                          compact: compact,
+                          canBrowseInventory: canBrowseInventory,
+                          canAccessRentals: canAccessRentals,
+                        ),
                     ],
                   );
                 },
@@ -344,6 +362,7 @@ class _ExecutiveHeader extends StatelessWidget {
     required this.admin,
     required this.compact,
     required this.canOpenAnalytics,
+    this.onRefresh,
   });
 
   final AppLanguage language;
@@ -352,6 +371,7 @@ class _ExecutiveHeader extends StatelessWidget {
   final bool admin;
   final bool compact;
   final bool canOpenAnalytics;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +467,30 @@ class _ExecutiveHeader extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       children: [?analyticsAction, ?projectAction, requestsAction],
     );
+    if (admin && canOpenAnalytics) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              key: const ValueKey('executive-overview-title'),
+              style: compact
+                  ? AppTypography.headlineMedium
+                  : AppTypography.headlineLarge,
+            ),
+          ),
+          ?analyticsAction,
+          IconButton(
+            onPressed: onRefresh,
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      );
+    }
     if (compact) {
       final secondaryActions = <Widget>[?analyticsAction, requestsAction];
       return Column(

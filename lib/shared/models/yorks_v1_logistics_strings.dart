@@ -4,6 +4,109 @@ import 'yorks_v1_logistics.dart';
 
 /// Centralized user-facing copy for the Batch 7 warehouse and logistics flow.
 abstract final class YorksV1LogisticsStrings {
+  static const reviewDispatch = TranslatableString(
+    en: 'Review dispatch',
+    ar: 'مراجعة الإرسال',
+    ur: 'ترسیل کا جائزہ',
+    hi: 'डिस्पैच की समीक्षा',
+  );
+  static const confirmDispatch = TranslatableString(
+    en: 'Confirm dispatch',
+    ar: 'تأكيد الإرسال',
+    ur: 'ترسیل کی تصدیق',
+    hi: 'डिस्पैच की पुष्टि',
+  );
+  static const editDispatch = TranslatableString(
+    en: 'Back to editing',
+    ar: 'العودة للتحرير',
+    ur: 'ترمیم پر واپس',
+    hi: 'संपादन पर वापस',
+  );
+  static const dispatchReviewHelp = TranslatableString(
+    en: 'Check the destination and quantities. Confirming dispatch commits warehouse stock once.',
+    ar: 'تحقق من الوجهة والكميات. تأكيد الإرسال يخصم مخزون المستودع مرة واحدة.',
+    ur: 'منزل اور مقدار چیک کریں۔ تصدیق سے گودام کا اسٹاک ایک بار کم ہوگا۔',
+    hi: 'गंतव्य और मात्रा जाँचें। पुष्टि पर गोदाम का स्टॉक एक बार घटेगा।',
+  );
+  static const sendNow = TranslatableString(
+    en: 'Send now',
+    ar: 'إرسال الآن',
+    ur: 'ابھی بھیجیں',
+    hi: 'अभी भेजें',
+  );
+  static const dispatchQuantityNegative = TranslatableString(
+    en: 'Enter zero or a positive quantity.',
+    ar: 'أدخل صفرًا أو كمية موجبة.',
+    ur: 'صفر یا مثبت مقدار درج کریں۔',
+    hi: 'शून्य या धनात्मक मात्रा दर्ज करें।',
+  );
+  static const dispatchQuantityInvalid = TranslatableString(
+    en: 'Enter a number with up to 4 decimal places.',
+    ar: 'أدخل رقمًا حتى 4 منازل عشرية.',
+    ur: 'چار اعشاری مقامات تک عدد درج کریں۔',
+    hi: 'चार दशमलव स्थानों तक संख्या दर्ज करें।',
+  );
+  static const dispatchQuantityRemaining = TranslatableString(
+    en: 'Quantity exceeds the approved amount still needed.',
+    ar: 'الكمية تتجاوز المتبقي المعتمد.',
+    ur: 'مقدار منظور شدہ باقی مقدار سے زیادہ ہے۔',
+    hi: 'मात्रा स्वीकृत शेष से अधिक है।',
+  );
+  static const dispatchQuantityStock = TranslatableString(
+    en: 'Combined quantities exceed available stock for this item.',
+    ar: 'الكميات المجمعة تتجاوز المخزون المتاح لهذا الصنف.',
+    ur: 'اس آئٹم کی مجموعی مقدار دستیاب اسٹاک سے زیادہ ہے۔',
+    hi: 'इस वस्तु की कुल मात्रा उपलब्ध स्टॉक से अधिक है।',
+  );
+  static const dispatchStockUnknown = TranslatableString(
+    en: 'Stock is unavailable. Refresh before reviewing.',
+    ar: 'المخزون غير متاح. حدّث قبل المراجعة.',
+    ur: 'اسٹاک دستیاب نہیں۔ جائزے سے پہلے تازہ کریں۔',
+    hi: 'स्टॉक उपलब्ध नहीं। समीक्षा से पहले रीफ़्रेश करें।',
+  );
+  static const dispatchExcluded = TranslatableString(
+    en: 'Blank or zero quantities are not included.',
+    ar: 'لا تشمل الكميات الفارغة أو الصفرية.',
+    ur: 'خالی یا صفر مقدار شامل نہیں۔',
+    hi: 'खाली या शून्य मात्राएँ शामिल नहीं हैं।',
+  );
+  static const dispatchNoteSnapshot = TranslatableString(
+    en: 'Delivery note · dispatched quantities',
+    ar: 'إشعار تسليم · الكميات المرسلة',
+    ur: 'ڈیلیوری نوٹ · بھیجی گئی مقدار',
+    hi: 'डिलीवरी नोट · भेजी गई मात्रा',
+  );
+  static const receiptReportSnapshot = TranslatableString(
+    en: 'Delivery report · received quantities',
+    ar: 'تقرير تسليم · الكميات المستلمة',
+    ur: 'ڈیلیوری رپورٹ · موصول مقدار',
+    hi: 'डिलीवरी रिपोर्ट · प्राप्त मात्रा',
+  );
+  static const documentRevision = TranslatableString(
+    en: 'Document revision',
+    ar: 'إصدار المستند',
+    ur: 'دستاویز کا ورژن',
+    hi: 'दस्तावेज़ संस्करण',
+  );
+  static const dispatchHistoryOpen = TranslatableString(
+    en: 'View dispatch history',
+    ar: 'عرض سجل الإرسال',
+    ur: 'ترسیل کی تاریخ دیکھیں',
+    hi: 'डिस्पैच इतिहास देखें',
+  );
+  static const prepareDispatch = TranslatableString(
+    en: 'Prepare dispatch',
+    ar: 'إعداد الإرسال',
+    ur: 'ترسیل تیار کریں',
+    hi: 'डिस्पैच तैयार करें',
+  );
+  static TranslatableString dispatchSelection(int included, int omitted) =>
+      TranslatableString(
+        en: '$included lines included · $omitted not included',
+        ar: '$included بنود مشمولة · $omitted غير مشمولة',
+        ur: '$included لائنیں شامل · $omitted شامل نہیں',
+        hi: '$included पंक्तियाँ शामिल · $omitted शामिल नहीं',
+      );
   static const addSitePhoto = TranslatableString(
     en: 'Add site photo',
     ar: 'إضافة صورة من الموقع',
@@ -461,6 +564,12 @@ abstract final class YorksV1LogisticsStrings {
     ur: 'ڈیلیوری نوٹ / ڈسپیچ حوالہ',
     hi: 'डिलीवरी नोट / डिस्पैच रेफ़रेंस',
   );
+  static const optionalSupplierReference = TranslatableString(
+    en: 'Supplier delivery reference (optional)',
+    ar: 'مرجع تسليم المورد (اختياري)',
+    ur: 'سپلائر ڈیلیوری حوالہ (اختیاری)',
+    hi: 'आपूर्तिकर्ता डिलीवरी संदर्भ (वैकल्पिक)',
+  );
   static const deliveryReferenceRequired = TranslatableString(
     en: 'Enter the Delivery Note / Dispatch Reference before dispatching.',
     ar: 'أدخل مرجع إذن التسليم / الإرسال قبل الإرسال.',
@@ -700,6 +809,24 @@ abstract final class YorksV1LogisticsStrings {
     ar: 'مرجع أمر التسليم',
     ur: 'ڈیلیوری آرڈر حوالہ',
     hi: 'डिलीवरी ऑर्डर संदर्भ',
+  );
+  static const automaticDeliveryNumber = TranslatableString(
+    en: 'Delivery number assigned automatically',
+    ar: 'يتم تعيين رقم التسليم تلقائيًا',
+    ur: 'ڈیلیوری نمبر خود بخود دیا جائے گا',
+    hi: 'डिलीवरी नंबर अपने आप दिया जाएगा',
+  );
+  static const automaticDeliveryNumberHelp = TranslatableString(
+    en: 'Generate once. The same number is used for every print, download and revision.',
+    ar: 'أنشئه مرة واحدة. يُستخدم الرقم نفسه لكل طباعة وتنزيل ومراجعة.',
+    ur: 'ایک بار بنائیں۔ ہر پرنٹ، ڈاؤن لوڈ اور نظرثانی میں یہی نمبر استعمال ہوگا۔',
+    hi: 'एक बार बनाएं। हर प्रिंट, डाउनलोड और संशोधन में वही नंबर उपयोग होगा।',
+  );
+  static const reusedDeliveryNumberHelp = TranslatableString(
+    en: 'This delivery number is kept for every print, download and revision.',
+    ar: 'يُحفظ رقم التسليم هذا لكل طباعة وتنزيل ومراجعة.',
+    ur: 'یہ ڈیلیوری نمبر ہر پرنٹ، ڈاؤن لوڈ اور نظرثانی میں برقرار رہتا ہے۔',
+    hi: 'यह डिलीवरी नंबर हर प्रिंट, डाउनलोड और संशोधन में बना रहता है।',
   );
   static const deliveryOrderReferenceRequired = TranslatableString(
     en: 'Enter the official Delivery Order reference.',
