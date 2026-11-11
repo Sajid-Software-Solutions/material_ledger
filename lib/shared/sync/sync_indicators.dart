@@ -23,16 +23,17 @@ class PendingSyncBadge extends ConsumerWidget {
     if (state == RecordSyncState.none) return const SizedBox.shrink();
 
     final failed = state == RecordSyncState.failed;
-    final fg = failed ? AppColors.onErrorContainer : AppColors.onWarningContainer;
+    final fg = failed
+        ? AppColors.onErrorContainer
+        : AppColors.onWarningContainer;
     final bg = failed ? AppColors.errorContainer : AppColors.warningContainer;
-    final icon = failed ? Icons.sync_problem_rounded : Icons.cloud_upload_rounded;
+    final icon = failed
+        ? Icons.sync_problem_rounded
+        : Icons.cloud_upload_rounded;
     final label = failed ? 'Sync failed' : 'Pending sync';
 
     final pill = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 4 : 7,
-        vertical: 3,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 7, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(100),
@@ -75,7 +76,9 @@ void showSyncSnack(
   messenger.showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: online ? AppColors.onSurface : AppColors.onWarningContainer,
+      backgroundColor: online
+          ? AppColors.onSurface
+          : AppColors.onWarningContainer,
       content: Row(
         children: [
           Icon(

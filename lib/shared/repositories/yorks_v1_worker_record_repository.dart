@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/analytics_event.dart';
@@ -14,6 +16,8 @@ abstract interface class YorksV1WorkerRecordDataClient {
   Future<Object?> rpc(String functionName, Map<String, Object?> parameters);
 
   Future<String> signedPhotoUrl(String objectPath, {required int seconds});
+
+  Future<void> uploadPhoto(String objectPath, Uint8List jpegBytes);
 }
 
 final class SupabaseYorksV1WorkerRecordDataClient
@@ -31,6 +35,16 @@ final class SupabaseYorksV1WorkerRecordDataClient
       _client.storage
           .from(yorksV1WorkerPhotoBucket)
           .createSignedUrl(objectPath, seconds);
+
+  @override
+  Future<void> uploadPhoto(String objectPath, Uint8List jpegBytes) => _client
+      .storage
+      .from(yorksV1WorkerPhotoBucket)
+      .uploadBinary(
+        objectPath,
+        jpegBytes,
+        fileOptions: const FileOptions(contentType: 'image/jpeg'),
+      );
 }
 
 abstract interface class YorksV1WorkerRecordRepository {
@@ -41,6 +55,32 @@ abstract interface class YorksV1WorkerRecordRepository {
   /// A short-lived link to a stored photo. Storage re-checks
   /// `worker_records.view`; knowing a path grants nothing.
   Future<String> photoUrl(String objectPath);
+
+  /// Creates or updates a record. Requires `worker_records.manage`; the
+  /// server rechecks it, the record version and the idempotency key.
+  Future<YorksV1WorkerRecord> saveRecord(YorksV1SaveWorkerRecordInput input);
+
+  /// Stores a prepared JPEG and attaches it to the worker's record.
+  Future<YorksV1WorkerRecord> setPhoto({
+    required String workerId,
+    required Uint8List jpegBytes,
+    required int expectedVersion,
+    required String idempotencyKey,
+  });
+
+  /// Classifies sheet rows on the server. Writes nothing.
+  Future<YorksV1WorkerImportPreview> previewImport(
+    List<Map<String, Object?>> rows,
+  );
+
+  /// Imports every row or none. [expected] is the preview's rows, unchanged.
+  Future<YorksV1WorkerImportResult> importRecords({
+    required List<Map<String, Object?>> rows,
+    required List<Map<String, dynamic>> expected,
+    String? newWorkerDesignation,
+    String? newWorkerJoiningDate,
+    required String idempotencyKey,
+  });
 }
 
 final class YorksV1SupabaseWorkerRecordRepository
@@ -127,6 +167,152 @@ final class YorksV1SupabaseWorkerRecordRepository
     return url;
   }
 
+  @override
+  Future<YorksV1WorkerRecord> saveRecord(
+    YorksV1SaveWorkerRecordInput input,
+  ) async {
+    final operation = _analytics.beginOperation(
+      'worker_record_save',
+      properties: const {AnalyticsProperty.workflow: 'worker_records'},
+    );
+    try {
+      final response = await _invoke(
+        (client) => client.rpc('v1_save_worker_record', {
+          'p_payload': input.toRpcPayload(),
+          'p_expected_version': input.expectedVersion,
+          'p_idempotency_key': input.idempotencyKey,
+        }),
+      );
+      final record = _record(response);
+      operation.complete();
+      return record;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<YorksV1WorkerRecord> setPhoto({
+    required String workerId,
+    required Uint8List jpegBytes,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async {
+    // The object name derives from the idempotency key, so a retry reuses
+    // the same stored object instead of leaving an orphan.
+    final objectPath = 'workers/$workerId/$idempotencyKey.jpg';
+    final operation = _analytics.beginOperation(
+      'worker_record_photo_set',
+      properties: const {AnalyticsProperty.workflow: 'worker_records'},
+    );
+    try {
+      try {
+        await _invoke((client) async {
+          await client.uploadPhoto(objectPath, jpegBytes);
+          return null;
+        });
+      } on YorksV1DomainException catch (error) {
+        // A retry finds the object already stored; continue to attach it.
+        final cause = error.cause;
+        final alreadyStored =
+            cause is StorageException &&
+            (cause.statusCode == '409' ||
+                cause.message.toLowerCase().contains('already exists'));
+        if (!alreadyStored) rethrow;
+      }
+      final response = await _invoke(
+        (client) => client.rpc('v1_set_worker_photo', {
+          'p_worker_id': workerId,
+          'p_object_path': objectPath,
+          'p_expected_version': expectedVersion,
+          'p_idempotency_key': idempotencyKey,
+        }),
+      );
+      final record = _record(response);
+      operation.complete();
+      return record;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<YorksV1WorkerImportPreview> previewImport(
+    List<Map<String, Object?>> rows,
+  ) async {
+    final response = await _invoke(
+      (client) =>
+          client.rpc('v1_preview_worker_records_import', {'p_rows': rows}),
+    );
+    try {
+      return YorksV1WorkerImportPreview.fromRpcJson(_map(response));
+    } on FormatException catch (error) {
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<YorksV1WorkerImportResult> importRecords({
+    required List<Map<String, Object?>> rows,
+    required List<Map<String, dynamic>> expected,
+    String? newWorkerDesignation,
+    String? newWorkerJoiningDate,
+    required String idempotencyKey,
+  }) async {
+    final operation = _analytics.beginOperation(
+      'worker_records_import',
+      properties: {
+        AnalyticsProperty.workflow: 'worker_records',
+        AnalyticsProperty.itemCount: rows.length,
+      },
+    );
+    try {
+      final response = await _invoke(
+        (client) => client.rpc('v1_import_worker_records', {
+          'p_payload': {
+            'rows': rows,
+            'expected': expected,
+            'new_worker_designation': ?newWorkerDesignation,
+            'new_worker_joining_date': ?newWorkerJoiningDate,
+          },
+          'p_idempotency_key': idempotencyKey,
+        }),
+      );
+      final YorksV1WorkerImportResult result;
+      try {
+        result = YorksV1WorkerImportResult.fromRpcJson(_map(response));
+      } on FormatException catch (error) {
+        throw YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+          cause: error,
+        );
+      }
+      operation.complete(
+        resultCount: result.createdCount + result.updatedCount,
+      );
+      return result;
+    } catch (error) {
+      operation.fail(error);
+      rethrow;
+    }
+  }
+
+  static YorksV1WorkerRecord _record(Object? response) {
+    try {
+      return YorksV1WorkerRecord.fromRpcJson(_map(response));
+    } on FormatException catch (error) {
+      throw YorksV1DomainException(
+        YorksV1DomainErrorCode.unexpectedResponse,
+        cause: error,
+      );
+    }
+  }
+
   static Map<String, dynamic> _map(Object? response) {
     if (response is! Map) {
       throw const FormatException('Worker record response is not an object.');
@@ -165,6 +351,9 @@ final class YorksV1SupabaseWorkerRecordRepository
           '42501' => YorksV1DomainErrorCode.unauthorized,
           '22023' || '22P02' => YorksV1DomainErrorCode.invalidInput,
           '40001' => YorksV1DomainErrorCode.conflict,
+          // Only the passport-uniqueness rule raises this for these commands.
+          '23505' => YorksV1DomainErrorCode.invalidInput,
+          'P0002' => YorksV1DomainErrorCode.conflict,
           'PGRST002' || 'PGRST003' => YorksV1DomainErrorCode.backendUnavailable,
           _ => YorksV1DomainErrorCode.serverRejected,
         },

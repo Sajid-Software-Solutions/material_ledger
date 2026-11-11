@@ -6,6 +6,8 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_worker_record.dart';
 import '../repositories/yorks_v1_worker_record_repository.dart';
 import '../services/analytics_service.dart';
+import '../services/yorks_v1_worker_photo_service.dart';
+import '../services/yorks_v1_worker_workbook_service.dart';
 import '../sync/connectivity_service.dart';
 import 'language_provider.dart';
 import 'yorks_v1_feature_flags_provider.dart';
@@ -172,3 +174,13 @@ final yorksV1WorkerPhotoUrlProvider = FutureProvider.autoDispose
           .watch(yorksV1WorkerRecordRepositoryProvider)
           .photoUrl(objectPath);
     });
+
+/// Photo chooser, overridable so widget tests never open a system dialog.
+final yorksV1WorkerPhotoPickerProvider = Provider<YorksV1WorkerPhotoPicker>(
+  (ref) => yorksV1PickWorkerPhoto,
+);
+
+/// Excel file access, overridable so widget tests never open a system dialog.
+final yorksV1WorkerWorkbookFilesProvider = Provider<YorksV1WorkerWorkbookFiles>(
+  (ref) => const YorksV1PlatformWorkerWorkbookFiles(),
+);

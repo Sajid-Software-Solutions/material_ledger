@@ -1,17 +1,23 @@
 -- =============================================================================
--- Worker Records foundation — apply script for the Supabase SQL editor
+-- Worker Records — apply script for the Supabase SQL editor
 -- =============================================================================
--- Identical to supabase/migrations/20261110120000_worker_records_foundation.sql.
--- Additive and repeatable: two capabilities, two protected tables, two read
--- functions and one private photo bucket. No existing data is changed.
+-- The three Worker Records migrations, in order, inside ONE transaction:
+--   20261110120000_worker_records_foundation.sql
+--   20261110130000_worker_records_save_and_photo.sql
+--   20261111100000_worker_records_import.sql
+-- Any error rolls everything back. It ends with self-checks and prints
+-- `worker_records_applied`. Safe to run again, including after the rollback.
 --
--- BEFORE YOU RUN THIS:
---   1. Run it on STAGING first and confirm it succeeds.
---   2. Then run the identical script on PRODUCTION.
---   3. Do NOT run `supabase db push` or `supabase migration repair`.
--- ROLLBACK: see the header of the migration below.
+-- Run on STAGING first, then the identical script on PRODUCTION.
+-- Do NOT run `supabase db push` or `supabase migration repair`.
+-- Undo: supabase/release/worker_records_rollback.sql
 -- =============================================================================
 
+-- Worker Records: all three migrations in ONE transaction.
+-- Any error rolls everything back; nothing is half-applied.
+begin;
+
+-- ===== 20261110120000_worker_records_foundation.sql =====
 -- Worker Records foundation (owner decision, 10 November 2026;
 -- PRODUCT_DECISIONS.md section 33).
 --
@@ -34,7 +40,6 @@
 -- Accountant rule, run the same replacement in reverse. Retain every record,
 -- revision and stored photo.
 
-begin;
 
 -- ---------------------------------------------------------------------------
 -- Capabilities
@@ -566,4 +571,927 @@ grant execute on function public.v1_get_worker_record(uuid) to authenticated;
 
 notify pgrst, 'reload schema';
 
+
+-- ===== 20261110130000_worker_records_save_and_photo.sql =====
+-- Worker Records slice 2: create/update a record and set a photo
+-- (PRODUCT_DECISIONS.md section 33).
+--
+-- Both commands require `worker_records.manage`, lock the worker row, check
+-- the expected record version, are retry-safe through the shared idempotency
+-- ledger and append one protected revision. The idempotency ledger and the
+-- general audit trail store identifiers and changed field names only, never a
+-- salary or passport value.
+--
+-- On an existing worker this command may correct the name, company and
+-- designation. It never changes status, dates, trade, type or assignments;
+-- those stay with Workforce Administration and its own checks.
+--
+-- Data preservation: additive only (one sequence, three functions). Rollback:
+-- revoke execute on the two public functions; retain all rows and photos.
+
+
+create sequence if not exists public.v1_worker_record_number_seq;
+revoke all on sequence public.v1_worker_record_number_seq
+  from public, anon, authenticated;
+
+-- Internal: the full protected row as JSON, for revisions only.
+create or replace function public.v1_worker_employment_record_snapshot(
+  p_worker_id uuid
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'full_name', worker.full_name,
+    'designation', worker.designation,
+    'employer_company', worker.employer_company,
+    'trade_license_no', record.trade_license_no,
+    'passport_no', record.passport_no,
+    'basic_salary', record.basic_salary,
+    'housing_allowance', record.housing_allowance,
+    'other_allowance', record.other_allowance,
+    'photo_object_path', record.photo_object_path,
+    'record_version', record.record_version
+  )
+  from public.v1_workforce_workers worker
+  left join public.v1_worker_employment_records record
+    on record.worker_id = worker.id
+  where worker.id = p_worker_id;
+$$;
+
+-- Internal: parse an optional non-negative amount with at most two decimals.
+create or replace function public.v1_worker_record_amount(
+  p_payload jsonb,
+  p_key text
+)
+returns numeric
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_text text := btrim(coalesce(p_payload ->> p_key, ''));
+begin
+  if v_text = '' then
+    return null;
+  end if;
+  if v_text !~ '^[0-9]{1,10}(\.[0-9]{1,2})?$' then
+    raise exception 'V1_WORKER_RECORD_AMOUNT_INVALID' using errcode = '22023';
+  end if;
+  return v_text::numeric;
+end;
+$$;
+
+create or replace function public.v1_save_worker_record(
+  p_payload jsonb,
+  p_expected_version bigint,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := public.v1_worker_records_assert('worker_records.manage');
+  v_role text := public.v1_permission_exact_role(v_actor);
+  v_existing jsonb;
+  v_worker_id uuid;
+  v_is_new_worker boolean := false;
+  v_worker public.v1_workforce_workers%rowtype;
+  v_record public.v1_worker_employment_records%rowtype;
+  v_has_record boolean;
+  v_full_name text := btrim(coalesce(p_payload ->> 'full_name', ''));
+  v_designation text := btrim(coalesce(p_payload ->> 'designation', ''));
+  v_company text := btrim(coalesce(p_payload ->> 'employer_company', ''));
+  v_license text := nullif(btrim(coalesce(
+    p_payload ->> 'trade_license_no', '')), '');
+  v_passport text := nullif(upper(btrim(coalesce(
+    p_payload ->> 'passport_no', ''))), '');
+  v_basic numeric;
+  v_housing numeric;
+  v_other numeric;
+  v_joining_date date;
+  v_before jsonb;
+  v_after jsonb;
+  v_changed text[];
+  v_version bigint;
+begin
+  if p_idempotency_key is null then
+    raise exception 'V1_WORKER_RECORD_IDEMPOTENCY_REQUIRED'
+      using errcode = '22023';
+  end if;
+  perform public.v1_assert_object_keys(
+    p_payload,
+    array[
+      'worker_id', 'full_name', 'designation', 'employer_company',
+      'joining_date', 'trade_license_no', 'passport_no', 'basic_salary',
+      'housing_allowance', 'other_allowance'
+    ],
+    'save_worker_record_payload'
+  );
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_save_worker_record', p_idempotency_key,
+    jsonb_build_object(
+      'payload', p_payload, 'expected_version', p_expected_version
+    )
+  );
+  if v_existing is not null then
+    -- The ledger holds identifiers only; rebuild the protected projection.
+    return public.v1_worker_record_json((v_existing ->> 'worker_id')::uuid)
+      || jsonb_build_object('schema_version', 1);
+  end if;
+
+  begin
+    v_worker_id := nullif(btrim(coalesce(
+      p_payload ->> 'worker_id', '')), '')::uuid;
+    v_joining_date := nullif(btrim(coalesce(
+      p_payload ->> 'joining_date', '')), '')::date;
+  exception when invalid_text_representation or datetime_field_overflow
+    or invalid_datetime_format then
+    raise exception 'V1_WORKER_RECORD_REFERENCE_INVALID'
+      using errcode = '22023';
+  end;
+  v_basic := public.v1_worker_record_amount(p_payload, 'basic_salary');
+  v_housing := public.v1_worker_record_amount(p_payload, 'housing_allowance');
+  v_other := public.v1_worker_record_amount(p_payload, 'other_allowance');
+
+  if v_full_name = '' or v_designation = '' or v_company = ''
+    or char_length(v_full_name) > 180 or char_length(v_designation) > 120
+    or char_length(v_company) > 180
+    or char_length(coalesce(v_license, '')) > 60
+    or char_length(coalesce(v_passport, '')) > 40
+  then
+    raise exception 'V1_WORKER_RECORD_REQUIRED_FIELDS' using errcode = '22023';
+  end if;
+
+  if v_worker_id is null then
+    -- A new worker. Status, type and number take safe defaults; Workforce
+    -- Administration remains the place to change them afterwards.
+    if p_expected_version is not null then
+      raise exception 'V1_WORKER_RECORD_NOT_FOUND' using errcode = 'P0002';
+    end if;
+    if v_joining_date is null then
+      raise exception 'V1_WORKER_RECORD_REQUIRED_FIELDS'
+        using errcode = '22023';
+    end if;
+    v_is_new_worker := true;
+    insert into public.v1_workforce_workers (
+      worker_number, full_name, designation, employer_company, worker_type,
+      joining_date, created_by_auth_user_id, updated_by_auth_user_id
+    ) values (
+      'WR-' || lpad(
+        nextval('public.v1_worker_record_number_seq')::text, 6, '0'
+      ),
+      v_full_name, v_designation, v_company, 'yorks_employee',
+      v_joining_date, v_actor, v_actor
+    ) returning * into v_worker;
+    v_worker_id := v_worker.id;
+  else
+    select worker.* into v_worker
+    from public.v1_workforce_workers worker
+    where worker.id = v_worker_id
+    for update;
+    if not found then
+      raise exception 'V1_WORKER_RECORD_NOT_FOUND' using errcode = 'P0002';
+    end if;
+  end if;
+
+  select record.* into v_record
+  from public.v1_worker_employment_records record
+  where record.worker_id = v_worker_id
+  for update;
+  v_has_record := found;
+  if not v_is_new_worker
+    and coalesce(p_expected_version, -1)
+      <> (case when v_has_record then v_record.record_version else 0 end)
+  then
+    perform public.v1_raise_version_conflict(
+      'V1_WORKER_RECORD_VERSION_CONFLICT'
+    );
+  end if;
+
+  v_before := case when v_is_new_worker then null
+    else public.v1_worker_employment_record_snapshot(v_worker_id) end;
+
+  if not v_is_new_worker and (
+    v_worker.full_name is distinct from v_full_name
+    or v_worker.designation is distinct from v_designation
+    or v_worker.employer_company is distinct from v_company
+  ) then
+    update public.v1_workforce_workers set
+      full_name = v_full_name,
+      designation = v_designation,
+      employer_company = v_company,
+      record_version = record_version + 1,
+      updated_by_auth_user_id = v_actor,
+      updated_at = clock_timestamp()
+    where id = v_worker_id;
+  end if;
+
+  begin
+    if v_has_record then
+      update public.v1_worker_employment_records set
+        trade_license_no = v_license,
+        passport_no = v_passport,
+        basic_salary = v_basic,
+        housing_allowance = v_housing,
+        other_allowance = v_other,
+        record_version = record_version + 1,
+        updated_by_auth_user_id = v_actor,
+        updated_by_role = v_role,
+        updated_at = clock_timestamp()
+      where worker_id = v_worker_id
+      returning record_version into v_version;
+    else
+      insert into public.v1_worker_employment_records (
+        worker_id, trade_license_no, passport_no, basic_salary,
+        housing_allowance, other_allowance, created_by_auth_user_id,
+        updated_by_auth_user_id, updated_by_role
+      ) values (
+        v_worker_id, v_license, v_passport, v_basic, v_housing, v_other,
+        v_actor, v_actor, v_role
+      ) returning record_version into v_version;
+    end if;
+  exception when unique_violation then
+    raise exception 'V1_WORKER_RECORD_PASSPORT_DUPLICATE'
+      using errcode = '23505';
+  end;
+
+  v_after := public.v1_worker_employment_record_snapshot(v_worker_id);
+  select coalesce(array_agg(field.key order by field.key), '{}'::text[])
+  into v_changed
+  from jsonb_each(v_after) field
+  where field.key <> 'record_version'
+    and field.value is distinct from coalesce(v_before -> field.key, 'null');
+
+  insert into public.v1_worker_employment_record_revisions (
+    worker_id, record_version, change_kind, before_data, after_data,
+    actor_auth_user_id, actor_role, idempotency_key
+  ) values (
+    v_worker_id, v_version,
+    case when v_has_record then 'updated' else 'created' end,
+    v_before, v_after, v_actor, v_role, p_idempotency_key
+  );
+  perform public.v1_write_audit_event(
+    case when v_has_record then 'worker_record_updated'
+      else 'worker_record_created' end,
+    'worker_employment_record', v_worker_id, null, null,
+    jsonb_build_object(
+      'record_version', v_version,
+      'new_worker', v_is_new_worker,
+      'changed_fields', to_jsonb(v_changed)
+    ),
+    null, p_idempotency_key
+  );
+  perform public.v1_complete_idempotency(
+    'v1_save_worker_record', p_idempotency_key,
+    jsonb_build_object('worker_id', v_worker_id, 'record_version', v_version)
+  );
+  return public.v1_worker_record_json(v_worker_id)
+    || jsonb_build_object('schema_version', 1);
+end;
+$$;
+
+create or replace function public.v1_set_worker_photo(
+  p_worker_id uuid,
+  p_object_path text,
+  p_expected_version bigint,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := public.v1_worker_records_assert('worker_records.manage');
+  v_role text := public.v1_permission_exact_role(v_actor);
+  v_existing jsonb;
+  v_record public.v1_worker_employment_records%rowtype;
+  v_has_record boolean;
+  v_before jsonb;
+  v_version bigint;
+begin
+  if p_idempotency_key is null or p_worker_id is null then
+    raise exception 'V1_WORKER_RECORD_REFERENCE_INVALID'
+      using errcode = '22023';
+  end if;
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_set_worker_photo', p_idempotency_key,
+    jsonb_build_object(
+      'worker_id', p_worker_id, 'object_path', p_object_path,
+      'expected_version', p_expected_version
+    )
+  );
+  if v_existing is not null then
+    return public.v1_worker_record_json(p_worker_id)
+      || jsonb_build_object('schema_version', 1);
+  end if;
+
+  -- The path must name this worker and the object must already be stored.
+  if public.v1_worker_photo_path_worker_id(
+      'yorks-worker-photos', p_object_path
+    ) is distinct from p_worker_id
+    or not exists (
+      select 1 from storage.objects stored
+      where stored.bucket_id = 'yorks-worker-photos'
+        and stored.name = p_object_path
+    )
+  then
+    raise exception 'V1_WORKER_PHOTO_INVALID' using errcode = '22023';
+  end if;
+
+  perform 1 from public.v1_workforce_workers worker
+  where worker.id = p_worker_id for update;
+  if not found then
+    raise exception 'V1_WORKER_RECORD_NOT_FOUND' using errcode = 'P0002';
+  end if;
+  select record.* into v_record
+  from public.v1_worker_employment_records record
+  where record.worker_id = p_worker_id
+  for update;
+  v_has_record := found;
+  if coalesce(p_expected_version, -1)
+    <> (case when v_has_record then v_record.record_version else 0 end)
+  then
+    perform public.v1_raise_version_conflict(
+      'V1_WORKER_RECORD_VERSION_CONFLICT'
+    );
+  end if;
+  v_before := public.v1_worker_employment_record_snapshot(p_worker_id);
+
+  if v_has_record then
+    update public.v1_worker_employment_records set
+      photo_object_path = p_object_path,
+      record_version = record_version + 1,
+      updated_by_auth_user_id = v_actor,
+      updated_by_role = v_role,
+      updated_at = clock_timestamp()
+    where worker_id = p_worker_id
+    returning record_version into v_version;
+  else
+    insert into public.v1_worker_employment_records (
+      worker_id, photo_object_path, created_by_auth_user_id,
+      updated_by_auth_user_id, updated_by_role
+    ) values (
+      p_worker_id, p_object_path, v_actor, v_actor, v_role
+    ) returning record_version into v_version;
+  end if;
+
+  insert into public.v1_worker_employment_record_revisions (
+    worker_id, record_version, change_kind, before_data, after_data,
+    actor_auth_user_id, actor_role, idempotency_key
+  ) values (
+    p_worker_id, v_version, 'photo_set', v_before,
+    public.v1_worker_employment_record_snapshot(p_worker_id),
+    v_actor, v_role, p_idempotency_key
+  );
+  perform public.v1_write_audit_event(
+    'worker_record_photo_set', 'worker_employment_record', p_worker_id,
+    null, null,
+    jsonb_build_object(
+      'record_version', v_version,
+      'changed_fields', jsonb_build_array('photo_object_path')
+    ),
+    null, p_idempotency_key
+  );
+  perform public.v1_complete_idempotency(
+    'v1_set_worker_photo', p_idempotency_key,
+    jsonb_build_object('worker_id', p_worker_id, 'record_version', v_version)
+  );
+  return public.v1_worker_record_json(p_worker_id)
+    || jsonb_build_object('schema_version', 1);
+end;
+$$;
+
+revoke all on function public.v1_worker_employment_record_snapshot(uuid)
+  from public, anon, authenticated;
+revoke all on function public.v1_worker_record_amount(jsonb, text)
+  from public, anon, authenticated;
+revoke all on function public.v1_save_worker_record(jsonb, bigint, uuid)
+  from public, anon;
+revoke all on function public.v1_set_worker_photo(uuid, text, bigint, uuid)
+  from public, anon;
+grant execute on function public.v1_save_worker_record(jsonb, bigint, uuid)
+  to authenticated;
+grant execute on function public.v1_set_worker_photo(uuid, text, bigint, uuid)
+  to authenticated;
+
+notify pgrst, 'reload schema';
+
+
+-- ===== 20261111100000_worker_records_import.sql =====
+-- Worker Records slice 3: Excel import with a server preview
+-- (PRODUCT_DECISIONS.md section 33).
+--
+-- One internal routine classifies every sheet row; the read-only preview and
+-- the all-or-nothing import both use it, so they cannot disagree.
+--
+-- Matching, in order:
+--   1. passport number (normalized) -> that worker, provided the names match;
+--   2. otherwise exact normalized name + company -> that worker;
+--   3. otherwise a new worker.
+-- A passport held by a differently named worker, a matched worker whose
+-- stored passport differs, two workers with the same name and company, and a
+-- row repeated in the file are row errors. Any row error blocks the import.
+--
+-- An import never changes an existing worker's name, company, status, dates
+-- or assignments, and a blank cell never erases a stored value.
+--
+-- Data preservation: additive only (three functions). Rollback: revoke
+-- execute on the two public functions; imported rows remain ordinary records
+-- with their revisions.
+
+
+create or replace function public.v1_worker_import_normalized(p_value text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select lower(regexp_replace(btrim(coalesce(p_value, '')), '\s+', ' ', 'g'));
+$$;
+
+-- Internal. Returns one classification object per input row, in input order.
+create or replace function public.v1_worker_import_classify(p_rows jsonb)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_row jsonb;
+  v_index integer := 0;
+  v_result jsonb := '[]'::jsonb;
+  v_errors text[];
+  v_changed text[];
+  v_name text;
+  v_company text;
+  v_passport text;
+  v_license text;
+  v_amount_key text;
+  v_amounts jsonb;
+  v_worker_id uuid;
+  v_worker_name text;
+  v_match_count integer;
+  v_record public.v1_worker_employment_records%rowtype;
+  v_has_record boolean;
+  v_action text;
+  v_seen_passports text[] := '{}';
+  v_seen_identities text[] := '{}';
+begin
+  if jsonb_typeof(p_rows) <> 'array' then
+    raise exception 'V1_WORKER_IMPORT_ROWS_INVALID' using errcode = '22023';
+  end if;
+  if jsonb_array_length(p_rows) = 0 or jsonb_array_length(p_rows) > 500 then
+    raise exception 'V1_WORKER_IMPORT_ROW_COUNT_INVALID'
+      using errcode = '22023';
+  end if;
+
+  for v_row in select value from jsonb_array_elements(p_rows) loop
+    v_index := v_index + 1;
+    if jsonb_typeof(v_row) <> 'object' then
+      raise exception 'V1_WORKER_IMPORT_ROWS_INVALID' using errcode = '22023';
+    end if;
+    perform public.v1_assert_object_keys(
+      v_row,
+      array[
+        'row_number', 'full_name', 'employer_company', 'trade_license_no',
+        'passport_no', 'basic_salary', 'housing_allowance', 'other_allowance'
+      ],
+      'import_worker_record_row'
+    );
+    v_errors := '{}';
+    v_changed := '{}';
+    v_worker_id := null;
+    v_worker_name := null;
+    v_has_record := false;
+    v_name := btrim(coalesce(v_row ->> 'full_name', ''));
+    v_company := btrim(coalesce(v_row ->> 'employer_company', ''));
+    v_passport := nullif(upper(btrim(coalesce(v_row ->> 'passport_no', ''))), '');
+    v_license := nullif(btrim(coalesce(v_row ->> 'trade_license_no', '')), '');
+
+    if v_name = '' then v_errors := array_append(v_errors, 'name_required'); end if;
+    if v_company = '' then v_errors := array_append(v_errors, 'company_required'); end if;
+    if char_length(v_name) > 180 or char_length(v_company) > 180
+      or char_length(coalesce(v_passport, '')) > 40
+      or char_length(coalesce(v_license, '')) > 60 then
+      v_errors := array_append(v_errors, 'field_too_long');
+    end if;
+    v_amounts := '{}'::jsonb;
+    foreach v_amount_key in array array[
+      'basic_salary', 'housing_allowance', 'other_allowance'
+    ] loop
+      if btrim(coalesce(v_row ->> v_amount_key, '')) <> ''
+        and btrim(v_row ->> v_amount_key) !~ '^[0-9]{1,10}(\.[0-9]{1,2})?$'
+      then
+        v_errors := array_append(v_errors, 'amount_invalid');
+        exit;
+      end if;
+      v_amounts := v_amounts || jsonb_build_object(
+        v_amount_key,
+        nullif(btrim(coalesce(v_row ->> v_amount_key, '')), '')::numeric
+      );
+    end loop;
+
+    -- The same person twice in one file.
+    if v_passport is not null then
+      if v_passport = any(v_seen_passports) then
+        v_errors := array_append(v_errors, 'duplicate_in_file');
+      end if;
+      v_seen_passports := array_append(v_seen_passports, v_passport);
+    end if;
+    if v_name <> '' and v_company <> '' then
+      if public.v1_worker_import_normalized(v_name) || '|'
+          || public.v1_worker_import_normalized(v_company)
+        = any(v_seen_identities)
+        and not ('duplicate_in_file' = any(v_errors)) then
+        v_errors := array_append(v_errors, 'duplicate_in_file');
+      end if;
+      v_seen_identities := array_append(
+        v_seen_identities,
+        public.v1_worker_import_normalized(v_name) || '|'
+          || public.v1_worker_import_normalized(v_company)
+      );
+    end if;
+
+    if cardinality(v_errors) = 0 then
+      -- 1. Passport match.
+      if v_passport is not null then
+        select worker.id, worker.full_name into v_worker_id, v_worker_name
+        from public.v1_worker_employment_records record
+        join public.v1_workforce_workers worker on worker.id = record.worker_id
+        where upper(btrim(record.passport_no)) = v_passport;
+        if v_worker_id is not null
+          and public.v1_worker_import_normalized(v_worker_name)
+            <> public.v1_worker_import_normalized(v_name) then
+          v_errors := array_append(v_errors, 'passport_other_worker');
+        end if;
+      end if;
+      -- 2. Name + company match.
+      if v_worker_id is null then
+        select count(*), min(worker.id::text)::uuid
+        into v_match_count, v_worker_id
+        from public.v1_workforce_workers worker
+        where public.v1_worker_import_normalized(worker.full_name)
+            = public.v1_worker_import_normalized(v_name)
+          and public.v1_worker_import_normalized(worker.employer_company)
+            = public.v1_worker_import_normalized(v_company);
+        if v_match_count > 1 then
+          v_errors := array_append(v_errors, 'ambiguous_match');
+          v_worker_id := null;
+        end if;
+      end if;
+    end if;
+
+    if v_worker_id is not null and cardinality(v_errors) = 0 then
+      select record.* into v_record
+      from public.v1_worker_employment_records record
+      where record.worker_id = v_worker_id;
+      v_has_record := found;
+      if v_has_record and v_passport is not null
+        and v_record.passport_no is not null
+        and upper(btrim(v_record.passport_no)) <> v_passport then
+        v_errors := array_append(v_errors, 'passport_differs');
+      end if;
+      if cardinality(v_errors) = 0 then
+        -- Only cells that hold a value and differ count as changes.
+        if v_license is not null
+          and v_license is distinct from v_record.trade_license_no then
+          v_changed := array_append(v_changed, 'trade_license_no');
+        end if;
+        if v_passport is not null
+          and v_passport is distinct from upper(btrim(v_record.passport_no)) then
+          v_changed := array_append(v_changed, 'passport_no');
+        end if;
+        if v_amounts ->> 'basic_salary' is not null
+          and (v_amounts ->> 'basic_salary')::numeric
+            is distinct from v_record.basic_salary then
+          v_changed := array_append(v_changed, 'basic_salary');
+        end if;
+        if v_amounts ->> 'housing_allowance' is not null
+          and (v_amounts ->> 'housing_allowance')::numeric
+            is distinct from v_record.housing_allowance then
+          v_changed := array_append(v_changed, 'housing_allowance');
+        end if;
+        if v_amounts ->> 'other_allowance' is not null
+          and (v_amounts ->> 'other_allowance')::numeric
+            is distinct from v_record.other_allowance then
+          v_changed := array_append(v_changed, 'other_allowance');
+        end if;
+      end if;
+    end if;
+
+    v_action := case
+      when cardinality(v_errors) > 0 then 'error'
+      when v_worker_id is null then 'create'
+      when cardinality(v_changed) = 0 then 'unchanged'
+      else 'update'
+    end;
+    v_result := v_result || jsonb_build_array(jsonb_build_object(
+      'index', v_index,
+      'row_number', v_row -> 'row_number',
+      'action', v_action,
+      'worker_id', case when v_action = 'error' then null else v_worker_id end,
+      'record_version', case
+        when v_worker_id is null or v_action = 'error' then null
+        when v_has_record then v_record.record_version
+        else 0
+      end,
+      'errors', to_jsonb(v_errors),
+      'changed_fields', to_jsonb(v_changed)
+    ));
+  end loop;
+  return v_result;
+end;
+$$;
+
+create or replace function public.v1_preview_worker_records_import(
+  p_rows jsonb
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $$
+declare
+  v_rows jsonb;
+begin
+  perform public.v1_worker_records_assert('worker_records.manage');
+  v_rows := public.v1_worker_import_classify(p_rows);
+  return jsonb_build_object(
+    'schema_version', 1,
+    'rows', v_rows,
+    'create_count', (select count(*) from jsonb_array_elements(v_rows) row
+      where row ->> 'action' = 'create'),
+    'update_count', (select count(*) from jsonb_array_elements(v_rows) row
+      where row ->> 'action' = 'update'),
+    'unchanged_count', (select count(*) from jsonb_array_elements(v_rows) row
+      where row ->> 'action' = 'unchanged'),
+    'error_count', (select count(*) from jsonb_array_elements(v_rows) row
+      where row ->> 'action' = 'error')
+  );
+end;
+$$;
+
+create or replace function public.v1_import_worker_records(
+  p_payload jsonb,
+  p_idempotency_key uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid := public.v1_worker_records_assert('worker_records.manage');
+  v_role text := public.v1_permission_exact_role(v_actor);
+  v_existing jsonb;
+  v_rows jsonb;
+  v_expected jsonb;
+  v_classified jsonb;
+  v_item jsonb;
+  v_row jsonb;
+  v_expect jsonb;
+  v_designation text;
+  v_joining_date date;
+  v_worker_id uuid;
+  v_before jsonb;
+  v_version bigint;
+  v_created integer := 0;
+  v_updated integer := 0;
+  v_unchanged integer := 0;
+  v_response jsonb;
+begin
+  if p_idempotency_key is null then
+    raise exception 'V1_WORKER_IMPORT_IDEMPOTENCY_REQUIRED'
+      using errcode = '22023';
+  end if;
+  perform public.v1_assert_object_keys(
+    p_payload,
+    array['rows', 'expected', 'new_worker_designation',
+      'new_worker_joining_date'],
+    'import_worker_records_payload'
+  );
+  v_existing := public.v1_idempotency_get_or_claim(
+    'v1_import_worker_records', p_idempotency_key, p_payload
+  );
+  if v_existing is not null then
+    return v_existing;
+  end if;
+
+  v_rows := p_payload -> 'rows';
+  v_expected := p_payload -> 'expected';
+  if jsonb_typeof(v_expected) <> 'array'
+    or jsonb_typeof(v_rows) <> 'array'
+    or jsonb_array_length(v_expected) <> jsonb_array_length(v_rows) then
+    raise exception 'V1_WORKER_IMPORT_ROWS_INVALID' using errcode = '22023';
+  end if;
+
+  -- Serialize with saves and other imports so matching cannot race.
+  lock table public.v1_workforce_workers in share row exclusive mode;
+  lock table public.v1_worker_employment_records in share row exclusive mode;
+
+  v_classified := public.v1_worker_import_classify(v_rows);
+  if exists (
+    select 1 from jsonb_array_elements(v_classified) row
+    where row ->> 'action' = 'error'
+  ) then
+    raise exception 'V1_WORKER_IMPORT_HAS_ERRORS' using errcode = '22023';
+  end if;
+  -- The file must still mean what the preview showed.
+  if exists (
+    select 1
+    from jsonb_array_elements(v_classified) with ordinality now(item, position)
+    join jsonb_array_elements(v_expected) with ordinality was(item, position)
+      using (position)
+    where now.item ->> 'action' is distinct from was.item ->> 'action'
+      or now.item ->> 'worker_id' is distinct from was.item ->> 'worker_id'
+      or now.item ->> 'record_version'
+        is distinct from was.item ->> 'record_version'
+  ) then
+    perform public.v1_raise_version_conflict('V1_WORKER_IMPORT_PREVIEW_STALE');
+  end if;
+
+  if exists (
+    select 1 from jsonb_array_elements(v_classified) row
+    where row ->> 'action' = 'create'
+  ) then
+    v_designation := btrim(coalesce(
+      p_payload ->> 'new_worker_designation', ''));
+    begin
+      v_joining_date := nullif(btrim(coalesce(
+        p_payload ->> 'new_worker_joining_date', '')), '')::date;
+    exception when invalid_text_representation or datetime_field_overflow
+      or invalid_datetime_format then
+      raise exception 'V1_WORKER_IMPORT_NEW_WORKER_DEFAULTS_INVALID'
+        using errcode = '22023';
+    end;
+    if v_designation = '' or char_length(v_designation) > 120
+      or v_joining_date is null then
+      raise exception 'V1_WORKER_IMPORT_NEW_WORKER_DEFAULTS_INVALID'
+        using errcode = '22023';
+    end if;
+  end if;
+
+  for v_item in select value from jsonb_array_elements(v_classified) loop
+    v_row := v_rows -> ((v_item ->> 'index')::integer - 1);
+    if v_item ->> 'action' = 'unchanged' then
+      v_unchanged := v_unchanged + 1;
+      continue;
+    end if;
+
+    if v_item ->> 'action' = 'create' then
+      insert into public.v1_workforce_workers (
+        worker_number, full_name, designation, employer_company, worker_type,
+        joining_date, created_by_auth_user_id, updated_by_auth_user_id
+      ) values (
+        'WR-' || lpad(
+          nextval('public.v1_worker_record_number_seq')::text, 6, '0'),
+        btrim(v_row ->> 'full_name'), v_designation,
+        btrim(v_row ->> 'employer_company'), 'yorks_employee',
+        v_joining_date, v_actor, v_actor
+      ) returning id into v_worker_id;
+      v_before := null;
+      insert into public.v1_worker_employment_records (
+        worker_id, trade_license_no, passport_no, basic_salary,
+        housing_allowance, other_allowance, created_by_auth_user_id,
+        updated_by_auth_user_id, updated_by_role
+      ) values (
+        v_worker_id,
+        nullif(btrim(coalesce(v_row ->> 'trade_license_no', '')), ''),
+        nullif(upper(btrim(coalesce(v_row ->> 'passport_no', ''))), ''),
+        nullif(btrim(coalesce(v_row ->> 'basic_salary', '')), '')::numeric,
+        nullif(btrim(coalesce(v_row ->> 'housing_allowance', '')), '')::numeric,
+        nullif(btrim(coalesce(v_row ->> 'other_allowance', '')), '')::numeric,
+        v_actor, v_actor, v_role
+      ) returning record_version into v_version;
+      v_created := v_created + 1;
+    else
+      v_worker_id := (v_item ->> 'worker_id')::uuid;
+      v_before := public.v1_worker_employment_record_snapshot(v_worker_id);
+      if (v_item ->> 'record_version')::bigint = 0 then
+        insert into public.v1_worker_employment_records (
+          worker_id, trade_license_no, passport_no, basic_salary,
+          housing_allowance, other_allowance, created_by_auth_user_id,
+          updated_by_auth_user_id, updated_by_role
+        ) values (
+          v_worker_id,
+          nullif(btrim(coalesce(v_row ->> 'trade_license_no', '')), ''),
+          nullif(upper(btrim(coalesce(v_row ->> 'passport_no', ''))), ''),
+          nullif(btrim(coalesce(v_row ->> 'basic_salary', '')), '')::numeric,
+          nullif(btrim(coalesce(v_row ->> 'housing_allowance', '')), '')::numeric,
+          nullif(btrim(coalesce(v_row ->> 'other_allowance', '')), '')::numeric,
+          v_actor, v_actor, v_role
+        ) returning record_version into v_version;
+      else
+        -- A blank cell keeps the stored value.
+        update public.v1_worker_employment_records record set
+          trade_license_no = coalesce(nullif(btrim(coalesce(
+            v_row ->> 'trade_license_no', '')), ''), record.trade_license_no),
+          passport_no = coalesce(nullif(upper(btrim(coalesce(
+            v_row ->> 'passport_no', ''))), ''), record.passport_no),
+          basic_salary = coalesce(nullif(btrim(coalesce(
+            v_row ->> 'basic_salary', '')), '')::numeric, record.basic_salary),
+          housing_allowance = coalesce(nullif(btrim(coalesce(
+            v_row ->> 'housing_allowance', '')), '')::numeric,
+            record.housing_allowance),
+          other_allowance = coalesce(nullif(btrim(coalesce(
+            v_row ->> 'other_allowance', '')), '')::numeric,
+            record.other_allowance),
+          record_version = record.record_version + 1,
+          updated_by_auth_user_id = v_actor,
+          updated_by_role = v_role,
+          updated_at = clock_timestamp()
+        where record.worker_id = v_worker_id
+        returning record.record_version into v_version;
+      end if;
+      v_updated := v_updated + 1;
+    end if;
+
+    insert into public.v1_worker_employment_record_revisions (
+      worker_id, record_version, change_kind, before_data, after_data,
+      actor_auth_user_id, actor_role, idempotency_key
+    ) values (
+      v_worker_id, v_version, 'imported', v_before,
+      public.v1_worker_employment_record_snapshot(v_worker_id),
+      v_actor, v_role, p_idempotency_key
+    );
+  end loop;
+
+  v_response := jsonb_build_object(
+    'schema_version', 1,
+    'created_count', v_created,
+    'updated_count', v_updated,
+    'unchanged_count', v_unchanged
+  );
+  -- One audit event per import batch, identified by its idempotency key.
+  -- Counts only: no name, passport or amount.
+  perform public.v1_write_audit_event(
+    'worker_records_imported', 'worker_records_import', p_idempotency_key,
+    null, null, v_response, null, p_idempotency_key
+  );
+  perform public.v1_complete_idempotency(
+    'v1_import_worker_records', p_idempotency_key, v_response
+  );
+  return v_response;
+end;
+$$;
+
+revoke all on function public.v1_worker_import_normalized(text)
+  from public, anon, authenticated;
+revoke all on function public.v1_worker_import_classify(jsonb)
+  from public, anon, authenticated;
+revoke all on function public.v1_preview_worker_records_import(jsonb)
+  from public, anon;
+revoke all on function public.v1_import_worker_records(jsonb, uuid)
+  from public, anon;
+grant execute on function public.v1_preview_worker_records_import(jsonb)
+  to authenticated;
+grant execute on function public.v1_import_worker_records(jsonb, uuid)
+  to authenticated;
+
+notify pgrst, 'reload schema';
+
+
+
+-- After a rollback the catalogue rows already exist (switched off); make
+-- sure they are operational again.
+update public.v1_capability_catalog
+set status = 'operational', authorization_mode = 'enforced', is_assignable = true
+where capability_key in ('worker_records.view', 'worker_records.manage')
+  and (status, authorization_mode, is_assignable)
+    is distinct from ('operational', 'enforced', true);
+
+-- Sanity checks before committing.
+do $check$
+begin
+  if (select count(*) from public.v1_capability_catalog where capability_key in ('worker_records.view','worker_records.manage')) <> 2 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: capabilities';
+  end if;
+  if position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_candidate_raw(uuid,text,uuid)'::regprocedure)) = 0
+    or position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_legacy_raw(uuid,text,uuid)'::regprocedure)) = 0
+    or position('v1_accountant_may_hold_capability' in pg_get_functiondef('public.v1_permission_guard_assignment()'::regprocedure)) = 0 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: accountant boundary';
+  end if;
+  if (select count(*) from public.v1_capability_catalog
+      where capability_key in ('worker_records.view','worker_records.manage')
+        and status = 'operational' and authorization_mode = 'enforced'
+        and is_assignable) <> 2 then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: capabilities off';
+  end if;
+  if to_regprocedure('public.v1_import_worker_records(jsonb,uuid)') is null then
+    raise exception 'WORKER_RECORDS_APPLY_CHECK_FAILED: import';
+  end if;
+end;
+$check$;
+
 commit;
+
+select 'worker_records_applied' as result;
