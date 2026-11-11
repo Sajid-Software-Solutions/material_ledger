@@ -55,14 +55,18 @@ class _RequestCommentsSectionState
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
-    await ref.read(materialRequestsProvider.notifier).addRequestComment(
+    await ref
+        .read(materialRequestsProvider.notifier)
+        .addRequestComment(
           req.id,
           text: text,
           authorName: ref.read(actorNameProvider),
           authorRole: widget.authorRole,
         );
     final lang = ref.read(languageProvider);
-    await ref.read(notificationsProvider.notifier).add(
+    await ref
+        .read(notificationsProvider.notifier)
+        .add(
           type: NotificationType.request,
           title: AppStrings.notifNewRequestComment.primary,
           titleSecondary: AppStrings.notifNewRequestComment.secondary(lang),

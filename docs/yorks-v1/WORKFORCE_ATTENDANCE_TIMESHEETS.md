@@ -669,7 +669,9 @@ The server creates one immutable schema-v1 report artifact descriptor and
 sanitized report payload per actor/idempotency key. The payload omits internal
 UUID columns and all wage, salary, pay, bank, commercial and unrelated-module
 data. Same-key/same-payload returns the same artifact; a different payload
-fails. Every successful first generation appends exactly one
+fails. Pay and passport data exist only in the separate
+[Worker Records](WORKER_RECORDS.md) relations, which no Workforce projection
+or report reads. Every successful first generation appends exactly one
 `report_generated` audit event. Preview, Download, Share and Print are explicit
 online issuance actions: before the cached bytes are used, the client submits
 the artifact ID, format and action to the idempotent issuance RPC. The server
