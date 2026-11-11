@@ -1,3 +1,4 @@
+import 'yorks_workforce_team_workers_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -82,6 +83,51 @@ class _YorksWorkforceOverviewScreenState
                       onRefresh: controller.load,
                     ),
                     const SizedBox(height: AppSpacing.lg),
+                    if (authority.canManageWorkers ||
+                        authority.canMaintainAttendance ||
+                        authority.canMaintainTimesheets ||
+                        authority.canExportReports)
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          if (authority.canManageWorkers ||
+                              (workforceTeamWorkersEnabled &&
+                                  authority.canMaintainAttendance))
+                            OutlinedButton.icon(
+                              key: const Key('workforce-section-workers'),
+                              onPressed: () => context.go(
+                                authority.canManageWorkers
+                                    ? '/yorks/workforce/administration'
+                                    : '/yorks/workforce/workers',
+                              ),
+                              icon: const Icon(Icons.groups_outlined),
+                              label: Text(_t(language, 'section_workers')),
+                            ),
+                          if (authority.canMaintainAttendance ||
+                              authority.canMaintainTimesheets)
+                            OutlinedButton.icon(
+                              key: const Key('workforce-section-attendance'),
+                              onPressed: () =>
+                                  context.go('/yorks/workforce/attendance'),
+                              icon: const Icon(Icons.fact_check_outlined),
+                              label: Text(_t(language, 'section_attendance')),
+                            ),
+                          if (authority.canExportReports)
+                            OutlinedButton.icon(
+                              key: const Key('workforce-section-reports'),
+                              onPressed: () =>
+                                  context.go('/yorks/workforce/timesheets'),
+                              icon: const Icon(Icons.assessment_outlined),
+                              label: Text(_t(language, 'section_reports')),
+                            ),
+                        ],
+                      ),
+                    if (authority.canManageWorkers ||
+                        authority.canMaintainAttendance ||
+                        authority.canMaintainTimesheets ||
+                        authority.canExportReports)
+                      const SizedBox(height: AppSpacing.lg),
                     _OverviewStateBanner(
                       language: language,
                       state: state,
@@ -183,12 +229,11 @@ class _OverviewHeader extends StatelessWidget {
         Text(_t(language, 'body'), style: AppTypography.bodyMedium),
       ],
     );
-    // The compact overview is deliberately read-only. Management remains
-    // reachable from the permission-filtered workspace drawer, without
-    // turning the mobile summary into a mutation surface.
-    final actionSpecs = compact
-        ? const <_OverviewActionSpec>[]
-        : _overviewActions(projection, canManageWorkforce: canManageWorkforce);
+    // Navigation remains server-authorized on phones as well as desktop.
+    final actionSpecs = _overviewActions(
+      projection,
+      canManageWorkforce: !compact && canManageWorkforce,
+    );
     final actions = Wrap(
       spacing: AppSpacing.sm,
       runSpacing: AppSpacing.sm,

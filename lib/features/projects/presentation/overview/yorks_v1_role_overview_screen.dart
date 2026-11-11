@@ -275,6 +275,15 @@ class _YorksV1RoleOverviewScreenState
           ? () => context.go(RoutePaths.rentals)
           : null,
       openAudit: admin ? () => context.go(RoutePaths.activityLog) : null,
+      retry: () => _refresh(
+        includeActive: needsActive,
+        includeDelivery: needsDelivery,
+        includePortfolio: needsPortfolio,
+        includeMine: needsMine,
+        includeInventory: needsInventory,
+        role: role,
+        authUserId: authUserId,
+      ),
       retryAudit: admin
           ? () => ref.read(yorksV1AuditControllerProvider.notifier).load()
           : null,

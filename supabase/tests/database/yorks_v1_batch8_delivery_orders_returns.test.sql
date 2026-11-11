@@ -1543,7 +1543,7 @@ select set_config(
   '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-site-engineer"}}',
   true
 );
-select throws_ok(
+select lives_ok(
   $$select public.v1_save_project_material_return_draft(
     jsonb_build_object(
       'return_id', null,
@@ -1552,7 +1552,7 @@ select throws_ok(
         where scope.project_id = (select project_id from v1_b8_targets)
           and scope.scope_kind = 'common'),
       'expected_version', 0,
-      'purpose', 'Reject cross-scope source',
+      'purpose', 'Material moved to another building',
       'note', null,
       'requested_return_date', null,
       'lines', jsonb_build_array(jsonb_build_object(
@@ -1567,8 +1567,7 @@ select throws_ok(
       ))
     ), '82800000-0000-4000-8000-000000000017'::uuid
   )$$,
-  '22023', 'V1_MATERIAL_RETURN_SOURCE_INVALID',
-  'A delivered line cannot be attached to a different project scope'
+  'Material delivered to one building can be returned from another building of the same project (4 Nov 2026)'
 );
 
 select lives_ok(

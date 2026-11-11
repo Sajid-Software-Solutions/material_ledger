@@ -2,6 +2,61 @@ import 'app_language.dart';
 
 abstract final class YorksV1WorkforceAdministrationStrings {
   static const Map<String, Map<String, String>> _copy = {
+    'optional_details': {
+      'en': 'More details (optional)',
+      'ar': 'تفاصيل إضافية (اختياري)',
+      'ur': 'مزید تفصیلات (اختیاری)',
+      'hi': 'अधिक विवरण (वैकल्पिक)',
+    },
+    'assigned_team_workers': {
+      'en': 'View and add workers in your assigned teams.',
+      'ar': 'عرض وإضافة العمال في فرقك المعينة.',
+      'ur': 'اپنی مقررہ ٹیموں میں کارکن دیکھیں اور شامل کریں۔',
+      'hi': 'अपनी निर्धारित टीमों में कर्मचारी देखें और जोड़ें।',
+    },
+    'no_assigned_teams': {
+      'en':
+          'No assigned teams are available. Ask your administrator to check your team access.',
+      'ar': 'لا توجد فرق معينة متاحة. اطلب من المسؤول مراجعة صلاحياتك.',
+      'ur': 'کوئی مقررہ ٹیم دستیاب نہیں۔ منتظم سے ٹیم کی رسائی چیک کروائیں۔',
+      'hi':
+          'कोई निर्धारित टीम उपलब्ध नहीं है। व्यवस्थापक से टीम की पहुँच जाँचने को कहें।',
+    },
+    'number_optional': {
+      'en': 'Optional — leave blank to generate a number.',
+      'ar': 'اختياري — اتركه فارغًا لإنشاء رقم.',
+      'ur': 'اختیاری — نمبر بنانے کے لیے خالی چھوڑیں۔',
+      'hi': 'वैकल्पिक — नंबर बनाने के लिए खाली छोड़ें।',
+    },
+    'more_workers': {
+      'en': 'Load more workers',
+      'ar': 'تحميل المزيد من العمال',
+      'ur': 'مزید کارکن دکھائیں',
+      'hi': 'और कर्मचारी दिखाएँ',
+    },
+    'date_hint': {
+      'en': 'Use YYYY-MM-DD.',
+      'ar': 'استخدم YYYY-MM-DD.',
+      'ur': 'YYYY-MM-DD استعمال کریں۔',
+      'hi': 'YYYY-MM-DD इस्तेमाल करें।',
+    },
+    'team_workers_failed': {
+      'en':
+          'Workers could not be loaded. Check your connection and team access.',
+      'ar': 'تعذر تحميل العمال. تحقق من الاتصال وصلاحية الفريق.',
+      'ur': 'کارکن لوڈ نہیں ہوئے۔ کنکشن اور ٹیم کی رسائی چیک کریں۔',
+      'hi': 'कर्मचारी लोड नहीं हुए। कनेक्शन और टीम की पहुँच जाँचें।',
+    },
+    'team_worker_save_failed': {
+      'en':
+          'Not confirmed. Check the details and connection, then retry without changing the details if the previous request may have succeeded.',
+      'ar':
+          'لم يتم التأكيد. تحقق من التفاصيل والاتصال ثم أعد المحاولة بنفس التفاصيل إذا كان الطلب السابق قد نجح.',
+      'ur':
+          'تصدیق نہیں ہوئی۔ تفصیلات اور کنکشن چیک کریں۔ اگر پچھلی درخواست کامیاب ہو سکتی ہے تو انہی تفصیلات سے دوبارہ کوشش کریں۔',
+      'hi':
+          'पुष्टि नहीं हुई। विवरण और कनेक्शन जाँचें। पिछला अनुरोध सफल हुआ हो सकता है तो वही विवरण रखकर दोबारा प्रयास करें।',
+    },
     'title': {
       'en': 'Workforce Administration',
       'ar': 'إدارة القوى العاملة',

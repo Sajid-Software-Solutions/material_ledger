@@ -116,6 +116,15 @@ abstract final class YorksV1ShellStrings {
     ur: 'اکاؤنٹس کے حصے',
     hi: 'अकाउंट्स अनुभाग',
   );
+
+  /// Sidebar section for the material flow: requests, dispatches, returns
+  /// and inventory, kept together for every role.
+  static const materialsSection = TranslatableString(
+    en: 'Materials',
+    ar: 'المواد',
+    ur: 'میٹریلز',
+    hi: 'सामग्री',
+  );
   static const collaboration = TranslatableString(
     en: 'Collaboration',
     ar: 'التعاون',

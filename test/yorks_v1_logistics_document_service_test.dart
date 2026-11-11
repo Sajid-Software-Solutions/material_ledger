@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/shared/models/yorks_v1_company_document_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_logistics.dart';
+import 'package:material_ledger/shared/models/yorks_v1_material_return_candidates.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_return_workflow.dart';
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_logistics_document_service.dart';
@@ -104,8 +105,12 @@ void main() {
         sourceRequestNumber: 'Y-MR-001',
         sourceDispatchId: 'dispatch-1',
         sourceDispatchNumber: 'Y-DSP-001',
+        basisKind: YorksV1ReturnBasisKind.dispatchedUnconfirmed,
         displayOrder: 1,
         description: 'Copper pipe',
+        size: '15mm',
+        model: 'Type L',
+        equipmentTag: 'CH-01',
         brandOrigin: 'UAE',
         unit: 'Mtr',
         sourceKind: 'warehouse',
@@ -167,6 +172,8 @@ void main() {
       equals(const [
         'No.',
         'Item Description',
+        'Size',
+        'Model / Equipment tag',
         'Brand / Origin',
         'Qty.',
         'Unit',
@@ -174,8 +181,13 @@ void main() {
         'Note',
       ]),
     );
-    expect(workbook.sheets.single.rows[2][5], 'Y-MR-001 · Y-DSP-001');
-    expect(workbook.sheets.single.rows[3][5], 'Custom / unmatched');
+    expect(workbook.sheets.single.rows[2][2], '15mm');
+    expect(workbook.sheets.single.rows[2][3], 'Type L · CH-01');
+    expect(
+      workbook.sheets.single.rows[2][7],
+      'Y-MR-001 · Y-DSP-001 · Not yet confirmed by site',
+    );
+    expect(workbook.sheets.single.rows[3][7], 'Custom / unmatched');
   });
 
   test(

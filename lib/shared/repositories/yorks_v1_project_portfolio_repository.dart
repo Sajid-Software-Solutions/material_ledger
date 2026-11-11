@@ -7,6 +7,15 @@ import '../models/yorks_v1_project.dart';
 import '../models/yorks_v1_project_portfolio.dart';
 import '../services/analytics_service.dart';
 
+/// A tab left open after its session ended must not query protected data as
+/// an anonymous caller: the server rightly refuses it, and the refusal used to
+/// be reported as a permission failure. Stop before sending instead.
+void _requireSignedIn(SupabaseClient client) {
+  if (client.auth.currentSession == null) {
+    throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthenticated);
+  }
+}
+
 abstract interface class YorksV1ProjectOverviewDataClient {
   Future<Map<String, dynamic>> getOverview({required int limit});
 }
@@ -19,6 +28,7 @@ class SupabaseYorksV1ProjectOverviewDataClient
 
   @override
   Future<Map<String, dynamic>> getOverview({required int limit}) async {
+    _requireSignedIn(_client);
     final response = await _client.rpc(
       'v1_project_overview',
       params: {'p_limit': limit},
@@ -108,6 +118,7 @@ class SupabaseYorksV1ProjectPortfolioDataClient
 
   @override
   Future<List<Map<String, dynamic>>> listProjects() async {
+    _requireSignedIn(_client);
     final rows = await _client
         .from('v1_projects')
         .select(

@@ -63,6 +63,7 @@ explicit V7-to-V1 conflict resolution.
 | [`R39_YRA322_MASTER_FILE_RECONCILIATION.md`](R39_YRA322_MASTER_FILE_RECONCILIATION.md) | Audited mapping of the Nexus master workbook into YRA-322 baseline, confirmed progress, exclusions, production evidence and rollback |
 | [`R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md`](R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md) | Approved point-to-point rebuild of the per-project Accounts workspace into six job-shaped tabs; server/Flutter design, decisions D1–D14, phased PRs behind default-off `YORKS_V1_ACCOUNTS_WORKSPACE_V2` ([prototype](designs/accounts-workspace-v2-prototype.html)) |
 | [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md) | Approved Workforce authority through independently accepted T13 plus the reinstated T14 staging contract, including RLS, rollout and rollback |
+| [`WORKER_RECORDS.md`](WORKER_RECORDS.md) | Worker employment records in User Management: capabilities, protected relations, release and rollback |
 | [`WORKFORCE_T13_HARDENING_EVIDENCE.md`](WORKFORCE_T13_HARDENING_EVIDENCE.md) | Accepted T13 security, race, scale, responsive, build and limitation evidence; no release action |
 | [`WORKFORCE_T14_STAGING_UAT_EVIDENCE.md`](WORKFORCE_T14_STAGING_UAT_EVIDENCE.md) | Reinstated T14 contract, initialized staging identity, 35-scenario witness matrix and current post-release deferral status |
 | [`WORKFORCE_PRODUCTION_RELEASE_EVIDENCE.md`](WORKFORCE_PRODUCTION_RELEASE_EVIDENCE.md) | Owner-exception production release: source, migration ledger, artifact/deployment hashes, live routes, rollback and explicit T14 boundary |
@@ -85,9 +86,15 @@ explicit V7-to-V1 conflict resolution.
 | [`MATERIAL_REQUEST_PROCUREMENT_ITEM_CLARIFICATION.md`](MATERIAL_REQUEST_PROCUREMENT_ITEM_CLARIFICATION.md) | Procurement item-name/model clarification, shared smart search, immutable requested evidence, save lock and audit contract |
 | [`ARRANGEMENT_WORKBENCH_SRS.md`](ARRANGEMENT_WORKBENCH_SRS.md) | Proposed non-regressing arrangement workbench: private progress, safe Back/resume, stock/clarification/uncertain-save handling and responsive UI |
 | [`ARRANGEMENT_WORKBENCH_IMPLEMENTATION_PLAN.md`](ARRANGEMENT_WORKBENCH_IMPLEMENTATION_PLAN.md) | Implementation slices, source/test map, edge-case acceptance matrix, staging and rollback gates; not a release approval |
+| [`PROCUREMENT_WORKSPACE_REVIEW_20261008.md`](PROCUREMENT_WORKSPACE_REVIEW_20261008.md) | Desktop-first arrangement, dispatch and delivery-document audit; local shared-stock reproduction, focused baseline and proposed incremental improvement plan |
 | [`MATERIAL_REQUEST_ACTION_INTELLIGENCE_EVIDENCE.md`](MATERIAL_REQUEST_ACTION_INTELLIGENCE_EVIDENCE.md) | Local database, Flutter, visual and production-shaped build evidence for the action-intelligence release |
 | [`R38_UI_CONTRACT.md`](R38_UI_CONTRACT.md) | Rendered R38 visual contract and approved production exceptions |
 | [`R38_4_RENTAL_PROPERTIES.md`](R38_4_RENTAL_PROPERTIES.md) | Admin-only rental property, lease, rent, cheque, import/export and controlled-document implementation |
+| [`RENTAL_TRUST_AUDIT_2026-10-20.md`](RENTAL_TRUST_AUDIT_2026-10-20.md) | Owner-approved incomplete property intake, annual/monthly rent, completion recommendations, record integrity and rental notification acceptance |
+| [`RENTAL_NAVIGATION_UX_2026-10-20.md`](RENTAL_NAVIGATION_UX_2026-10-20.md) | Rental action guidance, persistent shell, scoped Back fallback and responsive verification |
+| [`RENTAL_ACTION_FILTERS_UX_2026-10-20.md`](RENTAL_ACTION_FILTERS_UX_2026-10-20.md) | Action-type filters, retained review context and focused field shortcuts in the rental editor |
+| [`RENTAL_SAVE_CONFIRMATION_UX_2026-10-20.md`](RENTAL_SAVE_CONFIRMATION_UX_2026-10-20.md) | Confirmed saved-field summary, current missing details and version-safe continuation on web and mobile |
+| [`RENTAL_CODE_REVIEW_2026-10-20.md`](RENTAL_CODE_REVIEW_2026-10-20.md) | Independent follow-up review, financial/import recovery fixes, notification closure and verified live source data |
 | [`R38_5_TEAM_CHAT_IMPLEMENTATION.md`](R38_5_TEAM_CHAT_IMPLEMENTATION.md) | R38.5 contextual Team Chat architecture, permissions, Storage, notification, responsive UI and rollback contract |
 | [`R38_9_INVENTORY_SUPPLIER_FOLDERS.md`](R38_9_INVENTORY_SUPPLIER_FOLDERS.md) | R38.9 supplier folders, Unknown Supplier, five-stage import, receipt provenance and migration safety contract |
 | [`MATERIAL_RETURN_CONTROLLED_WORKFLOW.md`](MATERIAL_RETURN_CONTROLLED_WORKFLOW.md) | Project-wide Material Return lifecycle, provenance, approval, warehouse receipt, document and rollback contract |
@@ -101,9 +108,12 @@ explicit V7-to-V1 conflict resolution.
 | [`evidence/r38-5-team-chat-20260814/README.md`](evidence/r38-5-team-chat-20260814/README.md) | R38.5 Team Chat desktop, tablet and mobile visual/security evidence |
 | [`MIGRATION_AND_ROLLBACK_PLAN.md`](MIGRATION_AND_ROLLBACK_PLAN.md) | Additive migration, reconciliation, quarantine and rollback |
 | [`MATERIAL_REQUEST_DRAFT_LIFECYCLE.md`](MATERIAL_REQUEST_DRAFT_LIFECYCLE.md) | Private recovery deletion, retirement, concurrency and telemetry contract |
+| [`MATERIAL_REQUEST_DRAFT_AUDIT_20261007.md`](MATERIAL_REQUEST_DRAFT_AUDIT_20261007.md) | Read-only production draft inventory, correlated deletion failures, preservation exceptions and staged repair plan |
 | [`TEST_AND_ACCEPTANCE_PLAN.md`](TEST_AND_ACCEPTANCE_PLAN.md) | Canonical scenarios, R39 phase gates and platform/security evidence |
 | [`YORKS_PERFORMANCE_REVIEW.md`](YORKS_PERFORMANCE_REVIEW.md) | Measured production performance findings, incremental fixes, release evidence and remaining attribution |
 | [`MR_READ_RELIABILITY_REMEDIATION_20261005.md`](MR_READ_RELIABILITY_REMEDIATION_20261005.md) | Android/PWA MR timeout evidence, client read coalescing, targeted invalidation, staging profile and rollout boundary |
+| [`P0_OUTCOME_RELIABILITY_20261015.md`](P0_OUTCOME_RELIABILITY_20261015.md) | Exact command outcomes, bounded recovery, approval archival contention, protected-read performance, staging evidence and authorized production release record |
+| [`P2_REPAIR_CORRECTIONS_20261015.md`](P2_REPAIR_CORRECTIONS_20261015.md) | Follow-up review: workspace loader removal, manual status recovery, expired-upload renewal and receipt-first reads |
 | [`COMBINED_PRODUCTION_RELEASE_20261006.md`](COMBINED_PRODUCTION_RELEASE_20261006.md) | Verified combined project setup/MR production release, source inclusion, artifact and guard mapping, rollback and remaining observation gates |
 | [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) | Dependency-ordered Batches 0–10 |
 | [`BATCH_00_COMPLETION.md`](BATCH_00_COMPLETION.md) | Re-baseline changes, verification and known blockers |

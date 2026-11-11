@@ -69,10 +69,14 @@ final employeeProvider = Provider<EmployeeProfile>((ref) {
 
   return EmployeeProfile(
     name: name,
-    title: emp.jobRole.trim().isNotEmpty ? emp.jobRole : (user?.role.label ?? '—'),
+    title: emp.jobRole.trim().isNotEmpty
+        ? emp.jobRole
+        : (user?.role.label ?? '—'),
     employeeId: emp.id,
     email: email,
-    phone: (emp.contact?.trim().isNotEmpty ?? false) ? emp.contact!.trim() : '—',
+    phone: (emp.contact?.trim().isNotEmpty ?? false)
+        ? emp.contact!.trim()
+        : '—',
     department: emp.department.trim().isNotEmpty ? emp.department : '—',
     nationality: emp.nationality.trim().isNotEmpty ? emp.nationality : '—',
     linked: true,

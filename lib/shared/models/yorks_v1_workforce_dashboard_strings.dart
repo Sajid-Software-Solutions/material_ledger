@@ -8,6 +8,24 @@ abstract final class YorksV1WorkforceDashboardStrings {
       'ur': 'افرادی قوت کا انتظام',
       'hi': 'कार्यबल प्रशासन',
     },
+    'section_workers': {
+      'en': 'Workers',
+      'ar': 'العمال',
+      'ur': 'کارکن',
+      'hi': 'कर्मचारी',
+    },
+    'section_attendance': {
+      'en': 'Attendance',
+      'ar': 'الحضور',
+      'ur': 'حاضری',
+      'hi': 'उपस्थिति',
+    },
+    'section_reports': {
+      'en': 'Reports',
+      'ar': 'التقارير',
+      'ur': 'رپورٹس',
+      'hi': 'रिपोर्ट',
+    },
     'title': {
       'en': 'Workforce Overview',
       'ar': 'نظرة عامة على القوى العاملة',

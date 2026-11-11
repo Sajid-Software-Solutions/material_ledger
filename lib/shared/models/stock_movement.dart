@@ -12,8 +12,10 @@ enum MovementType {
   final String label;
   final String ar;
 
-  static MovementType fromName(String n) =>
-      MovementType.values.firstWhere((m) => m.name == n, orElse: () => adjustment);
+  static MovementType fromName(String n) => MovementType.values.firstWhere(
+    (m) => m.name == n,
+    orElse: () => adjustment,
+  );
 }
 
 /// One append-only entry in the stock ledger: a single change to a material's

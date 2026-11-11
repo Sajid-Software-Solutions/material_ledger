@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +29,74 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  setUpAll(() async {
+    final font = FontLoader('NexusSans')
+      ..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'));
+    await font.load();
+    var cache = File(Platform.resolvedExecutable).parent;
+    for (
+      var i = 0;
+      i < 5 && !Directory('${cache.path}/artifacts').existsSync();
+      i++
+    ) {
+      cache = cache.parent;
+    }
+    await (FontLoader('MaterialIcons')..addFont(
+          Future.value(
+            ByteData.sublistView(
+              await File(
+                '${cache.path}/artifacts/material_fonts/MaterialIcons-Regular.otf',
+              ).readAsBytes(),
+            ),
+          ),
+        ))
+        .load();
+  });
+
+  for (final width in [360.0, 1366.0]) {
+    testWidgets('Workforce internal sections at $width', (tester) async {
+      _setViewport(tester, Size(width, 800));
+      addTearDown(() => _resetViewport(tester));
+      await _mountShell(
+        tester,
+        allowWorkforceView: true,
+        allowWorkersManage: true,
+        initialPath: RoutePaths.yorksV1Workforce,
+      );
+      final sections = find.byKey(
+        const ValueKey('workspace-internal-sections'),
+      );
+      expect(sections, findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_sections_${width.toInt()}.png'),
+      );
+      if (width == 360) {
+        await tester.tap(
+          find.descendant(
+            of: sections,
+            matching: find.byType(DropdownButton<String>),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(YorksV1ShellStrings.workforceAdministration.primary),
+          findsWidgets,
+        );
+      } else {
+        expect(
+          find.descendant(
+            of: sections,
+            matching: find.text(
+              YorksV1ShellStrings.workforceAdministration.primary,
+            ),
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
   test('Timesheets shell and monthly labels cover every app language', () {
     expect(
       AppLanguage.values
@@ -294,7 +365,7 @@ void main() {
 
       expect(
         find.text(YorksV1ShellStrings.workforceAdministration.primary),
-        findsOneWidget,
+        findsNothing,
       );
       await tester.tap(find.text(YorksV1ShellStrings.searchOrJump.primary));
       await tester.pumpAndSettle();
@@ -330,7 +401,10 @@ void main() {
       );
       expect(selectedWorkforce, findsOneWidget);
       expect(
-        find.text(YorksV1ShellStrings.workforceTimesheets.primary),
+        find.descendant(
+          of: find.byKey(const ValueKey('workspace-internal-sections')),
+          matching: find.text(YorksV1ShellStrings.workforceTimesheets.primary),
+        ),
         findsOneWidget,
       );
 
@@ -475,7 +549,11 @@ Future<void> _mountRouter(
           YorksV1Role.projectEngineer,
         ),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: router,
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -513,6 +591,13 @@ Future<void> _mountShell(
         initialPath ?? (startOnMore ? RoutePaths.yorksV1MobileMore : '/'),
     routes: [
       GoRoute(
+        path: RoutePaths.yorksV1Workforce,
+        builder: (_, _) => const YorksV1WorkspaceShell(
+          child: Scaffold(body: SizedBox.expand()),
+        ),
+      ),
+
+      GoRoute(
         path: '/',
         builder: (_, _) => const YorksV1WorkspaceShell(
           child: Scaffold(body: SizedBox.expand()),
@@ -547,7 +632,11 @@ Future<void> _mountShell(
           (ref) => controller,
         ),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: router,
+      ),
     ),
   );
   await tester.pumpAndSettle();

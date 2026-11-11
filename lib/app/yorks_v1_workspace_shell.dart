@@ -1,3 +1,4 @@
+import '../shared/providers/yorks_v1_procurement_progress_provider.dart';
 import '../shared/models/yorks_v1_calculator_strings.dart';
 import '../shared/providers/yorks_v1_calculator_provider.dart';
 import 'package:flutter/material.dart';
@@ -105,6 +106,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled = !isAccountant && featureFlags.teamChat;
     // Protected Accounts and Workforce routes are explicit runtime consumers.
@@ -115,6 +117,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
         (!isAccountant ||
             accountsEnabled ||
             workforceEnabled ||
+            workerRecordsEnabled ||
             companyRequestsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
@@ -135,7 +138,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     final chatUnread = teamChatEnabled
         ? ref.watch(yorksV1TeamChatUnreadProvider)
         : 0;
-    final destinations = _destinationsFor(
+    final allDestinations = _destinationsFor(
       role,
       teamChatEnabled: teamChatEnabled,
       chatUnread: chatUnread,
@@ -143,8 +146,54 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
+    // Keep granular destinations for search and internal navigation while the
+    // global sidebar presents one entry per workspace.
+    final destinations = _workspaceDestinations(allDestinations);
+    // Accounts pages carry their own tab row (YorksAccountsSectionFrame);
+    // Workforce pages get theirs here.
+    final sections = <_YorksDestination>[];
+    if (location.startsWith(RoutePaths.yorksV1Workforce) &&
+        allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce)) {
+      sections.addAll([
+        const _YorksDestination(
+          label: YorksV1ShellStrings.overview,
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard,
+          path: RoutePaths.yorksV1Workforce,
+        ),
+        const _YorksDestination(
+          label: AppStrings.attendanceLabel,
+          icon: Icons.fact_check_outlined,
+          selectedIcon: Icons.fact_check,
+          path: RoutePaths.yorksV1WorkforceAttendance,
+        ),
+        const _YorksDestination(
+          label: YorksV1ShellStrings.workforceTimesheets,
+          icon: Icons.calendar_month_outlined,
+          selectedIcon: Icons.calendar_month,
+          path: RoutePaths.yorksV1WorkforceTimesheets,
+        ),
+        ...allDestinations.where(
+          (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
+        ),
+      ]);
+    }
+    Widget contentViewport() => sections.isEmpty
+        ? _contentViewport(language, location)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _YorksWorkspaceSections(
+                sections: sections,
+                location: location,
+                language: language,
+              ),
+              Expanded(child: _contentViewport(language, location)),
+            ],
+          );
     final current = _currentDestination(destinations, location);
     final desktop =
         MediaQuery.sizeOf(context).width >=
@@ -165,7 +214,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       showYorksV1WorkspaceSearch(
         context,
         targets: [
-          for (final destination in destinations)
+          for (final destination in allDestinations)
             if (destination.path != null)
               YorksV1SearchNavigationTarget(
                 label: destination.label,
@@ -203,8 +252,17 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       location,
       current?.path,
     );
+    final rentalDetailFallback =
+        location.startsWith('${RoutePaths.rentals}/') &&
+        current?.path == RoutePaths.rentals;
 
     Future<void> navigateBack() async {
+      final procurementGuard = ref
+          .read(yorksV1ProcurementExitGuardProvider)
+          .beforeNavigation;
+      if (procurementGuard != null && !await procurementGuard()) return;
+      if (!context.mounted) return;
+
       if (location.startsWith('${RoutePaths.yorksV1Calculators}/')) {
         final before = ref
             .read(yorksCalculatorExitGuardProvider)
@@ -221,6 +279,12 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     }
 
     Future<void> navigateForward() async {
+      final procurementGuard = ref
+          .read(yorksV1ProcurementExitGuardProvider)
+          .beforeNavigation;
+      if (procurementGuard != null && !await procurementGuard()) return;
+      if (!context.mounted) return;
+
       if (location.startsWith('${RoutePaths.yorksV1Calculators}/')) {
         final before = ref
             .read(yorksCalculatorExitGuardProvider)
@@ -243,11 +307,11 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
         canPop:
             featureOwnsBackNavigation ||
             canPopNatively ||
-            !canUseWorkspaceHistory,
+            !(canUseWorkspaceHistory || rentalDetailFallback),
         onPopInvokedWithResult: (didPop, _) {
           if (featureOwnsBackNavigation ||
               didPop ||
-              !canUseWorkspaceHistory ||
+              !(canUseWorkspaceHistory || rentalDetailFallback) ||
               location.startsWith('${RoutePaths.yorksV1Calculators}/')) {
             return;
           }
@@ -310,11 +374,13 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                             breadcrumbs: breadcrumbs,
                             language: language,
                             location: location,
-                            showBack: yorksCanNavigateBack(
-                              context,
-                              ref,
-                              currentLocation,
-                            ),
+                            showBack:
+                                rentalDetailFallback ||
+                                yorksCanNavigateBack(
+                                  context,
+                                  ref,
+                                  currentLocation,
+                                ),
                             unreadNotifications: unread,
                             teamChatEnabled: teamChatEnabled,
                             unreadChat: chatUnread,
@@ -322,7 +388,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                                 context.go(RoutePaths.yorksV1MobileMore),
                             onBack: navigateBack,
                           ),
-                        Expanded(child: _contentViewport(language, location)),
+                        Expanded(child: contentViewport()),
                         if (!focusedMobileRoute)
                           _YorksMobileNavigation(
                             destinations: _mobileDestinationsFor(
@@ -334,6 +400,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                               companyRequestsEnabled: companyRequestsEnabled,
                               accountsEnabled: accountsEnabled,
                               workforceEnabled: workforceEnabled,
+                              workerRecordsEnabled: workerRecordsEnabled,
                               analyticsEnabled: analyticsEnabled,
                             ),
                             activePath: location,
@@ -346,9 +413,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                 if (fullscreen?.shouldHideWorkspaceChrome ?? false) {
                   return Stack(
                     children: [
-                      Positioned.fill(
-                        child: _contentViewport(language, location),
-                      ),
+                      Positioned.fill(child: contentViewport()),
                       SafeArea(
                         child: Align(
                           alignment: AlignmentDirectional.topEnd,
@@ -384,7 +449,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                             breadcrumbs: breadcrumbs,
                             language: language,
                             role: role,
-                            destinations: destinations,
+                            destinations: allDestinations,
                             teamChatEnabled: teamChatEnabled,
                             unreadChat: chatUnread,
                             sidebarExpanded: sidebarExpanded,
@@ -418,7 +483,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                             onBack: navigateBack,
                             onForward: navigateForward,
                           ),
-                          Expanded(child: _contentViewport(language, location)),
+                          Expanded(child: contentViewport()),
                         ],
                       ),
                     ),
@@ -500,6 +565,10 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       final path = destination.path;
       if (path == null) continue;
       if (location == path ||
+          (path == RoutePaths.rentals &&
+              location.startsWith('${RoutePaths.rentals}/')) ||
+          (path == RoutePaths.yorksV1Inventory &&
+              location.startsWith('${RoutePaths.yorksV1Inventory}/')) ||
           (path == RoutePaths.yorksV1Calculators &&
               location.startsWith('${RoutePaths.yorksV1Calculators}/')) ||
           (path == RoutePaths.yorksV1Accounts &&
@@ -558,6 +627,7 @@ List<_YorksDestination> _mobileDestinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final all = _destinationsFor(
@@ -568,6 +638,7 @@ List<_YorksDestination> _mobileDestinationsFor(
     companyRequestsEnabled: companyRequestsEnabled,
     accountsEnabled: accountsEnabled,
     workforceEnabled: workforceEnabled,
+    workerRecordsEnabled: workerRecordsEnabled,
     analyticsEnabled: analyticsEnabled,
   );
   _YorksDestination? path(String route) {
@@ -582,8 +653,8 @@ List<_YorksDestination> _mobileDestinationsFor(
     final accounts = path(RoutePaths.yorksV1Accounts);
     final projects = path(RoutePaths.yorksV1AccountsProjects);
     final claims = path(RoutePaths.yorksV1AccountsClaims);
-    final requests = path(RoutePaths.yorksV1MaterialRequests);
     final payments = path(RoutePaths.yorksV1AccountsClientPayments);
+    final requests = path(RoutePaths.yorksV1MaterialRequests);
     final more = _YorksDestination(
       label: AppStrings.more,
       icon: nativeMobile ? Icons.menu_rounded : Icons.grid_view_outlined,
@@ -690,6 +761,7 @@ List<_YorksDestination> _destinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final accountsOfficeEligible =
@@ -832,6 +904,7 @@ List<_YorksDestination> _destinationsFor(
         path != RoutePaths.yorksV1Accounts &&
         path != RoutePaths.yorksV1Calculators &&
         path != RoutePaths.yorksV1Workforce &&
+        path != RoutePaths.users &&
         (path == null || !path.startsWith('${RoutePaths.yorksV1Accounts}/'))) {
       return false;
     }
@@ -910,10 +983,17 @@ List<_YorksDestination> _destinationsFor(
       );
     }
     if (path == RoutePaths.users) {
+      // Worker Records lives in User Management. A holder of
+      // `worker_records.view` (Accountant by default, PR staff per person)
+      // reaches it without any login-account authority; the screen then
+      // shows only the Workers register.
       return allows(
-        YorksV1CapabilityKeys.usersView,
-        role?.canConfigureUsers ?? false,
-      );
+            YorksV1CapabilityKeys.usersView,
+            role?.canConfigureUsers ?? false,
+          ) ||
+          (workerRecordsEnabled &&
+              role != null &&
+              allows(YorksV1CapabilityKeys.workerRecordsView, false));
     }
     if (path == RoutePaths.activityLog) {
       return allows(YorksV1CapabilityKeys.auditView, role == YorksV1Role.admin);
@@ -934,59 +1014,118 @@ List<_YorksDestination> _destinationsFor(
     for (final destination in unique.values)
       if (destinationAllowed(destination)) destination,
   ];
-  final accountsDestinations = visible
-      .where(
-        (destination) =>
-            destination.path == RoutePaths.yorksV1Accounts ||
-            (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-                false),
-      )
-      .toList(growable: false);
-  final requestsIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-  );
-  if (accountsDestinations.isNotEmpty) {
-    visible.removeWhere(accountsDestinations.contains);
-    final updatedRequestsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-    );
-    final insertionIndex = updatedRequestsIndex >= 0
-        ? updatedRequestsIndex + 1
-        : requestsIndex >= 0
-        ? requestsIndex + 1
-        : 0;
-    visible.insertAll(insertionIndex, accountsDestinations);
+  return _arrangeSidebar(visible, role);
+}
+
+/// Sidebar sections, in the order they appear. Related pages sit together
+/// for every role: the material flow (requests, dispatches, returns,
+/// inventory) is one section, and Administration is always last.
+enum _SidebarSection { workspace, materials, collaboration, tools, admin }
+
+_SidebarSection _sectionOf(String path) {
+  if (path == RoutePaths.yorksV1MaterialRequests ||
+      path == RoutePaths.yorksV1Dispatches ||
+      path == RoutePaths.yorksV1Returns ||
+      path == RoutePaths.yorksV1Inventory) {
+    return _SidebarSection.materials;
   }
-  final workforceIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1Workforce,
-  );
-  if (workforceIndex >= 0) {
-    final workforce = visible.removeAt(workforceIndex);
-    final accountsEndIndex = visible.lastIndexWhere(
-      (destination) =>
-          destination.path == RoutePaths.yorksV1Accounts ||
-          (destination.path?.startsWith('${RoutePaths.yorksV1Accounts}/') ??
-              false),
-    );
-    final updatedRequestsIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.yorksV1MaterialRequests,
-    );
-    final anchor = accountsEndIndex >= 0
-        ? accountsEndIndex
-        : updatedRequestsIndex;
-    visible.insert(anchor >= 0 ? anchor + 1 : visible.length, workforce);
+  if (path == RoutePaths.yorksV1TeamChat) return _SidebarSection.collaboration;
+  if (path == RoutePaths.yorksV1Calculators ||
+      path == RoutePaths.yorksV1DuctSizer ||
+      path == RoutePaths.yorksV1EspCalculator) {
+    return _SidebarSection.tools;
   }
-  final analyticsIndex = visible.indexWhere(
-    (destination) => destination.path == RoutePaths.yorksV1Analytics,
-  );
-  if (analyticsIndex >= 0) {
-    final analytics = visible.removeAt(analyticsIndex);
-    final overviewIndex = visible.indexWhere(
-      (destination) => destination.path == RoutePaths.engineerHome,
-    );
-    visible.insert(overviewIndex >= 0 ? overviewIndex + 1 : 0, analytics);
+  if (path == RoutePaths.yorksV1Configuration ||
+      path == RoutePaths.rentals ||
+      path == RoutePaths.users ||
+      path == RoutePaths.yorksV1WorkforceAdministration ||
+      path == RoutePaths.activityLog ||
+      path == RoutePaths.yorksV1Analytics) {
+    return _SidebarSection.admin;
   }
-  return visible;
+  return _SidebarSection.workspace;
+}
+
+/// Order inside a section. Unknown pages keep their relative order after
+/// the listed ones.
+const _sidebarOrder = <String>[
+  RoutePaths.engineerHome,
+  RoutePaths.yorksV1Projects,
+  RoutePaths.yorksV1Accounts,
+  RoutePaths.yorksV1AccountsProjects,
+  RoutePaths.yorksV1AccountsClaims,
+  RoutePaths.yorksV1AccountsClientPayments,
+  RoutePaths.yorksV1AccountsSupplierBills,
+  RoutePaths.yorksV1AccountsDueSchedule,
+  RoutePaths.yorksV1Workforce,
+  RoutePaths.yorksV1MaterialRequests,
+  RoutePaths.yorksV1Dispatches,
+  RoutePaths.yorksV1Returns,
+  RoutePaths.yorksV1Inventory,
+  RoutePaths.yorksV1TeamChat,
+  RoutePaths.yorksV1Calculators,
+  RoutePaths.yorksV1DuctSizer,
+  RoutePaths.yorksV1EspCalculator,
+  RoutePaths.yorksV1Configuration,
+  RoutePaths.rentals,
+  RoutePaths.users,
+  RoutePaths.yorksV1WorkforceAdministration,
+  RoutePaths.activityLog,
+];
+
+TranslatableString _sectionTitle(_SidebarSection section, YorksV1Role? role) =>
+    switch (section) {
+      _SidebarSection.workspace => _workspaceCopy(role),
+      _SidebarSection.materials => YorksV1ShellStrings.materialsSection,
+      _SidebarSection.collaboration => YorksV1ShellStrings.collaboration,
+      _SidebarSection.tools => YorksV1ShellStrings.engineeringTools,
+      _SidebarSection.admin => YorksV1ShellStrings.administration,
+    };
+
+/// Sorts the allowed destinations into sections and gives the first page of
+/// each section its heading. Every role gets the same structure; a section
+/// with no allowed page simply does not appear.
+List<_YorksDestination> _arrangeSidebar(
+  List<_YorksDestination> destinations,
+  YorksV1Role? role,
+) {
+  int rank(_YorksDestination destination) {
+    final index = _sidebarOrder.indexOf(destination.path ?? '');
+    return index < 0 ? _sidebarOrder.length : index;
+  }
+
+  final indexed = [
+    for (var i = 0; i < destinations.length; i++) (i, destinations[i]),
+  ];
+  indexed.sort((a, b) {
+    final section = _sectionOf(
+      a.$2.path ?? '',
+    ).index.compareTo(_sectionOf(b.$2.path ?? '').index);
+    if (section != 0) return section;
+    final order = rank(a.$2).compareTo(rank(b.$2));
+    return order != 0 ? order : a.$1.compareTo(b.$1);
+  });
+
+  final arranged = <_YorksDestination>[];
+  _SidebarSection? current;
+  for (final (_, destination) in indexed) {
+    final section = _sectionOf(destination.path ?? '');
+    final first = section != current;
+    current = section;
+    arranged.add(
+      _YorksDestination(
+        label: destination.label,
+        icon: destination.icon,
+        selectedIcon: destination.selectedIcon,
+        compactLabel: destination.compactLabel,
+        path: destination.path,
+        group: first ? _sectionTitle(section, role) : null,
+        suffix: destination.suffix,
+        badgeCount: destination.badgeCount,
+      ),
+    );
+  }
+  return arranged;
 }
 
 List<_YorksDestination> _legacyDestinationsFor(
@@ -1264,6 +1403,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled =
         role != YorksV1Role.accountant && featureFlags.teamChat;
@@ -1271,6 +1411,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
         (role != YorksV1Role.accountant ||
             accountsEnabled ||
             workforceEnabled ||
+            workerRecordsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
     final permissionState = connectedV1Permissions
@@ -1287,6 +1428,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
     final primaryRoutes = _mobileDestinationsFor(
@@ -1298,9 +1440,10 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     ).map((destination) => destination.path).whereType<String>().toSet();
-    final moreDestinations = all
+    final moreDestinations = _workspaceDestinations(all)
         .where(
           (destination) =>
               destination.path != null &&
@@ -2843,3 +2986,102 @@ TranslatableString _workspaceCopy(YorksV1Role? role) => switch (role) {
   YorksV1Role.admin => YorksV1ShellStrings.managementWorkspace,
   null => YorksV1ShellStrings.operationalWorkspace,
 };
+
+/// Section navigation stays inside its workspace and shares route authority.
+class _YorksWorkspaceSections extends StatelessWidget {
+  const _YorksWorkspaceSections({
+    required this.sections,
+    required this.location,
+    required this.language,
+  });
+  final List<_YorksDestination> sections;
+  final String location;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected =
+        sections.where((s) => s.path == location).firstOrNull ?? sections.first;
+    String label(_YorksDestination section) =>
+        (section.path == RoutePaths.yorksV1Accounts
+                ? YorksV1ShellStrings.overview
+                : section.label)
+            .active(language);
+    return Material(
+      key: const ValueKey('workspace-internal-sections'),
+      color: AppColors.workspaceChrome,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 600) {
+              return DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: selected.path,
+                  isExpanded: true,
+                  itemHeight: 48,
+                  items: [
+                    for (final section in sections)
+                      DropdownMenuItem(
+                        value: section.path,
+                        child: Text(
+                          label(section),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (path) {
+                    if (path != null && path != location) context.go(path);
+                  },
+                ),
+              );
+            }
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final section in sections)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        end: AppSpacing.xs,
+                      ),
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          backgroundColor: section == selected
+                              ? AppColors.surface
+                              : null,
+                        ),
+                        onPressed: () {
+                          if (section.path != location) {
+                            context.go(section.path!);
+                          }
+                        },
+                        icon: Icon(section.icon, size: 18),
+                        label: Text(label(section)),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The sidebar shows one Workforce entry; Workforce administration is a tab
+/// in the Workforce section row. Accounts entries are already chosen per role
+/// in [_destinationsFor] (one for most roles, the daily pages for the
+/// Accountant) and keep their own tab row inside Accounts.
+List<_YorksDestination> _workspaceDestinations(
+  List<_YorksDestination> allDestinations,
+) => [
+  for (final destination in allDestinations)
+    if (destination.path != RoutePaths.yorksV1WorkforceAdministration)
+      destination,
+];

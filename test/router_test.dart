@@ -20,6 +20,7 @@ import 'package:material_ledger/shared/services/app_config_service.dart';
 /// it — plus the office shell — without a device.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(debugPreloadDeferredRoutes);
 
   testWidgets('cold notification link survives the signed-out login gate', (
     tester,

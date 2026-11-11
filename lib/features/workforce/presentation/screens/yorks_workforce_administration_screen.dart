@@ -818,88 +818,110 @@ Future<void> _showWorkerDialog(
                 children: [
                   _requiredField(number, _t(language, 'worker_number')),
                   _requiredField(name, _t(language, 'full_name')),
-                  _field(preferred, _t(language, 'preferred_name')),
                   _requiredField(designation, _t(language, 'designation')),
-                  _field(department, _t(language, 'department')),
                   _requiredField(employer, _t(language, 'employer')),
-                  DropdownButtonFormField<YorksWorkforceWorkerType>(
-                    initialValue: type,
-                    decoration: _decoration(_t(language, 'worker_type')),
-                    items: [
-                      for (final option in YorksWorkforceWorkerType.values)
-                        DropdownMenuItem(
-                          value: option,
-                          child: Text(_t(language, option.wireValue)),
-                        ),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (value) => setDialogState(() {
-                            if (value != null) type = value;
-                          }),
-                  ),
-                  DropdownButtonFormField<YorksWorkforceWorkerStatus>(
-                    initialValue: status,
-                    decoration: _decoration(_t(language, 'status')),
-                    items: [
-                      for (final option in YorksWorkforceWorkerStatus.values)
-                        DropdownMenuItem(
-                          value: option,
-                          child: Text(_t(language, option.wireValue)),
-                        ),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (value) => setDialogState(() {
-                            if (value != null) status = value;
-                          }),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: tradeId,
-                    decoration: _decoration(_t(language, 'trade')),
-                    items: [
-                      DropdownMenuItem(
-                        value: '',
-                        child: Text(_t(language, 'none')),
-                      ),
-                      for (final trade in state.foundation!.trades)
-                        DropdownMenuItem(
-                          value: trade.id,
-                          child: Text('${trade.code} · ${trade.name}'),
-                        ),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (value) => setDialogState(() {
-                            tradeId = value ?? '';
-                          }),
-                  ),
-                  DropdownButtonFormField<String>(
-                    initialValue: linkedUserId,
-                    decoration: _decoration(_t(language, 'linked_user')),
-                    items: [
-                      DropdownMenuItem(
-                        value: '',
-                        child: Text(_t(language, 'none')),
-                      ),
-                      for (final user in state.options!.users)
-                        DropdownMenuItem(
-                          value: user.authUserId,
-                          child: Text(
-                            '${user.displayName} · ${user.exactRole}',
-                          ),
-                        ),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (value) => setDialogState(() {
-                            linkedUserId = value ?? '';
-                          }),
-                  ),
-                  _field(mobile, _t(language, 'mobile')),
                   _requiredDateField(joining, _t(language, 'joining_date')),
-                  _dateField(leaving, _t(language, 'leaving_date')),
-                  _field(notes, _t(language, 'notes'), maxLines: 3),
+                  ExpansionTile(
+                    key: const Key('workforce-worker-optional-details'),
+                    title: Text(_t(language, 'optional_details')),
+                    initiallyExpanded: worker != null,
+                    children: [
+                      _field(preferred, _t(language, 'preferred_name')),
+                      _field(department, _t(language, 'department')),
+                      DropdownButtonFormField<YorksWorkforceWorkerType>(
+                        isExpanded: true,
+                        initialValue: type,
+                        decoration: _decoration(_t(language, 'worker_type')),
+                        items: [
+                          for (final option in YorksWorkforceWorkerType.values)
+                            DropdownMenuItem(
+                              value: option,
+                              child: Text(
+                                _t(language, option.wireValue),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (value) => setDialogState(() {
+                                if (value != null) type = value;
+                              }),
+                      ),
+                      DropdownButtonFormField<YorksWorkforceWorkerStatus>(
+                        isExpanded: true,
+                        initialValue: status,
+                        decoration: _decoration(_t(language, 'status')),
+                        items: [
+                          for (final option
+                              in YorksWorkforceWorkerStatus.values)
+                            DropdownMenuItem(
+                              value: option,
+                              child: Text(
+                                _t(language, option.wireValue),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (value) => setDialogState(() {
+                                if (value != null) status = value;
+                              }),
+                      ),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: tradeId,
+                        decoration: _decoration(_t(language, 'trade')),
+                        items: [
+                          DropdownMenuItem(
+                            value: '',
+                            child: Text(_t(language, 'none')),
+                          ),
+                          for (final trade in state.foundation!.trades)
+                            DropdownMenuItem(
+                              value: trade.id,
+                              child: Text(
+                                '${trade.code} · ${trade.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (value) => setDialogState(() {
+                                tradeId = value ?? '';
+                              }),
+                      ),
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        initialValue: linkedUserId,
+                        decoration: _decoration(_t(language, 'linked_user')),
+                        items: [
+                          DropdownMenuItem(
+                            value: '',
+                            child: Text(_t(language, 'none')),
+                          ),
+                          for (final user in state.options!.users)
+                            DropdownMenuItem(
+                              value: user.authUserId,
+                              child: Text(
+                                '${user.displayName} · ${user.exactRole}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (value) => setDialogState(() {
+                                linkedUserId = value ?? '';
+                              }),
+                      ),
+                      _field(mobile, _t(language, 'mobile')),
+                      _dateField(leaving, _t(language, 'leaving_date')),
+                      _field(notes, _t(language, 'notes'), maxLines: 3),
+                    ].separatedBy(const SizedBox(height: AppSpacing.md)),
+                  ),
                 ].separatedBy(const SizedBox(height: AppSpacing.md)),
               ),
             ),

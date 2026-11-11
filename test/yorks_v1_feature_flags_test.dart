@@ -244,39 +244,36 @@ void main() {
       },
     );
 
-    test(
-      'Analytics stays off by default and requires the protected document chain',
-      () {
-        const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();
-        const missingDocuments = YorksV1FeatureFlags(
-          foundation: true,
-          projects: true,
-          boq: true,
-          excel: true,
-          requests: true,
-          arrangement: true,
-          logistics: true,
-          returnsDocuments: true,
-          analytics: true,
-        );
-        const complete = YorksV1FeatureFlags(
-          foundation: true,
-          projects: true,
-          boq: true,
-          excel: true,
-          requests: true,
-          arrangement: true,
-          logistics: true,
-          returnsDocuments: true,
-          documents: true,
-          analytics: true,
-        );
+    test('Analytics is retired: no flag combination enables it', () {
+      const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();
+      const missingDocuments = YorksV1FeatureFlags(
+        foundation: true,
+        projects: true,
+        boq: true,
+        excel: true,
+        requests: true,
+        arrangement: true,
+        logistics: true,
+        returnsDocuments: true,
+        analytics: true,
+      );
+      const complete = YorksV1FeatureFlags(
+        foundation: true,
+        projects: true,
+        boq: true,
+        excel: true,
+        requests: true,
+        arrangement: true,
+        logistics: true,
+        returnsDocuments: true,
+        documents: true,
+        analytics: true,
+      );
 
-        expect(defaultEnvironment.analytics, false);
-        expect(missingDocuments.analytics, false);
-        expect(complete.analytics, true);
-      },
-    );
+      expect(defaultEnvironment.analytics, false);
+      expect(missingDocuments.analytics, false);
+      expect(complete.analytics, false);
+    });
 
     test('supplier folders require the secure document chain', () {
       const withoutDocuments = YorksV1FeatureFlags(

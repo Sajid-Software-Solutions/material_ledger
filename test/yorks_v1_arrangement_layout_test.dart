@@ -22,6 +22,9 @@ import 'package:material_ledger/shared/repositories/yorks_v1_arrangement_reposit
 import 'package:material_ledger/shared/repositories/yorks_v1_logistics_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_procurement_progress_provider.dart';
+import 'yorks_v1_procurement_progress_test.dart' show FakeRepository;
 import 'support/yorks_v1_permission_test_support.dart';
 
 void main() {
@@ -42,6 +45,363 @@ void main() {
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  for (final entry in [
+    (
+      name:
+          'fresh unmatched custom item selects external despite stocked catalogue',
+      description: 'Custom pump',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: null,
+      expectedSource: YorksV1ArrangementSource.externalSupplier,
+    ),
+    (
+      name: 'fresh exact match selects warehouse and requested quantity',
+      description: 'Motorized smoke damper',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: null,
+      expectedSource: YorksV1ArrangementSource.warehouse,
+    ),
+    (
+      name: 'explicit warehouse selection survives absent match',
+      description: 'Custom pump',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: '2',
+      expectedSource: YorksV1ArrangementSource.warehouse,
+    ),
+    (
+      name: 'explicit external selection survives a warehouse match',
+      description: 'Motorized smoke damper',
+      source: YorksV1ArrangementSource.externalSupplier,
+      quantity: '2',
+      expectedSource: YorksV1ArrangementSource.externalSupplier,
+    ),
+    (
+      name: 'fresh matched item without shelf reports its missing location',
+      description: 'Motorized smoke damper alternate',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: null,
+      expectedSource: YorksV1ArrangementSource.warehouse,
+    ),
+    (
+      name: 'saved blank quantity remains blank and editable',
+      description: 'Motorized smoke damper',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: '',
+      expectedSource: YorksV1ArrangementSource.warehouse,
+    ),
+    (
+      name: 'saved zero quantity remains zero and editable',
+      description: 'Motorized smoke damper',
+      source: YorksV1ArrangementSource.warehouse,
+      quantity: '0',
+      expectedSource: YorksV1ArrangementSource.warehouse,
+    ),
+  ]) {
+    testWidgets(entry.name, (tester) async {
+      tester.view.physicalSize = const Size(1366, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final preferences = await SharedPreferences.getInstance();
+      final workspace = YorksV1ArrangementWorkspace(
+        requestId: 'request-1',
+        requestState: 'arranging',
+        requestRecordVersion: 2,
+        canBegin: false,
+        canSave: true,
+        canDecide: false,
+        arrangements: [
+          YorksV1ProcurementArrangement(
+            id: 'arrangement-1',
+            version: 1,
+            status: YorksV1ArrangementStatus.working,
+            isCurrent: true,
+            recordVersion: 1,
+            startedByDisplayName: 'Procurement',
+            startedAt: DateTime.utc(2026, 10, 9),
+            lines: [
+              YorksV1ArrangementLine(
+                id: 'arrangement-line-1',
+                requestLineId: 'request-line-1',
+                displayOrder: 1,
+                description: entry.description,
+                requestedQuantity: '11',
+                unit: 'Nos',
+                source: entry.source,
+                arrangedQuantity: entry.quantity,
+              ),
+            ],
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+              (ref) => YorksV1TestPermissionController(
+                yorksV1TrustedFeaturePermissionState(),
+              ),
+            ),
+            yorksV1MaterialRequestDetailProvider(
+              'request-1',
+            ).overrideWith((ref) async => _request),
+            yorksV1ArrangementRepositoryProvider.overrideWithValue(
+              _ArrangementRepository(),
+            ),
+            yorksV1ArrangementWorkspaceProvider(
+              'request-1',
+            ).overrideWith((ref) async => workspace),
+            yorksV1ArrangementInventoryProvider.overrideWith(
+              (ref) async => _inventoryItems,
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const YorksV1ArrangementScreen(
+              requestId: 'request-1',
+              embedded: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (entry.quantity != '0') {
+        expect(
+          tester
+              .widget<ChoiceChip>(
+                find.byKey(
+                  ValueKey(
+                    'source-arrangement-line-1-${entry.expectedSource.wireValue}',
+                  ),
+                ),
+              )
+              .selected,
+          isTrue,
+        );
+      }
+      final quantityField = find.byKey(
+        const ValueKey('arranged-arrangement-line-1'),
+      );
+      expect(
+        tester.widget<TextFormField>(quantityField).controller!.text,
+        entry.quantity ?? '11',
+      );
+      expect(tester.widget<TextFormField>(quantityField).enabled, isTrue);
+      if (entry.quantity == '') {
+        expect(find.text('Enter quantity'), findsOneWidget);
+      }
+      if (entry.description == 'Motorized smoke damper' &&
+          entry.quantity == null &&
+          entry.expectedSource == YorksV1ArrangementSource.warehouse) {
+        expect(
+          find.text('Shelf / bin: Rack B / Shelf 3').hitTestable(),
+          findsOneWidget,
+        );
+        final search = find.byKey(
+          const ValueKey('warehouse-search-arrangement-line-1'),
+        );
+        await tester.enterText(search, 'Motorized');
+        await tester.pumpAndSettle();
+        // Every option supplies location context. A missing shelf is explicit,
+        // never copied from another inventory item or invented from its code.
+        expect(
+          find.textContaining('Shelf / bin: Rack B / Shelf 3'),
+          findsNWidgets(2),
+        );
+        expect(find.textContaining('Shelf / bin not set'), findsOneWidget);
+        await tester.tap(
+          find.text('MSD-ALT · Motorized smoke damper alternate'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Shelf / bin not set').hitTestable(), findsOneWidget);
+        expect(find.textContaining('Rack B / Shelf 3'), findsNothing);
+      }
+      if (entry.description == 'Motorized smoke damper alternate') {
+        expect(find.text('Shelf / bin not set').hitTestable(), findsOneWidget);
+        expect(find.textContaining('Rack B / Shelf 3'), findsNothing);
+      }
+      if (entry.quantity == '' || entry.quantity == '0') {
+        await tester.enterText(quantityField, '3');
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextFormField>(quantityField).controller!.text,
+          '3',
+        );
+        expect(tester.widget<TextFormField>(quantityField).enabled, isTrue);
+        await tester.enterText(quantityField, '0');
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextFormField>(quantityField).controller!.text,
+          '0',
+        );
+        expect(tester.widget<TextFormField>(quantityField).enabled, isTrue);
+        await tester.enterText(quantityField, '');
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextFormField>(quantityField).controller!.text,
+          '',
+        );
+        expect(tester.widget<TextFormField>(quantityField).enabled, isTrue);
+        expect(find.text('Enter quantity'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'desktop scroll keeps item pinned and blocks source input beneath it',
+    (tester) async {
+      tester.view.physicalSize = const Size(1040, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final preferences = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+              (ref) => YorksV1TestPermissionController(
+                yorksV1TrustedFeaturePermissionState(),
+              ),
+            ),
+            yorksV1MaterialRequestDetailProvider(
+              'request-1',
+            ).overrideWith((ref) async => _request),
+            canManageCommercialsProvider.overrideWithValue(true),
+            canViewCommercialsProvider.overrideWithValue(true),
+            yorksV1ArrangementRepositoryProvider.overrideWithValue(
+              _ArrangementRepository(),
+            ),
+            yorksV1ArrangementWorkspaceProvider(
+              'request-1',
+            ).overrideWith((ref) async => _externalSupplierWorkspace),
+            yorksV1ArrangementInventoryProvider.overrideWith(
+              (ref) async => _inventoryItems,
+            ),
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            home: const YorksV1ArrangementScreen(
+              requestId: 'request-1',
+              embedded: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Availability details (optional)'));
+      await tester.pumpAndSettle();
+
+      final identity = find.text('Cable tray hanging clamp').hitTestable();
+      final identityHeader = find.text('Requested item').hitTestable();
+      final quantity = find.byKey(
+        const ValueKey('arranged-arrangement-line-2'),
+      );
+      final quantityHeader = find.text('ARRANGED');
+      final source = find.byKey(
+        const ValueKey('source-arrangement-line-2-warehouse'),
+      );
+      final sourceHeader = find.text('SUPPLIER / SOURCE');
+      expect(
+        tester.getTopLeft(quantity).dx,
+        closeTo(tester.getTopLeft(quantityHeader).dx, 1),
+      );
+      expect(
+        tester.getTopLeft(source).dx,
+        closeTo(tester.getTopLeft(sourceHeader).dx, 1),
+      );
+      final identityBefore = tester.getTopLeft(identity);
+      final identityHeaderBefore = tester.getTopLeft(identityHeader);
+      final quantityBefore = tester.getTopLeft(quantity);
+      final horizontal = tester
+          .widget<SingleChildScrollView>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is SingleChildScrollView &&
+                  widget.scrollDirection == Axis.horizontal,
+            ),
+          )
+          .controller!;
+      expect(horizontal.position.maxScrollExtent, greaterThan(0));
+      horizontal.jumpTo(horizontal.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(identity).dx, closeTo(identityBefore.dx, 1));
+      expect(
+        tester.getTopLeft(identityHeader).dx,
+        closeTo(identityHeaderBefore.dx, 1),
+      );
+      expect(
+        tester.getTopLeft(quantity).dx,
+        closeTo(quantityBefore.dx - horizontal.offset, 1),
+      );
+      expect(
+        tester.getTopLeft(quantity).dx,
+        closeTo(tester.getTopLeft(quantityHeader).dx, 1),
+      );
+
+      // A tall source editor must neither show through nor accept pointer input
+      // beneath the pinned item, even below its short title and edit action.
+      final expectedDate = find.byKey(
+        const ValueKey('external-expected-arrangement-line-2'),
+      );
+      final sourceBox = tester.renderObject<RenderBox>(expectedDate);
+      final sourceBounds = tester.getRect(expectedDate);
+      final pinnedBackground = find
+          .ancestor(
+            of: identity,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Container && widget.color != null,
+            ),
+          )
+          .first;
+      final pinnedBounds = tester.getRect(pinnedBackground);
+      expect(sourceBounds.top, greaterThan(tester.getBottomLeft(identity).dy));
+      expect(pinnedBounds.bottom, greaterThanOrEqualTo(sourceBounds.bottom));
+      final coveredPoint = Offset(
+        sourceBounds.left + 2,
+        sourceBounds.center.dy,
+      );
+      expect(pinnedBounds.contains(coveredPoint), isTrue);
+      expect(
+        tester
+            .hitTestOnBinding(coveredPoint)
+            .path
+            .any((entry) => entry.target == sourceBox),
+        isFalse,
+      );
+      expect(
+        tester
+            .hitTestOnBinding(
+              Offset(sourceBounds.right - 2, sourceBounds.center.dy),
+            )
+            .path
+            .any((entry) => entry.target == sourceBox),
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'procurement can edit item details in the unsaved arrangement editor',
     (tester) async {
@@ -57,6 +417,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -102,7 +468,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Edit item details'));
+      await tester.tap(find.text('Edit item details').hitTestable());
       await tester.pumpAndSettle();
       expect(find.text('Originally requested'), findsOneWidget);
       expect(
@@ -181,6 +547,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+          yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+            FakeRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(
@@ -212,7 +582,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Edit item details'));
+    await tester.tap(find.text('Edit item details').hitTestable());
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('procurement-item-description')),
@@ -239,6 +609,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+          yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+            FakeRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(
@@ -268,7 +642,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Edit item details'));
+    await tester.tap(find.text('Edit item details').hitTestable());
     await tester.pumpAndSettle();
     final description = find.byKey(
       const ValueKey('procurement-item-description'),
@@ -302,6 +676,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -335,7 +715,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Engineering approval required'), findsOneWidget);
-      final saveLabel = find.text('Save arrangement');
+      final saveLabel = find.text('Review arrangement');
       expect(saveLabel, findsOneWidget);
       expect(
         tester
@@ -352,7 +732,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Edit item details'));
+      await tester.tap(find.text('Edit item details').hitTestable());
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('procurement-item-description')),
@@ -375,6 +755,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -445,6 +831,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -499,16 +891,18 @@ void main() {
       expect(find.text('Start arrangement'), findsNothing);
       expect(find.text('REQUESTED ITEM'), findsOneWidget);
       expect(
-        find.text('Linked to BOQ · Building A · Dampers & Fire Control'),
+        find
+            .text('Linked to BOQ · Building A · Dampers & Fire Control')
+            .hitTestable(),
         findsOneWidget,
       );
-      expect(find.text('Save arrangement'), findsOneWidget);
+      expect(find.text('Review arrangement'), findsOneWidget);
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/r35/arrange_material_request_desktop.png'),
       );
 
-      await tester.tap(find.text('Save arrangement'));
+      await _tapReviewAndSave(tester, find.text('Review arrangement'));
       await tester.pumpAndSettle();
 
       expect(repository.saveInputs, hasLength(1));
@@ -538,6 +932,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -571,7 +971,7 @@ void main() {
 
       expect(find.text('Unit Cost'), findsNothing);
       expect(find.text('110.29'), findsNothing);
-      await tester.tap(find.text('Save arrangement'));
+      await _tapReviewAndSave(tester, find.text('Review arrangement'));
       await tester.pumpAndSettle();
 
       expect(repository.saveInputs, hasLength(1));
@@ -596,6 +996,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -640,9 +1046,9 @@ void main() {
         const ValueKey('external-ready-arrangement-line-2'),
       );
       expect(ready, findsOneWidget);
-      final save = find.text('Save arrangement');
+      final save = find.text('Review arrangement');
       await tester.ensureVisible(save);
-      await tester.tap(save);
+      await _tapReviewAndSave(tester, save);
       await tester.pumpAndSettle();
       expect(repository.saveInputs, isEmpty);
       await tester.ensureVisible(ready);
@@ -651,8 +1057,22 @@ void main() {
       await tester.ensureVisible(save);
       repository.pendingSave = Completer<void>();
       // Two taps before the next frame must still execute just one command.
-      await tester.tap(save);
-      await tester.tap(save);
+      final reviewAction = tester
+          .widget<PrimaryButton>(
+            find.ancestor(of: save, matching: find.byType(PrimaryButton)),
+          )
+          .onPressed!;
+      reviewAction();
+      reviewAction();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      final confirm = tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Save arrangement'),
+          )
+          .onPressed!;
+      confirm();
+      confirm();
       await tester.pump();
       expect(repository.saveInputs, hasLength(1));
       expect(
@@ -681,6 +1101,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+          yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+            FakeRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(
@@ -754,8 +1178,8 @@ void main() {
         );
       }
     }
-    await tester.ensureVisible(find.text('Save arrangement'));
-    await tester.tap(find.text('Save arrangement'));
+    await tester.ensureVisible(find.text('Review arrangement'));
+    await _tapReviewAndSave(tester, find.text('Review arrangement'));
     await tester.pumpAndSettle();
 
     expect(repository.saveInputs, hasLength(1));
@@ -783,6 +1207,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+          yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+            FakeRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(
@@ -814,7 +1242,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Availability details (optional)'));
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Availability details (optional)')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Availability details (optional)'));
     await tester.pumpAndSettle();
 
@@ -844,13 +1276,21 @@ void main() {
     await tester.enterText(expectedDate, '2026-09-01');
     await tester.ensureVisible(reference);
     await tester.enterText(reference, 'QUOTE-2026-91');
-    await tester.ensureVisible(find.text('Availability details (optional)'));
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Availability details (optional)')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Availability details (optional)'));
     await tester.pumpAndSettle();
     expect(reference, findsNothing);
     tester.view.physicalSize = const Size(1024, 900);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Availability details (optional)'));
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Availability details (optional)')),
+      alignment: .5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Availability details (optional)'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(reference);
@@ -858,9 +1298,9 @@ void main() {
       tester.widget<TextFormField>(reference).initialValue,
       'QUOTE-2026-91',
     );
-    final save = find.text('Save arrangement');
+    final save = find.text('Review arrangement');
     await tester.ensureVisible(save);
-    await tester.tap(save);
+    await _tapReviewAndSave(tester, save);
     await tester.pumpAndSettle();
 
     expect(repository.saveInputs, hasLength(1));
@@ -886,6 +1326,10 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+          yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+            FakeRepository(),
+          ),
           sharedPreferencesProvider.overrideWithValue(preferences),
           yorksV1CurrentPermissionSnapshotProvider.overrideWith(
             (ref) => YorksV1TestPermissionController(
@@ -950,6 +1394,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -992,7 +1442,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('MSD-ALT · Motorized smoke damper alternate'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save arrangement'));
+      await _tapReviewAndSave(tester, find.text('Review arrangement'));
       await tester.pumpAndSettle();
 
       expect(repository.saveInputs, hasLength(1));
@@ -1020,6 +1470,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -1063,7 +1519,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.warning_amber_rounded), findsWidgets);
-      await tester.tap(find.text('Save arrangement'));
+      await _tapReviewAndSave(tester, find.text('Review arrangement'));
       await tester.pumpAndSettle();
 
       expect(repository.saveInputs, isEmpty);
@@ -1101,6 +1557,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -1139,7 +1601,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save arrangement'));
+      await _tapReviewAndSave(tester, find.text('Review arrangement'));
       await tester.pumpAndSettle();
 
       expect(repository.saveInputs, hasLength(1));
@@ -1163,6 +1625,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -1253,6 +1721,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -1320,6 +1794,12 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(
+              'procurement-test-user',
+            ),
+            yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+              FakeRepository(),
+            ),
             sharedPreferencesProvider.overrideWithValue(preferences),
             yorksV1CurrentPermissionSnapshotProvider.overrideWith(
               (ref) => YorksV1TestPermissionController(
@@ -1372,6 +1852,7 @@ const _inventoryItems = [
   YorksV1InventoryItem(
     id: 'inventory-1',
     itemCode: 'MSD-600',
+    locationBin: 'Rack B / Shelf 3',
     description: 'Motorized smoke damper',
     unit: 'Nos',
     onHandQuantity: '12',
@@ -1736,4 +2217,15 @@ class _ArrangementCreationInventoryRepository
   Future<YorksV1ReturnsDocumentsWorkspace> rejectMaterialReturn(
     YorksV1MaterialReturnRejectionInput input,
   ) => throw UnimplementedError();
+}
+
+Future<void> _tapReviewAndSave(WidgetTester tester, Finder review) async {
+  if (review.evaluate().isEmpty) return;
+  await tester.tap(review.first);
+  await tester.pumpAndSettle();
+  final save = find.widgetWithText(FilledButton, 'Save arrangement');
+  if (save.evaluate().isNotEmpty) {
+    await tester.tap(save);
+    await tester.pump();
+  }
 }

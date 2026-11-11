@@ -331,13 +331,23 @@ abstract interface class YorksWorkforceDashboardRepository {
   );
 }
 
+abstract interface class YorksWorkforceTeamWorkerRepository {
+  Future<Map<String, dynamic>> getTeamWorkers({String? teamId, int offset = 0});
+  Future<Map<String, dynamic>> createTeamWorker(
+    String teamId,
+    Map<String, Object?> payload,
+    String idempotencyKey,
+  );
+}
+
 final class YorksSupabaseWorkforceRepository
     implements
         YorksWorkforceRepository,
         YorksWorkforceReviewRepository,
         YorksWorkforceCollaborationRepository,
         YorksWorkforceReportRepository,
-        YorksWorkforceDashboardRepository {
+        YorksWorkforceDashboardRepository,
+        YorksWorkforceTeamWorkerRepository {
   const YorksSupabaseWorkforceRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -355,6 +365,26 @@ final class YorksSupabaseWorkforceRepository
   final YorksWorkforceRpcClient? _rpcClient;
   final YorksV1DocumentStorageClient? _documentStorageClient;
   final YorksV1DocumentFinalizerClient? _documentFinalizerClient;
+
+  @override
+  Future<Map<String, dynamic>> getTeamWorkers({
+    String? teamId,
+    int offset = 0,
+  }) => _invoke('v1_get_workforce_team_workers', {
+    'p_team_id': teamId,
+    'p_offset': offset,
+  });
+
+  @override
+  Future<Map<String, dynamic>> createTeamWorker(
+    String teamId,
+    Map<String, Object?> payload,
+    String idempotencyKey,
+  ) => _invoke('v1_create_workforce_team_worker', {
+    'p_team_id': teamId,
+    'p_payload': payload,
+    'p_idempotency_key': idempotencyKey,
+  });
 
   @override
   Future<YorksWorkforceOverviewProjection> getOverview(

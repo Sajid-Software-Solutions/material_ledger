@@ -11,6 +11,8 @@ import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/widgets/yorks_v1_material_workflow_recovery_panel.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_logistics_strings.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
@@ -1148,10 +1150,18 @@ class _DeliveryOrderCard extends ConsumerStatefulWidget {
 }
 
 class _DeliveryOrderCardState extends ConsumerState<_DeliveryOrderCard> {
+  String? _selectedRevisionId;
+
   @override
   Widget build(BuildContext context) {
     final order = widget.dispatch.deliveryOrder;
-    final current = order?.currentRevision;
+    final language = ref.watch(languageProvider);
+    final revisions =
+        order?.revisions ?? const <YorksV1DeliveryOrderRevision>[];
+    final selected = revisions
+        .where((revision) => revision.id == _selectedRevisionId)
+        .firstOrNull;
+    final current = selected ?? order?.currentRevision;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -1182,6 +1192,31 @@ class _DeliveryOrderCardState extends ConsumerState<_DeliveryOrderCard> {
             ],
           ),
           if (current != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'delivery-revision-${widget.dispatch.dispatchId}-${current.id}',
+              ),
+              initialValue: current.id,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: YorksV1LogisticsStrings.documentRevision.active(
+                  language,
+                ),
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                for (final revision in revisions)
+                  DropdownMenuItem(
+                    value: revision.id,
+                    child: Text(
+                      '${(revision.snapshotKind == YorksV1DeliveryOrderSnapshotKind.receiptReview ? YorksV1LogisticsStrings.receiptReportSnapshot : YorksV1LogisticsStrings.dispatchNoteSnapshot).active(language)} · ${YorksV1LogisticsStrings.revision.active(language)} ${revision.revisionNumber}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _selectedRevisionId = value),
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               '${current.generatedByDisplayName} · ${_date(current.generatedAt)}',
@@ -1349,9 +1384,9 @@ class _DeliveryOrderGenerationDialog extends ConsumerStatefulWidget {
 
 class _DeliveryOrderGenerationDialogState
     extends ConsumerState<_DeliveryOrderGenerationDialog> {
-  late final TextEditingController _reference;
   late final String _idempotencyKey;
   bool _working = false;
+  String? _selectedRevisionId;
   bool _creatingRevision = false;
   YorksV1ReturnsDocumentsWorkspace? _confirmedWorkspace;
   YorksV1DeliveryOrderDispatch? _confirmedDispatch;
@@ -1360,23 +1395,18 @@ class _DeliveryOrderGenerationDialogState
   @override
   void initState() {
     super.initState();
-    _reference = TextEditingController(
-      text: widget.dispatch.deliveryOrder?.reference ?? '',
-    );
     _idempotencyKey = const Uuid().v4();
-  }
-
-  @override
-  void dispose() {
-    _reference.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (YorksMobileUi.isActive(context)) return _buildMobile(context);
     final order = widget.dispatch.deliveryOrder;
-    final revision = order?.currentRevision;
+    final revision =
+        order?.revisions
+            .where((item) => item.id == _selectedRevisionId)
+            .firstOrNull ??
+        order?.currentRevision;
     final showingPreview = revision != null && !_creatingRevision;
     final screen = MediaQuery.sizeOf(context);
     return PopScope(
@@ -1443,6 +1473,7 @@ class _DeliveryOrderGenerationDialogState
                 ),
               ),
               const Divider(height: 1),
+              _commandRecoveryPanel(),
               Flexible(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1450,6 +1481,8 @@ class _DeliveryOrderGenerationDialogState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: showingPreview
                         ? [
+                            _revisionPicker(order!, revision),
+                            const SizedBox(height: AppSpacing.md),
                             _ControlledDeliveryOrderPreview(
                               key: const ValueKey(
                                 'yorks-v1-controlled-delivery-order-preview',
@@ -1462,17 +1495,7 @@ class _DeliveryOrderGenerationDialogState
                             ),
                           ]
                         : [
-                            TextField(
-                              controller: _reference,
-                              enabled: !_working && widget.canGenerate,
-                              textCapitalization: TextCapitalization.characters,
-                              decoration: InputDecoration(
-                                labelText: YorksV1LogisticsStrings
-                                    .deliveryOrderReference
-                                    .primary,
-                                border: const OutlineInputBorder(),
-                              ),
-                            ),
+                            _numberingSummary(),
                             const SizedBox(height: AppSpacing.md),
                             _DeliveryOrderSnapshotCallout(),
                           ],
@@ -1498,6 +1521,17 @@ class _DeliveryOrderGenerationDialogState
                             ? null
                             : () => Navigator.of(context).pop(),
                       ),
+                      if (showingPreview)
+                        SecondaryButton(
+                          label: YorksV1LogisticsStrings.exportExcel.active(
+                            ref.read(languageProvider),
+                          ),
+                          icon: Icons.table_chart_outlined,
+                          isExpanded: false,
+                          onPressed: _working
+                              ? null
+                              : () => _exportCurrent(order!, revision),
+                        ),
                       if (showingPreview)
                         SecondaryButton(
                           label: YorksV1LogisticsStrings.printDocument.primary,
@@ -1557,7 +1591,11 @@ class _DeliveryOrderGenerationDialogState
 
   Widget _buildMobile(BuildContext context) {
     final order = widget.dispatch.deliveryOrder;
-    final revision = order?.currentRevision;
+    final revision =
+        order?.revisions
+            .where((item) => item.id == _selectedRevisionId)
+            .firstOrNull ??
+        order?.currentRevision;
     final showingPreview = revision != null && !_creatingRevision;
     return PopScope(
       canPop: !_working,
@@ -1593,6 +1631,7 @@ class _DeliveryOrderGenerationDialogState
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 22),
                   children: [
+                    _commandRecoveryPanel(),
                     YorksMobilePageTitle(
                       eyebrow: widget.dispatch.dispatchNumber,
                       title:
@@ -1604,20 +1643,25 @@ class _DeliveryOrderGenerationDialogState
                     ),
                     const SizedBox(height: 14),
                     if (!showingPreview) ...[
-                      YorksMobileCard(
-                        child: TextField(
-                          controller: _reference,
-                          enabled: !_working && widget.canGenerate,
-                          textCapitalization: TextCapitalization.characters,
-                          decoration: InputDecoration(
-                            labelText: YorksV1LogisticsStrings
-                                .deliveryOrderReference
-                                .primary,
+                      YorksMobileCard(child: _numberingSummary()),
+                      const SizedBox(height: 12),
+                    ] else ...[
+                      _revisionPicker(order!, revision),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: TextButton.icon(
+                          onPressed: _working
+                              ? null
+                              : () => _exportCurrent(order, revision),
+                          icon: const Icon(Icons.table_chart_outlined),
+                          label: Text(
+                            YorksV1LogisticsStrings.exportExcel.active(
+                              ref.read(languageProvider),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ] else ...[
+                      const SizedBox(height: AppSpacing.md),
                       _ControlledDeliveryOrderPreview(
                         key: const ValueKey('mobile-delivery-order-preview'),
                         workspace: widget.workspace,
@@ -1726,6 +1770,68 @@ class _DeliveryOrderGenerationDialogState
     );
   }
 
+  Widget _revisionPicker(
+    YorksV1DeliveryOrder order,
+    YorksV1DeliveryOrderRevision current,
+  ) {
+    final language = ref.watch(languageProvider);
+    return DropdownButtonFormField<String>(
+      key: ValueKey('delivery-preview-revision-${current.id}'),
+      initialValue: current.id,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: YorksV1LogisticsStrings.documentRevision.active(language),
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        for (final revision in order.revisions)
+          DropdownMenuItem(
+            value: revision.id,
+            child: Text(
+              '${(revision.snapshotKind == YorksV1DeliveryOrderSnapshotKind.receiptReview ? YorksV1LogisticsStrings.receiptReportSnapshot : YorksV1LogisticsStrings.dispatchNoteSnapshot).active(language)} · ${YorksV1LogisticsStrings.revision.active(language)} ${revision.revisionNumber}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: _working
+          ? null
+          : (value) => setState(() => _selectedRevisionId = value),
+    );
+  }
+
+  Future<void> _exportCurrent(
+    YorksV1DeliveryOrder order,
+    YorksV1DeliveryOrderRevision revision,
+  ) async {
+    setState(() => _working = true);
+    try {
+      final bytes = widget.documents.buildDeliveryOrderExcel(
+        workspace: widget.workspace,
+        dispatch: widget.dispatch,
+        revision: revision,
+      );
+      await ref
+          .read(yorksV1BoqWorkbookFileServiceProvider)
+          .saveWorkbook(
+            bytes: bytes,
+            suggestedName: widget.documents.suggestedDeliveryOrderExcelName(
+              order,
+              revision,
+            ),
+          );
+    } catch (_) {
+      if (mounted) {
+        _showFailure(
+          YorksV1LogisticsStrings.savingFailed.active(
+            ref.read(languageProvider),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   Future<void> _printCurrent(
     YorksV1DeliveryOrder order,
     YorksV1DeliveryOrderRevision revision,
@@ -1744,14 +1850,42 @@ class _DeliveryOrderGenerationDialogState
     revision: revision,
   );
 
+  Widget _numberingSummary() {
+    final language = ref.watch(languageProvider);
+    final reference =
+        _confirmedDispatch?.deliveryOrder?.reference ??
+        widget.dispatch.deliveryOrder?.reference;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          reference ??
+              YorksV1LogisticsStrings.automaticDeliveryNumber.active(language),
+          style: AppTypography.titleMedium,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          (reference == null
+                  ? YorksV1LogisticsStrings.automaticDeliveryNumberHelp
+                  : YorksV1LogisticsStrings.reusedDeliveryNumberHelp)
+              .active(language),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        ),
+      ],
+    );
+  }
+
+  Widget _commandRecoveryPanel() => YorksV1MaterialWorkflowRecoveryPanel(
+    requestId: widget.workspace.requestId,
+    language: ref.watch(languageProvider),
+    dispatchIds: [widget.dispatch.dispatchId],
+    onConfirmed: () {
+      if (mounted) Navigator.of(context).pop(true);
+    },
+  );
+
   Future<void> _generateAndOpen(_DeliveryOrderOutput output) async {
-    if (!widget.canGenerate) return;
-    if (_reference.text.trim().isEmpty) {
-      _showFailure(
-        YorksV1LogisticsStrings.deliveryOrderReferenceRequired.primary,
-      );
-      return;
-    }
+    if (!widget.canGenerate || _working) return;
     setState(() => _working = true);
     try {
       if (_confirmedRevision == null) {
@@ -1763,7 +1897,8 @@ class _DeliveryOrderGenerationDialogState
                 dispatchId: widget.dispatch.dispatchId,
                 expectedRequestVersion: widget.workspace.requestRecordVersion,
                 expectedDispatchVersion: widget.dispatch.dispatchRecordVersion,
-                deliveryOrderReference: _reference.text,
+                deliveryOrderReference:
+                    widget.dispatch.deliveryOrder?.reference ?? '',
                 idempotencyKey: _idempotencyKey,
               ),
             );
@@ -1799,6 +1934,25 @@ class _DeliveryOrderGenerationDialogState
         );
       }
       if (mounted) Navigator.of(context).pop(true);
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings
+              .commandCommittedViewUnavailable
+              .primary,
+          tone: YorksAppToastTone.success,
+        );
+        Navigator.of(context).pop(true);
+      }
+    } on YorksV1CommandOutcomeUnknown {
+      if (mounted) {
+        YorksAppToast.show(
+          context,
+          title: YorksV1MaterialRequestStrings.commandUnknown.primary,
+          tone: YorksAppToastTone.information,
+        );
+      }
     } on YorksV1DomainException catch (error) {
       if (mounted) {
         _showFailure(

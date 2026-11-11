@@ -1,3 +1,5 @@
+import '../../../shared/services/analytics_service.dart';
+import '../data/company_analytics_project_options.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/yorks_v1_permission_management.dart';
@@ -22,6 +24,7 @@ final companyAnalyticsRepositoryProvider = Provider<CompanyAnalyticsRepository>(
     return SupabaseCompanyAnalyticsRepository(
       featureFlags: ref.watch(yorksV1FeatureFlagsProvider),
       connectivity: ref.watch(connectivityProvider),
+      analytics: ref.watch(analyticsServiceProvider),
       rpcClient: ref.watch(companyAnalyticsRpcClientProvider),
     );
   },
@@ -67,4 +70,27 @@ final companyAnalyticsProjectionProvider = FutureProvider.autoDispose
       return ref
           .watch(companyAnalyticsRepositoryProvider)
           .getProjection(filters);
+    });
+
+final companyAnalyticsProjectOptionsProvider =
+    FutureProvider.autoDispose<List<CompanyAnalyticsProjectOption>>((
+      ref,
+    ) async {
+      final authority = ref.watch(companyAnalyticsAuthorityEpochProvider);
+      if (!authority.enabled ||
+          !authority.active ||
+          authority.actorAuthUserId == null ||
+          !authority.canView) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.unauthorized);
+      }
+      if (!ref.watch(connectivityProvider).isOnline) {
+        throw const YorksV1DomainException(YorksV1DomainErrorCode.offline);
+      }
+      final client = ref.watch(supabaseClientProvider);
+      if (client == null) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.backendUnavailable,
+        );
+      }
+      return CompanyAnalyticsProjectOptionsRepository(client).load();
     });

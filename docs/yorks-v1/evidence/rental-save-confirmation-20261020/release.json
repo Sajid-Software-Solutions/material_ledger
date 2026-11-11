@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-20",
+  "implementationCommit": "5e904d718eeaba0a13c39f5b9b7b79539e7e649f",
+  "runtimeCommit": "ae7e909d9dc92bba5435dae77b503a9403ec1ef4",
+  "preservedDeployedAuthCommit": "5652860bb3dc5e86a0e32678a8cb1b9828f60f0d",
+  "deploymentId": "dpl_2DGSApN2EadBAQJG2zRC2XrsJin8",
+  "immutableUrl": "https://yorks-r35-8098ixavi-sajid-alis-projects-0ec775a2.vercel.app",
+  "canonicalUrl": "https://yorks-r35.vercel.app",
+  "canonicalDeploymentIdentityVerified": true,
+  "rollbackDeploymentId": "dpl_E2Yedn4SoTnHZxgrshspvvBUcLaB",
+  "validation": {
+    "analyzer": "passed",
+    "format": "passed",
+    "flutterTestsPassed": 2898,
+    "flutterTestsSkipped": 4,
+    "databaseAssertionsPassed": 4876,
+    "databaseTestFiles": 143,
+    "ciWeb": "passed",
+    "ciApk": "passed; ephemeral CI signing only",
+    "productionWeb": "passed",
+    "candidateRouteAssetChecksPassed": 34,
+    "canonicalRouteAssetChecksPassed": 34
+  },
+  "productionDataMutations": 0,
+  "schemaChanges": false,
+  "visualEvidence": [
+    "rental_save_summary_1366.png",
+    "rental_save_summary_360.png",
+    "rental_save_summary_ar_360.png"
+  ],
+  "limitations": [
+    "Save journeys use the production controller with deterministic test repositories, without writing live property records",
+    "Phone and Arabic verification uses widget and golden tests, not a physical mobile device"
+  ],
+  "releaseReconciliation": "The staged rental-only candidate was not promoted after detecting the newer live authentication release. The combined source retains both commits.",
+  "supersededUnpromotedCandidate": "dpl_CHdwC7Yz7TSfiYL79yGthYqrb4vv"
+}
