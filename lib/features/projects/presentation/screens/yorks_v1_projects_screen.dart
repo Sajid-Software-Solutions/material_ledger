@@ -4039,6 +4039,11 @@ class _YorksV1ProjectWorkspaceScreenState
                     ),
                     onTabChanged: (value) {
                       if (value == YorksV1ProjectWorkspaceTab.accounts) {
+                        // Switch now as well as navigating: after leaving
+                        // Accounts for another tab the address still points
+                        // at Accounts, so going to it again changes nothing
+                        // and the tab could never be reopened.
+                        setState(() => _tab = value);
                         context.go(
                           canReadProjectAccounts
                               ? RoutePaths.yorksV1ProjectAccountsOverviewPath(

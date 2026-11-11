@@ -18,7 +18,10 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   History dates). The 9 November release adds a 32nd (claim rights for Admin
   and the organization-wide engineering roles) and a 33rd (the invoice's
   per-building Material and Installation sheets); see `PRODUCT_DECISIONS.md`
-  §34.
+  §35. A 34th (`20261111130000`) keeps those claim rights in the Accounts
+  scope function after the 11 November Project Engineer full-access migration
+  (§34) redefined it; `accounts_project_engineer_bundle.sql` and its rollback
+  carry the same definition, so either bundle can be re-applied in any order.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.

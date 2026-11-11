@@ -372,16 +372,6 @@ final class YorksClientInvoiceBuilding {
   /// The Material and Installation sheets of this building (items-mode
   /// stages), in stage order.
   final List<YorksClientInvoiceItemStage> itemStages;
-
-  /// Completion % of the building to date (total ÷ value × 100) as a
-  /// presentation-only double, 0 when the building has no value. Money stays
-  /// exact (decimal strings); a percentage is display-only.
-  double get donePercent {
-    final value = double.tryParse(buildingValue.canonicalText) ?? 0;
-    if (value <= 0) return 0;
-    final total = double.tryParse(totalAmount.canonicalText) ?? 0;
-    return total / value * 100;
-  }
 }
 
 /// The frozen (or previewed) invoice print model.
@@ -471,6 +461,32 @@ final class YorksClientInvoiceDocumentModel {
 
   /// The full contract value (for the summary header). Null on legacy snapshots.
   final YorksAccountsDecimal? contractValue;
+
+  /// The whole contract value every printed percentage is measured against.
+  YorksAccountsDecimal? get percentBase =>
+      contractValue ?? summary?.contractTotal;
+
+  /// [amount] as a share of the whole contract, the basis Yorks' signed
+  /// invoices use for every percentage on the summary and building pages
+  /// (YRA-322: DF3W Material Supply 1,549,624.36 of 17,192,000 is 9.01%).
+  /// Never divide by a building or stage value: that printed 72.11% where the
+  /// client invoice says 9.01%. Presentation only; money stays exact.
+  /// Null when there is no contract value to measure against.
+  double? percentOfContract(YorksAccountsDecimal amount) {
+    final base = double.tryParse(percentBase?.canonicalText ?? '') ?? 0;
+    if (base <= 0) return null;
+    final value = double.tryParse(amount.canonicalText) ?? 0;
+    return value / base * 100;
+  }
+
+  /// The stage's share of the contract (10, 50, 30, 5, 5), from the summary.
+  YorksAccountsDecimal? stageContractPercent(String stageKey) {
+    for (final stage
+        in summary?.stages ?? const <YorksClientInvoiceSummaryStage>[]) {
+      if (stage.stageKey == stageKey) return stage.contractPercent;
+    }
+    return null;
+  }
 
   /// Main Summary matrix. Null on legacy (schema_version 1) snapshots, in which
   /// case the builder renders only the tax-invoice page.
