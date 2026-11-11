@@ -535,12 +535,12 @@ void main() {
       await tester.pumpAndSettle();
       Future<void> enter(String key, String text) =>
           tester.enterText(find.byKey(ValueKey('worker-record-$key')), text);
-      await enter('name', 'SADIL HASIM');
+      await enter('name', 'FARHAN TEST SIX');
       await enter('designation', 'Technician');
       await enter('joining-date', '2026-11-01');
-      await enter('company', 'Yorks Airconditioning and Refrigeration LLC');
-      await enter('license', 'CN-6772173');
-      await enter('passport', 'AW437776');
+      await enter('company', 'Example Contracting LLC');
+      await enter('license', 'CN-TEST-06');
+      await enter('passport', 'TP0000006');
       await enter('basic', '800');
       await enter('housing', '550');
       await enter('other', '0');
@@ -601,7 +601,7 @@ void main() {
         YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
       );
       expect(find.byKey(const ValueKey('worker-records-add')), findsNothing);
-      await tester.tap(find.text('MD TALIB REZA'));
+      await tester.tap(find.text('CHAND TEST THREE'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('worker-record-edit')), findsNothing);
     });
@@ -644,12 +644,12 @@ void main() {
         expect(input.workerId, isNull);
         expect(input.expectedVersion, isNull);
         expect(input.toRpcPayload(), {
-          'full_name': 'SADIL HASIM',
+          'full_name': 'FARHAN TEST SIX',
           'designation': 'Technician',
-          'employer_company': 'Yorks Airconditioning and Refrigeration LLC',
+          'employer_company': 'Example Contracting LLC',
           'joining_date': '2026-11-01',
-          'trade_license_no': 'CN-6772173',
-          'passport_no': 'AW437776',
+          'trade_license_no': 'CN-TEST-06',
+          'passport_no': 'TP0000006',
           'basic_salary': '800',
           'housing_allowance': '550',
           'other_allowance': '0',
@@ -670,7 +670,7 @@ void main() {
         YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
         canManage: true,
       );
-      await tester.tap(find.text('MD TALIB REZA'));
+      await tester.tap(find.text('CHAND TEST THREE'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('worker-record-edit')));
       await tester.pumpAndSettle();
@@ -730,7 +730,7 @@ void main() {
       );
       await tester.enterText(
         find.byKey(const ValueKey('worker-record-passport')),
-        'AW437777',
+        'TP0000007',
       );
       repository.saveError = null;
       await tester.tap(find.byKey(const ValueKey('worker-record-save')));
