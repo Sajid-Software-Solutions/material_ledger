@@ -61,21 +61,30 @@ abstract final class YorksClientInvoiceDocumentBuilder {
     final pages = !hasSummary ? 1 : (doc.buildings.length > 1 ? 3 : 2);
     final ctx = _Ctx(doc, emblem, arabic, pages);
 
+    const margin = pw.EdgeInsets.fromLTRB(36, 30, 36, 30);
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(36, 30, 36, 30),
+        margin: margin,
         footer: ctx.footer,
         build: (context) => [
           ...ctx.pageOne(),
-          if (hasSummary) ...[
-            pw.NewPage(),
-            ...ctx.pageTwo(),
-            if (pages > 2) ...[pw.NewPage(), ...ctx.pageThree()],
-          ],
+          if (hasSummary) ...[pw.NewPage(), ...ctx.pageTwo()],
         ],
       ),
     );
+    if (hasSummary && pages > 2) {
+      // Landscape, as the signed invoices print the building breakdown: ten
+      // paired %/amount columns do not fit a portrait page without wrapping.
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: margin,
+          footer: ctx.footer,
+          build: (context) => ctx.pageThree(),
+        ),
+      );
+    }
     return pdf.save();
   }
 
@@ -211,11 +220,13 @@ final class _Ctx {
   double _n(YorksAccountsDecimal? v) =>
       YorksClientInvoiceDocumentBuilder.number(v);
 
-  double get _contract => _n(doc.contractValue ?? doc.summary?.contractTotal);
-
-  String _ofContract(YorksAccountsDecimal? v) => _contract > 0
-      ? YorksClientInvoiceDocumentBuilder.pct(_n(v) / _contract * 100)
-      : '—';
+  // Every percentage on the summary and building pages is a share of the
+  // whole contract, as on Yorks' signed invoices. See percentOfContract.
+  String _ofContract(YorksAccountsDecimal? v) {
+    if (v == null) return '—';
+    final p = doc.percentOfContract(v);
+    return p == null ? '—' : YorksClientInvoiceDocumentBuilder.pct(p);
+  }
 
   String get _legalName =>
       _s(_c['legal_name']) ?? 'Yorks Air Conditioning & Refrigeration LLC-SPC';
@@ -946,60 +957,63 @@ final class _Ctx {
         ],
       ),
       pw.SizedBox(height: 16),
-      _sectionTitle('SUMMARY BY BUILDING', 'Amounts excl. VAT'),
+      _sectionTitle('SUMMARY BY BUILDING', 'Amounts excl. VAT · % of contract'),
       pw.SizedBox(height: 6),
       pw.Table(
         border: _border,
         columnWidths: const {
           0: pw.FlexColumnWidth(),
-          1: pw.FixedColumnWidth(40),
-          2: pw.FixedColumnWidth(74),
-          3: pw.FixedColumnWidth(74),
-          4: pw.FixedColumnWidth(74),
-          5: pw.FixedColumnWidth(74),
-          6: pw.FixedColumnWidth(46),
+          1: pw.FixedColumnWidth(38),
+          2: pw.FixedColumnWidth(62),
+          3: pw.FixedColumnWidth(40),
+          4: pw.FixedColumnWidth(58),
+          5: pw.FixedColumnWidth(40),
+          6: pw.FixedColumnWidth(58),
+          7: pw.FixedColumnWidth(40),
+          8: pw.FixedColumnWidth(60),
         },
         children: [
-          _head(
-            const [
-              'Building',
-              'Share',
-              'Building value',
-              'Till previous',
-              'This month',
-              'Total',
-              'Done',
-            ],
-            const {1, 2, 3, 4, 5, 6},
-          ),
+          _head(const [
+            'Building',
+            'Share',
+            'Building value',
+            '%',
+            'Till previous',
+            '%',
+            'This month',
+            '%',
+            'Total completion',
+          ], numeric),
           for (final b in doc.buildings)
             pw.TableRow(
               children: [
-                _cell(b.name, bold: true),
+                _cell(b.name, bold: true, size: 8),
                 _cell(
                   YorksClientInvoiceDocumentBuilder.pct(_n(b.sharePercent), 0),
                   right: true,
+                  size: 8,
                 ),
-                _cell(_m(b.buildingValue), right: true),
-                _cell(_m(b.previousAmount), right: true),
-                _cell(_m(b.thisAmount), right: true),
-                _cell(_m(b.totalAmount), right: true),
-                _cell(
-                  YorksClientInvoiceDocumentBuilder.pct(b.donePercent),
-                  right: true,
-                ),
+                _cell(_m(b.buildingValue), right: true, size: 8),
+                _cell(ofc(b.previousAmount), right: true, size: 8),
+                _cell(amt(b.previousAmount), right: true, size: 8),
+                _cell(ofc(b.thisAmount), right: true, size: 8),
+                _cell(amt(b.thisAmount), right: true, size: 8),
+                _cell(ofc(b.totalAmount), right: true, size: 8),
+                _cell(amt(b.totalAmount), right: true, size: 8),
               ],
             ),
           pw.TableRow(
             decoration: _sumBand,
             children: [
-              _cell('Total', bold: true),
-              _cell('100%', right: true, bold: true),
-              _cell(_m(s.contractTotal), right: true, bold: true),
-              _cell(_m(s.previousTotal), right: true, bold: true),
-              _cell(_m(s.thisTotal), right: true, bold: true),
-              _cell(_m(s.totalTotal), right: true, bold: true),
-              _cell(_ofContract(s.totalTotal), right: true, bold: true),
+              _cell('Total', bold: true, size: 8),
+              _cell('100%', right: true, bold: true, size: 8),
+              _cell(_m(s.contractTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.previousTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.previousTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.thisTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.thisTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.totalTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.totalTotal), right: true, bold: true, size: 8),
             ],
           ),
         ],
@@ -1050,64 +1064,93 @@ final class _Ctx {
 
   List<pw.Widget> pageThree() {
     final out = <pw.Widget>[_miniHeader('BREAKDOWN PER BUILDING')];
+    String amt(YorksAccountsDecimal v) => _n(v).abs() > 0.004 ? _m(v) : '0.00';
+    String ofc(YorksAccountsDecimal v) =>
+        _n(v).abs() > 0.004 ? _ofContract(v) : '0.00%';
+    String stagePct(String key) {
+      final p = doc.stageContractPercent(key);
+      return p == null ? '' : YorksClientInvoiceDocumentBuilder.pct(_n(p), 0);
+    }
+
+    const numeric = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     for (final (bi, b) in doc.buildings.indexed) {
       final letter = String.fromCharCode(65 + (bi % 26));
-      String done(YorksAccountsDecimal total, YorksAccountsDecimal value) =>
-          _n(value) > 0
-          ? YorksClientInvoiceDocumentBuilder.pct(
-              _n(total) / _n(value) * 100,
-              1,
-            )
-          : '—';
+      // Two buildings per landscape page, so no building's table splits.
+      if (bi > 0 && bi % 2 == 0) {
+        out
+          ..add(pw.NewPage())
+          ..add(_miniHeader('BREAKDOWN PER BUILDING'));
+      }
       out
         ..add(
           pw.Table(
             border: _border,
             columnWidths: const {
               0: pw.FlexColumnWidth(),
-              1: pw.FixedColumnWidth(74),
-              2: pw.FixedColumnWidth(74),
-              3: pw.FixedColumnWidth(74),
-              4: pw.FixedColumnWidth(74),
-              5: pw.FixedColumnWidth(42),
+              1: pw.FixedColumnWidth(60),
+              2: pw.FixedColumnWidth(60),
+              3: pw.FixedColumnWidth(72),
+              4: pw.FixedColumnWidth(44),
+              5: pw.FixedColumnWidth(72),
+              6: pw.FixedColumnWidth(44),
+              7: pw.FixedColumnWidth(72),
+              8: pw.FixedColumnWidth(44),
+              9: pw.FixedColumnWidth(76),
             },
             children: [
-              _head(
-                [
-                  '$letter · ${b.name} — '
-                      '${YorksClientInvoiceDocumentBuilder.pct(_n(b.sharePercent), 0)} of contract',
-                  'Contract',
-                  'Till previous',
-                  'This month',
-                  'Total',
-                  'Done',
-                ],
-                const {1, 2, 3, 4, 5},
-              ),
+              _head([
+                '$letter · ${b.name}',
+                'Contract %',
+                'Building %',
+                'Amount',
+                '%',
+                'Till previous',
+                '%',
+                'This month',
+                '%',
+                'Total completion',
+              ], numeric),
               for (final (i, st) in b.stages.indexed)
                 pw.TableRow(
                   children: [
-                    _cell('$letter.${i + 1}  ${st.stageLabel ?? st.stageKey}'),
-                    _cell(_m(st.stageValue), right: true),
-                    _cell(_m(st.previousAmount), right: true),
-                    _cell(_m(st.thisAmount), right: true),
-                    _cell(_m(st.totalAmount), right: true),
-                    _cell(done(st.totalAmount, st.stageValue), right: true),
+                    _cell(
+                      '$letter.${i + 1}  ${st.stageLabel ?? st.stageKey}',
+                      size: 8,
+                    ),
+                    _cell(stagePct(st.stageKey), right: true, size: 8),
+                    _cell(ofc(st.stageValue), right: true, size: 8),
+                    _cell(_m(st.stageValue), right: true, size: 8),
+                    _cell(ofc(st.previousAmount), right: true, size: 8),
+                    _cell(amt(st.previousAmount), right: true, size: 8),
+                    _cell(ofc(st.thisAmount), right: true, size: 8),
+                    _cell(amt(st.thisAmount), right: true, size: 8),
+                    _cell(ofc(st.totalAmount), right: true, size: 8),
+                    _cell(amt(st.totalAmount), right: true, size: 8),
                   ],
                 ),
               pw.TableRow(
                 decoration: _sumBand,
                 children: [
-                  _cell('Total ${b.name}', bold: true),
-                  _cell(_m(b.buildingValue), right: true, bold: true),
-                  _cell(_m(b.previousAmount), right: true, bold: true),
-                  _cell(_m(b.thisAmount), right: true, bold: true),
-                  _cell(_m(b.totalAmount), right: true, bold: true),
+                  _cell('Total', bold: true, size: 8),
+                  _cell('100%', right: true, bold: true, size: 8),
+                  _cell(ofc(b.buildingValue), right: true, bold: true, size: 8),
+                  _cell(_m(b.buildingValue), right: true, bold: true, size: 8),
                   _cell(
-                    done(b.totalAmount, b.buildingValue),
+                    ofc(b.previousAmount),
                     right: true,
                     bold: true,
+                    size: 8,
                   ),
+                  _cell(
+                    amt(b.previousAmount),
+                    right: true,
+                    bold: true,
+                    size: 8,
+                  ),
+                  _cell(ofc(b.thisAmount), right: true, bold: true, size: 8),
+                  _cell(amt(b.thisAmount), right: true, bold: true, size: 8),
+                  _cell(ofc(b.totalAmount), right: true, bold: true, size: 8),
+                  _cell(amt(b.totalAmount), right: true, bold: true, size: 8),
                 ],
               ),
             ],
