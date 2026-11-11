@@ -36,6 +36,7 @@ const yorksV1EnforcedFeatureActionCapabilities = <String>{
 /// to declare the permission state that the shell normally provides.
 class YorksV1TestPermissionController
     extends YorksV1CurrentPermissionSnapshotController {
+  void replace(YorksV1CurrentPermissionSnapshotState value) => state = value;
   YorksV1TestPermissionController(YorksV1CurrentPermissionSnapshotState value)
     : super(
         enabled: false,
@@ -51,6 +52,7 @@ YorksV1CurrentPermissionSnapshotState yorksV1TrustedFeaturePermissionState({
   YorksV1Role role = YorksV1Role.admin,
   Iterable<String> capabilities = yorksV1EnforcedFeatureActionCapabilities,
   bool stale = false,
+  List<String>? projectIds,
 }) => YorksV1CurrentPermissionSnapshotState(
   snapshot: YorksV1CurrentPermissionSnapshot.fromRpcJson({
     'schema_version': 1,
@@ -67,8 +69,13 @@ YorksV1CurrentPermissionSnapshotState yorksV1TrustedFeaturePermissionState({
       for (final (index, capability) in capabilities.indexed)
         {
           'capability_key': capability,
-          'module_key': capability.split('.').first,
-          'action_key': capability.split('.').skip(1).join('.'),
+          // R39 Accounts keys carry no module prefix (view_project_accounts).
+          'module_key': capability.contains('.')
+              ? capability.split('.').first
+              : 'accounts',
+          'action_key': capability.contains('.')
+              ? capability.split('.').skip(1).join('.')
+              : capability,
           'label': capability,
           'description': capability,
           'risk_level': 'high',
@@ -76,7 +83,7 @@ YorksV1CurrentPermissionSnapshotState yorksV1TrustedFeaturePermissionState({
           // Direct widget tests exercise layout and existing structural
           // predicates. Project membership/RLS semantics have dedicated model
           // and database tests, so this fixture grants organization scope.
-          'requires_project_access': false,
+          'requires_project_access': projectIds != null,
           'dependencies': <String>[],
           'runtime_status': 'operational',
           'is_assignable': true,
@@ -91,10 +98,33 @@ YorksV1CurrentPermissionSnapshotState yorksV1TrustedFeaturePermissionState({
           'parity': true,
           'actor_can_delegate': true,
           'actor_delegable_scope_kinds': ['organization'],
-          'project_overrides': <Object?>[],
+          'project_overrides': [
+            for (final id in projectIds ?? <String>[])
+              {
+                'project_id': id,
+                'project_ref': id,
+                'project_name': id,
+                'effect': null,
+                'has_project_access': true,
+                'authoritative_effective': true,
+                'authoritative_source': 'role_default',
+                'candidate_effective': true,
+                'candidate_source': 'role_default',
+                'parity': true,
+              },
+          ],
         },
     ],
-    'project_access': <Object?>[],
+    'project_access': [
+      for (final id in projectIds ?? <String>[])
+        {
+          'project_id': id,
+          'project_ref': id,
+          'project_name': id,
+          'state': 'active',
+          'has_access': true,
+        },
+    ],
   }),
   isStale: stale,
   isRevisionSignalHealthy: true,

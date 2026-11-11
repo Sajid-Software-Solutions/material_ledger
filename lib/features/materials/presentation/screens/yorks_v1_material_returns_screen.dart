@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,8 @@ import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/models/yorks_v1_material_return_candidates.dart';
+import '../../../../shared/models/yorks_v1_material_return_composer_strings.dart';
 import '../../../../shared/models/yorks_v1_material_return_strings.dart';
 import '../../../../shared/models/yorks_v1_material_return_workflow.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
@@ -20,10 +24,21 @@ import '../../../../shared/providers/yorks_v1_logistics_repository_provider.dart
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/repositories/yorks_v1_logistics_repository.dart';
 import '../../../../shared/services/yorks_v1_logistics_document_service.dart';
+import '../widgets/yorks_v1_material_return_centre.dart';
+import '../widgets/yorks_v1_material_return_composer.dart';
+import 'yorks_v1_material_request_screens.dart'
+    show
+        YorksV1MaterialFormAction,
+        YorksV1MaterialFormCard,
+        YorksV1MaterialFormField,
+        YorksV1MaterialFormMeta;
 import '../yorks_v1_feature_action_access.dart';
 
 class YorksV1MaterialReturnsScreen extends ConsumerStatefulWidget {
-  const YorksV1MaterialReturnsScreen({super.key});
+  const YorksV1MaterialReturnsScreen({super.key, @visibleForTesting this.now});
+
+  /// Fixed clock for golden tests; the live screen uses the device clock.
+  final DateTime? now;
 
   @override
   ConsumerState<YorksV1MaterialReturnsScreen> createState() =>
@@ -32,13 +47,31 @@ class YorksV1MaterialReturnsScreen extends ConsumerStatefulWidget {
 
 class _YorksV1MaterialReturnsScreenState
     extends ConsumerState<YorksV1MaterialReturnsScreen> {
-  final _searchController = TextEditingController();
-  String? _state;
+  static const _registerQuery = YorksV1MaterialReturnRegisterQuery(search: '');
+
+  Timer? _searchDebounce;
+  String _serverSearch = '';
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 320), () {
+      if (mounted && value != _serverSearch) {
+        setState(() => _serverSearch = value);
+      }
+    });
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(yorksV1MaterialReturnRegisterProvider);
+    await ref.read(
+      yorksV1MaterialReturnRegisterProvider(_registerQuery).future,
+    );
   }
 
   @override
@@ -52,374 +85,61 @@ class _YorksV1MaterialReturnsScreenState
       legacyAllowed: role?.canCreateMaterialReturn == true,
       anyProject: true,
     );
-    final query = YorksV1MaterialReturnRegisterQuery(
-      state: _state,
-      search: _searchController.text.trim(),
+    final register = ref.watch(
+      yorksV1MaterialReturnRegisterProvider(_registerQuery),
     );
-    final returns = ref.watch(yorksV1MaterialReturnRegisterProvider(query));
-    final compact = MediaQuery.sizeOf(context).width < 760;
+    // The register rows do not carry item descriptions, so the server also
+    // searches lines; its matches are added to the local text match.
+    final serverMatches = _serverSearch.isEmpty
+        ? null
+        : ref
+              .watch(
+                yorksV1MaterialReturnRegisterProvider(
+                  YorksV1MaterialReturnRegisterQuery(search: _serverSearch),
+                ),
+              )
+              .valueOrNull
+              ?.map((item) => item.id)
+              .toSet();
+    final returns = (register.valueOrNull ?? const [])
+        .where(
+          (item) => yorksV1CanReadProjectRecord(
+            permissionState,
+            YorksV1CapabilityKeys.returnsView,
+            legacyAllowed: true,
+            projectId: item.projectId,
+          ),
+        )
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(yorksV1MaterialReturnRegisterProvider);
-            await ref.read(yorksV1MaterialReturnRegisterProvider(query).future);
-          },
-          child: ListView(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact
-                  ? AppSpacing.mobileScreenHorizontal
-                  : AppSpacing.screenHorizontal,
-              vertical: compact
-                  ? AppSpacing.mobileScreenVertical
-                  : AppSpacing.screenVertical,
-            ),
-            children: [
-              YorksR35PageHeader(
-                eyebrow: YorksV1MaterialReturnStrings.workspace.active(
-                  language,
-                ),
-                title: YorksV1MaterialReturnStrings.centre.active(language),
-                description: YorksV1MaterialReturnStrings.centreDescription
-                    .active(language),
-                actions: [
-                  if (createAccess.isVisible)
-                    PrimaryButton(
-                      label: YorksV1MaterialReturnStrings.newReturn.active(
-                        language,
-                      ),
-                      icon: Icons.add_rounded,
-                      isExpanded: false,
-                      onPressed: createAccess.canWrite
-                          ? () =>
-                                context.go(RoutePaths.yorksV1MaterialReturnNew)
-                          : null,
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _FlowBanner(language: language),
-              const SizedBox(height: AppSpacing.lg),
-              _ReturnFilters(
-                language: language,
-                searchController: _searchController,
-                state: _state,
-                onSearch: () => setState(() {}),
-                onStateChanged: (value) => setState(() => _state = value),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              returns.when(
-                loading: () => const _ReturnLoading(),
-                error: (_, _) => _ReturnError(
-                  language: language,
-                  onRetry: () => ref.invalidate(
-                    yorksV1MaterialReturnRegisterProvider(query),
-                  ),
-                ),
-                data: (items) {
-                  final visibleItems = items
-                      .where(
-                        (item) => yorksV1CanReadProjectRecord(
-                          permissionState,
-                          YorksV1CapabilityKeys.returnsView,
-                          legacyAllowed: true,
-                          projectId: item.projectId,
-                        ),
-                      )
-                      .toList(growable: false);
-                  return visibleItems.isEmpty
-                      ? _ReturnEmpty(language: language)
-                      : _ReturnRegister(
-                          items: visibleItems,
-                          language: language,
-                          compact: compact,
-                        );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FlowBanner extends StatelessWidget {
-  const _FlowBanner({required this.language});
-
-  final AppLanguage language;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: BoxDecoration(
-      color: AppColors.blueContainer,
-      border: Border.all(color: AppColors.blueContainerStrong),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.sync_alt_rounded, color: AppColors.blue),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Text(
-            YorksV1MaterialReturnStrings.controlledFlow.active(language),
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.inkSecondary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ReturnFilters extends StatelessWidget {
-  const _ReturnFilters({
-    required this.language,
-    required this.searchController,
-    required this.state,
-    required this.onSearch,
-    required this.onStateChanged,
-  });
-
-  final AppLanguage language;
-  final TextEditingController searchController;
-  final String? state;
-  final VoidCallback onSearch;
-  final ValueChanged<String?> onStateChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 720;
-    final search = TextField(
-      controller: searchController,
-      textInputAction: TextInputAction.search,
-      onSubmitted: (_) => onSearch(),
-      decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search_rounded),
-        hintText: YorksV1MaterialReturnStrings.searchHint.active(language),
-        suffixIcon: IconButton(
-          tooltip: YorksV1MaterialReturnStrings.searchHint.active(language),
-          onPressed: onSearch,
-          icon: const Icon(Icons.arrow_forward_rounded),
-        ),
-      ),
-    );
-    final status = DropdownButtonFormField<String?>(
-      isExpanded: true,
-      initialValue: state,
-      decoration: InputDecoration(
-        labelText: YorksV1MaterialReturnStrings.status.active(language),
-        prefixIcon: const Icon(Icons.filter_alt_outlined),
-      ),
-      items: [
-        DropdownMenuItem<String?>(
-          value: null,
-          child: Text(
-            YorksV1MaterialReturnStrings.allReturns.active(language),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        for (final value in YorksV1ProjectMaterialReturnState.values)
-          DropdownMenuItem<String?>(
-            value: value.wireValue,
-            child: Text(
-              yorksV1ProjectMaterialReturnStateCopy(value).active(language),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-      ],
-      onChanged: onStateChanged,
-    );
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: _panelDecoration,
-      child: compact
-          ? Column(
-              children: [
-                search,
-                const SizedBox(height: AppSpacing.md),
-                status,
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: search),
-                const SizedBox(width: AppSpacing.md),
-                SizedBox(width: 260, child: status),
-              ],
-            ),
-    );
-  }
-}
-
-class _ReturnRegister extends StatelessWidget {
-  const _ReturnRegister({
-    required this.items,
-    required this.language,
-    required this.compact,
-  });
-
-  final List<YorksV1MaterialReturnRegisterItem> items;
-  final AppLanguage language;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.lg),
-    decoration: _panelDecoration,
-    child: Column(
-      children: [
-        for (var index = 0; index < items.length; index++) ...[
-          _ReturnRegisterTile(
-            item: items[index],
+          onRefresh: _refresh,
+          child: YorksV1MaterialReturnCentre(
             language: language,
-            compact: compact,
-          ),
-          if (index != items.length - 1) const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
-    ),
-  );
-}
-
-class _ReturnRegisterTile extends StatelessWidget {
-  const _ReturnRegisterTile({
-    required this.item,
-    required this.language,
-    required this.compact,
-  });
-
-  final YorksV1MaterialReturnRegisterItem item;
-  final AppLanguage language;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final title =
-        item.number ??
-        yorksV1ProjectMaterialReturnStateCopy(item.state).active(language);
-    final state = _ReturnStatePill(state: item.state, language: language);
-    return Semantics(
-      button: true,
-      label: '$title ${item.projectReference} ${item.projectName}',
-      child: Material(
-        color: AppColors.surfaceContainerLowest,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          side: const BorderSide(color: AppColors.line),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          onTap: () =>
-              context.go(RoutePaths.yorksV1MaterialReturnPath(item.id)),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: compact
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const _ReturnIcon(),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: AppTypography.titleMedium,
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        '${item.projectReference} · ${item.projectName}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodyMedium,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        '${item.scopeName} · ${item.lineCount} · ${yorksV1DisplayQuantity(item.totalQuantity)}',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.muted,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      state,
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const _ReturnIcon(),
-                      const SizedBox(width: AppSpacing.lg),
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(title, style: AppTypography.titleMedium),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              '${item.projectReference} · ${item.projectName}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.bodyMedium,
-                            ),
-                            Text(
-                              item.scopeName,
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${item.lineCount}',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.titleMedium,
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          yorksV1DisplayQuantity(item.totalQuantity),
-                          textAlign: TextAlign.center,
-                          style: AppTypography.titleMedium,
-                        ),
-                      ),
-                      SizedBox(width: 190, child: state),
-                      const Icon(Icons.chevron_right_rounded),
-                    ],
-                  ),
+            returns: returns,
+            loading: register.isLoading,
+            failed: register.hasError,
+            canCreate: createAccess.isVisible,
+            onCreate: createAccess.canWrite
+                ? () => context.go(RoutePaths.yorksV1MaterialReturnNew)
+                : null,
+            onRefresh: () =>
+                ref.invalidate(yorksV1MaterialReturnRegisterProvider),
+            onRetry: () =>
+                ref.invalidate(yorksV1MaterialReturnRegisterProvider),
+            onOpen: (item) =>
+                context.go(RoutePaths.yorksV1MaterialReturnPath(item.id)),
+            onSearchChanged: _onSearchChanged,
+            serverMatchIds: serverMatches,
+            now: widget.now,
           ),
         ),
       ),
     );
   }
-}
-
-class _ReturnIcon extends StatelessWidget {
-  const _ReturnIcon();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 48,
-    height: 48,
-    decoration: BoxDecoration(
-      color: AppColors.blueContainer,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-    ),
-    child: const Icon(Icons.assignment_return_outlined, color: AppColors.blue),
-  );
 }
 
 class _ReturnStatePill extends StatelessWidget {
@@ -487,8 +207,7 @@ class _YorksV1MaterialReturnEditorScreenState
     extends ConsumerState<YorksV1MaterialReturnEditorScreen> {
   final _purposeController = TextEditingController();
   final _noteController = TextEditingController();
-  final _candidateQuantities = <String, TextEditingController>{};
-  final _customRows = <_CustomReturnRow>[];
+  final _composer = YorksV1ReturnComposerController();
   String? _projectId;
   String? _scopeId;
   DateTime? _requestedDate;
@@ -505,12 +224,7 @@ class _YorksV1MaterialReturnEditorScreenState
   void dispose() {
     _purposeController.dispose();
     _noteController.dispose();
-    for (final controller in _candidateQuantities.values) {
-      controller.dispose();
-    }
-    for (final row in _customRows) {
-      row.dispose();
-    }
+    _composer.dispose();
     super.dispose();
   }
 
@@ -534,296 +248,265 @@ class _YorksV1MaterialReturnEditorScreenState
               returnId: widget.returnId,
             )),
           );
-    final compact = MediaQuery.sizeOf(context).width < 820;
-
     if (workspace case AsyncData(:final value)) {
       _hydrate(value);
     }
-
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: compact
-          ? AppBar(
-              backgroundColor: AppColors.surface,
-              title: Text(
-                YorksV1MaterialReturnStrings.newReturn.active(language),
-              ),
-            )
-          : null,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact
-                ? AppSpacing.mobileScreenHorizontal
-                : AppSpacing.screenHorizontal,
-            vertical: AppSpacing.screenVertical,
-          ),
-          children: [
-            if (!compact)
-              YorksR35PageHeader(
-                eyebrow: YorksV1MaterialReturnStrings.workspace.active(
-                  language,
-                ),
-                title: YorksV1MaterialReturnStrings.newReturn.active(language),
-                description: YorksV1MaterialReturnStrings.controlledFlow.active(
-                  language,
-                ),
-              ),
-            if (!compact) const SizedBox(height: AppSpacing.xl),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: _panelDecoration,
-              child: projects.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (_, _) => _ReturnError(
-                  language: language,
-                  onRetry: () =>
-                      ref.invalidate(yorksV1MaterialReturnProjectsProvider),
-                ),
-                data: (values) => DropdownButtonFormField<String>(
-                  initialValue: values.any((item) => item.id == _projectId)
-                      ? _projectId
-                      : null,
-                  decoration: InputDecoration(
-                    labelText: YorksV1MaterialReturnStrings.project.active(
-                      language,
-                    ),
-                    prefixIcon: const Icon(Icons.folder_outlined),
-                  ),
-                  items: [
-                    for (final project in values)
-                      DropdownMenuItem(
-                        value: project.id,
-                        child: Text(
-                          '${project.reference} · ${project.name}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: _working || !createAccess.canWrite
-                      ? null
-                      : (value) => setState(() {
-                          _projectId = value;
-                          _scopeId = null;
-                          _hydratedDraftId = null;
-                          _clearCandidateControllers();
-                        }),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (workspace == null)
-              _EditorNotice(
-                icon: Icons.folder_open_outlined,
-                copy: YorksV1MaterialReturnStrings.chooseProject.active(
-                  language,
-                ),
-              )
-            else
-              workspace.when(
-                loading: () => const _ReturnLoading(),
-                error: (_, _) => _ReturnError(
-                  language: language,
-                  onRetry: () => ref.invalidate(
-                    yorksV1MaterialReturnCreationWorkspaceProvider((
-                      projectId: _projectId!,
-                      returnId: widget.returnId,
-                    )),
-                  ),
-                ),
-                data: (value) => _buildEditor(
-                  context,
-                  language,
-                  value,
-                  compact,
-                  enabled: createAccess.canWrite,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditor(
-    BuildContext context,
-    AppLanguage language,
-    YorksV1MaterialReturnCreationWorkspace workspace,
-    bool compact, {
-    required bool enabled,
-  }) {
-    final scopeId = workspace.scopes.any((scope) => scope.id == _scopeId)
+    final ready = workspace?.valueOrNull;
+    final scopeId = ready == null
+        ? null
+        : ready.scopes.any((scope) => scope.id == _scopeId)
         ? _scopeId
-        : workspace.scopes.firstOrNull?.id;
+        : ready.scopes.firstOrNull?.id;
     if (_scopeId == null && scopeId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _scopeId == null) setState(() => _scopeId = scopeId);
       });
     }
-    final candidates = workspace.candidates
-        .where((item) => scopeId == null || item.scopeId == scopeId)
-        .toList(growable: false);
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: _panelDecoration,
-          child: Column(
-            children: [
-              if (compact) ...[
-                DropdownButtonFormField<String>(
-                  initialValue: scopeId,
-                  decoration: InputDecoration(
-                    labelText: YorksV1MaterialReturnStrings.scope.active(
-                      language,
-                    ),
-                  ),
-                  items: [
-                    for (final scope in workspace.scopes)
-                      DropdownMenuItem(
-                        value: scope.id,
-                        child: Text(scope.name),
-                      ),
-                  ],
-                  onChanged: _working || !enabled
-                      ? null
-                      : (value) => setState(() => _scopeId = value),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextField(
-                  controller: _purposeController,
-                  enabled: enabled && !_working,
-                  decoration: InputDecoration(
-                    labelText: YorksV1MaterialReturnStrings.purpose.active(
-                      language,
-                    ),
-                    hintText: YorksV1MaterialReturnStrings.purposeHint.active(
-                      language,
-                    ),
-                  ),
-                ),
-              ] else
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: scopeId,
-                        decoration: InputDecoration(
-                          labelText: YorksV1MaterialReturnStrings.scope.active(
-                            language,
-                          ),
-                        ),
-                        items: [
-                          for (final scope in workspace.scopes)
-                            DropdownMenuItem(
-                              value: scope.id,
-                              child: Text(scope.name),
-                            ),
-                        ],
-                        onChanged: _working || !enabled
-                            ? null
-                            : (value) => setState(() => _scopeId = value),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _purposeController,
-                        enabled: enabled && !_working,
-                        decoration: InputDecoration(
-                          labelText: YorksV1MaterialReturnStrings.purpose
-                              .active(language),
-                          hintText: YorksV1MaterialReturnStrings.purposeHint
-                              .active(language),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: AppSpacing.md),
-              TextField(
-                controller: _noteController,
-                enabled: enabled && !_working,
-                minLines: 2,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: YorksV1MaterialReturnStrings.notes.active(
-                    language,
+    final scopeName = ready?.scopes
+        .where((scope) => scope.id == scopeId)
+        .firstOrNull
+        ?.name;
+    final project = projects.valueOrNull
+        ?.where((item) => item.id == _projectId)
+        .firstOrNull;
+    final canEdit = createAccess.canWrite && !_working;
+    final onSave = ready == null || !canEdit
+        ? null
+        : () => _save(ready, submit: false);
+    final onSubmit = ready == null || !canEdit
+        ? null
+        : () => _save(ready, submit: true);
+    void onCancel() => context.canPop()
+        ? context.pop()
+        : context.go(RoutePaths.yorksV1Returns);
+    final editing = widget.returnId != null;
+    final title =
+        (editing
+                ? YorksV1MaterialReturnComposerStrings.editReturn
+                : YorksV1MaterialReturnStrings.newReturn)
+            .active(language);
+    final compact = MediaQuery.sizeOf(context).width < 680;
+
+    final information = YorksV1MaterialFormCard(
+      key: const ValueKey('material-return-information-card'),
+      title: YorksV1MaterialReturnComposerStrings.returnInformation.active(
+        language,
+      ),
+      description: YorksV1MaterialReturnComposerStrings
+          .returnInformationDescription
+          .active(language),
+      child: _ReturnInformationFields(
+        language: language,
+        enabled: canEdit,
+        purpose: _purposeController,
+        note: _noteController,
+        projectField: projects.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (_, _) => _ReturnError(
+            language: language,
+            onRetry: () =>
+                ref.invalidate(yorksV1MaterialReturnProjectsProvider),
+          ),
+          data: (values) => DropdownButtonFormField<String>(
+            key: const ValueKey('material-return-project'),
+            initialValue: values.any((item) => item.id == _projectId)
+                ? _projectId
+                : null,
+            isExpanded: true,
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.apartment_outlined, size: 20),
+            ),
+            hint: Text(
+              YorksV1MaterialReturnStrings.chooseProject.active(language),
+              overflow: TextOverflow.ellipsis,
+            ),
+            items: [
+              for (final project in values)
+                DropdownMenuItem(
+                  value: project.id,
+                  child: Text(
+                    '${project.reference} · ${project.name}',
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: OutlinedButton.icon(
-                  onPressed: _working || !enabled
-                      ? null
-                      : () => _pickDate(context),
-                  icon: const Icon(Icons.event_outlined),
-                  label: Text(
-                    _requestedDate == null
-                        ? YorksV1MaterialReturnStrings.requestedDate.active(
-                            language,
-                          )
-                        : DateFormat.yMMMd().format(_requestedDate!),
-                  ),
-                ),
-              ),
             ],
+            onChanged: !canEdit || editing
+                ? null
+                : (value) => setState(() {
+                    _projectId = value;
+                    _scopeId = null;
+                    _hydratedDraftId = null;
+                    _composer.clear();
+                  }),
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        _ReturnLineEditor(
-          language: language,
-          candidates: candidates,
-          candidateQuantities: _candidateQuantities,
-          customRows: _customRows,
-          units: workspace.units,
-          compact: compact,
-          enabled: enabled && !_working,
-          onAddCustom: () => setState(() {
-            _customRows.add(
-              _CustomReturnRow(unit: workspace.units.firstOrNull),
-            );
-          }),
-          onRemoveCustom: (row) => setState(() {
-            row.dispose();
-            _customRows.remove(row);
-          }),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          alignment: WrapAlignment.end,
-          children: [
-            SizedBox(
-              width: compact ? double.infinity : 190,
-              child: SecondaryButton(
-                label: YorksV1MaterialReturnStrings.saveDraft.active(language),
-                icon: Icons.save_outlined,
-                onPressed: _working || !enabled
-                    ? null
-                    : () => _save(workspace, submit: false),
+        scopeField: DropdownButtonFormField<String>(
+          key: ValueKey('material-return-scope-$scopeId'),
+          initialValue: scopeId,
+          isExpanded: true,
+          style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
+          items: [
+            for (final scope
+                in ready?.scopes ?? const <YorksV1MaterialReturnScope>[])
+              DropdownMenuItem(
+                value: scope.id,
+                child: Text(scope.name, overflow: TextOverflow.ellipsis),
               ),
-            ),
-            SizedBox(
-              width: compact ? double.infinity : 230,
-              child: PrimaryButton(
-                label: YorksV1MaterialReturnStrings.submitForApproval.active(
-                  language,
-                ),
-                icon: Icons.send_rounded,
-                isLoading: _working,
-                onPressed: _working || !enabled
-                    ? null
-                    : () => _save(workspace, submit: true),
-              ),
-            ),
           ],
+          onChanged: !canEdit || ready == null
+              ? null
+              : (value) => setState(() => _scopeId = value),
+        ),
+        dateField: OutlinedButton.icon(
+          key: const ValueKey('material-return-date'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            alignment: AlignmentDirectional.centerStart,
+            foregroundColor: AppColors.ink,
+            side: const BorderSide(color: AppColors.line),
+          ),
+          onPressed: canEdit ? () => _pickDate(context) : null,
+          icon: const Icon(Icons.event_outlined, size: 18),
+          label: Text(
+            _requestedDate == null
+                ? YorksV1MaterialReturnStrings.requestedDate.active(language)
+                : DateFormat.yMMMd().format(_requestedDate!),
+          ),
+        ),
+      ),
+    );
+
+    final items = YorksV1MaterialFormCard(
+      key: const ValueKey('material-return-items-card'),
+      sectionNumber: 2,
+      title: YorksV1MaterialReturnComposerStrings.materialItems.active(
+        language,
+      ),
+      description: YorksV1MaterialReturnComposerStrings.materialItemsDescription
+          .active(language),
+      actions: [
+        YorksV1MaterialFormAction(
+          key: const ValueKey('material-return-add-deliveries'),
+          label: YorksV1MaterialReturnComposerStrings.addFromDeliveries.active(
+            language,
+          ),
+          icon: Icons.local_shipping_outlined,
+          primary: true,
+          onPressed: ready == null || !canEdit
+              ? null
+              : () => showYorksV1DeliveredMaterialPicker(
+                  context,
+                  projectId: ready.projectId,
+                  returnId: ready.draft?.id ?? widget.returnId,
+                  scopeId: scopeId,
+                  scopeName: scopeName,
+                  projectReference: ready.projectReference,
+                  controller: _composer,
+                  language: language,
+                ),
+        ),
+        YorksV1MaterialFormAction(
+          key: const ValueKey('material-return-add-custom'),
+          label: YorksV1MaterialReturnComposerStrings.addCustomItem.active(
+            language,
+          ),
+          icon: Icons.add_rounded,
+          onPressed: ready == null || !canEdit
+              ? null
+              : () => _composer.addCustomLine(),
         ),
       ],
+      child: workspace == null
+          ? _EditorNotice(
+              icon: Icons.folder_open_outlined,
+              copy: YorksV1MaterialReturnStrings.chooseProject.active(language),
+            )
+          : workspace.when(
+              skipLoadingOnRefresh: true,
+              loading: () => const _ReturnLoading(),
+              error: (_, _) => _ReturnError(
+                language: language,
+                onRetry: () => ref.invalidate(
+                  yorksV1MaterialReturnCreationWorkspaceProvider((
+                    projectId: _projectId!,
+                    returnId: widget.returnId,
+                  )),
+                ),
+              ),
+              data: (value) => YorksV1MaterialReturnItems(
+                projectId: value.projectId,
+                returnId: value.draft?.id ?? widget.returnId,
+                scopeId: scopeId,
+                controller: _composer,
+                language: language,
+                enabled: canEdit,
+              ),
+            ),
+    );
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: compact
+          ? AppBar(backgroundColor: AppColors.surface, title: Text(title))
+          : null,
+      bottomNavigationBar: compact
+          ? _ReturnBottomActions(
+              language: language,
+              working: _working,
+              onCancel: onCancel,
+              onSave: onSave,
+              onSubmit: onSubmit,
+            )
+          : null,
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final desktop =
+                constraints.maxWidth >= AppSpacing.yorksV1DesktopBreakpoint;
+            final horizontal = desktop
+                ? AppSpacing.xxxl + AppSpacing.xs
+                : AppSpacing.lg;
+            return ListView(
+              key: const ValueKey('material-return-editor'),
+              padding: EdgeInsets.fromLTRB(
+                horizontal,
+                AppSpacing.xl,
+                horizontal,
+                AppSpacing.xxxl,
+              ),
+              children: [
+                ListenableBuilder(
+                  listenable: _composer,
+                  builder: (context, _) => _ReturnHero(
+                    language: language,
+                    title: title,
+                    reference:
+                        ready?.draft?.number ??
+                        YorksV1MaterialReturnComposerStrings.assignedOnSubmit
+                            .active(language),
+                    scopeName: scopeName,
+                    projectName: project == null
+                        ? null
+                        : '${project.reference} · ${project.name}',
+                    lineCount: _composer.lines.length,
+                    showActions: !compact,
+                    working: _working,
+                    onCancel: onCancel,
+                    onSave: onSave,
+                    onSubmit: onSubmit,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                information,
+                const SizedBox(height: AppSpacing.lg),
+                items,
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -835,36 +518,12 @@ class _YorksV1MaterialReturnEditorScreenState
     _purposeController.text = draft.purpose ?? '';
     _noteController.text = draft.note ?? '';
     _requestedDate = draft.requestedReturnDate;
-    _clearCandidateControllers();
-    for (final line in draft.lines) {
-      if (line.origin == YorksV1ReturnLineOrigin.delivered &&
-          line.receiptReviewLineId != null) {
-        _candidateQuantities[line.receiptReviewLineId!] = TextEditingController(
-          text: yorksV1DisplayQuantity(line.returnQuantity),
-        );
-      } else {
-        _customRows.add(
-          _CustomReturnRow(
-            description: line.description,
-            brandOrigin: line.brandOrigin,
-            quantity: yorksV1DisplayQuantity(line.returnQuantity),
-            unit: line.unit,
-            note: line.lineNote,
-          ),
-        );
+    // The composer notifies listeners; never do that while this tree builds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _hydratedDraftId == draft.id) {
+        _composer.hydrate(draft.lines);
       }
-    }
-  }
-
-  void _clearCandidateControllers() {
-    for (final controller in _candidateQuantities.values) {
-      controller.dispose();
-    }
-    _candidateQuantities.clear();
-    for (final row in _customRows) {
-      row.dispose();
-    }
-    _customRows.clear();
+    });
   }
 
   Future<void> _pickDate(BuildContext context) async {
@@ -898,43 +557,25 @@ class _YorksV1MaterialReturnEditorScreenState
       );
       return;
     }
-    final lines = <YorksV1MaterialReturnDraftLineInput>[];
-    for (final candidate in workspace.candidates.where(
-      (candidate) => candidate.scopeId == _scopeId,
-    )) {
-      final quantity = _candidateQuantities[candidate.receiptReviewLineId]?.text
-          .trim();
-      if ((double.tryParse(quantity ?? '') ?? 0) > 0) {
-        lines.add(
-          YorksV1MaterialReturnDraftLineInput(
-            origin: YorksV1ReturnLineOrigin.delivered,
-            receiptReviewLineId: candidate.receiptReviewLineId,
-            quantity: quantity!,
-          ),
-        );
-      }
-    }
-    for (final row in _customRows) {
-      if ((double.tryParse(row.quantity.text.trim()) ?? 0) <= 0) continue;
-      if (row.description.text.trim().isEmpty || row.unit.trim().isEmpty) {
-        _toast(
-          context,
-          YorksV1MaterialReturnStrings.customLineRequired.active(language),
-          error: true,
-        );
-        return;
-      }
-      lines.add(
-        YorksV1MaterialReturnDraftLineInput(
-          origin: YorksV1ReturnLineOrigin.custom,
-          description: row.description.text,
-          brandOrigin: row.brandOrigin.text,
-          unit: row.unit,
-          quantity: row.quantity.text,
-          note: row.note.text,
-        ),
+    if (_composer.hasDelivered && !_composer.isResolved) return;
+    final built = _composer.buildLines();
+    if (built.hasIssues) {
+      _toast(
+        context,
+        YorksV1MaterialReturnComposerStrings.fixHighlighted.active(language),
+        error: true,
       );
+      return;
     }
+    if (built.customIncomplete) {
+      _toast(
+        context,
+        YorksV1MaterialReturnStrings.customLineRequired.active(language),
+        error: true,
+      );
+      return;
+    }
+    final lines = built.lines;
     if (lines.isEmpty || _scopeId == null) {
       _toast(
         context,
@@ -944,9 +585,10 @@ class _YorksV1MaterialReturnEditorScreenState
       return;
     }
     setState(() => _working = true);
+    YorksV1ProjectMaterialReturn? savedDraft;
     try {
       final repository = _returnRepository(ref);
-      var saved = await repository.saveProjectMaterialReturnDraft(
+      var saved = savedDraft = await repository.saveProjectMaterialReturnDraft(
         YorksV1SaveMaterialReturnDraftInput(
           returnId: workspace.draft?.id,
           projectId: workspace.projectId,
@@ -970,6 +612,7 @@ class _YorksV1MaterialReturnEditorScreenState
       }
       if (!mounted) return;
       ref.invalidate(yorksV1MaterialReturnRegisterProvider);
+      ref.invalidate(yorksV1MaterialReturnItemCandidatesProvider);
       context.go(RoutePaths.yorksV1MaterialReturnPath(saved.id));
       _toast(
         context,
@@ -981,11 +624,21 @@ class _YorksV1MaterialReturnEditorScreenState
           lines: saved.lines.length,
         ).active(language),
       );
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
+        final specific = yorksV1MaterialReturnComposerFailure(error);
+        if (specific != null) {
+          ref.invalidate(yorksV1MaterialReturnItemCandidatesProvider);
+        }
+        if (savedDraft != null) {
+          // The draft was saved but submission failed: continue from the
+          // saved version so the next attempt cannot hit a version conflict.
+          ref.invalidate(yorksV1MaterialReturnRegisterProvider);
+          context.go(RoutePaths.yorksV1MaterialReturnPath(savedDraft.id));
+        }
         _toast(
           context,
-          YorksV1MaterialReturnStrings.failed.active(language),
+          (specific ?? YorksV1MaterialReturnStrings.failed).active(language),
           error: true,
         );
       }
@@ -995,414 +648,380 @@ class _YorksV1MaterialReturnEditorScreenState
   }
 }
 
-class _ReturnLineEditor extends StatelessWidget {
-  const _ReturnLineEditor({
+/// Mirrors the Material Request draft hero: eyebrow, title with stage, one
+/// line of guidance, metadata and the header commands.
+class _ReturnHero extends StatelessWidget {
+  const _ReturnHero({
     required this.language,
-    required this.candidates,
-    required this.candidateQuantities,
-    required this.customRows,
-    required this.units,
-    required this.compact,
-    required this.enabled,
-    required this.onAddCustom,
-    required this.onRemoveCustom,
+    required this.title,
+    required this.reference,
+    required this.scopeName,
+    required this.projectName,
+    required this.lineCount,
+    required this.showActions,
+    required this.working,
+    required this.onCancel,
+    required this.onSave,
+    required this.onSubmit,
   });
 
   final AppLanguage language;
-  final List<YorksV1MaterialReturnCandidate> candidates;
-  final Map<String, TextEditingController> candidateQuantities;
-  final List<_CustomReturnRow> customRows;
-  final List<String> units;
-  final bool compact;
-  final bool enabled;
-  final VoidCallback onAddCustom;
-  final ValueChanged<_CustomReturnRow> onRemoveCustom;
+  final String title;
+  final String reference;
+  final String? scopeName;
+  final String? projectName;
+  final int lineCount;
+  final bool showActions;
+  final bool working;
+  final VoidCallback onCancel;
+  final VoidCallback? onSave;
+  final VoidCallback? onSubmit;
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: _panelDecoration,
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Text(
-            YorksV1MaterialReturnStrings.deliveredMaterials.active(language),
-            style: AppTypography.titleLarge,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final stacked = constraints.maxWidth < 920;
+      final heading = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            YorksV1MaterialReturnComposerStrings.eyebrow
+                .active(language)
+                .toUpperCase(),
+            style: AppTypography.eyebrow,
           ),
-        ),
-        if (candidates.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              0,
-              AppSpacing.lg,
-              AppSpacing.lg,
-            ),
-            child: Text(
-              YorksV1MaterialReturnStrings.noDeliveredItems.active(language),
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-            ),
-          )
-        else if (compact)
-          for (final item in candidates)
-            _CandidateCard(
-              item: item,
-              language: language,
-              controller: candidateQuantities.putIfAbsent(
-                item.receiptReviewLineId,
-                TextEditingController.new,
-              ),
-              enabled: enabled,
-            )
-        else
-          _CandidateTable(
-            candidates: candidates,
-            language: language,
-            quantities: candidateQuantities,
-            enabled: enabled,
-          ),
-        const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Row(
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  YorksV1MaterialReturnStrings.customMaterials.active(language),
-                  style: AppTypography.titleLarge,
+              Text(
+                title,
+                style: AppTypography.headlineMedium.copyWith(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: enabled ? onAddCustom : null,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(
-                  YorksV1MaterialReturnStrings.addCustomRow.active(language),
+              _ReturnStageChip(language: language),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            YorksV1MaterialReturnComposerStrings.pageDescription.active(
+              language,
+            ),
+            style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            YorksV1MaterialReturnStrings.controlledFlow.active(language),
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.lg,
+            runSpacing: AppSpacing.xs,
+            children: [
+              YorksV1MaterialFormMeta(
+                icon: Icons.tag_rounded,
+                value: reference,
+              ),
+              if (scopeName != null)
+                YorksV1MaterialFormMeta(
+                  icon: Icons.logout_rounded,
+                  value:
+                      '${YorksV1MaterialReturnComposerStrings.returnFrom.active(language)}: $scopeName',
                 ),
+              if (projectName != null)
+                YorksV1MaterialFormMeta(
+                  icon: Icons.business_outlined,
+                  value: projectName!,
+                ),
+              YorksV1MaterialFormMeta(
+                icon: Icons.inventory_2_outlined,
+                value: YorksV1MaterialReturnComposerStrings.itemCount(
+                  lineCount,
+                ).active(language),
               ),
             ],
           ),
-        ),
-        for (final row in customRows)
-          _CustomRowEditor(
-            row: row,
-            language: language,
-            compact: compact,
-            units: units,
-            enabled: enabled,
-            onRemove: () => onRemoveCustom(row),
+        ],
+      );
+      if (!showActions) return heading;
+      final actions = Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        alignment: stacked ? WrapAlignment.start : WrapAlignment.end,
+        children: [
+          YorksV1MaterialFormAction(
+            key: const ValueKey('material-return-save'),
+            label: YorksV1MaterialReturnStrings.saveDraft.active(language),
+            icon: Icons.save_outlined,
+            onPressed: onSave,
           ),
-        if (customRows.isEmpty) const SizedBox(height: AppSpacing.sm),
-      ],
-    ),
+          YorksV1MaterialFormAction(
+            key: const ValueKey('material-return-cancel'),
+            label: YorksV1MaterialReturnComposerStrings.cancel.active(language),
+            onPressed: working ? null : onCancel,
+          ),
+          YorksV1MaterialFormAction(
+            key: const ValueKey('material-return-submit'),
+            label: YorksV1MaterialReturnStrings.submitForApproval.active(
+              language,
+            ),
+            icon: Icons.send_rounded,
+            primary: true,
+            onPressed: onSubmit,
+          ),
+        ],
+      );
+      return Container(
+        padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  heading,
+                  const SizedBox(height: AppSpacing.lg),
+                  actions,
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: AppSpacing.xl),
+                  actions,
+                ],
+              ),
+      );
+    },
   );
 }
 
-class _CandidateCard extends StatelessWidget {
-  const _CandidateCard({
-    required this.item,
-    required this.language,
-    required this.controller,
-    required this.enabled,
-  });
+class _ReturnStageChip extends StatelessWidget {
+  const _ReturnStageChip({required this.language});
 
-  final YorksV1MaterialReturnCandidate item;
   final AppLanguage language;
-  final TextEditingController controller;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.fromLTRB(
-      AppSpacing.lg,
-      0,
-      AppSpacing.lg,
-      AppSpacing.sm,
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xs,
     ),
-    padding: const EdgeInsets.all(AppSpacing.md),
     decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      color: AppColors.successContainer,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      border: Border.all(color: AppColors.success.withValues(alpha: .18)),
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(item.description, style: AppTypography.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '${item.requestNumber} · ${item.dispatchNumber}',
-          style: AppTypography.bodySmall.copyWith(color: AppColors.blue),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${YorksV1MaterialReturnStrings.available.active(language)}: ${yorksV1DisplayQuantity(item.eligibleReturnQuantity)} ${item.unit}',
-                style: AppTypography.bodySmall,
-              ),
-            ),
-            SizedBox(
-              width: 105,
-              child: TextField(
-                controller: controller,
-                enabled: enabled,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: YorksV1MaterialReturnStrings.quantity.active(
-                    language,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+    child: Text(
+      YorksV1MaterialReturnComposerStrings.stageOfFour(1).active(language),
+      style: AppTypography.labelSmall.copyWith(
+        color: AppColors.onSuccessContainer,
+        fontWeight: FontWeight.w800,
+      ),
     ),
   );
 }
 
-class _CandidateTable extends StatefulWidget {
-  const _CandidateTable({
-    required this.candidates,
+/// The Material Request "Request Information" field grid, for returns.
+class _ReturnInformationFields extends StatelessWidget {
+  const _ReturnInformationFields({
     required this.language,
-    required this.quantities,
     required this.enabled,
+    required this.purpose,
+    required this.note,
+    required this.projectField,
+    required this.scopeField,
+    required this.dateField,
   });
 
-  final List<YorksV1MaterialReturnCandidate> candidates;
   final AppLanguage language;
-  final Map<String, TextEditingController> quantities;
   final bool enabled;
-
-  @override
-  State<_CandidateTable> createState() => _CandidateTableState();
-}
-
-class _CandidateTableState extends State<_CandidateTable> {
-  final _horizontalController = ScrollController();
-
-  @override
-  void dispose() {
-    _horizontalController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scrollbar(
-      controller: _horizontalController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalController,
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: const WidgetStatePropertyAll(
-            AppColors.surfaceContainerLow,
-          ),
-          columns: [
-            DataColumn(
-              label: Text(
-                YorksV1MaterialReturnStrings.description.active(
-                  widget.language,
-                ),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                YorksV1MaterialReturnStrings.sourceReference.active(
-                  widget.language,
-                ),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                YorksV1MaterialReturnStrings.available.active(widget.language),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                YorksV1MaterialReturnStrings.quantity.active(widget.language),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                YorksV1MaterialReturnStrings.unit.active(widget.language),
-              ),
-            ),
-          ],
-          rows: [
-            for (final item in widget.candidates)
-              DataRow(
-                cells: [
-                  DataCell(SizedBox(width: 320, child: Text(item.description))),
-                  DataCell(
-                    Text('${item.requestNumber} · ${item.dispatchNumber}'),
-                  ),
-                  DataCell(
-                    Text(yorksV1DisplayQuantity(item.eligibleReturnQuantity)),
-                  ),
-                  DataCell(
-                    SizedBox(
-                      width: 110,
-                      child: TextField(
-                        controller: widget.quantities.putIfAbsent(
-                          item.receiptReviewLineId,
-                          TextEditingController.new,
-                        ),
-                        enabled: widget.enabled,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-                    ),
-                  ),
-                  DataCell(Text(item.unit)),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomRowEditor extends StatelessWidget {
-  const _CustomRowEditor({
-    required this.row,
-    required this.language,
-    required this.compact,
-    required this.enabled,
-    required this.onRemove,
-    required this.units,
-  });
-
-  final _CustomReturnRow row;
-  final AppLanguage language;
-  final bool compact;
-  final bool enabled;
-  final VoidCallback onRemove;
-  final List<String> units;
-
-  @override
-  Widget build(BuildContext context) {
-    final description = TextField(
-      controller: row.description,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: YorksV1MaterialReturnStrings.description.active(language),
-      ),
-    );
-    final brand = TextField(
-      controller: row.brandOrigin,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: YorksV1MaterialReturnStrings.brandOrigin.active(language),
-      ),
-    );
-    final quantity = TextField(
-      controller: row.quantity,
-      enabled: enabled,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: YorksV1MaterialReturnStrings.quantity.active(language),
-      ),
-    );
-    final unit = DropdownButtonFormField<String>(
-      initialValue: units.contains(row.unit) ? row.unit : null,
-      decoration: InputDecoration(
-        labelText: YorksV1MaterialReturnStrings.unit.active(language),
-      ),
-      items: [
-        for (final unit in units)
-          DropdownMenuItem(value: unit, child: Text(unit)),
-      ],
-      onChanged: enabled ? (value) => row.unit = value ?? row.unit : null,
-    );
-    final remove = IconButton(
-      tooltip: YorksV1MaterialReturnStrings.remove.active(language),
-      onPressed: enabled ? onRemove : null,
-      icon: const Icon(Icons.close_rounded, color: AppColors.error),
-    );
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      ),
-      child: compact
-          ? Column(
-              children: [
-                description,
-                const SizedBox(height: AppSpacing.sm),
-                brand,
-                const SizedBox(height: AppSpacing.sm),
-                quantity,
-                const SizedBox(height: AppSpacing.sm),
-                unit,
-                Align(alignment: AlignmentDirectional.centerEnd, child: remove),
-                TextField(
-                  controller: row.note,
-                  enabled: enabled,
-                  decoration: InputDecoration(
-                    labelText: YorksV1MaterialReturnStrings.notes.active(
-                      language,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(flex: 3, child: description),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(flex: 2, child: brand),
-                const SizedBox(width: AppSpacing.sm),
-                SizedBox(width: 120, child: quantity),
-                const SizedBox(width: AppSpacing.sm),
-                SizedBox(width: 150, child: unit),
-                const SizedBox(width: AppSpacing.sm),
-                remove,
-              ],
-            ),
-    );
-  }
-}
-
-class _CustomReturnRow {
-  _CustomReturnRow({
-    String? description,
-    String? brandOrigin,
-    String? quantity,
-    String? unit,
-    String? note,
-  }) : description = TextEditingController(text: description),
-       brandOrigin = TextEditingController(text: brandOrigin),
-       quantity = TextEditingController(text: quantity),
-       unit = unit ?? '',
-       note = TextEditingController(text: note);
-
-  final TextEditingController description;
-  final TextEditingController brandOrigin;
-  final TextEditingController quantity;
-  String unit;
+  final TextEditingController purpose;
   final TextEditingController note;
+  final Widget projectField;
+  final Widget scopeField;
+  final Widget dateField;
 
-  void dispose() {
-    description.dispose();
-    brandOrigin.dispose();
-    quantity.dispose();
-    note.dispose();
-  }
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final purposeField = YorksV1MaterialFormField(
+        label: YorksV1MaterialReturnStrings.purpose.active(language),
+        child: TextField(
+          key: const ValueKey('material-return-purpose'),
+          controller: purpose,
+          enabled: enabled,
+          decoration: InputDecoration(
+            hintText: YorksV1MaterialReturnStrings.purposeHint.active(language),
+          ),
+        ),
+      );
+      final project = YorksV1MaterialFormField(
+        label: YorksV1MaterialReturnStrings.project.active(language),
+        child: projectField,
+      );
+      final scope = YorksV1MaterialFormField(
+        label: YorksV1MaterialReturnComposerStrings.returnFrom.active(language),
+        child: scopeField,
+      );
+      final date = YorksV1MaterialFormField(
+        label: YorksV1MaterialReturnStrings.requestedDate.active(language),
+        child: dateField,
+      );
+      final notes = YorksV1MaterialFormField(
+        label: YorksV1MaterialReturnStrings.notes.active(language),
+        child: TextField(
+          key: const ValueKey('material-return-notes'),
+          controller: note,
+          enabled: enabled,
+          minLines: 1,
+          maxLines: 4,
+        ),
+      );
+      final width = constraints.maxWidth;
+      if (width >= 1160) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: purposeField),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(flex: 4, child: project),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(flex: 3, child: scope),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(flex: 2, child: date),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            notes,
+          ],
+        );
+      }
+      if (width >= 620) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: purposeField),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(flex: 7, child: project),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: scope),
+                const SizedBox(width: AppSpacing.lg),
+                Expanded(child: date),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            notes,
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          purposeField,
+          const SizedBox(height: AppSpacing.lg),
+          project,
+          const SizedBox(height: AppSpacing.lg),
+          scope,
+          const SizedBox(height: AppSpacing.lg),
+          date,
+          const SizedBox(height: AppSpacing.lg),
+          notes,
+        ],
+      );
+    },
+  );
+}
+
+/// Phone command bar, the same shape as the Material Request draft's.
+class _ReturnBottomActions extends StatelessWidget {
+  const _ReturnBottomActions({
+    required this.language,
+    required this.working,
+    required this.onCancel,
+    required this.onSave,
+    required this.onSubmit,
+  });
+
+  final AppLanguage language;
+  final bool working;
+  final VoidCallback onCancel;
+  final VoidCallback? onSave;
+  final VoidCallback? onSubmit;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: AppColors.line)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 12,
+            offset: Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          TextButton(
+            onPressed: working ? null : onCancel,
+            child: Text(
+              YorksV1MaterialReturnComposerStrings.cancel.active(language),
+            ),
+          ),
+          OutlinedButton.icon(
+            key: const ValueKey('material-return-save-mobile'),
+            onPressed: onSave,
+            icon: const Icon(Icons.save_outlined),
+            label: Text(
+              YorksV1MaterialReturnStrings.saveDraft.active(language),
+            ),
+          ),
+          FilledButton.icon(
+            key: const ValueKey('material-return-submit-mobile'),
+            onPressed: onSubmit,
+            icon: working
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send_rounded),
+            label: Text(
+              YorksV1MaterialReturnStrings.submitForApproval.active(language),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class YorksV1MaterialReturnDetailScreen extends ConsumerStatefulWidget {
@@ -1943,19 +1562,15 @@ class _ReturnDetailLinesState extends State<_ReturnDetailLines> {
                       cells: [
                         DataCell(Text('${line.displayOrder}')),
                         DataCell(
-                          SizedBox(width: 320, child: Text(line.description)),
-                        ),
-                        DataCell(
-                          Text(
-                            line.origin == YorksV1ReturnLineOrigin.custom
-                                ? YorksV1MaterialReturnStrings.customMaterials
-                                      .active(widget.language)
-                                : [
-                                    line.sourceRequestNumber,
-                                    line.sourceDispatchNumber,
-                                  ].whereType<String>().join(' · '),
+                          SizedBox(
+                            width: 320,
+                            child: _LineDescription(
+                              line: line,
+                              language: widget.language,
+                            ),
                           ),
                         ),
+                        DataCell(Text(_lineSource(line, widget.language))),
                         DataCell(
                           Text(yorksV1DisplayQuantity(line.returnQuantity)),
                         ),
@@ -1986,15 +1601,10 @@ class _DetailLineCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(line.description, style: AppTypography.titleMedium),
+        _LineDescription(line: line, language: language, emphasise: true),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          line.origin == YorksV1ReturnLineOrigin.custom
-              ? YorksV1MaterialReturnStrings.customMaterials.active(language)
-              : [
-                  line.sourceRequestNumber,
-                  line.sourceDispatchNumber,
-                ].whereType<String>().join(' · '),
+          _lineSource(line, language),
           style: AppTypography.bodySmall.copyWith(color: AppColors.blue),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -2005,6 +1615,59 @@ class _DetailLineCard extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Description with the Material Request technical fields beneath it.
+class _LineDescription extends StatelessWidget {
+  const _LineDescription({
+    required this.line,
+    required this.language,
+    this.emphasise = false,
+  });
+
+  final YorksV1MaterialReturnLineRecord line;
+  final AppLanguage language;
+  final bool emphasise;
+
+  @override
+  Widget build(BuildContext context) {
+    final spec = [
+      if (line.size != null)
+        '${YorksV1MaterialReturnComposerStrings.size.active(language)} ${line.size}',
+      if (line.model != null)
+        '${YorksV1MaterialReturnComposerStrings.model.active(language)} ${line.model}',
+      if (line.equipmentTag != null)
+        '${YorksV1MaterialReturnComposerStrings.equipmentTag.active(language)} ${line.equipmentTag}',
+      ?line.itemCode,
+    ].join(' · ');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          line.description,
+          style: emphasise ? AppTypography.titleMedium : null,
+        ),
+        if (spec.isNotEmpty)
+          Text(
+            spec,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+      ],
+    );
+  }
+}
+
+String _lineSource(YorksV1MaterialReturnLineRecord line, AppLanguage language) {
+  if (line.origin == YorksV1ReturnLineOrigin.custom) {
+    return YorksV1MaterialReturnStrings.customMaterials.active(language);
+  }
+  return [
+    line.sourceRequestNumber,
+    line.sourceDispatchNumber,
+    if (line.basisKind == YorksV1ReturnBasisKind.dispatchedUnconfirmed)
+      YorksV1MaterialReturnComposerStrings.unconfirmedDelivery.active(language),
+  ].whereType<String>().join(' · ');
 }
 
 class _DispatchDialog extends StatefulWidget {
@@ -2379,17 +2042,6 @@ class _ReturnLoading extends StatelessWidget {
   Widget build(BuildContext context) => const Padding(
     padding: EdgeInsets.all(AppSpacing.massive),
     child: Center(child: CircularProgressIndicator()),
-  );
-}
-
-class _ReturnEmpty extends StatelessWidget {
-  const _ReturnEmpty({required this.language});
-  final AppLanguage language;
-
-  @override
-  Widget build(BuildContext context) => _EditorNotice(
-    icon: Icons.assignment_return_outlined,
-    copy: YorksV1MaterialReturnStrings.noReturns.active(language),
   );
 }
 

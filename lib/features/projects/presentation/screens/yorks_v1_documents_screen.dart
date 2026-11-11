@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dropzone/flutter_dropzone.dart';
@@ -14,6 +16,7 @@ import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_document_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
@@ -49,6 +52,8 @@ class YorksV1DocumentsScreen extends ConsumerStatefulWidget {
 class _YorksV1DocumentsScreenState
     extends ConsumerState<YorksV1DocumentsScreen> {
   bool _working = false;
+  YorksV1DocumentUploadInput? _activeUpload;
+  String? _uploadOwner;
 
   YorksV1DocumentEntityType get _targetEntityType =>
       YorksV1DocumentEntityType.fromWireValue(widget.focusEntityType) ??
@@ -69,7 +74,7 @@ class _YorksV1DocumentsScreenState
     final mobile = YorksMobileUi.isActive(context);
     final compactRoute =
         MediaQuery.sizeOf(context).width < AppSpacing.yorksV1DesktopBreakpoint;
-    final body = workspace.when(
+    final content = workspace.when(
       loading: () => mobile
           ? const _MobileDocumentsLoading()
           : const Center(child: CircularProgressIndicator()),
@@ -112,6 +117,39 @@ class _YorksV1DocumentsScreenState
               onLinkExisting: () => _linkExistingDocument(value),
             ),
     );
+    final owner = ref.watch(yorksV1AuthUserIdProvider);
+    Map<String, dynamic>? pending;
+    try {
+      pending = ref
+          .watch(yorksV1DocumentUploadJournalProvider)
+          .pending(widget.projectId)
+          .where(
+            (item) =>
+                item['operation'] == 'v1_prepare_document_upload' &&
+                item['entity_type'] == _targetEntityType.wireValue &&
+                item['entity_id'] == _targetEntityId,
+          )
+          .firstOrNull;
+    } catch (_) {
+      // A corrupt/unknown journal is never overwritten to make the UI recover.
+      // The repository fails closed before starting a new transfer.
+    }
+    final active = _uploadOwner == owner ? _activeUpload : null;
+    final showUploadStatus =
+        workspace.hasValue &&
+        !workspace.hasError &&
+        (active != null || pending != null);
+    final body = showUploadStatus
+        ? Column(
+            children: [
+              Expanded(child: content),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: _uploadStatus(language, active, pending),
+              ),
+            ],
+          )
+        : content;
     if (widget.embedded) return body;
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -162,7 +200,7 @@ class _YorksV1DocumentsScreenState
               ],
             )
           : null,
-      floatingActionButton: compactRoute && !mobile
+      floatingActionButton: compactRoute && !mobile && !showUploadStatus
           ? FloatingActionButton.extended(
               onPressed: _working ? null : () => _uploadNewVersion(),
               icon: _working
@@ -180,6 +218,7 @@ class _YorksV1DocumentsScreenState
   }
 
   Future<void> _uploadNewVersion({YorksV1Document? document}) async {
+    if (_working) return;
     final role = ref.read(yorksV1CurrentRoleProvider);
     final classification =
         document?.classification ?? await _classification(role);
@@ -199,32 +238,139 @@ class _YorksV1DocumentsScreenState
     YorksV1SelectedDocument selected, {
     required YorksV1DocumentClassification classification,
     YorksV1Document? document,
+    String? documentId,
+    String? idempotencyKey,
   }) async {
-    setState(() => _working = true);
+    if (_working) return;
+    final owner = ref.read(yorksV1AuthUserIdProvider);
+    final input = YorksV1DocumentUploadInput(
+      projectId: widget.projectId,
+      entityType: _targetEntityType,
+      entityId: _targetEntityId,
+      classification: classification,
+      fileName: selected.fileName,
+      mimeType: selected.mimeType,
+      bytes: selected.bytes,
+      documentId: documentId ?? document?.id,
+      idempotencyKey: idempotencyKey ?? const Uuid().v4(),
+    );
+    setState(() {
+      _working = true;
+      _activeUpload = input;
+      _uploadOwner = owner;
+    });
     try {
-      await ref
-          .read(yorksV1DocumentsRepositoryProvider)
-          .upload(
-            YorksV1DocumentUploadInput(
-              projectId: widget.projectId,
-              entityType: _targetEntityType,
-              entityId: _targetEntityId,
-              classification: classification,
-              fileName: selected.fileName,
-              mimeType: selected.mimeType,
-              bytes: selected.bytes,
-              documentId: document?.id,
-              idempotencyKey: const Uuid().v4(),
-            ),
-          );
-      if (!mounted) return;
+      await ref.read(yorksV1DocumentsRepositoryProvider).upload(input);
+      if (!mounted || owner != ref.read(yorksV1AuthUserIdProvider)) return;
       _refresh();
       _snack(context, YorksV1DocumentStrings.uploadSucceeded.primary);
-    } catch (_) {
-      if (mounted) _snack(context, YorksV1DocumentStrings.uploadFailed.primary);
+    } on YorksV1CommittedViewUnavailable {
+      if (!mounted || owner != ref.read(yorksV1AuthUserIdProvider)) return;
+      _refresh();
+      _snack(
+        context,
+        YorksV1DocumentStrings.uploadConfirmedRefreshPending.primary,
+      );
+    } on YorksV1DocumentUploadNotSent {
+      if (mounted && owner == ref.read(yorksV1AuthUserIdProvider)) {
+        _snack(context, YorksV1DocumentStrings.uploadNotSent.primary);
+      }
+    } catch (error) {
+      if (mounted && owner == ref.read(yorksV1AuthUserIdProvider)) {
+        _snack(
+          context,
+          (error is YorksV1DomainException &&
+                  {
+                    YorksV1DomainErrorCode.unauthorized,
+                    YorksV1DomainErrorCode.invalidInput,
+                    YorksV1DomainErrorCode.featureDisabled,
+                  }.contains(error.code))
+              ? YorksV1DocumentStrings.uploadFailed.primary
+              : YorksV1DocumentStrings.uploadOutcomeUnknown.primary,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _working = false);
+      if (mounted) {
+        setState(() {
+          _working = false;
+          _activeUpload = null;
+        });
+      }
     }
+  }
+
+  Widget _uploadStatus(
+    AppLanguage language,
+    YorksV1DocumentUploadInput? active,
+    Map<String, dynamic>? pending,
+  ) {
+    final fileName = active?.fileName ?? pending?['file_name'] as String? ?? '';
+    final bytes = active?.bytes.length ?? pending?['byte_size'] as int? ?? 0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$fileName · ${_documentSize(bytes)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              (active != null
+                      ? YorksV1DocumentStrings.uploadInProgress
+                      : YorksV1DocumentStrings.uploadOutcomeUnknown)
+                  .active(language),
+            ),
+            if (active != null) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+            ] else if (pending != null)
+              TextButton.icon(
+                onPressed: _working ? null : () => _resumeUpload(pending),
+                icon: const Icon(Icons.upload_file_outlined),
+                label: Text(
+                  YorksV1DocumentStrings.reselectUpload.active(language),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resumeUpload(Map<String, dynamic> pending) async {
+    if (_working) return;
+    final owner = ref.read(yorksV1AuthUserIdProvider);
+    final selected = await ref
+        .read(yorksV1DocumentFileServiceProvider)
+        .selectDocument();
+    if (!mounted ||
+        selected == null ||
+        owner != ref.read(yorksV1AuthUserIdProvider)) {
+      return;
+    }
+    if (selected.fileName != pending['file_name'] ||
+        selected.mimeType != pending['mime_type'] ||
+        selected.bytes.length != pending['byte_size'] ||
+        sha256.convert(selected.bytes).toString() != pending['content_hash']) {
+      _snack(context, YorksV1DocumentStrings.uploadFileMismatch.primary);
+      return;
+    }
+    final classification = YorksV1DocumentClassification.fromWireValue(
+      pending['classification'],
+    );
+    if (classification == null || pending['key'] is! String) return;
+    await _uploadSelectedDocument(
+      selected,
+      classification: classification,
+      documentId: pending['document_id'] as String?,
+      idempotencyKey: pending['key'] as String,
+    );
   }
 
   Future<void> _uploadDroppedDocuments(
@@ -236,23 +382,31 @@ class _YorksV1DocumentsScreenState
     );
     if (classification == null || !mounted) return;
     setState(() => _working = true);
+    final owner = ref.read(yorksV1AuthUserIdProvider);
     var uploaded = 0;
     try {
       for (final selected in selectedDocuments) {
-        await ref
-            .read(yorksV1DocumentsRepositoryProvider)
-            .upload(
-              YorksV1DocumentUploadInput(
-                projectId: widget.projectId,
-                entityType: _targetEntityType,
-                entityId: _targetEntityId,
-                classification: classification,
-                fileName: selected.fileName,
-                mimeType: selected.mimeType,
-                bytes: selected.bytes,
-                idempotencyKey: const Uuid().v4(),
-              ),
-            );
+        if (!mounted || owner != ref.read(yorksV1AuthUserIdProvider)) return;
+        final input = YorksV1DocumentUploadInput(
+          projectId: widget.projectId,
+          entityType: _targetEntityType,
+          entityId: _targetEntityId,
+          classification: classification,
+          fileName: selected.fileName,
+          mimeType: selected.mimeType,
+          bytes: selected.bytes,
+          idempotencyKey: const Uuid().v4(),
+        );
+        setState(() {
+          _activeUpload = input;
+          _uploadOwner = owner;
+        });
+        try {
+          await ref.read(yorksV1DocumentsRepositoryProvider).upload(input);
+        } on YorksV1CommittedViewUnavailable {
+          // Keep processing other explicitly selected files; this version is
+          // already committed and must not be uploaded as a new revision.
+        }
         uploaded++;
       }
       if (!mounted) return;
@@ -261,10 +415,15 @@ class _YorksV1DocumentsScreenState
     } catch (_) {
       if (mounted) {
         _refresh();
-        _snack(context, YorksV1DocumentStrings.uploadFailed.primary);
+        _snack(context, YorksV1DocumentStrings.uploadOutcomeUnknown.primary);
       }
     } finally {
-      if (mounted) setState(() => _working = false);
+      if (mounted) {
+        setState(() {
+          _working = false;
+          _activeUpload = null;
+        });
+      }
     }
     // A partial browser drop is intentionally visible after refresh. Each
     // accepted file is its own idempotent controlled-document command.
@@ -634,7 +793,9 @@ class _MobileDocumentsBodyState extends State<_MobileDocumentsBody> {
           ),
           const SizedBox(height: 10),
           if (filtered.isEmpty)
-            _MobileDocumentsEmpty(onAdd: widget.onCreateDocument)
+            _MobileDocumentsEmpty(
+              onAdd: widget.busy ? null : widget.onCreateDocument,
+            )
           else
             for (final document in filtered) ...[
               _MobileDocumentCard(
@@ -879,7 +1040,7 @@ class _MobileDocumentChip extends StatelessWidget {
 
 class _MobileDocumentsEmpty extends StatelessWidget {
   const _MobileDocumentsEmpty({required this.onAdd});
-  final VoidCallback onAdd;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) => YorksMobileCard(

@@ -10,6 +10,94 @@ import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test('quantity derives full, partial and zero with exact decimals', () {
+    expect(
+      yorksV1ArrangementDecisionForQuantity(
+        requestedQuantity: '1.0001',
+        arrangedQuantity: '1.0001',
+      ),
+      YorksV1ArrangementDecision.full,
+    );
+    expect(
+      yorksV1ArrangementDecisionForQuantity(
+        requestedQuantity: '1.0001',
+        arrangedQuantity: '1.0000',
+      ),
+      YorksV1ArrangementDecision.partial,
+    );
+    expect(
+      yorksV1ArrangementDecisionForQuantity(
+        requestedQuantity: '1',
+        arrangedQuantity: '0',
+      ),
+      YorksV1ArrangementDecision.unavailable,
+    );
+    for (final raw in ['', ' ', '1.', '-1', '2', 'x', '0.00001']) {
+      expect(
+        yorksV1ArrangementDecisionForQuantity(
+          requestedQuantity: '1',
+          arrangedQuantity: raw,
+        ),
+        isNull,
+        reason: raw,
+      );
+    }
+  });
+
+  test('automatic warehouse match needs a unique exact unit-safe identity', () {
+    const line = YorksV1ArrangementLine(
+      id: 'l',
+      requestLineId: 'r',
+      displayOrder: 1,
+      description: ' Access Door ',
+      brandOrigin: 'BETA',
+      unit: 'Nos',
+      requestedQuantity: '3',
+      source: YorksV1ArrangementSource.warehouse,
+    );
+    YorksV1InventoryItem item(
+      String id, {
+      String description = 'access door',
+      String brand = 'beta',
+      String unit = 'nos',
+    }) => YorksV1InventoryItem(
+      id: id,
+      description: description,
+      brandOrigin: brand,
+      unit: unit,
+      onHandQuantity: '0',
+      reservedQuantity: '0',
+      availableQuantity: '0',
+      recordVersion: 1,
+    );
+    final match = item('match');
+    expect(
+      yorksV1ArrangementInventoryMatch(line, [
+        item('other', description: 'Motor'),
+        match,
+      ]),
+      same(match),
+    );
+    expect(
+      yorksV1ArrangementInventoryMatch(line, [
+        item('fuzzy', description: 'Access door large'),
+      ]),
+      isNull,
+    );
+    expect(
+      yorksV1ArrangementInventoryMatch(line, [item('brand', brand: 'Other')]),
+      isNull,
+    );
+    expect(
+      yorksV1ArrangementInventoryMatch(line, [item('unit', unit: 'Set')]),
+      isNull,
+    );
+    expect(
+      yorksV1ArrangementInventoryMatch(line, [match, item('duplicate')]),
+      isNull,
+    );
+  });
+
   test('arrangement workspace preserves non-commercial review facts only', () {
     final workspace = YorksV1ArrangementWorkspace.fromRpcJson(_workspaceJson());
 
@@ -33,6 +121,7 @@ void main() {
     final inventory = YorksV1InventoryItem.fromRpcJson({
       'id': 'item-1',
       'item_code': 'MSD-600',
+      'location_bin': 'Rack B / Shelf 3',
       'item_description': 'Motorized smoke damper',
       'unit': 'Nos',
       'on_hand_qty': '12',
@@ -41,7 +130,35 @@ void main() {
       'record_version': 1,
     });
     expect(inventory.itemCode, 'MSD-600');
+    expect(inventory.locationBin, 'Rack B / Shelf 3');
   });
+
+  test(
+    'requested editor default never becomes a committed projection fact',
+    () {
+      final json = _workspaceJson();
+      final arrangement = (json['arrangements'] as List).single as Map;
+      final line =
+          (arrangement['lines'] as List).single as Map<String, dynamic>;
+      line['decision'] = null;
+      line['arranged_qty'] = null;
+      var result = YorksV1ArrangementWorkspace.fromRpcJson(
+        json,
+      ).currentArrangement!.lines.single;
+      expect(result.requestedQuantity, '4');
+      expect(result.arrangedQuantity, isNull);
+      expect(result.decision, isNull);
+
+      for (final saved in ['0', '2.5000', '4']) {
+        line['arranged_qty'] = saved;
+        result = YorksV1ArrangementWorkspace.fromRpcJson(
+          json,
+        ).currentArrangement!.lines.single;
+        expect(result.arrangedQuantity, saved);
+        expect(result.requestedQuantity, '4');
+      }
+    },
+  );
 
   test('save input emits complete server-recognized line decisions', () {
     final input = YorksV1SaveArrangementInput(

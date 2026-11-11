@@ -1,3 +1,5 @@
+import '../models/yorks_v1_inventory_register_query.dart';
+import '../models/yorks_v1_inventory_history.dart';
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,8 +8,10 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/analytics_event.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_logistics.dart';
+import '../models/yorks_v1_material_return_candidates.dart';
 import '../models/yorks_v1_material_return_workflow.dart';
 import '../models/yorks_v1_material_request.dart';
+import '../models/yorks_v1_project_material_summary.dart';
 import '../sync/connectivity_service.dart';
 import '../services/analytics_service.dart';
 import 'yorks_v1_material_request_repository.dart';
@@ -120,6 +124,23 @@ abstract interface class YorksV1ProjectMaterialReturnRepository {
   );
 }
 
+/// Optional read boundary for the grouped, searchable return composer. Kept
+/// separate so existing deterministic test repositories keep compiling.
+abstract interface class YorksV1MaterialReturnItemCandidatesRepository {
+  Future<YorksV1MaterialReturnItemCandidates> getMaterialReturnItemCandidates(
+    YorksV1MaterialReturnCandidatesQuery query,
+  );
+}
+
+/// Optional read-only project Material Summary boundary. Separate from
+/// [YorksV1LogisticsRepository] so deterministic test repositories that only
+/// cover stock and dispatch stay unchanged.
+abstract interface class YorksV1ProjectMaterialSummaryRepository {
+  Future<YorksV1ProjectMaterialSummary> getProjectMaterialSummary(
+    YorksV1MaterialSummaryQuery query,
+  );
+}
+
 /// Optional read-only smart-category boundary. Keeping this separate preserves
 /// compatibility with deterministic test repositories while production uses
 /// the server-ranked, role-checked projection.
@@ -143,8 +164,12 @@ class YorksV1SupabaseLogisticsRepository
     implements
         YorksV1LogisticsRepository,
         YorksV1ProjectMaterialReturnRepository,
+        YorksV1ProjectMaterialSummaryRepository,
+        YorksV1MaterialReturnItemCandidatesRepository,
         YorksV1InventoryCategorySuggestionRepository,
-        YorksV1InventoryItemMetadataRepository {
+        YorksV1InventoryItemMetadataRepository,
+        YorksV1InventoryHistoryRepository,
+        YorksV1InventoryRegisterRepository {
   const YorksV1SupabaseLogisticsRepository({
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
@@ -162,6 +187,43 @@ class YorksV1SupabaseLogisticsRepository
   final YorksV1MaterialRequestRpcClient? _rpcClient;
   final Duration _rpcTimeout;
   final AnalyticsService _analytics;
+
+  @override
+  Future<YorksV1InventoryWorkspace> getInventoryPage(
+    YorksV1InventoryRegisterQuery query,
+  ) async {
+    final timing = Stopwatch()..start();
+    final response = await _invoke(
+      functionName: 'v1_inventory_register_page',
+      parameters: query.toRpc(),
+    );
+    final workspace = _inventoryWorkspace(response);
+    if (query.search.trim().isNotEmpty &&
+        query.register == 'stock' &&
+        query.limit == 50 &&
+        query.offset == 0) {
+      _analytics.recordMaterialSearch(
+        queryLength: query.search.trim().length,
+        resultCount: workspace.totalMatches ?? workspace.items.length,
+        duration: timing.elapsed,
+        context: AnalyticsSearchContext.inventory,
+      );
+    }
+    return workspace;
+  }
+
+  @override
+  Future<YorksV1InventoryHistoryPage> getInventoryHistory(
+    YorksV1InventoryHistoryQuery query,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_inventory_movement_page_v2',
+      parameters: query.toRpc(),
+    );
+    return YorksV1InventoryHistoryPage.fromJson(
+      Map<String, dynamic>.from(response as Map),
+    );
+  }
 
   @override
   Future<YorksV1InventoryWorkspace> getInventory({String? search}) async {
@@ -198,7 +260,7 @@ class YorksV1SupabaseLogisticsRepository
     String inventoryItemId,
   ) async {
     final response = await _invoke(
-      functionName: 'v1_inventory_item_workspace_projection',
+      functionName: 'v1_inventory_item_workspace_v2',
       parameters: {'p_inventory_item_id': inventoryItemId},
     );
     final detail = _inventoryItemDetail(response);
@@ -416,9 +478,37 @@ class YorksV1SupabaseLogisticsRepository
   }
 
   @override
+  Future<YorksV1MaterialReturnItemCandidates> getMaterialReturnItemCandidates(
+    YorksV1MaterialReturnCandidatesQuery query,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_material_return_item_candidates',
+      parameters: query.toRpcParameters(),
+      requiresReturnsDocuments: true,
+    );
+    return YorksV1MaterialReturnItemCandidates.fromRpcJson(response);
+  }
+
+  @override
+  Future<YorksV1ProjectMaterialSummary> getProjectMaterialSummary(
+    YorksV1MaterialSummaryQuery query,
+  ) async {
+    final response = await _invoke(
+      functionName: 'v1_project_material_summary',
+      parameters: query.toRpcParameters(),
+    );
+    return YorksV1ProjectMaterialSummary.fromRpcJson(response);
+  }
+
+  @override
   Future<YorksV1LogisticsWorkspace> dispatch(YorksV1DispatchInput input) async {
     final properties = <AnalyticsProperty, Object?>{
       AnalyticsProperty.itemCount: input.lines.length,
+      AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+        'v1_dispatch_materials',
+        input.idempotencyKey,
+      ),
+      AnalyticsProperty.commandPhase: 'transport',
     };
     _analytics.capture(
       AnalyticsEvent.dispatchAttempted,
@@ -428,6 +518,7 @@ class YorksV1SupabaseLogisticsRepository
       'dispatch_materials',
       properties: {...properties, AnalyticsProperty.workflow: 'procurement'},
     );
+    var phase = 'transport';
     try {
       final response = await _invoke(
         functionName: 'v1_dispatch_materials',
@@ -436,6 +527,7 @@ class YorksV1SupabaseLogisticsRepository
           'p_idempotency_key': input.idempotencyKey,
         },
       );
+      phase = 'response_decode';
       final workspace = _workspace(response);
       operation.complete();
       _analytics.capture(
@@ -444,11 +536,28 @@ class YorksV1SupabaseLogisticsRepository
       );
       return workspace;
     } catch (error) {
-      operation.fail(error);
+      operation.fail(
+        error,
+        properties: {AnalyticsProperty.commandPhase: phase},
+      );
+      // Transport/decode diagnostics remain measured, while business outcome
+      // is reconciled separately by the durable prepared command controller.
+      final uncertain =
+          error is! YorksV1DomainException ||
+          {
+            YorksV1DomainErrorCode.backendUnavailable,
+            YorksV1DomainErrorCode.offline,
+            YorksV1DomainErrorCode.unexpectedResponse,
+          }.contains(error.code);
       _analytics.capture(
-        AnalyticsEvent.dispatchFailed,
+        uncertain
+            ? AnalyticsEvent.commandOutcomeChanged
+            : AnalyticsEvent.dispatchFailed,
         properties: {
           ...properties,
+          AnalyticsProperty.operation: 'v1_dispatch_materials',
+          AnalyticsProperty.commandPhase: phase,
+          AnalyticsProperty.outcome: uncertain ? 'unknown' : 'rejected',
           AnalyticsProperty.errorCategory: analyticsErrorCategory(error),
         },
       );
@@ -906,7 +1015,9 @@ class YorksV1SupabaseLogisticsRepository
         YorksV1DomainErrorCode.insufficientStock,
       final value
           when value.contains('V1_DISPATCH_APPROVED_CAP_EXCEEDED') ||
-              value.contains('V1_DISPATCH_LINE_NOT_APPROVED') =>
+              value.contains('V1_DISPATCH_LINE_NOT_APPROVED') ||
+              value.contains('V1_MATERIAL_RETURN_ELIGIBLE_QTY_EXCEEDED') ||
+              value.contains('V1_RECEIPT_BELOW_ACTIVE_RETURNS') =>
         YorksV1DomainErrorCode.quantityCapExceeded,
       final value
           when value.contains('V1_DELIVERY_ORDER_REFERENCE_IMMUTABLE') =>
@@ -928,7 +1039,12 @@ class YorksV1SupabaseLogisticsRepository
         _ => YorksV1DomainErrorCode.serverRejected,
       },
     };
-    return YorksV1DomainException(code, serverCode: error.code, cause: error);
+    return YorksV1DomainException(
+      code,
+      serverCode: error.code,
+      serverMessage: error.message,
+      cause: error,
+    );
   }
 }
 

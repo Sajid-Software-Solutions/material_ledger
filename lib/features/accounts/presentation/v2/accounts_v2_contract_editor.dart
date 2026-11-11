@@ -135,6 +135,14 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
   int _nextKey = 1;
   bool _saving = false;
   String? _error;
+
+  /// Set when Save is pressed while something still needs fixing: the fields
+  /// involved are outlined until the form is saved or discarded.
+  bool _showProblems = false;
+  final _detailsKey = GlobalKey();
+  final _buildingsKey = GlobalKey();
+  final _stagesKey = GlobalKey();
+  final _itemKeys = <String, GlobalKey>{};
   String _initial = '';
 
   /// Empty fields were started from the project; they are unsaved until Save.
@@ -278,6 +286,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     }
     _initial = _snapshot();
     _error = null;
+    _showProblems = false;
     _prefilled = !_skipPrefill && _prefillFromProject();
   }
 
@@ -494,31 +503,115 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     ],
   );
 
-  bool get _setupValid {
-    final vat = YorksAccountsDecimal.tryParse(_vat.text.trim());
-    return vat != null &&
-        !vat.isNegative &&
-        _model().isValid &&
-        _stages.every((s) => s.label.text.trim().isNotEmpty) &&
-        _stages
-            .where((s) => s.byItems)
-            .every(
-              (s) => s.items.isNotEmpty && s.items.every((i) => i.isValid),
-            ) &&
-        _checks.every((c) => c.ok);
-  }
-
-  bool get _canSave {
-    if (_saving || !_dirty) return false;
-    if (_setupDirty && (!widget.canEditSetup || !_setupValid)) return false;
-    if (_referencesDirty && !_canEditReferences) return false;
-    if (_invoiceDirty && (!_canEditInvoice || _prefix.text.trim().isEmpty)) {
-      return false;
+  /// Every reason the current changes cannot be saved yet, in the order
+  /// they appear on the page. Save stays pressable; pressing it with any of
+  /// these left outlines the fields and moves to the first one, instead of a
+  /// greyed-out button that never says why.
+  List<_SaveBlocker> get _blockers {
+    final out = <_SaveBlocker>[];
+    if (_setupDirty) {
+      if (!widget.canEditSetup) {
+        out.add(_SaveBlocker(_t('v2c_block_no_setup_access')));
+      } else {
+        final vat = YorksAccountsDecimal.tryParse(_vat.text.trim());
+        if (vat == null || vat.isNegative) {
+          out.add(
+            _SaveBlocker(_t('v2c_block_vat'), _detailsKey, _ProblemField.vat),
+          );
+        }
+        final noBuildings = _buildings.isEmpty;
+        if (noBuildings) {
+          out.add(
+            _SaveBlocker(
+              widget.buildingChoices.isEmpty
+                  ? _t('v2c_block_project_has_no_buildings')
+                  : _t('v2c_block_add_building'),
+              _buildingsKey,
+            ),
+          );
+        }
+        for (final c in _checks.where((c) => !c.ok)) {
+          if (noBuildings && c.kind == AccountsV2SetupCheckKind.buildings) {
+            continue;
+          }
+          out.add(
+            _SaveBlocker(
+              '${accountsV2SetupCheckTitle(tab.language, c)} — '
+              '${accountsV2SetupCheckDetail(tab.language, c)}',
+              switch (c.kind) {
+                AccountsV2SetupCheckKind.contractValue => _detailsKey,
+                AccountsV2SetupCheckKind.buildings => _buildingsKey,
+                AccountsV2SetupCheckKind.stages => _stagesKey,
+                AccountsV2SetupCheckKind.items =>
+                  _itemKeys[c.stageKey] ?? _stagesKey,
+              },
+              c.kind == AccountsV2SetupCheckKind.contractValue
+                  ? _ProblemField.contract
+                  : null,
+            ),
+          );
+        }
+        if (_stages.any((s) => s.label.text.trim().isEmpty)) {
+          out.add(_SaveBlocker(_t('v2c_block_stage_name'), _stagesKey));
+        }
+        for (final st in _stages.where((s) => s.byItems)) {
+          if (st.items.isNotEmpty && !st.items.every((i) => i.isValid)) {
+            out.add(
+              _SaveBlocker(
+                '${st.label.text.trim()}: ${_t('v2c_block_item_rows')}',
+                _itemKeys[st.key] ?? _stagesKey,
+              ),
+            );
+          }
+        }
+        if (out.isEmpty && !_model().isValid) {
+          out.add(_SaveBlocker(_t('v2c_block_setup_invalid'), _detailsKey));
+        }
+      }
+    }
+    if (_referencesDirty && !_canEditReferences) {
+      out.add(_SaveBlocker(_t('v2c_block_no_reference_access')));
+    }
+    if (_invoiceDirty) {
+      if (!_canEditInvoice) {
+        out.add(_SaveBlocker(_t('v2c_block_no_invoice_access')));
+      } else if (_prefix.text.trim().isEmpty) {
+        out.add(
+          _SaveBlocker(
+            _t('v2c_block_prefix'),
+            _detailsKey,
+            _ProblemField.prefix,
+          ),
+        );
+      }
     }
     if (_woDate.text.trim().isNotEmpty && _isoDate(_woDate.text) == null) {
-      return false;
+      out.add(
+        _SaveBlocker(
+          _t('v2c_block_wo_date'),
+          _detailsKey,
+          _ProblemField.woDate,
+        ),
+      );
     }
-    return true;
+    return out;
+  }
+
+  bool get _canSave => !_saving && _dirty;
+
+  bool _flag(_ProblemField field) =>
+      _showProblems && _blockers.any((b) => b.field == field);
+
+  void _reveal(_SaveBlocker blocker) {
+    final target = blocker.target?.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      alignment: 0.05,
+      duration: MediaQuery.of(context).disableAnimations
+          ? Duration.zero
+          : const Duration(milliseconds: 250),
+    );
   }
 
   /// Lets the screen rebuild with the server's fresh read before the next
@@ -529,6 +622,12 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
   }
 
   Future<void> _save() async {
+    final blockers = _blockers;
+    if (blockers.isNotEmpty) {
+      setState(() => _showProblems = true);
+      _reveal(blockers.first);
+      return;
+    }
     final messenger = ScaffoldMessenger.maybeOf(context);
     final setupDirty = _setupDirty;
     final referencesDirty = _referencesDirty;
@@ -701,11 +800,15 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     final editable = widget.canEditSetup;
     final main = AccountsV2Stack(
       children: [
-        _detailsCard(),
-        _buildingsCard(editable),
-        _stagesCard(editable),
+        KeyedSubtree(key: _detailsKey, child: _detailsCard()),
+        KeyedSubtree(key: _buildingsKey, child: _buildingsCard(editable)),
+        KeyedSubtree(key: _stagesKey, child: _stagesCard(editable)),
         for (final st in _stages) ...[
-          if (st.byItems) _itemsCard(st, editable && !widget.itemsBlocked),
+          if (st.byItems)
+            KeyedSubtree(
+              key: _itemKeys.putIfAbsent(st.key, GlobalKey.new),
+              child: _itemsCard(st, editable && !widget.itemsBlocked),
+            ),
           ?_linksCardFor(st.key),
         ],
         AccountsV2VariationsCard(
@@ -748,8 +851,14 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
   }
 
   Widget _saveBar() {
+    final blockers = _blockers;
+    final failing = _error != null || (_showProblems && blockers.isNotEmpty);
+    final intro =
+        _error ??
+        (_prefilled ? '${_t('v2c_prefilled')} ' : '') + _t('v2c_unsaved');
     return AccountsV2Note(
-      tone: _error != null ? AccountsV2NoteTone.bad : AccountsV2NoteTone.warn,
+      key: const ValueKey('accounts-v2-contract-save-bar'),
+      tone: failing ? AccountsV2NoteTone.bad : AccountsV2NoteTone.warn,
       trailing: Wrap(
         spacing: 8,
         children: [
@@ -767,10 +876,25 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
           ),
         ],
       ),
-      child: Text(
-        _error ??
-            (_prefilled ? '${_t('v2c_prefilled')} ' : '') + _t('v2c_unsaved'),
-      ),
+      child: blockers.isEmpty
+          ? Text(intro)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(intro),
+                const SizedBox(height: 6),
+                Text(
+                  _t('v2c_block_intro').replaceAll('{n}', '${blockers.length}'),
+                  key: const ValueKey('accounts-v2-contract-blockers'),
+                  style: v2Style(13, weight: FontWeight.w700),
+                ),
+                for (final b in blockers)
+                  _BlockerLine(
+                    text: b.text,
+                    onTap: b.target == null ? null : () => _reveal(b),
+                  ),
+              ],
+            ),
     );
   }
 
@@ -852,6 +976,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       bool numeric = false,
       bool enabled = true,
       Widget? suffix,
+      _ProblemField? problem,
     }) => AccountsV2TextField(
       label: label,
       controller: c,
@@ -859,6 +984,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       size: AccountsV2FieldSize.large,
       enabled: enabled,
       suffix: suffix,
+      error: problem != null && _flag(problem),
     );
     // Who the invoices are addressed to: chosen from the project's client and
     // main contractor by someone who manages invoices; read-only otherwise.
@@ -880,8 +1006,15 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         _contract,
         numeric: true,
         enabled: setupOn,
+        problem: _ProblemField.contract,
       ),
-      field(_t('v2c_vat_pct'), _vat, numeric: true, enabled: setupOn),
+      field(
+        _t('v2c_vat_pct'),
+        _vat,
+        numeric: true,
+        enabled: setupOn,
+        problem: _ProblemField.vat,
+      ),
       field(_t('v2c_terms_days'), _terms, numeric: true, enabled: setupOn),
       field(
         _t('v2c_retention_pct'),
@@ -912,6 +1045,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         _t('v2c_wo_date'),
         _woDate,
         enabled: refsOn,
+        problem: _ProblemField.woDate,
         suffix: IconButton(
           tooltip: _t('v2c_wo_date'),
           onPressed: refsOn ? _pickDate : null,
@@ -920,7 +1054,12 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         ),
       ),
       field(_t('v2c_contract_no'), _contractNumber, enabled: refsOn),
-      field(_t('v2c_invoice_prefix'), _prefix, enabled: invoiceOn),
+      field(
+        _t('v2c_invoice_prefix'),
+        _prefix,
+        enabled: invoiceOn,
+        problem: _ProblemField.prefix,
+      ),
     ];
     final rows = <Widget>[
       for (var i = 0; i < fields.length; i += columns)
@@ -1007,6 +1146,19 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
                   ]
                 : const [],
           ),
+          if (_buildings.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+              child: AccountsV2Note(
+                key: const ValueKey('accounts-v2-contract-no-buildings'),
+                tone: AccountsV2NoteTone.warn,
+                child: Text(
+                  widget.buildingChoices.isEmpty
+                      ? _t('v2c_block_project_has_no_buildings')
+                      : _t('v2c_block_add_building'),
+                ),
+              ),
+            ),
           AccountsV2Table(
             columns: [
               AccountsV2Column(_t('v2c_building')),
@@ -1772,4 +1924,55 @@ class _HowLine extends StatelessWidget {
       ),
     ),
   );
+}
+
+enum _ProblemField { contract, vat, prefix, woDate }
+
+/// One reason the changes cannot be saved yet, and where on the page it is.
+final class _SaveBlocker {
+  const _SaveBlocker(this.text, [this.target, this.field]);
+
+  final String text;
+  final GlobalKey? target;
+  final _ProblemField? field;
+}
+
+class _BlockerLine extends StatelessWidget {
+  const _BlockerLine({required this.text, this.onTap});
+
+  final String text;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final line = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1, right: 6),
+            child: Icon(
+              Icons.error_outline_rounded,
+              size: 16,
+              color: AccountsV2Colors.bad,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: v2Style(13).copyWith(
+                decoration: onTap == null ? null : TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (onTap == null) return line;
+    return Semantics(
+      button: true,
+      child: InkWell(onTap: onTap, child: line),
+    );
+  }
 }

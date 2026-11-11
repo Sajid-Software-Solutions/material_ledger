@@ -23,10 +23,14 @@ class YorksV1FeatureFlags {
     bool accounts = false,
     bool accountsWorkspaceV2 = false,
     bool workforce = false,
+    // Retired: accepted for compatibility and ignored. See [analytics].
+    // ignore: avoid_unused_constructor_parameters
     bool analytics = false,
     bool teamChat = false,
     bool inventorySuppliers = false,
     bool companyMaterialRequests = false,
+    bool roleOverviewV2 = false,
+    bool workerRecords = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -41,10 +45,11 @@ class YorksV1FeatureFlags {
        _accounts = accounts,
        _accountsWorkspaceV2 = accountsWorkspaceV2,
        _workforce = workforce,
-       _analytics = analytics,
        _teamChat = teamChat,
        _inventorySuppliers = inventorySuppliers,
-       _companyMaterialRequests = companyMaterialRequests;
+       _companyMaterialRequests = companyMaterialRequests,
+       _roleOverviewV2 = roleOverviewV2,
+       _workerRecords = workerRecords;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -97,10 +102,6 @@ class YorksV1FeatureFlags {
         'YORKS_V1_WORKFORCE',
         defaultValue: false,
       ),
-      _analytics = const bool.fromEnvironment(
-        'YORKS_V1_ANALYTICS',
-        defaultValue: false,
-      ),
       _teamChat = const bool.fromEnvironment(
         'YORKS_R38_TEAM_CHAT',
         defaultValue: false,
@@ -111,6 +112,14 @@ class YorksV1FeatureFlags {
       ),
       _companyMaterialRequests = const bool.fromEnvironment(
         'YORKS_V1_COMPANY_MATERIAL_REQUESTS',
+        defaultValue: false,
+      ),
+      _roleOverviewV2 = const bool.fromEnvironment(
+        'YORKS_V1_ROLE_OVERVIEW_V2',
+        defaultValue: false,
+      ),
+      _workerRecords = const bool.fromEnvironment(
+        'YORKS_V1_WORKER_RECORDS',
         defaultValue: false,
       );
 
@@ -128,10 +137,11 @@ class YorksV1FeatureFlags {
   final bool _accounts;
   final bool _accountsWorkspaceV2;
   final bool _workforce;
-  final bool _analytics;
   final bool _teamChat;
   final bool _inventorySuppliers;
   final bool _companyMaterialRequests;
+  final bool _roleOverviewV2;
+  final bool _workerRecords;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -169,10 +179,14 @@ class YorksV1FeatureFlags {
   /// routes are exposed only when the release operator explicitly enables it.
   bool get workforce => documents && _workforce;
 
-  /// Operational Analytics is an independently accepted, read-only surface.
-  /// It stays off unless its protected projection, capability and UI gates
-  /// are released together.
-  bool get analytics => documents && _analytics;
+  /// Operational Analytics is retired (owner decision, 9 November 2026;
+  /// `PRODUCT_DECISIONS.md` section 31). Its company view duplicated the
+  /// role-based Overview and waited on a slow projection, so no build can
+  /// enable it: the route, sidebar entry, search target and profile link
+  /// all stay hidden. `YORKS_V1_ANALYTICS` and the `analytics` constructor
+  /// argument are accepted and ignored for compatibility. The protected
+  /// server projection and its data are left untouched.
+  bool get analytics => false;
 
   bool get teamChat => documents && _teamChat;
 
@@ -186,6 +200,18 @@ class YorksV1FeatureFlags {
   /// request remains available even while the company routing matrix is being
   /// configured and reviewed.
   bool get companyMaterialRequests => requests && _companyMaterialRequests;
+
+  /// The role-based Overview: one home screen per exact role, built from the
+  /// existing protected request, project and inventory projections. It is a
+  /// read-only navigation surface and defaults off until its UI acceptance;
+  /// when off, the retained R35 overview stays in place.
+  bool get roleOverviewV2 => requests && _roleOverviewV2;
+
+  /// Worker Records: the protected employment record (company, trade licence,
+  /// passport, salary, photo) shown in User Management. Default off until the
+  /// database bundle is applied and the release gate passes. The server
+  /// enforces `worker_records.*` regardless of this flag.
+  bool get workerRecords => foundation && _workerRecords;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

@@ -26,8 +26,12 @@ evidence of their original releases, not current workflow authority.
    approval. An arrangement editor who already has the page open must refresh
    before saving the changed lines. The
    original decision and every edit remain visible in Request History.
-3. **Procurement arranges every line.** Procurement records Full, Partial or
-   Cannot Provide Now and chooses Warehouse or External Supplier. Saving a
+3. **Procurement arranges every line.** New rows start with the requested
+   quantity; reduce it when supplying less, or enter zero when unavailable.
+   Full, Partial or Cannot Provide Now follows automatically. Existing saved
+   progress is preserved. Choose Warehouse or
+   External Supplier; a safe catalogue match selects Warehouse and unmatched
+   custom items start with External Supplier. Saving a
    complete arrangement makes its positive quantities ready for controlled
    dispatch; new requests do not need a second Engineering approval.
 4. **Procurement dispatches approved quantities.** The server rechecks the
@@ -177,3 +181,28 @@ submitted request.
 
 Implementation definitions and security boundaries are recorded in
 [`MATERIAL_REQUEST_ACTION_INTELLIGENCE.md`](MATERIAL_REQUEST_ACTION_INTELLIGENCE.md).
+
+
+## Preparing scheduled work
+
+The arrangement workspace displays Normal, Urgent or Scheduled and the scheduled
+date. Warehouse selection clearly shows shelf/bin alongside availability, or
+“Shelf / bin not set” when that Inventory record has no location.
+
+- **Save progress** keeps incomplete work privately, including unfinished fields.
+- **Update team** previews ready quantities and expected dates, then publishes
+  an audited preparation update. Blank quantities count as waiting; incomplete
+  or invalid numbers must be corrected before sharing. External quantities count
+  as ready only after their availability checkbox is confirmed. Engineers see
+  the latest published preparation update in the request; use Refresh progress
+  to fetch immediately, or leave the visible request open for its one-minute
+  refresh. Background pages do not poll.
+- **Review arrangement** remains the final check. Complete it when the offered
+  quantities are ready. Shortages require reasons. For Scheduled requests,
+  positive external quantities must be marked available. Final confirmation
+  rechecks stock, reserves Warehouse quantities and notifies the current project
+  team and requester. Shared progress itself does not reserve or move stock.
+
+A new Delivery Order number is assigned automatically. Printing, downloading or
+revising that Delivery Order keeps its number. The supplier delivery reference
+is a separate optional dispatch field. Historical delivery references are kept.

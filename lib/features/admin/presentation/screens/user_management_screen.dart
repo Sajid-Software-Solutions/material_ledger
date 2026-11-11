@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:uuid/uuid.dart';
 
 import '../../../../app/router.dart';
@@ -23,6 +24,8 @@ import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_project_strings.dart';
 import '../../../../shared/models/yorks_v1_permission_strings.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
+import '../../../../shared/models/yorks_v1_user_management_strings.dart';
+import '../../../../shared/models/yorks_v1_user_project_access.dart';
 import '../../../../shared/providers/audit_log_provider.dart';
 import '../../../../shared/providers/hr_provider.dart';
 import '../../../../shared/providers/language_provider.dart';
@@ -31,6 +34,12 @@ import '../../../../shared/providers/users_provider.dart';
 import '../../../../shared/providers/yorks_v1_commercial_capability_provider.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
+import '../../../../shared/providers/yorks_v1_user_project_access_provider.dart';
+import '../../../../shared/models/yorks_v1_worker_record_strings.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
+import '../../../../shared/providers/yorks_v1_worker_record_provider.dart';
+import '../widgets/yorks_v1_user_management_views.dart';
+import '../widgets/yorks_v1_worker_records_tab.dart';
 
 /// Strips the `Exception: ` prefix so remote-provisioning errors read cleanly in
 /// a snackbar.
@@ -144,12 +153,15 @@ class YorksV1UserManagementAccess {
     required this.canViewAudit,
     required this.isConfigurationActor,
     required this.connectedV1,
+    this.canViewWorkerRecords = false,
+    this.canManageWorkerRecords = false,
   });
 
   factory YorksV1UserManagementAccess.resolve({
     required bool connectedV1,
     required YorksV1Role? role,
     required YorksV1CurrentPermissionSnapshotState permissionState,
+    bool workerRecordsEnabled = false,
   }) {
     if (!connectedV1) {
       return const YorksV1UserManagementAccess(
@@ -193,6 +205,23 @@ class YorksV1UserManagementAccess {
       // addition to the scoped permission decision.
       isConfigurationActor: role?.canConfigureUsers ?? false,
       connectedV1: true,
+      // Worker Records has no legacy role authority: only the server
+      // permission snapshot can open it, for any role.
+      canViewWorkerRecords:
+          workerRecordsEnabled &&
+          permissionState.hybridAllows(
+            YorksV1CapabilityKeys.workerRecordsView,
+            legacyAllowed: false,
+            organizationSummary: true,
+          ),
+      canManageWorkerRecords:
+          workerRecordsEnabled &&
+          permissionState.hybridAllows(
+            YorksV1CapabilityKeys.workerRecordsManage,
+            legacyAllowed: false,
+            requireWrite: true,
+            organizationSummary: true,
+          ),
     );
   }
 
@@ -208,6 +237,12 @@ class YorksV1UserManagementAccess {
   final bool isConfigurationActor;
   final bool connectedV1;
 
+  /// Worker employment records (company, licence, passport, salary, photo).
+  /// Independent of every `users.*` capability: a holder may see the Workers
+  /// tab without seeing or changing a login account.
+  final bool canViewWorkerRecords;
+  final bool canManageWorkerRecords;
+
   bool get canManageUser =>
       canEditProfile ||
       canAssignRoles ||
@@ -221,9 +256,10 @@ class YorksV1UserManagementAccess {
       isConfigurationActor && canManagePermissions;
 }
 
-/// Admin user management & access control (SRS §4.7). Create / edit /
-/// deactivate accounts, assign roles, reset passwords, grant or revoke
-/// per-engineer inventory access. No self-signup — Admin creates every account.
+/// Admin user management & access control (SRS §4.7). Create, edit,
+/// deactivate and restore accounts, assign roles and project teams, reset
+/// passwords and open detailed permissions. No self-signup: management creates
+/// every account.
 class UserManagementScreen extends ConsumerStatefulWidget {
   const UserManagementScreen({super.key});
 
@@ -232,10 +268,19 @@ class UserManagementScreen extends ConsumerStatefulWidget {
       _UserManagementScreenState();
 }
 
+const _metricAll = 'all';
+const _metricActive = 'active';
+const _metricEngineers = 'engineers';
+const _metricUnassigned = 'unassigned';
+const _metricProjects = 'projects';
+const _metricDeactivated = 'deactivated';
+
 class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   final _searchController = TextEditingController();
   String _query = '';
-  _AdminManagementTab _tab = _AdminManagementTab.users;
+  YorksV1UserManagementTab _tab = YorksV1UserManagementTab.users;
+  String _metric = _metricAll;
+  YorksV1Role? _roleFilter;
   int? _lastDirectoryRefreshRevision;
 
   @override
@@ -244,15 +289,63 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     super.dispose();
   }
 
-  bool _matches(AppUser u, {required bool yorksV1Provisioning}) {
+  bool _matches(
+    AppUser user, {
+    required bool yorksV1Provisioning,
+    required YorksV1UserProjectAccess? projectAccess,
+  }) {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return true;
-    return u.fullName.toLowerCase().contains(q) ||
-        u.email.toLowerCase().contains(q) ||
-        _roleLabel(
-          u,
-          yorksV1Provisioning: yorksV1Provisioning,
-        ).toLowerCase().contains(q);
+    final searchable = [
+      user.fullName,
+      user.email,
+      _roleLabel(user, yorksV1Provisioning: yorksV1Provisioning),
+      for (final membership
+          in projectAccess?.memberships ??
+              const <YorksV1UserProjectMembership>[]) ...[
+        membership.projectRef,
+        membership.projectName,
+      ],
+    ].join(' ').toLowerCase();
+    return searchable.contains(q);
+  }
+
+  bool _matchesMetric(
+    AppUser user,
+    YorksV1UserProjectAccessDirectory? directory,
+  ) => switch (_metric) {
+    _metricActive => user.active,
+    _metricDeactivated => !user.active,
+    _metricEngineers => _displayYorksV1Roles(
+      user,
+    ).any((role) => role.isEngineering),
+    _metricUnassigned =>
+      directory?.userFor(user.id)?.isUnassignedEngineer ?? false,
+    _ => true,
+  };
+
+  Future<void> _refresh(YorksV1UserManagementAccess access) async {
+    ref.invalidate(yorksV1UserProjectAccessProvider);
+    try {
+      await ref
+          .read(usersProvider.notifier)
+          .refreshFromServer(permissionConfirmed: access.canView);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_friendlyErr(error))));
+      }
+    }
+  }
+
+  void _openUser(String appUserId, YorksV1UserManagementAccess access) {
+    final user = ref
+        .read(usersProvider)
+        .where((candidate) => candidate.id == appUserId)
+        .firstOrNull;
+    if (user == null || !access.canManageUser) return;
+    _ManageUserSheet.show(context, user, access);
   }
 
   Future<void> _removeUserAccess(AppUser user) async {
@@ -326,7 +419,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(AppStrings.cancel.primary),
+            child: Text(AppStrings.cancel.active(language)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -392,7 +485,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = YorksMobileUi.isActive(context);
+    final language = ref.watch(languageProvider);
     final yorksV1Provisioning = ref.watch(
       yorksV1UserProvisioningEnabledProvider,
     );
@@ -403,7 +496,18 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       connectedV1: connectedV1,
       role: ref.watch(yorksV1CurrentRoleProvider),
       permissionState: permissionState,
+      workerRecordsEnabled: ref
+          .watch(yorksV1FeatureFlagsProvider)
+          .workerRecords,
     );
+    if (!access.canView && access.canViewWorkerRecords) {
+      // Accounting and PR staff: the Workers register only. No login account,
+      // role, project access or audit surface is built for them.
+      return _WorkerRecordsOnlyView(
+        language: language,
+        canManage: access.canManageWorkerRecords,
+      );
+    }
     if (!access.canView) {
       return _UserDirectoryAccessGate(
         loading: permissionState.isInitialLoading,
@@ -430,12 +534,44 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
         }
       });
     }
+
     final all = ref.watch(usersProvider);
-    final users = all
-        .where(
-          (user) => _matches(user, yorksV1Provisioning: yorksV1Provisioning),
-        )
-        .toList();
+    final projectAccessState = ref.watch(yorksV1UserProjectAccessProvider);
+    final directory = projectAccessState.valueOrNull;
+    final projectAccessLoading = projectAccessState.isLoading;
+    final names = {for (final user in all) user.id: user.fullName};
+    final roleLabels = {
+      for (final user in all)
+        user.id: _roleTitleLabel(
+          user,
+          yorksV1Provisioning: yorksV1Provisioning,
+          language: language,
+        ),
+    };
+    final currentAppUserId =
+        permissionState.snapshot?.user.appUserId ??
+        ref.watch(currentUserProvider)?.id;
+
+    final users =
+        all
+            .where(
+              (user) =>
+                  _matchesMetric(user, directory) &&
+                  (_roleFilter == null ||
+                      _displayYorksV1Roles(user).contains(_roleFilter)) &&
+                  _matches(
+                    user,
+                    yorksV1Provisioning: yorksV1Provisioning,
+                    projectAccess: directory?.userFor(user.id),
+                  ),
+            )
+            .toList()
+          ..sort((left, right) {
+            if (left.active != right.active) return left.active ? -1 : 1;
+            return left.fullName.toLowerCase().compareTo(
+              right.fullName.toLowerCase(),
+            );
+          });
 
     final activeUsers = all.where((user) => user.active).length;
     final engineers = all
@@ -444,109 +580,1188 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
               _displayYorksV1Roles(user).any((role) => role.isEngineering),
         )
         .length;
+    final unassigned = directory == null
+        ? null
+        : all
+              .where(
+                (user) =>
+                    directory.userFor(user.id)?.isUnassignedEngineer ?? false,
+              )
+              .length;
     final deactivated = all.length - activeUsers;
+    final metrics = [
+      YorksV1UserMetric(
+        id: _metricAll,
+        label: YorksV1UserManagementStrings.totalAccounts,
+        hint: YorksV1UserManagementStrings.allRolesHint,
+        value: '${all.length}',
+        icon: Icons.people_alt_outlined,
+        foreground: AppColors.blue,
+        background: AppColors.blueContainer,
+      ),
+      YorksV1UserMetric(
+        id: _metricActive,
+        label: YorksV1UserManagementStrings.activeMetric,
+        hint: YorksV1UserManagementStrings.canSignIn,
+        value: '$activeUsers',
+        icon: Icons.verified_user_outlined,
+        foreground: AppColors.success,
+        background: AppColors.successContainer,
+      ),
+      YorksV1UserMetric(
+        id: _metricEngineers,
+        label: YorksV1UserManagementStrings.engineersMetric,
+        hint: YorksV1UserManagementStrings.engineersHint,
+        value: '$engineers',
+        icon: Icons.engineering_outlined,
+        foreground: AppColors.purple,
+        background: AppColors.purpleContainer,
+      ),
+      YorksV1UserMetric(
+        id: _metricUnassigned,
+        label: YorksV1UserManagementStrings.notOnProjectMetric,
+        hint: YorksV1UserManagementStrings.notOnProjectHint,
+        value: unassigned == null ? '—' : '$unassigned',
+        icon: Icons.person_search_outlined,
+        foreground: AppColors.warning,
+        background: AppColors.warningContainer,
+      ),
+      YorksV1UserMetric(
+        id: _metricProjects,
+        label: YorksV1UserManagementStrings.projectsStaffedMetric,
+        hint: YorksV1UserManagementStrings.projectsStaffedHint,
+        value: directory == null
+            ? '—'
+            : '${directory.staffedOpenProjectCount}/${directory.openProjectCount}',
+        icon: Icons.account_tree_outlined,
+        foreground: AppColors.blue,
+        background: AppColors.blueContainer,
+      ),
+      YorksV1UserMetric(
+        id: _metricDeactivated,
+        label: YorksV1UserManagementStrings.deactivatedMetric,
+        hint: YorksV1UserManagementStrings.historyRetained,
+        value: '$deactivated',
+        icon: Icons.person_off_outlined,
+        foreground: AppColors.neutralText,
+        background: AppColors.neutralContainer,
+      ),
+    ];
+    final tab =
+        (_tab == YorksV1UserManagementTab.accessHistory &&
+                !access.canViewAudit) ||
+            (_tab == YorksV1UserManagementTab.workers &&
+                !access.canViewWorkerRecords)
+        ? YorksV1UserManagementTab.users
+        : _tab;
+    final compact =
+        MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      // A nested FAB sits over the workspace navigation on phones. The phone
-      // header owns the same create action so it remains visible without
-      // obscuring a directory row.
-      floatingActionButton:
-          !phone && MediaQuery.sizeOf(context).width < 820 && access.canCreate
-          ? FloatingActionButton.extended(
-              onPressed: () => _AddUserSheet.show(context),
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('Add user'),
-            )
-          : null,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 820;
-            return SingleChildScrollView(
+        child: Directionality(
+          textDirection: language.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: RefreshIndicator(
+            onRefresh: () => _refresh(access),
+            child: ListView(
+              key: const ValueKey('user-management'),
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
-                compact ? AppSpacing.lg : AppSpacing.xxxl,
-                compact ? AppSpacing.lg : AppSpacing.xxxl,
-                compact ? AppSpacing.lg : AppSpacing.xxxl,
-                AppSpacing.huge,
+                compact ? AppSpacing.md : AppSpacing.xl,
+                compact ? AppSpacing.md : AppSpacing.lg,
+                compact ? AppSpacing.md : AppSpacing.xxl,
+                AppSpacing.xxxl,
               ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1600),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _AdminPageHeader(
-                      compact: compact,
-                      phone: phone,
-                      onCreate: access.canCreate
-                          ? () => _AddUserSheet.show(context)
-                          : null,
-                      onRefresh: () async {
-                        try {
-                          await ref
-                              .read(usersProvider.notifier)
-                              .refreshFromServer(
-                                permissionConfirmed: access.canView,
-                              );
-                        } catch (error) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(_friendlyErr(error))),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    const Gap(AppSpacing.xl),
-                    _AdminTabBar(
-                      selected:
-                          _tab == _AdminManagementTab.accessHistory &&
-                              !access.canViewAudit
-                          ? _AdminManagementTab.users
-                          : _tab,
-                      showAccessHistory: access.canViewAudit,
-                      onChanged: (tab) => setState(() => _tab = tab),
-                    ),
-                    const Gap(AppSpacing.lg),
-                    switch (_tab == _AdminManagementTab.accessHistory &&
-                            !access.canViewAudit
-                        ? _AdminManagementTab.users
-                        : _tab) {
-                      _AdminManagementTab.users => _UsersTab(
-                        allUsers: all,
-                        users: users,
-                        activeUsers: activeUsers,
-                        engineers: engineers,
-                        deactivated: deactivated,
-                        queryController: _searchController,
-                        query: _query,
-                        yorksV1Provisioning: yorksV1Provisioning,
-                        access: access,
-                        onQueryChanged: (query) =>
-                            setState(() => _query = query),
-                        onCreate: access.canCreate
-                            ? () => _AddUserSheet.show(context)
-                            : null,
-                        onDelete: _removeUserAccess,
-                      ),
-                      _AdminManagementTab.projectAccess =>
-                        const _ProjectAccessTab(),
-                      _AdminManagementTab.accessHistory => _AccessHistoryTab(
-                        entries: ref.watch(auditLogProvider),
-                      ),
-                    },
-                  ],
+              children: [
+                YorksV1UserManagementHeader(
+                  language: language,
+                  onCreate: access.canCreate
+                      ? () => _AddUserSheet.show(context)
+                      : null,
+                  onRefresh: () => _refresh(access),
                 ),
-              ),
-            );
-          },
+                const SizedBox(height: AppSpacing.lg),
+                YorksV1UserMetricsGrid(
+                  metrics: metrics,
+                  language: language,
+                  selectedId: tab == YorksV1UserManagementTab.projectAccess
+                      ? _metricProjects
+                      : _metric,
+                  onSelected: (id) => setState(() {
+                    if (id == _metricProjects) {
+                      _tab = YorksV1UserManagementTab.projectAccess;
+                      return;
+                    }
+                    _tab = YorksV1UserManagementTab.users;
+                    _metric = _metric == id ? _metricAll : id;
+                  }),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                YorksV1UserManagementTabs(
+                  language: language,
+                  selected: tab,
+                  showAccessHistory: access.canViewAudit,
+                  showWorkers: access.canViewWorkerRecords,
+                  onChanged: (value) => setState(() => _tab = value),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                switch (tab) {
+                  YorksV1UserManagementTab.users => _UsersPanel(
+                    users: users,
+                    allUsersEmpty: all.isEmpty,
+                    directory: directory,
+                    projectAccessLoading: projectAccessLoading,
+                    projectAccessFailed: projectAccessState.hasError,
+                    onRetryProjectAccess: () =>
+                        ref.invalidate(yorksV1UserProjectAccessProvider),
+                    language: language,
+                    yorksV1Provisioning: yorksV1Provisioning,
+                    access: access,
+                    currentAppUserId: currentAppUserId,
+                    queryController: _searchController,
+                    onQueryChanged: (query) => setState(() => _query = query),
+                    roleFilter: _roleFilter,
+                    onRoleFilterChanged: (role) =>
+                        setState(() => _roleFilter = role),
+                    onOpen: (user) =>
+                        _ManageUserSheet.show(context, user, access),
+                    onDelete: _removeUserAccess,
+                  ),
+                  YorksV1UserManagementTab.projectAccess =>
+                    YorksV1ProjectTeamsPanel(
+                      language: language,
+                      names: names,
+                      roleLabels: roleLabels,
+                      onOpenUser: (appUserId) => _openUser(appUserId, access),
+                    ),
+                  YorksV1UserManagementTab.workers => YorksV1WorkerRecordsTab(
+                    language: language,
+                    canManage: access.canManageWorkerRecords,
+                  ),
+                  YorksV1UserManagementTab.accessHistory => _AccessHistoryPanel(
+                    entries: ref.watch(auditLogProvider),
+                    language: language,
+                  ),
+                },
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-enum _AdminManagementTab { users, projectAccess, accessHistory }
+/// User Management for a person who holds only `worker_records.view`.
+class _WorkerRecordsOnlyView extends ConsumerWidget {
+  const _WorkerRecordsOnlyView({
+    required this.language,
+    required this.canManage,
+  });
+
+  final AppLanguage language;
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final compact =
+        MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint;
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Directionality(
+          textDirection: language.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: RefreshIndicator(
+            onRefresh: () => ref
+                .read(yorksV1WorkerRecordsControllerProvider.notifier)
+                .refresh(),
+            child: ListView(
+              key: const ValueKey('worker-records-only'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                compact ? AppSpacing.md : AppSpacing.xl,
+                compact ? AppSpacing.md : AppSpacing.lg,
+                compact ? AppSpacing.md : AppSpacing.xxl,
+                AppSpacing.xxxl,
+              ),
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: compact ? 40 : 46,
+                      height: compact ? 40 : 46,
+                      decoration: BoxDecoration(
+                        color: AppColors.blueContainer,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.badge_outlined,
+                        color: AppColors.blue,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            YorksV1WorkerRecordStrings.workersTab.active(
+                              language,
+                            ),
+                            style:
+                                (compact
+                                        ? AppTypography.headlineMedium
+                                        : AppTypography.displaySmall)
+                                    .copyWith(color: AppColors.ink),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            YorksV1WorkerRecordStrings.recordsOnlyDescription
+                                .active(language),
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                YorksV1WorkerRecordsTab(
+                  language: language,
+                  canManage: canManage,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The user directory: search, role filter, then a table on desktop and
+/// cards on narrow screens.
+class _UsersPanel extends StatelessWidget {
+  const _UsersPanel({
+    required this.users,
+    required this.allUsersEmpty,
+    required this.directory,
+    required this.projectAccessLoading,
+    required this.projectAccessFailed,
+    required this.onRetryProjectAccess,
+    required this.language,
+    required this.yorksV1Provisioning,
+    required this.access,
+    required this.currentAppUserId,
+    required this.queryController,
+    required this.onQueryChanged,
+    required this.roleFilter,
+    required this.onRoleFilterChanged,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final List<AppUser> users;
+  final bool allUsersEmpty;
+  final YorksV1UserProjectAccessDirectory? directory;
+  final bool projectAccessLoading;
+  final bool projectAccessFailed;
+  final VoidCallback onRetryProjectAccess;
+  final AppLanguage language;
+  final bool yorksV1Provisioning;
+  final YorksV1UserManagementAccess access;
+  final String? currentAppUserId;
+  final TextEditingController queryController;
+  final ValueChanged<String> onQueryChanged;
+  final YorksV1Role? roleFilter;
+  final ValueChanged<YorksV1Role?> onRoleFilterChanged;
+  final ValueChanged<AppUser> onOpen;
+  final ValueChanged<AppUser> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final showCommercial = directory?.commercialVisible ?? false;
+    return LedgerCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final search = TextField(
+                  key: const ValueKey('user-management-search'),
+                  controller: queryController,
+                  onChanged: onQueryChanged,
+                  decoration: InputDecoration(
+                    hintText: YorksV1UserManagementStrings.searchUsers.active(
+                      language,
+                    ),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: queryController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: YorksV1UserManagementStrings.clearSearch
+                                .active(language),
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () {
+                              queryController.clear();
+                              onQueryChanged('');
+                            },
+                          ),
+                  ),
+                );
+                final roleField = DropdownButtonFormField<YorksV1Role?>(
+                  key: ValueKey('user-management-role-${roleFilter?.name}'),
+                  initialValue: roleFilter,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
+                  items: [
+                    DropdownMenuItem<YorksV1Role?>(
+                      value: null,
+                      child: Text(
+                        YorksV1UserManagementStrings.allRoles.active(language),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    for (final role in YorksV1Role.values)
+                      DropdownMenuItem<YorksV1Role?>(
+                        value: role,
+                        child: Text(
+                          _yorksV1RoleText(role).active(language),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: onRoleFilterChanged,
+                );
+                if (constraints.maxWidth < 720) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      search,
+                      if (yorksV1Provisioning) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        roleField,
+                      ],
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: search),
+                    if (yorksV1Provisioning) ...[
+                      const SizedBox(width: AppSpacing.md),
+                      SizedBox(width: 260, child: roleField),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+          if (projectAccessFailed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    color: AppColors.muted,
+                    size: 18,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: YorksV1ActiveText(
+                      copy:
+                          YorksV1UserManagementStrings.projectAccessUnavailable,
+                      language: language,
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: onRetryProjectAccess,
+                    child: YorksV1ActiveText(
+                      copy: YorksV1UserManagementStrings.retry,
+                      language: language,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const Divider(height: 1, color: AppColors.line),
+          if (users.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxxl),
+              child: Column(
+                children: [
+                  Icon(
+                    allUsersEmpty
+                        ? Icons.person_add_alt_outlined
+                        : Icons.search_off_rounded,
+                    size: 36,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  YorksV1ActiveText(
+                    copy: allUsersEmpty
+                        ? YorksV1UserManagementStrings.noUsersYet
+                        : YorksV1UserManagementStrings.noMatchingUsers,
+                    language: language,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final table = constraints.maxWidth >= 960;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (table)
+                      _UserTableHeader(
+                        language: language,
+                        showCommercial: showCommercial,
+                      ),
+                    for (var i = 0; i < users.length; i++)
+                      table
+                          ? _UserTableRow(
+                              user: users[i],
+                              projectAccess: directory?.userFor(users[i].id),
+                              projectAccessLoading: projectAccessLoading,
+                              showCommercial: showCommercial,
+                              isCurrentUser: _isSelf(users[i]),
+                              language: language,
+                              yorksV1Provisioning: yorksV1Provisioning,
+                              access: access,
+                              onOpen: onOpen,
+                              onDelete: onDelete,
+                            )
+                          : Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                AppSpacing.md,
+                                i == 0 ? AppSpacing.md : 0,
+                                AppSpacing.md,
+                                AppSpacing.sm,
+                              ),
+                              child: _UserCard(
+                                user: users[i],
+                                projectAccess: directory?.userFor(users[i].id),
+                                projectAccessLoading: projectAccessLoading,
+                                showCommercial: showCommercial,
+                                isCurrentUser: _isSelf(users[i]),
+                                language: language,
+                                yorksV1Provisioning: yorksV1Provisioning,
+                                access: access,
+                                onOpen: onOpen,
+                                onDelete: onDelete,
+                              ),
+                            ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _isSelf(AppUser user) => yorksV1IsProtectedSelfTarget(
+    connectedV1: access.connectedV1,
+    currentAppUserId: currentAppUserId,
+    targetAppUserId: user.id,
+  );
+}
+
+class _UserTableHeader extends StatelessWidget {
+  const _UserTableHeader({
+    required this.language,
+    required this.showCommercial,
+  });
+
+  final AppLanguage language;
+  final bool showCommercial;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget label(TranslatableString copy) => Text(
+      copy.active(language).toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AppTypography.labelSmall.copyWith(
+        color: AppColors.muted,
+        fontWeight: FontWeight.w800,
+        letterSpacing: .6,
+      ),
+    );
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: label(YorksV1UserManagementStrings.userColumn),
+          ),
+          Expanded(
+            flex: 3,
+            child: label(YorksV1UserManagementStrings.roleColumn),
+          ),
+          Expanded(
+            flex: 4,
+            child: label(YorksV1UserManagementStrings.projectAccessColumn),
+          ),
+          if (showCommercial)
+            Expanded(
+              flex: 2,
+              child: label(YorksV1UserManagementStrings.commercialColumn),
+            ),
+          Expanded(
+            flex: 2,
+            child: label(YorksV1UserManagementStrings.lastActiveColumn),
+          ),
+          Expanded(
+            flex: 2,
+            child: label(YorksV1UserManagementStrings.statusColumn),
+          ),
+          const SizedBox(width: _actionsWidth),
+        ],
+      ),
+    );
+  }
+}
+
+const double _actionsWidth = 112;
+
+class _UserTableRow extends StatelessWidget {
+  const _UserTableRow({
+    required this.user,
+    required this.projectAccess,
+    required this.projectAccessLoading,
+    required this.showCommercial,
+    required this.isCurrentUser,
+    required this.language,
+    required this.yorksV1Provisioning,
+    required this.access,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final AppUser user;
+  final YorksV1UserProjectAccess? projectAccess;
+  final bool projectAccessLoading;
+  final bool showCommercial;
+  final bool isCurrentUser;
+  final AppLanguage language;
+  final bool yorksV1Provisioning;
+  final YorksV1UserManagementAccess access;
+  final ValueChanged<AppUser> onOpen;
+  final ValueChanged<AppUser> onDelete;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: user.active
+        ? AppColors.surfaceContainerLowest
+        : AppColors.surfaceContainerLow.withValues(alpha: .6),
+    child: InkWell(
+      key: Key('user-row-${user.id}'),
+      onTap: access.canManageUser ? () => onOpen(user) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.line)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: _UserIdentity(
+                user: user,
+                isCurrentUser: isCurrentUser,
+                language: language,
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: _RoleCell(
+                user: user,
+                yorksV1Provisioning: yorksV1Provisioning,
+                language: language,
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: YorksV1ProjectAccessSummary(
+                  access: projectAccess,
+                  loading: projectAccessLoading,
+                  language: language,
+                ),
+              ),
+            ),
+            if (showCommercial)
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: YorksV1CommercialSummaryPill(
+                    summary: projectAccess?.commercial,
+                    language: language,
+                  ),
+                ),
+              ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                projectAccess == null
+                    ? '—'
+                    : yorksV1LastSignInLabel(
+                        projectAccess!.lastSignInAt,
+                        language,
+                      ),
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.inkSecondary,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: _StatusPill(active: user.active, language: language),
+              ),
+            ),
+            SizedBox(
+              width: _actionsWidth,
+              child: _RowActions(
+                user: user,
+                isCurrentUser: isCurrentUser,
+                language: language,
+                yorksV1Provisioning: yorksV1Provisioning,
+                access: access,
+                onOpen: onOpen,
+                onDelete: onDelete,
+                iconOnly: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({
+    required this.user,
+    required this.projectAccess,
+    required this.projectAccessLoading,
+    required this.showCommercial,
+    required this.isCurrentUser,
+    required this.language,
+    required this.yorksV1Provisioning,
+    required this.access,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final AppUser user;
+  final YorksV1UserProjectAccess? projectAccess;
+  final bool projectAccessLoading;
+  final bool showCommercial;
+  final bool isCurrentUser;
+  final AppLanguage language;
+  final bool yorksV1Provisioning;
+  final YorksV1UserManagementAccess access;
+  final ValueChanged<AppUser> onOpen;
+  final ValueChanged<AppUser> onDelete;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: access.canManageUser,
+    label:
+        '${user.fullName}, ${_roleLabel(user, yorksV1Provisioning: yorksV1Provisioning)}',
+    child: Material(
+      color: AppColors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: AppColors.line),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      ),
+      child: InkWell(
+        key: Key('user-card-${user.id}'),
+        onTap: access.canManageUser ? () => onOpen(user) : null,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _UserIdentity(
+                      user: user,
+                      isCurrentUser: isCurrentUser,
+                      language: language,
+                    ),
+                  ),
+                  if (access.canManageUser)
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.muted,
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 52),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _RoleCell(
+                      user: user,
+                      yorksV1Provisioning: yorksV1Provisioning,
+                      language: language,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _StatusPill(active: user.active, language: language),
+                        if (showCommercial)
+                          YorksV1CommercialSummaryPill(
+                            summary: projectAccess?.commercial,
+                            language: language,
+                          ),
+                        if (projectAccess != null)
+                          Text(
+                            '${YorksV1UserManagementStrings.lastActiveColumn.active(language)}: ${yorksV1LastSignInLabel(projectAccess!.lastSignInAt, language)}',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    YorksV1ProjectAccessSummary(
+                      access: projectAccess,
+                      loading: projectAccessLoading,
+                      language: language,
+                      maxChips: 4,
+                    ),
+                  ],
+                ),
+              ),
+              if ((yorksV1Provisioning && access.canViewPermissions) ||
+                  (!access.connectedV1 &&
+                      user.active &&
+                      access.canManageActivation &&
+                      !isCurrentUser)) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const Divider(height: 1, color: AppColors.line),
+                const SizedBox(height: AppSpacing.xs),
+                _RowActions(
+                  user: user,
+                  isCurrentUser: isCurrentUser,
+                  language: language,
+                  yorksV1Provisioning: yorksV1Provisioning,
+                  access: access,
+                  onOpen: onOpen,
+                  onDelete: onDelete,
+                  showEdit: false,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _UserIdentity extends StatelessWidget {
+  const _UserIdentity({
+    required this.user,
+    required this.isCurrentUser,
+    required this.language,
+  });
+
+  final AppUser user;
+  final bool isCurrentUser;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      YorksV1UserInitials(name: user.fullName, muted: !user.active),
+      const SizedBox(width: AppSpacing.md),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    user.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: user.active ? AppColors.ink : AppColors.muted,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (isCurrentUser) ...[
+                  const SizedBox(width: AppSpacing.xs),
+                  YorksV1Pill(
+                    label: YorksV1UserManagementStrings.youLabel.active(
+                      language,
+                    ),
+                    tone: YorksV1PillTone.info,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              user.email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.labelSmall.copyWith(color: AppColors.muted),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _RoleCell extends StatelessWidget {
+  const _RoleCell({
+    required this.user,
+    required this.yorksV1Provisioning,
+    required this.language,
+  });
+
+  final AppUser user;
+  final bool yorksV1Provisioning;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        _roleTitleLabel(
+          user,
+          yorksV1Provisioning: yorksV1Provisioning,
+          language: language,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.labelLarge.copyWith(
+          color: AppColors.ink,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      Text(
+        _roleFamilyLabel(
+          user,
+          yorksV1Provisioning: yorksV1Provisioning,
+          language: language,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.labelSmall.copyWith(color: AppColors.muted),
+      ),
+    ],
+  );
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.active, required this.language});
+
+  final bool active;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => YorksV1Pill(
+    label:
+        (active
+                ? YorksV1UserManagementStrings.active
+                : YorksV1UserManagementStrings.deactivated)
+            .active(language),
+    tone: active ? YorksV1PillTone.success : YorksV1PillTone.neutral,
+    icon: active ? Icons.check_circle_outline_rounded : Icons.block_rounded,
+  );
+}
+
+class _RowActions extends StatelessWidget {
+  const _RowActions({
+    required this.user,
+    required this.isCurrentUser,
+    required this.language,
+    required this.yorksV1Provisioning,
+    required this.access,
+    required this.onOpen,
+    required this.onDelete,
+    this.showEdit = true,
+    this.iconOnly = false,
+  });
+
+  final AppUser user;
+  final bool isCurrentUser;
+  final AppLanguage language;
+  final bool yorksV1Provisioning;
+  final YorksV1UserManagementAccess access;
+  final ValueChanged<AppUser> onOpen;
+  final ValueChanged<AppUser> onDelete;
+  final bool showEdit;
+
+  /// The desktop table uses compact icon buttons; the whole row also opens
+  /// the edit panel.
+  final bool iconOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final manageAccessLabel = YorksV1PermissionStrings.text(
+      language,
+      'manage_access',
+    );
+    final editLabel = YorksV1UserManagementStrings.edit.active(language);
+    void openAccess() => context.go(RoutePaths.yorksV1UserAccessPath(user.id));
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        if (yorksV1Provisioning && access.canViewPermissions)
+          iconOnly
+              ? IconButton.outlined(
+                  key: Key('manage-access-${user.id}'),
+                  tooltip: manageAccessLabel,
+                  onPressed: openAccess,
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                )
+              : OutlinedButton.icon(
+                  key: Key('manage-access-${user.id}'),
+                  onPressed: openAccess,
+                  icon: const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    size: 17,
+                  ),
+                  label: Text(manageAccessLabel),
+                ),
+        if (showEdit && access.canManageUser)
+          iconOnly
+              ? IconButton.outlined(
+                  key: Key('manage-user-${user.id}'),
+                  tooltip: editLabel,
+                  onPressed: () => onOpen(user),
+                  icon: const Icon(Icons.edit_outlined),
+                )
+              : OutlinedButton.icon(
+                  key: Key('manage-user-${user.id}'),
+                  onPressed: () => onOpen(user),
+                  icon: const Icon(Icons.edit_outlined, size: 17),
+                  label: Text(editLabel),
+                ),
+        if (!access.connectedV1 &&
+            user.active &&
+            access.canManageActivation &&
+            !isCurrentUser)
+          iconOnly
+              ? IconButton(
+                  key: Key('deactivate-user-${user.id}'),
+                  tooltip: YorksV1PermissionStrings.text(
+                    language,
+                    'delete_local_user',
+                  ),
+                  onPressed: () => onDelete(user),
+                  icon: const Icon(
+                    Icons.person_remove_outlined,
+                    color: AppColors.error,
+                  ),
+                )
+              : TextButton(
+                  key: Key('deactivate-user-${user.id}'),
+                  onPressed: () => onDelete(user),
+                  child: Text(
+                    YorksV1PermissionStrings.text(
+                      language,
+                      'delete_local_user',
+                    ),
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                ),
+      ],
+    );
+  }
+}
+
+class _AccessHistoryPanel extends StatelessWidget {
+  const _AccessHistoryPanel({required this.entries, required this.language});
+
+  final List<AuditEntry> entries;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final relevant = entries
+        .where(
+          (entry) =>
+              entry.module == AuditModule.platform ||
+              entry.action.toLowerCase().contains('access'),
+        )
+        .take(50)
+        .toList();
+    return LedgerCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                YorksV1ActiveText(
+                  copy: YorksV1UserManagementStrings.accessHistory,
+                  language: language,
+                  style: AppTypography.titleLarge.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+                YorksV1ActiveText(
+                  copy: YorksV1UserManagementStrings.accessHistoryDescription,
+                  language: language,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.line),
+          if (relevant.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxxl),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    size: 36,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  YorksV1ActiveText(
+                    copy: YorksV1UserManagementStrings.noAccessHistory,
+                    language: language,
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            for (final entry in relevant)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: AppColors.line)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.blueContainer,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusSm,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.manage_accounts_outlined,
+                        size: 19,
+                        color: AppColors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.action,
+                            style: AppTypography.labelLarge.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if ((entry.detail ?? '').isNotEmpty)
+                            Text(
+                              entry.detail!,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.inkSecondary,
+                              ),
+                            ),
+                          Text(
+                            '${entry.actorName} · ${DateFormat('d MMM yyyy, HH:mm').format(entry.timestamp.toLocal())}',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
 
 class _UserDirectoryAccessGate extends ConsumerWidget {
   const _UserDirectoryAccessGate({
@@ -620,991 +1835,6 @@ class _UserDirectoryAccessGate extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _AdminPageHeader extends StatelessWidget {
-  const _AdminPageHeader({
-    required this.compact,
-    required this.phone,
-    required this.onCreate,
-    required this.onRefresh,
-  });
-
-  final bool compact;
-  final bool phone;
-  final VoidCallback? onCreate;
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final heading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'ADMINISTRATION',
-          style: AppTypography.eyebrow.copyWith(
-            color: AppColors.blue,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const Gap(AppSpacing.xs),
-        Text(
-          'User Access',
-          style: AppTypography.displaySmall.copyWith(
-            color: AppColors.ink,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -1.2,
-          ),
-        ),
-        const Gap(AppSpacing.xs),
-        Text(
-          'Complete control of users, roles, project assignments and recoverable access removal.',
-          style: AppTypography.bodyLarge.copyWith(color: AppColors.muted),
-        ),
-      ],
-    );
-    if (phone) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: heading),
-              YorksMobileIconButton(
-                icon: Icons.refresh_rounded,
-                tooltip: 'Refresh users',
-                onPressed: onRefresh,
-              ),
-            ],
-          ),
-          const Gap(AppSpacing.md),
-          if (onCreate != null)
-            SizedBox(
-              height: AppSpacing.minTapTarget,
-              child: FilledButton.icon(
-                onPressed: onCreate,
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('Add user'),
-              ),
-            ),
-        ],
-      );
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (compact)
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.sm),
-            child: IconButton(
-              onPressed: () => context.pop(),
-              icon: const Icon(Icons.arrow_back_rounded),
-            ),
-          ),
-        Expanded(child: heading),
-        const Gap(AppSpacing.lg),
-        if (!compact && onCreate != null)
-          _AdminPrimaryButton(
-            label: 'Create User',
-            icon: Icons.add_rounded,
-            onPressed: onCreate!,
-          )
-        else
-          IconButton(
-            tooltip: 'Refresh users',
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-      ],
-    );
-  }
-}
-
-class _AdminTabBar extends StatelessWidget {
-  const _AdminTabBar({
-    required this.selected,
-    required this.showAccessHistory,
-    required this.onChanged,
-  });
-
-  final _AdminManagementTab selected;
-  final bool showAccessHistory;
-  final ValueChanged<_AdminManagementTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final tabs = [
-      _tab('Users', _AdminManagementTab.users),
-      _tab('Project Access', _AdminManagementTab.projectAccess),
-      if (showAccessHistory)
-        _tab('Access History', _AdminManagementTab.accessHistory),
-    ];
-    final control = DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: YorksMobileUi.isActive(context)
-            ? Row(mainAxisSize: MainAxisSize.min, children: tabs)
-            : Wrap(spacing: 4, children: tabs),
-      ),
-    );
-    if (!YorksMobileUi.isActive(context)) {
-      return Align(alignment: Alignment.centerLeft, child: control);
-    }
-    return SizedBox(
-      height: AppSpacing.minTapTarget + 12,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: control,
-      ),
-    );
-  }
-
-  Widget _tab(String label, _AdminManagementTab value) => TextButton(
-    onPressed: () => onChanged(value),
-    style: TextButton.styleFrom(
-      backgroundColor: selected == value
-          ? AppColors.surfaceContainerLowest
-          : Colors.transparent,
-      foregroundColor: selected == value ? AppColors.blue : AppColors.muted,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      ),
-    ),
-    child: Text(label, style: AppTypography.labelLarge),
-  );
-}
-
-class _UsersTab extends StatelessWidget {
-  const _UsersTab({
-    required this.allUsers,
-    required this.users,
-    required this.activeUsers,
-    required this.engineers,
-    required this.deactivated,
-    required this.queryController,
-    required this.query,
-    required this.yorksV1Provisioning,
-    required this.access,
-    required this.onQueryChanged,
-    required this.onCreate,
-    required this.onDelete,
-  });
-
-  final List<AppUser> allUsers;
-  final List<AppUser> users;
-  final int activeUsers;
-  final int engineers;
-  final int deactivated;
-  final TextEditingController queryController;
-  final String query;
-  final bool yorksV1Provisioning;
-  final YorksV1UserManagementAccess access;
-  final ValueChanged<String> onQueryChanged;
-  final VoidCallback? onCreate;
-  final ValueChanged<AppUser> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).width < 820;
-    final phone = YorksMobileUi.isActive(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!phone) ...[
-          _AdminMetricGrid(
-            metrics: [
-              (
-                'ACTIVE USERS',
-                '$activeUsers',
-                'Across Engineer, Procurement and Admin',
-              ),
-              ('ENGINEERS', '$engineers', 'Project delivery and site coverage'),
-              (
-                'ASSIGNED PROJECTS',
-                '0',
-                'Primary and supporting access controlled',
-              ),
-              (
-                'DEACTIVATED',
-                '$deactivated',
-                'Recoverable accounts with history retained',
-              ),
-            ],
-          ),
-          const Gap(AppSpacing.lg),
-        ],
-        _AdminSurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'User Directory',
-                          style: AppTypography.headlineSmall,
-                        ),
-                        const Gap(AppSpacing.xs),
-                        Text(
-                          'Create, manage, deactivate and restore company accounts without losing history.',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!compact && onCreate != null)
-                    _AdminPrimaryButton(
-                      label: 'Create User',
-                      icon: Icons.add_rounded,
-                      onPressed: onCreate!,
-                    ),
-                ],
-              ),
-              const Gap(AppSpacing.lg),
-              TextField(
-                controller: queryController,
-                onChanged: onQueryChanged,
-                style: AppTypography.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: 'Search name, email, role',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: query.isEmpty
-                      ? null
-                      : IconButton(
-                          onPressed: () {
-                            queryController.clear();
-                            onQueryChanged('');
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                ),
-              ),
-              const Gap(AppSpacing.md),
-              if (compact)
-                _CompactUserList(
-                  users: users,
-                  yorksV1Provisioning: yorksV1Provisioning,
-                  access: access,
-                  allUsersEmpty: allUsers.isEmpty,
-                  onDelete: onDelete,
-                )
-              else
-                _DesktopUserTable(
-                  users: users,
-                  yorksV1Provisioning: yorksV1Provisioning,
-                  access: access,
-                  allUsersEmpty: allUsers.isEmpty,
-                  onDelete: onDelete,
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AdminMetricGrid extends StatelessWidget {
-  const _AdminMetricGrid({required this.metrics});
-  final List<(String, String, String)> metrics;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 1100
-          ? 4
-          : constraints.maxWidth >= 620
-          ? 2
-          : 1;
-      return GridView.count(
-        crossAxisCount: columns,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: AppSpacing.md,
-        mainAxisSpacing: AppSpacing.md,
-        mainAxisExtent: columns == 1 ? 110 : 136,
-        children: [
-          for (final metric in metrics)
-            _AdminSurfaceCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    metric.$1,
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.muted,
-                      letterSpacing: 1,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Gap(AppSpacing.xs),
-                  Text(metric.$2, style: AppTypography.headlineMedium),
-                  const Gap(AppSpacing.xxs),
-                  Text(
-                    metric.$3,
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      );
-    },
-  );
-}
-
-class _DesktopUserTable extends StatelessWidget {
-  const _DesktopUserTable({
-    required this.users,
-    required this.yorksV1Provisioning,
-    required this.access,
-    required this.allUsersEmpty,
-    required this.onDelete,
-  });
-
-  final List<AppUser> users;
-  final bool yorksV1Provisioning;
-  final YorksV1UserManagementAccess access;
-  final bool allUsersEmpty;
-  final ValueChanged<AppUser> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    if (users.isEmpty) {
-      return _EmptyDirectory(allUsersEmpty: allUsersEmpty);
-    }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            color: AppColors.surfaceContainerLow,
-            child: const Row(
-              children: [
-                Expanded(flex: 3, child: Text('USER')),
-                Expanded(flex: 2, child: Text('ROLE / TITLE')),
-                Expanded(flex: 2, child: Text('PROJECT ACCESS')),
-                Expanded(flex: 2, child: Text('COMMERCIAL')),
-                Expanded(flex: 2, child: Text('LAST ACTIVE')),
-                Expanded(flex: 2, child: Text('STATUS')),
-                SizedBox(width: 430, child: Text('')),
-              ],
-            ),
-          ),
-          for (final user in users)
-            _UserTableRow(
-              user: user,
-              yorksV1Provisioning: yorksV1Provisioning,
-              access: access,
-              onDelete: onDelete,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UserTableRow extends ConsumerWidget {
-  const _UserTableRow({
-    required this.user,
-    required this.yorksV1Provisioning,
-    required this.access,
-    required this.onDelete,
-  });
-
-  final AppUser user;
-  final bool yorksV1Provisioning;
-  final YorksV1UserManagementAccess access;
-  final ValueChanged<AppUser> onDelete;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final language = ref.watch(languageProvider);
-    final isCurrentUser = yorksV1IsProtectedSelfTarget(
-      connectedV1: access.connectedV1,
-      currentAppUserId:
-          ref
-              .watch(yorksV1CurrentPermissionSnapshotProvider)
-              .snapshot
-              ?.user
-              .appUserId ??
-          ref.watch(currentUserProvider)?.id,
-      targetAppUserId: user.id,
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.line)),
-      ),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: _UserIdentity(user: user)),
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _roleFamilyLabel(
-                    user,
-                    yorksV1Provisioning: yorksV1Provisioning,
-                    language: language,
-                  ),
-                  style: AppTypography.labelLarge.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  _roleTitleLabel(
-                    user,
-                    yorksV1Provisioning: yorksV1Provisioning,
-                    language: language,
-                  ),
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Expanded(flex: 2, child: Text('0 projects')),
-          const Expanded(flex: 2, child: _PermittedChip()),
-          const Expanded(flex: 2, child: Text('—')),
-          Expanded(
-            flex: 2,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: user.active
-                  ? StatusChip.success(AppStrings.userActive.primary)
-                  : StatusChip.error(AppStrings.userInactive.primary),
-            ),
-          ),
-          SizedBox(
-            width: 430,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (yorksV1Provisioning && access.canViewPermissions) ...[
-                  OutlinedButton.icon(
-                    key: Key('manage-access-${user.id}'),
-                    onPressed: () =>
-                        context.go(RoutePaths.yorksV1UserAccessPath(user.id)),
-                    icon: const Icon(
-                      Icons.admin_panel_settings_outlined,
-                      size: 17,
-                    ),
-                    label: Text(
-                      YorksV1PermissionStrings.text(language, 'manage_access'),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                if (access.canManageUser) ...[
-                  OutlinedButton.icon(
-                    key: Key('manage-user-${user.id}'),
-                    onPressed: () =>
-                        _ManageUserSheet.show(context, user, access),
-                    icon: const Icon(Icons.edit_outlined, size: 17),
-                    label: Text(
-                      YorksV1PermissionStrings.text(language, 'manage_user'),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                if (!access.connectedV1 &&
-                    user.active &&
-                    access.canManageActivation &&
-                    !isCurrentUser)
-                  TextButton(
-                    key: Key('deactivate-user-${user.id}'),
-                    onPressed: () => onDelete(user),
-                    child: Text(
-                      YorksV1PermissionStrings.text(
-                        language,
-                        access.connectedV1
-                            ? 'deactivate_account_short'
-                            : 'delete_local_user',
-                      ),
-                      style: const TextStyle(color: AppColors.error),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CompactUserList extends StatelessWidget {
-  const _CompactUserList({
-    required this.users,
-    required this.yorksV1Provisioning,
-    required this.access,
-    required this.allUsersEmpty,
-    required this.onDelete,
-  });
-  final List<AppUser> users;
-  final bool yorksV1Provisioning;
-  final YorksV1UserManagementAccess access;
-  final bool allUsersEmpty;
-  final ValueChanged<AppUser> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    if (users.isEmpty) return _EmptyDirectory(allUsersEmpty: allUsersEmpty);
-    return Column(
-      children: [
-        for (final user in users) ...[
-          _MobileUserCard(
-            user: user,
-            yorksV1Provisioning: yorksV1Provisioning,
-            access: access,
-            onDelete: onDelete,
-          ),
-          const Gap(AppSpacing.sm),
-        ],
-      ],
-    );
-  }
-}
-
-class _MobileUserCard extends ConsumerWidget {
-  const _MobileUserCard({
-    required this.user,
-    required this.yorksV1Provisioning,
-    required this.access,
-    required this.onDelete,
-  });
-  final AppUser user;
-  final bool yorksV1Provisioning;
-  final YorksV1UserManagementAccess access;
-  final ValueChanged<AppUser> onDelete;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final language = ref.watch(languageProvider);
-    final isCurrentUser = yorksV1IsProtectedSelfTarget(
-      connectedV1: access.connectedV1,
-      currentAppUserId:
-          ref
-              .watch(yorksV1CurrentPermissionSnapshotProvider)
-              .snapshot
-              ?.user
-              .appUserId ??
-          ref.watch(currentUserProvider)?.id,
-      targetAppUserId: user.id,
-    );
-    final role = _roleLabel(user, yorksV1Provisioning: yorksV1Provisioning);
-    return Semantics(
-      button: true,
-      label: '${user.fullName}, $role',
-      child: YorksMobileCard(
-        onTap: access.canManageUser
-            ? () => _ManageUserSheet.show(context, user, access)
-            : null,
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                _UserAvatar(user: user),
-                const Gap(AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.fullName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.titleSmall.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Gap(AppSpacing.xxs),
-                      Text(
-                        user.email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-              ],
-            ),
-            const Gap(AppSpacing.md),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                _MobileUserStatusPill(label: role, info: true),
-                _MobileUserStatusPill(
-                  label: user.active
-                      ? AppStrings.userActive.primary
-                      : AppStrings.userInactive.primary,
-                  active: user.active,
-                ),
-              ],
-            ),
-            if (yorksV1Provisioning && access.canViewPermissions) ...[
-              const Gap(AppSpacing.md),
-              const Divider(height: 1),
-              const Gap(AppSpacing.sm),
-              OutlinedButton.icon(
-                key: Key('manage-access-${user.id}'),
-                onPressed: () =>
-                    context.go(RoutePaths.yorksV1UserAccessPath(user.id)),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(AppSpacing.minTapTarget),
-                ),
-                icon: const Icon(Icons.admin_panel_settings_outlined),
-                label: Text(
-                  YorksV1PermissionStrings.text(language, 'manage_access'),
-                ),
-              ),
-            ],
-            if (!access.connectedV1 &&
-                user.active &&
-                access.canManageActivation &&
-                !isCurrentUser) ...[
-              const Gap(AppSpacing.sm),
-              TextButton.icon(
-                key: Key('deactivate-user-${user.id}'),
-                onPressed: () => onDelete(user),
-                icon: const Icon(
-                  Icons.person_off_outlined,
-                  color: AppColors.error,
-                ),
-                label: Text(
-                  YorksV1PermissionStrings.text(
-                    language,
-                    access.connectedV1
-                        ? 'deactivate_account'
-                        : 'delete_local_user',
-                  ),
-                  style: const TextStyle(color: AppColors.error),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileUserStatusPill extends StatelessWidget {
-  const _MobileUserStatusPill({
-    required this.label,
-    this.info = false,
-    this.active = false,
-  });
-
-  final String label;
-  final bool info;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = info
-        ? NexusStatusPalette.forTone(NexusStatusTone.info)
-        : NexusStatusPalette.forTone(
-            active ? NexusStatusTone.success : NexusStatusTone.danger,
-          );
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 248, minHeight: 28),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: palette.background,
-        border: Border.all(color: palette.border),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTypography.labelMedium.copyWith(
-          color: palette.foreground,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _UserIdentity extends StatelessWidget {
-  const _UserIdentity({required this.user});
-  final AppUser user;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      _UserAvatar(user: user),
-      const Gap(AppSpacing.sm),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(user.fullName, style: AppTypography.labelLarge),
-            const Gap(AppSpacing.xxs),
-            Text(
-              user.email,
-              style: AppTypography.labelSmall.copyWith(color: AppColors.muted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-class _UserAvatar extends StatelessWidget {
-  const _UserAvatar({required this.user});
-  final AppUser user;
-
-  @override
-  Widget build(BuildContext context) => CircleAvatar(
-    radius: 23,
-    backgroundColor: AppColors.blueContainer.withValues(alpha: .6),
-    child: Text(
-      user.initials,
-      style: AppTypography.labelLarge.copyWith(
-        color: AppColors.blue,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
-}
-
-class _PermittedChip extends StatelessWidget {
-  const _PermittedChip();
-
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.success.withValues(alpha: .10),
-        border: Border.all(color: AppColors.success.withValues(alpha: .25)),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-      ),
-      child: Text(
-        'Permitted',
-        style: AppTypography.labelSmall.copyWith(
-          color: AppColors.success,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    ),
-  );
-}
-
-class _EmptyDirectory extends StatelessWidget {
-  const _EmptyDirectory({required this.allUsersEmpty});
-  final bool allUsersEmpty;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(AppSpacing.xxl),
-    child: Center(
-      child: Text(
-        allUsersEmpty ? 'No users yet' : 'No matching users',
-        style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-      ),
-    ),
-  );
-}
-
-class _ProjectAccessTab extends StatelessWidget {
-  const _ProjectAccessTab();
-
-  @override
-  Widget build(BuildContext context) => _AdminSurfaceCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Primary & Supporting Engineer Access',
-          style: AppTypography.headlineSmall,
-        ),
-        const Gap(AppSpacing.xs),
-        Text(
-          'Management controls who can maintain each project.',
-          style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-        ),
-        const Gap(AppSpacing.lg),
-        Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.blueContainer.withValues(alpha: .35),
-            border: Border.all(color: AppColors.blueContainerStrong),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.shield_outlined, color: AppColors.blue),
-              const Gap(AppSpacing.md),
-              Expanded(
-                child: Text(
-                  'Project access and request coverage are intentionally different. Assigned Engineers may edit a project; active Engineers may raise a Material Request when covering a site.',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.navy,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Gap(AppSpacing.xl),
-        Text(
-          'No project assignments yet',
-          style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-        ),
-        const Gap(AppSpacing.lg),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: () => context.go(RoutePaths.yorksV1Projects),
-            icon: const Icon(Icons.account_tree_outlined),
-            label: const Text('Open Projects'),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _AccessHistoryTab extends StatelessWidget {
-  const _AccessHistoryTab({required this.entries});
-  final List<AuditEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final relevant = entries
-        .where(
-          (entry) =>
-              entry.module == AuditModule.platform ||
-              entry.action.toLowerCase().contains('access'),
-        )
-        .take(20)
-        .toList();
-    return _AdminSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Access History', style: AppTypography.headlineSmall),
-          const Gap(AppSpacing.xs),
-          Text(
-            'Creation, deletion, restoration and project access changes remain traceable.',
-            style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-          ),
-          const Gap(AppSpacing.lg),
-          if (relevant.isEmpty)
-            Text(
-              'No access changes recorded yet.',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
-            )
-          else
-            for (final entry in relevant) ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: AppColors.blueContainer,
-                  foregroundColor: AppColors.blue,
-                  child: const Icon(Icons.people_outline),
-                ),
-                title: Text(entry.action),
-                subtitle: Text(
-                  '${entry.detail ?? ''} · ${entry.actorName}\n${entry.timestamp}',
-                ),
-              ),
-              const Divider(height: 1),
-            ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminSurfaceCard extends StatelessWidget {
-  const _AdminSurfaceCard({
-    required this.child,
-    this.padding = const EdgeInsets.all(AppSpacing.xl),
-  });
-  final Widget child;
-  final EdgeInsets padding;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerLowest,
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x0A18324B),
-          blurRadius: 18,
-          offset: Offset(0, 6),
-        ),
-      ],
-    ),
-    child: child,
-  );
-}
-
-class _AdminPrimaryButton extends StatelessWidget {
-  const _AdminPrimaryButton({
-    required this.label,
-    required this.icon,
-    required this.onPressed,
-  });
-  final String label;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => FilledButton.icon(
-    onPressed: onPressed,
-    icon: Icon(icon),
-    label: Text(label),
-    style: FilledButton.styleFrom(
-      backgroundColor: AppColors.navy,
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      ),
-    ),
-  );
 }
 
 @visibleForTesting
@@ -1878,15 +2108,18 @@ class _AddUserSheetState extends ConsumerState<_AddUserSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Create User',
+                            YorksV1ActiveText(
+                              copy: YorksV1UserManagementStrings.createUser,
+                              language: language,
                               style: AppTypography.headlineSmall.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                             const Gap(AppSpacing.xxs),
-                            Text(
-                              'Accounts are controlled by Admin. Historical activity remains attributed to the original user.',
+                            YorksV1ActiveText(
+                              copy: YorksV1UserManagementStrings
+                                  .createUserDescription,
+                              language: language,
                               style: AppTypography.bodySmall.copyWith(
                                 color: AppColors.muted,
                               ),
@@ -2029,26 +2262,35 @@ class _ManageUserSheet extends ConsumerStatefulWidget {
       barrierColor: AppColors.scrim.withValues(alpha: .38),
       builder: (dialogContext) {
         final viewport = MediaQuery.sizeOf(dialogContext);
-        final compact = viewport.width < AppSpacing.compactBreakpoint;
+        // Desktop: a full-height side panel next to the directory. Narrow
+        // screens: a tall bottom sheet.
+        final side = viewport.width >= 900;
         return Dialog(
-          alignment: compact ? Alignment.bottomCenter : Alignment.center,
-          backgroundColor: AppColors.surfaceContainerLowest,
-          insetPadding: compact
-              ? const EdgeInsets.fromLTRB(8, 48, 8, 0)
-              : const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          alignment: side
+              ? AlignmentDirectional.centerEnd
+              : Alignment.bottomCenter,
+          backgroundColor: AppColors.surface,
+          insetPadding: side
+              ? const EdgeInsets.all(AppSpacing.md)
+              : const EdgeInsets.fromLTRB(
+                  AppSpacing.sm,
+                  AppSpacing.huge,
+                  AppSpacing.sm,
+                  0,
+                ),
           shape: RoundedRectangleBorder(
-            borderRadius: compact
-                ? const BorderRadius.vertical(
+            borderRadius: side
+                ? BorderRadius.circular(AppSpacing.radiusXl)
+                : const BorderRadius.vertical(
                     top: Radius.circular(AppSpacing.radiusXl),
-                  )
-                : BorderRadius.circular(AppSpacing.radiusXl),
+                  ),
           ),
           clipBehavior: Clip.antiAlias,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 520,
-              maxHeight: viewport.height * .92,
-            ),
+          child: SizedBox(
+            width: side ? 620 : viewport.width,
+            height: side
+                ? viewport.height - AppSpacing.md * 2
+                : viewport.height * .92,
             child: _ManageUserSheet(userId: user.id, access: access),
           ),
         );
@@ -2607,33 +2849,197 @@ class _ManageUserSheetState extends ConsumerState<_ManageUserSheet> {
       });
     }
 
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    final roleLabel = _roleTitleLabel(
+      user,
+      yorksV1Provisioning: yorksV1Provisioning,
+      language: language,
+    );
+    final canOpenPermissions = yorksV1Provisioning && access.canViewPermissions;
+
+    void navigateAway(String location) {
+      final router = GoRouter.of(context);
+      Navigator.pop(context);
+      router.go(location);
+    }
+
+    final sections = <Widget>[
+      YorksV1EditPanelSection(
+        icon: Icons.badge_outlined,
+        title: YorksV1UserManagementStrings.accountSection,
+        subtitle: YorksV1UserManagementStrings.accountSectionHint,
+        language: language,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SwitchListTile.adaptive(
+              key: const ValueKey('manage-sheet-active'),
+              contentPadding: EdgeInsets.zero,
+              value: user.active,
+              onChanged: _busy || !canManageActivationForTarget
+                  ? null
+                  : (_) => toggleActive(),
+              title: YorksV1ActiveText(
+                copy: YorksV1UserManagementStrings.accountActive,
+                language: language,
+                style: AppTypography.labelLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                isCurrentUser
+                    ? _permissionCopy(language, 'self_account_protected_body')
+                    : YorksV1UserManagementStrings.accountActiveHint.active(
+                        language,
+                      ),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+            ),
+            if (!yorksV1Provisioning && user.role == UserRole.engineer)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: user.inventoryAccess,
+                onChanged: _busy ? null : (_) => toggleAccess(),
+                title: Text(
+                  AppStrings.inventoryAccess.active(language),
+                  style: AppTypography.labelLarge.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: Text(
+                  AppStrings.inventoryAccessHint.active(language),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+            const Divider(height: AppSpacing.lg, color: AppColors.line),
+            if (canAssignRolesForTarget && yorksV1Provisioning)
+              YorksV1RoleAssignmentEditor(
+                language: language,
+                primary: user.yorksV1RoleCache,
+                availableRoles: assignableRoles,
+                statusText: roleOptionsStatus,
+                onPrimaryChanged: _busy ? (_) {} : setYorksV1Role,
+              )
+            else if (canAssignRolesForTarget)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  YorksV1ActiveText(
+                    copy: YorksV1UserManagementStrings.roleColumn,
+                    language: language,
+                    style: AppTypography.titleSmall,
+                  ),
+                  const Gap(AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      for (final role in UserRole.values)
+                        _RoleChip(
+                          label: role.label,
+                          selected: role == user.role,
+                          onTap: _busy ? null : () => setLegacyRole(role),
+                        ),
+                    ],
+                  ),
+                ],
+              )
+            else
               Row(
                 children: [
+                  YorksV1ActiveText(
+                    copy: YorksV1UserManagementStrings.roleColumn,
+                    language: language,
+                    style: AppTypography.labelLarge.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  const Gap(AppSpacing.md),
+                  Flexible(
+                    child: YorksV1Pill(
+                      label: roleLabel,
+                      tone: YorksV1PillTone.info,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+      if (yorksV1Provisioning)
+        YorksV1EditPanelSection(
+          icon: Icons.account_tree_outlined,
+          title: YorksV1UserManagementStrings.projectAccessSection,
+          language: language,
+          child: YorksV1UserProjectAccessSection(
+            appUserId: user.id,
+            roleLabel: roleLabel,
+            language: language,
+            onOpenProject: (projectId) =>
+                navigateAway(RoutePaths.yorksV1ProjectPath(projectId)),
+          ),
+        ),
+      // V1 commercial authority is deliberately not backed by the retained
+      // local permission overrides. The child fetches a live, Admin-only
+      // server projection and the Edge/DB command remains authoritative even
+      // if this display cache is stale.
+      if (access.canViewCommercialAccess &&
+          yorksV1Provisioning &&
+          user.yorksV1RoleCache != null)
+        YorksV1EditPanelSection(
+          icon: Icons.payments_outlined,
+          title: YorksV1UserManagementStrings.commercialSection,
+          subtitle: YorksV1ProjectStrings.commercialAccessDescription,
+          language: language,
+          child: _YorksV1CommercialAccessSection(
+            appUserId: user.id,
+            targetRole: user.yorksV1RoleCache!,
+            canManage: access.canManageCommercialAccess,
+            busy: _busy,
+            runBusyCommand: run,
+            onFailure: warn,
+            onSuccess: success,
+          ),
+        ),
+      if (access.canEditProfile)
+        YorksV1EditPanelSection(
+          icon: Icons.assignment_ind_outlined,
+          title: YorksV1UserManagementStrings.hrSection,
+          language: language,
+          child: Builder(
+            builder: (_) {
+              final linked = ref
+                  .watch(employeesProvider)
+                  .where((e) => e.id == user.employeeId)
+                  .firstOrNull;
+              return Row(
+                children: [
+                  Icon(
+                    linked == null
+                        ? Icons.link_off_rounded
+                        : Icons.badge_outlined,
+                    color: linked == null ? AppColors.muted : AppColors.blue,
+                  ),
+                  const Gap(AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Edit User',
-                          style: AppTypography.headlineSmall.copyWith(
-                            fontWeight: FontWeight.w800,
+                          linked?.fullName ??
+                              YorksV1UserManagementStrings.hrNotLinked.active(
+                                language,
+                              ),
+                          style: AppTypography.labelLarge.copyWith(
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const Gap(AppSpacing.xxs),
                         Text(
-                          'Accounts are controlled by Admin. Historical activity remains attributed to the original user.',
+                          linked == null
+                              ? YorksV1UserManagementStrings.hrNotLinkedHint
+                                    .active(language)
+                              : '${linked.jobRole} · ${linked.id}',
                           style: AppTypography.bodySmall.copyWith(
                             color: AppColors.muted,
                           ),
@@ -2641,234 +3047,260 @@ class _ManageUserSheetState extends ConsumerState<_ManageUserSheet> {
                       ],
                     ),
                   ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    ),
-                    child: IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
+                  const Gap(AppSpacing.sm),
+                  OutlinedButton(
+                    onPressed: _busy ? null : pickEmployee,
+                    child: YorksV1ActiveText(
+                      copy: linked == null
+                          ? YorksV1UserManagementStrings.link
+                          : YorksV1UserManagementStrings.change,
+                      language: language,
                     ),
                   ),
                 ],
-              ),
-              const Divider(height: AppSpacing.xxl),
-              Text(
-                user.fullName,
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                '${user.email} · ${_roleLabel(user, yorksV1Provisioning: yorksV1Provisioning)}',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              // Busy line — clear "working…" signal during a remote call.
-              SizedBox(
-                height: AppSpacing.lg,
-                child: _busy
-                    ? const Align(
-                        alignment: Alignment.bottomCenter,
-                        child: LinearProgressIndicator(minHeight: 2),
-                      )
-                    : null,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: user.active,
-                onChanged: _busy || !canManageActivationForTarget
-                    ? null
-                    : (_) => toggleActive(),
-                title: Text(
-                  AppStrings.accountActive.primary,
-                  style: AppTypography.bodyLarge,
-                ),
-                subtitle: Text(
-                  isCurrentUser
-                      ? _permissionCopy(language, 'self_account_protected_body')
-                      : AppStrings.accountActiveHint.active(language),
-                  style: AppTypography.bodySmall,
-                ),
-                activeThumbColor: AppColors.primary,
-              ),
-              if (!yorksV1Provisioning && user.role == UserRole.engineer)
-                SwitchListTile(
+              );
+            },
+          ),
+        ),
+      if (!yorksV1Provisioning && user.role != UserRole.admin)
+        YorksV1EditPanelSection(
+          icon: Icons.tune_rounded,
+          title: YorksV1UserManagementStrings.legacyPermissionsSection,
+          subtitle: YorksV1UserManagementStrings.legacyPermissionsHint,
+          language: language,
+          child: Column(
+            children: [
+              for (final (key, label) in _managedPermissions)
+                SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  value: user.inventoryAccess,
-                  onChanged: _busy ? null : (_) => toggleAccess(),
-                  title: Text(
-                    AppStrings.inventoryAccess.primary,
-                    style: AppTypography.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    AppStrings.inventoryAccessHint.primary,
-                    style: AppTypography.bodySmall,
-                  ),
-                  activeThumbColor: AppColors.primary,
-                ),
-
-              // ─── Role ────────────────────────────────────────
-              if (canAssignRolesForTarget) const Gap(AppSpacing.lg),
-              if (canAssignRolesForTarget && yorksV1Provisioning)
-                YorksV1RoleAssignmentEditor(
-                  language: language,
-                  primary: user.yorksV1RoleCache,
-                  availableRoles: assignableRoles,
-                  statusText: roleOptionsStatus,
-                  onPrimaryChanged: _busy ? (_) {} : setYorksV1Role,
-                )
-              else if (canAssignRolesForTarget)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Role', style: AppTypography.titleSmall),
-                    const Gap(AppSpacing.sm),
-                    Wrap(
-                      spacing: AppSpacing.sm,
-                      runSpacing: AppSpacing.sm,
-                      children: [
-                        for (final role in UserRole.values)
-                          _RoleChip(
-                            label: role.label,
-                            selected: role == user.role,
-                            onTap: _busy ? null : () => setLegacyRole(role),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-
-              // V1 commercial authority is deliberately not backed by the
-              // retained local permission overrides below. The child fetches a
-              // live, Admin-only server projection and the Edge/DB command
-              // remains authoritative even if this display cache is stale.
-              if (access.canViewCommercialAccess &&
-                  yorksV1Provisioning &&
-                  user.yorksV1RoleCache != null) ...[
-                const Gap(AppSpacing.lg),
-                _YorksV1CommercialAccessSection(
-                  appUserId: user.id,
-                  targetRole: user.yorksV1RoleCache!,
-                  canManage: access.canManageCommercialAccess,
-                  busy: _busy,
-                  runBusyCommand: run,
-                  onFailure: warn,
-                  onSuccess: success,
-                ),
-              ],
-
-              // ─── HR employee link (drives leave + balance) ───
-              if (access.canEditProfile) const Gap(AppSpacing.lg),
-              if (access.canEditProfile)
-                Text('HR employee', style: AppTypography.titleSmall),
-              if (access.canEditProfile)
-                Builder(
-                  builder: (_) {
-                    final linked = ref
-                        .watch(employeesProvider)
-                        .where((e) => e.id == user.employeeId)
-                        .firstOrNull;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      enabled: !_busy,
-                      leading: Icon(
-                        linked == null
-                            ? Icons.link_off_rounded
-                            : Icons.badge_outlined,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                      title: Text(
-                        linked?.fullName ?? 'Not linked',
-                        style: AppTypography.bodyLarge,
-                      ),
-                      subtitle: Text(
-                        linked == null
-                            ? 'Link so this person can request leave (HR + balance)'
-                            : '${linked.jobRole} · ${linked.id}',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: TextButton(
-                        onPressed: _busy ? null : pickEmployee,
-                        child: Text(linked == null ? 'Link' : 'Change'),
-                      ),
-                      onTap: _busy ? null : pickEmployee,
-                    );
-                  },
-                ),
-
-              // ─── Permissions (per-user overrides) ────────────
-              if (!yorksV1Provisioning && user.role != UserRole.admin) ...[
-                const Gap(AppSpacing.lg),
-                Text('Permissions', style: AppTypography.titleSmall),
-                Text(
-                  'Override what this person can access. Matches the role '
-                  'default until you change it.',
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-                for (final (key, label) in _managedPermissions)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: user.effectiveFor(key),
-                    onChanged: _busy ? null : (v) => setOverride(key, v),
-                    title: Text(label, style: AppTypography.bodyLarge),
-                    subtitle: Text(
-                      user.overrideFor(key) == null
-                          ? 'Role default'
-                          : 'Custom for this user',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: user.overrideFor(key) == null
-                            ? AppColors.onSurfaceVariant
-                            : AppColors.primary,
-                      ),
-                    ),
-                    activeThumbColor: AppColors.primary,
-                  ),
-              ],
-
-              if (canResetPasswordForTarget) ...[
-                const Gap(AppSpacing.lg),
-                SecondaryButton(
-                  label: AppStrings.resetPassword.primary,
-                  icon: Icons.lock_reset_rounded,
-                  onPressed: _busy ? null : resetPassword,
-                ),
-              ],
-              if (canManageActivationForTarget && user.active) ...[
-                const Gap(AppSpacing.sm),
-                TextButton.icon(
-                  key: const ValueKey('manage-sheet-deactivate-account'),
-                  onPressed: _busy ? null : removeUserAccess,
-                  icon: const Icon(
-                    Icons.person_off_outlined,
-                    color: AppColors.error,
-                  ),
-                  label: Text(
-                    _permissionCopy(
-                      language,
-                      access.connectedV1
-                          ? 'deactivate_account'
-                          : 'delete_local_user',
-                    ),
-                    style: AppTypography.labelLarge.copyWith(
-                      color: AppColors.error,
+                  value: user.effectiveFor(key),
+                  onChanged: _busy ? null : (v) => setOverride(key, v),
+                  title: Text(label, style: AppTypography.labelLarge),
+                  subtitle: YorksV1ActiveText(
+                    copy: user.overrideFor(key) == null
+                        ? YorksV1UserManagementStrings.roleDefault
+                        : YorksV1UserManagementStrings.customForUser,
+                    language: language,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: user.overrideFor(key) == null
+                          ? AppColors.muted
+                          : AppColors.blue,
                     ),
                   ),
                 ),
-              ],
-              const Gap(AppSpacing.md),
             ],
           ),
         ),
+      if (canResetPasswordForTarget || canOpenPermissions)
+        YorksV1EditPanelSection(
+          icon: Icons.lock_outline_rounded,
+          title: YorksV1UserManagementStrings.securitySection,
+          language: language,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (canResetPasswordForTarget)
+                _PanelActionRow(
+                  key: const ValueKey('manage-sheet-reset-password'),
+                  icon: Icons.lock_reset_rounded,
+                  title: AppStrings.resetPassword.active(language),
+                  subtitle: YorksV1UserManagementStrings.resetPasswordHint
+                      .active(language),
+                  onTap: _busy ? null : resetPassword,
+                ),
+              if (canResetPasswordForTarget && canOpenPermissions)
+                const Divider(height: AppSpacing.md, color: AppColors.line),
+              if (canOpenPermissions)
+                _PanelActionRow(
+                  key: const ValueKey('manage-sheet-detailed-permissions'),
+                  icon: Icons.admin_panel_settings_outlined,
+                  title: YorksV1UserManagementStrings.detailedPermissions
+                      .active(language),
+                  subtitle: YorksV1UserManagementStrings.detailedPermissionsHint
+                      .active(language),
+                  onTap: () =>
+                      navigateAway(RoutePaths.yorksV1UserAccessPath(user.id)),
+                ),
+            ],
+          ),
+        ),
+      if (canManageActivationForTarget && user.active)
+        YorksV1EditPanelSection(
+          icon: Icons.person_off_outlined,
+          title: YorksV1UserManagementStrings.accountRemovalSection,
+          subtitle: YorksV1UserManagementStrings.accountRemovalHint,
+          language: language,
+          danger: true,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OutlinedButton.icon(
+              key: const ValueKey('manage-sheet-deactivate-account'),
+              onPressed: _busy ? null : removeUserAccess,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error.withValues(alpha: .5)),
+              ),
+              icon: const Icon(Icons.person_off_outlined),
+              label: Text(
+                _permissionCopy(
+                  language,
+                  access.connectedV1
+                      ? 'deactivate_account'
+                      : 'delete_local_user',
+                ),
+              ),
+            ),
+          ),
+        ),
+    ];
+
+    return Material(
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            color: AppColors.surfaceContainerLowest,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.md,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                YorksV1UserInitials(
+                  name: user.fullName,
+                  size: 52,
+                  muted: !user.active,
+                ),
+                const Gap(AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      YorksV1ActiveText(
+                        copy: YorksV1UserManagementStrings.editUser,
+                        language: language,
+                        style: AppTypography.labelMedium.copyWith(
+                          color: AppColors.blue,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        user.fullName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.titleLarge.copyWith(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        user.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.muted,
+                        ),
+                      ),
+                      const Gap(AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        children: [
+                          _StatusPill(active: user.active, language: language),
+                          YorksV1Pill(
+                            label: roleLabel,
+                            tone: YorksV1PillTone.info,
+                          ),
+                          if (isCurrentUser)
+                            YorksV1Pill(
+                              label: YorksV1UserManagementStrings.youLabel
+                                  .active(language),
+                              tone: YorksV1PillTone.accent,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: YorksV1UserManagementStrings.close.active(language),
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 2,
+            child: _busy ? const LinearProgressIndicator(minHeight: 2) : null,
+          ),
+          const Divider(height: 1, color: AppColors.line),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              itemCount: sections.length,
+              separatorBuilder: (_, _) => const Gap(AppSpacing.md),
+              itemBuilder: (_, index) => sections[index],
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _PanelActionRow extends StatelessWidget {
+  const _PanelActionRow({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          Icon(icon, color: onTap == null ? AppColors.muted : AppColors.blue),
+          const Gap(AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.labelLarge.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Connected, Admin-only V1 commercial capability controls.
@@ -2915,26 +3347,16 @@ class _YorksV1CommercialAccessSection extends ConsumerWidget {
         padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: LinearProgressIndicator(minHeight: 2),
       ),
-      error: (_, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      error: (_, _) => Row(
         children: [
-          BilingualText(
-            english: YorksV1ProjectStrings.commercialAccess.primary,
-            secondary: YorksV1ProjectStrings.commercialAccess.secondary(
-              language,
-            ),
-            englishStyle: AppTypography.titleSmall,
-          ),
-          const Gap(AppSpacing.xs),
-          BilingualText(
-            english: YorksV1ProjectStrings.commercialAccessUnavailable.primary,
-            secondary: YorksV1ProjectStrings.commercialAccessUnavailable
-                .secondary(language),
-            englishStyle: AppTypography.bodySmall.copyWith(
-              color: AppColors.onSurfaceVariant,
+          Expanded(
+            child: Text(
+              YorksV1ProjectStrings.commercialAccessUnavailable.active(
+                language,
+              ),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
             ),
           ),
-          const Gap(AppSpacing.xs),
           TextButton.icon(
             onPressed: busy
                 ? null
@@ -2942,30 +3364,13 @@ class _YorksV1CommercialAccessSection extends ConsumerWidget {
                     yorksV1CommercialCapabilitiesProvider(appUserId),
                   ),
             icon: const Icon(Icons.refresh_rounded),
-            label: Text(YorksV1ProjectStrings.retry.primary),
+            label: Text(YorksV1ProjectStrings.retry.active(language)),
           ),
         ],
       ),
       data: (capabilities) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BilingualText(
-            english: YorksV1ProjectStrings.commercialAccess.primary,
-            secondary: YorksV1ProjectStrings.commercialAccess.secondary(
-              language,
-            ),
-            englishStyle: AppTypography.titleSmall,
-          ),
-          const Gap(AppSpacing.xs),
-          BilingualText(
-            english: YorksV1ProjectStrings.commercialAccessDescription.primary,
-            secondary: YorksV1ProjectStrings.commercialAccessDescription
-                .secondary(language),
-            englishStyle: AppTypography.bodySmall.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-          const Gap(AppSpacing.sm),
           for (final capability in YorksV1CommercialCapability.values)
             _CommercialCapabilitySwitch(
               capability: capability,
@@ -3101,17 +3506,13 @@ class _CommercialCapabilitySwitch extends ConsumerWidget {
       contentPadding: EdgeInsets.zero,
       value: access.effective,
       onChanged: enabled ? onChanged : null,
-      title: BilingualText(
-        english: label.primary,
-        secondary: label.secondary(language),
-        englishStyle: AppTypography.bodyLarge,
+      title: Text(
+        label.active(language),
+        style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.w700),
       ),
-      subtitle: BilingualText(
-        english: source.primary,
-        secondary: source.secondary(language),
-        englishStyle: AppTypography.bodySmall.copyWith(
-          color: AppColors.onSurfaceVariant,
-        ),
+      subtitle: Text(
+        source.active(language),
+        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
       ),
       activeThumbColor: AppColors.primary,
     );

@@ -15,7 +15,14 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   Supplier bills · History. PR #54 merged the first version; PR #55 adds the
   later features and fixes, and the bundle grows from 12 to 30 migrations. The
   8 November release adds a 31st (Excel rounding, the signed invoice layout and
-  History dates). A 32nd removes anonymous access to nine Accounts RPCs; it
+  History dates). The 9 November release adds a 32nd (claim rights for Admin
+  and the organization-wide engineering roles) and a 33rd (the invoice's
+  per-building Material and Installation sheets); see `PRODUCT_DECISIONS.md`
+  §35. A 34th (`20261111130000`) keeps those claim rights in the Accounts
+  scope function after the 11 November Project Engineer full-access migration
+  (§34) redefined it; `accounts_project_engineer_bundle.sql` and its rollback
+  carry the same definition, so either bundle can be re-applied in any order.
+  A 35th (`20261111140000`) removes anonymous access to nine Accounts RPCs; it
   waits for the owner's approval and has not been applied to staging or
   production.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
@@ -38,7 +45,7 @@ of the live schema. Because of that:
   is separate.
 
 **Apply `supabase/release/accounts_v2_bundle.sql` by hand instead.** It holds all
-32 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
+35 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
 rolls the whole script back.
 
 A database may already have some of the V2 migrations, for example the first 12.
@@ -111,7 +118,7 @@ That is fine: apply the whole bundle anyway.
   `v1_accounts_build_invoice_document`, `v1_get_accounts_activity`; new internal
   helpers are not callable by app users.
 - **Stops anonymous callers reaching nine Accounts RPCs**
-  (`20261108120000_accounts_v2_revoke_anon_rpc_execute.sql`, needs the owner's
+  (`20261111140000_accounts_v2_revoke_anon_rpc_execute.sql`, needs the owner's
   approval before it goes live). The 5 November P2/P3 migrations granted
   EXECUTE to `authenticated` without first revoking what every new function
   gets: PUBLIC EXECUTE from PostgreSQL and an explicit `anon` grant from
@@ -124,10 +131,11 @@ That is fine: apply the whole bundle anyway.
   so this is defence in depth. The migration revokes EXECUTE from PUBLIC and
   `anon` on those nine only; `authenticated` and `service_role` keep their
   grants and no function body changes. Production showed the same nine on
-  8 November (read-only check). An anonymous caller still gets SQLSTATE 42501,
-  now from PostgreSQL instead of the function. A database that already has the
-  first 31 files can take this one file on its own. To check afterwards
-  (read-only; expect `0`):
+  8 and 11 November (read-only checks). An anonymous caller still gets SQLSTATE
+  42501, now from PostgreSQL instead of the function. **Apply this one file on
+  its own** in the SQL editor, not the whole bundle: it needs only files 1–31,
+  and re-running the whole bundle on production has a side effect described
+  under the test results below. To check afterwards (read-only; expect `0`):
 
   ```sql
   select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -156,6 +164,13 @@ That is fine: apply the whole bundle anyway.
 | Run on a fully migrated database, then rolled back | Succeeds; functions unchanged |
 | Run on a database migrated to `20261108100000`, as production was on 8 November (32 files) | Succeeds; only the nine ACLs above change, all 822 function definitions are unchanged, and the result matches a normally migrated database |
 | Run a second time on that database | Succeeds; nothing changes |
+| 11 November: run on a database migrated to `20261111130000` (35 files) | Succeeds; the nine ACLs change as intended. It also re-creates four supplier-bill functions from their V2 source (`v1_correct_supplier_payment`, `v1_list_supplier_bill_delivery_options`, `v1_reopen_supplier_bill`, `v1_reverse_supplier_payment`). That removes the `project_engineer` role which `20261111120000` (Project Engineer full access, not in this bundle) adds to them in place |
+| Then re-apply `accounts_project_engineer_bundle.sql` | Succeeds; those four are restored. All 905 function definitions match a normally migrated database, and only the nine ACLs differ from before |
+| Run the bundle a second time | Succeeds; nothing changes |
+
+**So on any database that has the 11 November Project Engineer migration,
+re-apply `accounts_project_engineer_bundle.sql` straight after this bundle**, or
+apply only the files you need (as for the anonymous-access revoke above).
 
 **Not tested:** a database with the ~30 unknown migrations. If any of them changed
 one of the 17 functions above, the bundle overwrites that change. The overlap
@@ -218,7 +233,10 @@ there.
       in the SQL editor are not recorded in this table, so an empty result does
       not rule out every change.
    3. In the **SQL editor**, paste and run all of
-      `supabase/release/accounts_v2_bundle.sql`. Re-running it is harmless.
+      `supabase/release/accounts_v2_bundle.sql`. Re-running it is harmless,
+      except on a database that already has the 11 November Project Engineer
+      migration: there, re-apply `accounts_project_engineer_bundle.sql`
+      straight after it (see the test results above).
    4. It does **not** register in `supabase_migrations.schema_migrations`. That is
       fine for enabling V2. Reconciling the git ↔ DB ledger is the separate drift
       cleanup, not a release blocker.
@@ -276,7 +294,7 @@ are lost, the audit events stay.
 The anonymous-access revoke can also be undone without a backup, though it
 should not need to be: run `grant execute on function <signature> to public, anon;`
 for each of the nine signatures listed in
-`20261108120000_accounts_v2_revoke_anon_rpc_execute.sql`. That restores the
+`20261111140000_accounts_v2_revoke_anon_rpc_execute.sql`. That restores the
 previous ACL exactly. No data is involved.
 
 ## Not in this release (optional, post-launch)
@@ -291,6 +309,40 @@ previous ACL exactly. No data is involved.
 - **Phone layout.** The per-item contract table scrolls sideways, and KPI tiles
   are tall.
 
+## Gates (local, 11 November 2026, the anonymous-access revoke)
+
+| Check | Result |
+|---|---|
+| `supabase db reset` + `supabase test db`, with the revoke | 171 files, 5,610 tests; the new file passes all 150 |
+| The same at `main` without the revoke | The new file fails only its 28 anon/PUBLIC checks; its 122 role and signed-in checks pass |
+
+Seven other files fail identically with and without the revoke, so they are
+not caused by it. They fail on `main` as it stands:
+
+- `yorks_r39_accounts_t01_foundation` (19), `t03_claims_receivables` (22),
+  `t04_supplier_bills` (one test), `v2_corrections` (10, 86, 87, 95),
+  `v2_p4_attention_delivery_options` (one test) and
+  `yorks_notification_record_context` (59, 64) still expect a Project Engineer
+  to be denied what §34 now allows. `20261111120000` changed no database test.
+- `yorks_r39_accounts_v2_material_links` stops at its fixture: its directly
+  inserted return lines fail `v1_material_return_lines_source_shape_check`.
+
+No Dart changed, so the Flutter and build gates were not re-run.
+
+## Gates (local, 9 November 2026, claim rights and the invoice item sheets)
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | Clean |
+| `flutter test` | 2,721 pass, 4 skipped, **2 fail** (the same R38.4 rental register goldens) |
+| `supabase db reset` + `supabase test db` | 143 files, 4,052 tests pass |
+| Web build with startup budget | Passes |
+
+Applied by hand on 9 November 2026: staging, then production (files 32 and 33
+only, after checking that the live definitions of the three replaced functions
+matched the repository). Production web `dpl_6TH2qa1CTRLoAYQg5jsBeteCz992`;
+rollback target `dpl_2SSWkyuWKzb8ZT9SGPrfeUHPhgLJ`.
+
 ## Gates (local, 8 November 2026, with Excel rounding, the signed invoice layout and History dates)
 
 | Check | Result |
@@ -301,12 +353,6 @@ previous ACL exactly. No data is involved.
 | Web build with startup budget | Passes |
 | APK with CI ephemeral signing | Builds; not a release artifact |
 
-- **With the anonymous-access revoke (32 files):** `supabase db reset` +
-  `supabase test db` → 143 files, 4,156 tests pass. The new
-  `yorks_r39_accounts_v2_anon_rpc_execute.test.sql`, run before the migration,
-  fails only its 28 anon/PUBLIC checks; its 122 checks of the five roles and the
-  signed-in path pass both before and after. No Dart changed, so the Flutter and
-  build gates were not re-run.
 - The 2 failures are the R38.4 property and rental register goldens in
   `test/yorks_v1_rental_test.dart`. They also fail at `c6755f5`, before these
   fixes, and need their own resolution: the saved images predate a lease that

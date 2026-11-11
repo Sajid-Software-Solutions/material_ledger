@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-20",
+  "runtimeCommit": "5652860bb3dc5e86a0e32678a8cb1b9828f60f0d",
+  "deploymentId": "dpl_E2Yedn4SoTnHZxgrshspvvBUcLaB",
+  "canonicalUrl": "https://yorks-r35.vercel.app",
+  "immutableUrl": "https://yorks-r35-e3h5qx2ex-sajid-alis-projects-0ec775a2.vercel.app",
+  "readyState": "READY",
+  "publicAliasVerified": true,
+  "rollbackDeploymentId": "dpl_B96grAdqY4GbnnG72eJj1c8xBDLv",
+  "candidateChecksPassed": 31,
+  "publicChecksPassed": 31,
+  "liveBundleHashMatchesArtifact": true,
+  "liveAuthRestoration": "passed; Auth and profile 200 before project read; repeated with naturally delayed Auth response",
+  "liveProjects": "passed; project list 200 and visible",
+  "browserConsoleErrors": 0,
+  "vercelErrorScan": {
+    "records": 0,
+    "windowMinutes": 30
+  },
+  "productionDatabaseChanges": false,
+  "limitations": [
+    "Stale/rejected credentials and delayed password sign-in are automated HTTP-backed regressions, not production account revocations.",
+    "CI APK uses ephemeral signing; no Android distribution performed."
+  ],
+  "liveMobile": {
+    "viewport": "360x800",
+    "directProjectsReload": "passed",
+    "authAndProfileBeforeProjectRead": true,
+    "projectResponseStatus": 200,
+    "consoleErrors": 0,
+    "screenshot": "Local private evidence retained at /tmp/auth-live-mobile.png; not uploaded with business content"
+  }
+}

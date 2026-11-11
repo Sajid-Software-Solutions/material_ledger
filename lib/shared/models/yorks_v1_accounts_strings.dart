@@ -116,10 +116,10 @@ abstract final class YorksV1AccountsStrings {
           'वर्गीकरण और संशोधन संदर्भ सहित प्रोजेक्टों में मौजूदा नियंत्रित कमर्शियल साक्ष्य खोजें।',
     },
     'office_activity_title': {
-      'en': 'Accounts Audit Trail',
-      'ar': 'سجل تدقيق الحسابات',
-      'ur': 'اکاؤنٹس آڈٹ ٹریل',
-      'hi': 'अकाउंट्स ऑडिट ट्रेल',
+      'en': 'Accounts Activity',
+      'ar': 'نشاط الحسابات',
+      'ur': 'اکاؤنٹس سرگرمی',
+      'hi': 'अकाउंट्स गतिविधि',
     },
     'office_activity_body': {
       'en':
@@ -6099,6 +6099,87 @@ abstract final class YorksV1AccountsStrings {
       'ur': "محفوظ ہو رہا ہے…",
       'hi': "सहेजा जा रहा है…",
     },
+    'v2c_block_intro': {
+      'en': "Fix {n} before saving:",
+      'ar': "أصلح {n} قبل الحفظ:",
+      'ur': "محفوظ کرنے سے پہلے {n} درست کریں:",
+      'hi': "सहेजने से पहले {n} ठीक करें:",
+    },
+    'v2c_block_no_setup_access': {
+      'en':
+          "You can't change the contract setup on this project — ask an Accountant or Admin.",
+      'ar':
+          "لا يمكنك تغيير إعداد العقد في هذا المشروع — اطلب من محاسب أو مسؤول.",
+      'ur':
+          "آپ اس پروجیکٹ کا کنٹریکٹ سیٹ اپ نہیں بدل سکتے — اکاؤنٹنٹ یا ایڈمن سے کہیں۔",
+      'hi':
+          "आप इस प्रोजेक्ट का अनुबंध सेटअप नहीं बदल सकते — अकाउंटेंट या एडमिन से कहें।",
+    },
+    'v2c_block_vat': {
+      'en': "VAT % must be a number of 0 or more.",
+      'ar': "يجب أن تكون نسبة الضريبة رقمًا 0 أو أكثر.",
+      'ur': "VAT % صفر یا اس سے زیادہ عدد ہونا چاہیے۔",
+      'hi': "VAT % 0 या अधिक की संख्या होनी चाहिए।",
+    },
+    'v2c_block_project_has_no_buildings': {
+      'en':
+          "This project has no buildings yet. Add its buildings in Edit project → Buildings, then split the contract between them here.",
+      'ar':
+          "لا توجد مبانٍ لهذا المشروع بعد. أضف المباني من تعديل المشروع ← المباني، ثم وزّع العقد عليها هنا.",
+      'ur':
+          "اس پروجیکٹ میں ابھی کوئی عمارت نہیں۔ پروجیکٹ میں ترمیم → عمارتیں میں شامل کریں، پھر یہاں کنٹریکٹ تقسیم کریں۔",
+      'hi':
+          "इस प्रोजेक्ट में अभी कोई इमारत नहीं है। प्रोजेक्ट संपादित करें → इमारतें में जोड़ें, फिर यहाँ अनुबंध बाँटें।",
+    },
+    'v2c_block_add_building': {
+      'en':
+          "Add at least one building with Add building, then split the contract between them.",
+      'ar': "أضف مبنى واحدًا على الأقل عبر إضافة مبنى، ثم وزّع العقد.",
+      'ur': "کم از کم ایک عمارت شامل کریں، پھر کنٹریکٹ تقسیم کریں۔",
+      'hi': "कम से कम एक इमारत जोड़ें, फिर अनुबंध बाँटें।",
+    },
+    'v2c_block_stage_name': {
+      'en': "Every billing stage needs a name.",
+      'ar': "كل مرحلة فوترة تحتاج اسمًا.",
+      'ur': "ہر بلنگ مرحلے کا نام ضروری ہے۔",
+      'hi': "हर बिलिंग चरण का नाम ज़रूरी है।",
+    },
+    'v2c_block_item_rows': {
+      'en': "every item needs a name, a quantity above 0, a unit and a weight.",
+      'ar': "كل بند يحتاج اسمًا وكمية أكبر من 0 ووحدة ووزنًا.",
+      'ur': "ہر آئٹم کا نام، 0 سے زیادہ مقدار، اکائی اور وزن ضروری ہے۔",
+      'hi': "हर आइटम का नाम, 0 से अधिक मात्रा, इकाई और भार ज़रूरी है।",
+    },
+    'v2c_block_setup_invalid': {
+      'en': "Some contract figures are not valid numbers.",
+      'ar': "بعض أرقام العقد ليست أرقامًا صحيحة.",
+      'ur': "کنٹریکٹ کے کچھ اعداد درست نہیں۔",
+      'hi': "अनुबंध के कुछ आँकड़े मान्य संख्या नहीं हैं।",
+    },
+    'v2c_block_no_reference_access': {
+      'en': "You can't change the contract references on this project.",
+      'ar': "لا يمكنك تغيير مراجع العقد في هذا المشروع.",
+      'ur': "آپ اس پروجیکٹ کے کنٹریکٹ حوالہ جات نہیں بدل سکتے۔",
+      'hi': "आप इस प्रोजेक्ट के अनुबंध संदर्भ नहीं बदल सकते।",
+    },
+    'v2c_block_no_invoice_access': {
+      'en': "You can't change invoice settings on this project.",
+      'ar': "لا يمكنك تغيير إعدادات الفواتير في هذا المشروع.",
+      'ur': "آپ اس پروجیکٹ کی انوائس سیٹنگز نہیں بدل سکتے۔",
+      'hi': "आप इस प्रोजेक्ट की इनवॉइस सेटिंग्स नहीं बदल सकते।",
+    },
+    'v2c_block_prefix': {
+      'en': "Enter an invoice number prefix (for example the project code).",
+      'ar': "أدخل بادئة رقم الفاتورة (مثل رمز المشروع).",
+      'ur': "انوائس نمبر کا ابتدائیہ درج کریں (مثلاً پروجیکٹ کوڈ)۔",
+      'hi': "इनवॉइस नंबर उपसर्ग दर्ज करें (जैसे प्रोजेक्ट कोड)।",
+    },
+    'v2c_block_wo_date': {
+      'en': "Work order date must be a real date (DD/MM/YYYY).",
+      'ar': "يجب أن يكون تاريخ أمر العمل تاريخًا صحيحًا (DD/MM/YYYY).",
+      'ur': "ورک آرڈر کی تاریخ درست ہو (DD/MM/YYYY)۔",
+      'hi': "वर्क ऑर्डर तिथि सही हो (DD/MM/YYYY)।",
+    },
     'v2c_save_changes': {
       'en': "Save changes",
       'ar': "حفظ التغييرات",
@@ -6840,6 +6921,16 @@ abstract final class YorksV1AccountsStrings {
       'ar': "مرحلة بمبلغ مقطوع — أدخل نسبة ما أُنجز من المرحلة هذا الشهر",
       'ur': "یکمشت مرحلہ — اس ماہ مکمل ہونے والا مرحلے کا % درج کریں",
       'hi': "एकमुश्त चरण — इस महीने पूरा हुआ चरण का % दर्ज करें",
+    },
+    'v2p_topup_note': {
+      'en':
+          "Includes {amount} for work already billed at the earlier contract value; the contract correction makes it worth more.",
+      'ar':
+          "يشمل {amount} عن أعمال سبق إصدار فاتورة بها بقيمة العقد السابقة؛ تصحيح قيمة العقد يرفع قيمتها.",
+      'ur':
+          "اس میں {amount} شامل ہے اس کام کے لیے جس کا بل پہلے کی معاہدہ قیمت پر بن چکا ہے؛ معاہدے کی تصحیح سے اس کی قیمت بڑھ گئی ہے۔",
+      'hi':
+          "इसमें {amount} शामिल है उस काम के लिए जिसका बिल पहले के अनुबंध मूल्य पर बन चुका है; अनुबंध सुधार से उसका मूल्य बढ़ गया है।",
     },
     'v2p_copy_all': {
       'en': "Copy to all buildings",

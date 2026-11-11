@@ -59,6 +59,8 @@ select is(
     'view_project_accounts',
     'view_project_commercial_values',
     'view_supplier_costs',
+    'worker_records.manage',
+    'worker_records.view',
     'workforce.attendance.maintain',
     'workforce.configuration.manage',
     'workforce.periods.reopen',

@@ -306,6 +306,118 @@ const notificationModuleEvents = <String, Map<String, Object>>{
     "destination": "timesheets",
     "urgent": false,
   },
+  "rental_completeness_review": {
+    "title": <String>[
+      "Rental details need review",
+      "تفاصيل العقارات المؤجرة تحتاج إلى مراجعة",
+      "کرایہ کی جائیدادوں کی تفصیلات کا جائزہ درکار ہے",
+      "किराये की संपत्तियों के विवरण की समीक्षा आवश्यक है",
+    ],
+    "body": <String>[
+      "Review incomplete property records and add the missing details when available.",
+      "راجع سجلات العقارات غير المكتملة وأضف التفاصيل الناقصة عند توفرها.",
+      "نامکمل جائیدادوں کے ریکارڈ دیکھیں اور دستیاب ہونے پر باقی تفصیلات شامل کریں۔",
+      "अधूरे संपत्ति रिकॉर्ड की समीक्षा करें और उपलब्ध होने पर शेष विवरण जोड़ें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
+  "rental_lease_notice_due": {
+    "title": <String>[
+      "Rental lease renewal needs review",
+      "تجديد عقد الإيجار يحتاج إلى مراجعة",
+      "کرایہ کے معاہدے کی تجدید کا جائزہ درکار ہے",
+      "किराया अनुबंध के नवीनीकरण की समीक्षा आवश्यक है",
+    ],
+    "body": <String>[
+      "A rental lease is within its renewal notice window. Review the property.",
+      "دخل عقد إيجار فترة إشعار التجديد. راجع العقار.",
+      "کرایہ کا معاہدہ تجدید کی اطلاع کی مدت میں ہے۔ جائیداد کا جائزہ لیں۔",
+      "किराया अनुबंध नवीनीकरण की सूचना अवधि में है। संपत्ति की समीक्षा करें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
+  "rental_lease_expired": {
+    "title": <String>[
+      "Rental lease has expired",
+      "انتهت مدة عقد الإيجار",
+      "کرایہ کا معاہدہ ختم ہو گیا ہے",
+      "किराया अनुबंध समाप्त हो गया है",
+    ],
+    "body": <String>[
+      "Review the expired lease and update its current position.",
+      "راجع العقد المنتهي وحدّث وضعه الحالي.",
+      "ختم شدہ معاہدے کا جائزہ لیں اور اس کی موجودہ حالت درج کریں۔",
+      "समाप्त अनुबंध की समीक्षा करें और उसकी वर्तमान स्थिति अपडेट करें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
+  "rental_cheque_due": {
+    "title": <String>[
+      "Rental cheque needs review",
+      "شيك الإيجار يحتاج إلى مراجعة",
+      "کرایہ کے چیک کا جائزہ درکار ہے",
+      "किराये के चेक की समीक्षा आवश्यक है",
+    ],
+    "body": <String>[
+      "A rental cheque has reached its date. Review the next collection step.",
+      "حل تاريخ شيك إيجار. راجع خطوة التحصيل التالية.",
+      "کرایہ کے چیک کی تاریخ آ گئی ہے۔ وصولی کے اگلے مرحلے کا جائزہ لیں۔",
+      "किराये के चेक की तारीख आ गई है। वसूली के अगले चरण की समीक्षा करें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
+  "rental_cheque_returned": {
+    "title": <String>[
+      "Rental cheque was returned",
+      "تم إرجاع شيك الإيجار",
+      "کرایہ کا چیک واپس ہو گیا ہے",
+      "किराये का चेक वापस हुआ है",
+    ],
+    "body": <String>[
+      "Review the returned cheque and record the next action.",
+      "راجع الشيك المرتجع وسجّل الإجراء التالي.",
+      "واپس شدہ چیک کا جائزہ لیں اور اگلا اقدام درج کریں۔",
+      "वापस हुए चेक की समीक्षा करें और अगली कार्रवाई दर्ज करें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
+  "rental_rent_overdue": {
+    "title": <String>[
+      "Rental payment is overdue",
+      "دفعة الإيجار متأخرة",
+      "کرایہ کی ادائیگی واجب الادا ہے",
+      "किराये का भुगतान बकाया है",
+    ],
+    "body": <String>[
+      "An unpaid rent balance is past its grace period. Review the rent schedule.",
+      "تجاوز رصيد إيجار غير مدفوع فترة السماح. راجع جدول الإيجار.",
+      "کرایہ کی باقی رقم مہلت کی مدت سے گزر چکی ہے۔ کرایہ کے شیڈول کا جائزہ لیں۔",
+      "किराये की शेष राशि की अनुग्रह अवधि बीत गई है। किराया अनुसूची की समीक्षा करें।",
+    ],
+    "destination": "rentals",
+    "urgent": true,
+  },
+  "rental_rent_due": {
+    "title": <String>[
+      "Rental payment is due",
+      "دفعة الإيجار مستحقة",
+      "کرایہ کی ادائیگی کا وقت آ گیا ہے",
+      "किराये का भुगतान देय है",
+    ],
+    "body": <String>[
+      "Review the rent schedule and record any received payment.",
+      "راجع جدول الإيجار وسجّل أي دفعة مستلمة.",
+      "کرایہ کے شیڈول کا جائزہ لیں اور موصول شدہ ادائیگی درج کریں۔",
+      "किराया अनुसूची की समीक्षा करें और प्राप्त भुगतान दर्ज करें।",
+    ],
+    "destination": "rentals",
+    "urgent": false,
+  },
 };
 String moduleNotificationText(String code, String field, AppLanguage language) {
   final values = notificationModuleEvents[code]![field] as List<String>;

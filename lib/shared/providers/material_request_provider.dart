@@ -30,11 +30,13 @@ final materialRequestsProvider =
     ) {
       return MaterialRequestsNotifier(
         ref,
-        ref.watch(storageProvider).collection<MaterialRequest>(
-          _kRequestsKey,
-          toJson: (r) => r.toJson(),
-          fromJson: MaterialRequest.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<MaterialRequest>(
+              _kRequestsKey,
+              toJson: (r) => r.toJson(),
+              fromJson: MaterialRequest.fromJson,
+            ),
       );
     });
 
@@ -309,17 +311,16 @@ class MaterialRequestsNotifier extends StateNotifier<List<MaterialRequest>> {
         await _inventory.release(line.materialId, d);
         movedAny = true;
       }
-      newLines.add(
-        line.copyWith(qtyDispatched: (line.qtyDispatched ?? 0) + d),
-      );
+      newLines.add(line.copyWith(qtyDispatched: (line.qtyDispatched ?? 0) + d));
     }
 
     // Nothing could be dispatched (every line blocked) → leave the request as
     // it was so it stays in the queue; don't fake a "partial".
     if (!movedAny) return;
 
-    final fullyDispatched =
-        newLines.every((l) => (l.qtyDispatched ?? 0) >= l.quantity);
+    final fullyDispatched = newLines.every(
+      (l) => (l.qtyDispatched ?? 0) >= l.quantity,
+    );
     state = [
       for (final r in state)
         if (r.id == id)
@@ -405,10 +406,7 @@ class MaterialRequestsNotifier extends StateNotifier<List<MaterialRequest>> {
     );
     state = [
       for (final r in state)
-        if (r.id == id)
-          r.copyWith(comments: [...r.comments, comment])
-        else
-          r,
+        if (r.id == id) r.copyWith(comments: [...r.comments, comment]) else r,
     ];
     await _persist();
     final updated = _byId(id);
@@ -536,7 +534,9 @@ class MaterialRequestsNotifier extends StateNotifier<List<MaterialRequest>> {
       final l = req.lineItems[i];
       final dispatched = l.qtyDispatched ?? 0;
       final raw = i < receivedByIndex.length ? receivedByIndex[i] : dispatched;
-      newLines.add(l.copyWith(qtyReceived: raw.clamp(0, dispatched).toDouble()));
+      newLines.add(
+        l.copyWith(qtyReceived: raw.clamp(0, dispatched).toDouble()),
+      );
     }
     // Any line not yet fully dispatched keeps the request live (queue-eligible).
     final backOrderOpen = newLines.any((l) => l.qtyOutstanding > 0);
@@ -616,18 +616,15 @@ Map<String, double> _reservationsFrom(List<MaterialRequest> requests) {
 /// every local edit, and every realtime merge from another device. Reservations
 /// are derived, so this is the self-healing source of truth for `reservedQty`.
 final inventoryReconcilerProvider = Provider<void>((ref) {
-  ref.listen<List<MaterialRequest>>(
-    materialRequestsProvider,
-    (_, next) {
-      final reservations = _reservationsFrom(next);
-      // Defer out of the listener frame so we never mutate one provider while
-      // another is building.
-      Future.microtask(
-        () => ref.read(materialsProvider.notifier).applyReservations(reservations),
-      );
-    },
-    fireImmediately: true,
-  );
+  ref.listen<List<MaterialRequest>>(materialRequestsProvider, (_, next) {
+    final reservations = _reservationsFrom(next);
+    // Defer out of the listener frame so we never mutate one provider while
+    // another is building.
+    Future.microtask(
+      () =>
+          ref.read(materialsProvider.notifier).applyReservations(reservations),
+    );
+  }, fireImmediately: true);
 });
 
 // ─── Seed Data (used on first launch) ───────────────────────────────

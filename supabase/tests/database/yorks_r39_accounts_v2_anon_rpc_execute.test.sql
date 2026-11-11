@@ -1,6 +1,6 @@
 -- R39 Accounts Workspace V2 — anonymous EXECUTE removed from nine Accounts RPCs
 --
--- 20261108120000_accounts_v2_revoke_anon_rpc_execute.sql revokes EXECUTE from
+-- 20261111140000_accounts_v2_revoke_anon_rpc_execute.sql revokes EXECUTE from
 -- PUBLIC and anon on nine functions. This file proves:
 --   1. anon (and PUBLIC) can no longer execute any of them, and no Accounts
 --      function anon can execute is left in the catalogue;
@@ -110,7 +110,9 @@ insert into v1_anon_probe values
   '22023 R39_ACCOUNTS_INVALID_WORKBENCH_ENTRY');
 
 -- Who gets past each gate today. Project scope: P (member) or Q (no member).
--- Admin and Accountant are organization-wide; PE and SE need membership.
+-- Admin and Accountant are organization-wide; PE and SE need membership. A
+-- Project Engineer member holds every Accounts key (PRODUCT_DECISIONS §34) and
+-- Admin holds the claim rights (§35), so both reach every gate here.
 -- Note: v1_get_client_invoice_document checks only view_project_accounts, so a
 -- Site Engineer member reaches the frozen invoice document. This file pins that
 -- existing behavior; it does not approve it.
@@ -119,20 +121,15 @@ create temporary table v1_anon_expect(who text, project text, fn text references
 insert into v1_anon_expect
 select w.who, p.project, f.fn, coalesce((
   select true from (values
-    ('pe','P','v1_save_project_commercial_setup'),('pe','P','v1_get_claim_workbench'),
-    ('pe','P','v1_reopen_client_claim'),('pe','P','v1_get_client_invoice_document'),
-    ('pe','P','v1_preview_client_invoice_document'),('pe','P','v1_save_claim_workbench'),
+    ('pe','P','*'),
     ('se','P','v1_get_claim_workbench'),('se','P','v1_get_client_invoice_document'),
-    ('admin','*','v1_save_project_commercial_setup'),('admin','*','v1_get_claim_workbench'),
-    ('admin','*','v1_reopen_client_claim'),('admin','*','v1_save_project_invoice_settings'),
-    ('admin','*','v1_issue_client_invoice'),('admin','*','v1_get_client_invoice_document'),
-    ('admin','*','v1_preview_client_invoice_document'),('admin','*','v1_revise_client_invoice'),
+    ('admin','*','*'),
     ('accountant','*','v1_save_project_commercial_setup'),('accountant','*','v1_get_claim_workbench'),
     ('accountant','*','v1_save_project_invoice_settings'),('accountant','*','v1_issue_client_invoice'),
     ('accountant','*','v1_get_client_invoice_document'),('accountant','*','v1_preview_client_invoice_document'),
     ('accountant','*','v1_revise_client_invoice')
   ) as g(who, project, fn)
-  where g.who = w.who and g.fn = f.fn and g.project in (p.project, '*')), false)
+  where g.who = w.who and g.fn in (f.fn, '*') and g.project in (p.project, '*')), false)
 from (values ('pe'),('se'),('procurement'),('admin'),('accountant')) as w(who)
 cross join (values ('P'),('Q')) as p(project)
 cross join v1_anon_fn f;

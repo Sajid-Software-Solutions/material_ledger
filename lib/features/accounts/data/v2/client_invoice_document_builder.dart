@@ -58,24 +58,53 @@ abstract final class YorksClientInvoiceDocumentBuilder {
       ),
     );
     final hasSummary = doc.summary != null && doc.buildings.isNotEmpty;
-    final pages = !hasSummary ? 1 : (doc.buildings.length > 1 ? 3 : 2);
+    // The workbook's Material and Installation sheets, per building, when the
+    // invoice carries item rows; otherwise the stage breakdown per building.
+    final itemStageKeys = <String>{
+      for (final b in doc.buildings)
+        for (final st in b.itemStages) st.stageKey,
+    }.toList(growable: false);
+    final hasItems = hasSummary && itemStageKeys.isNotEmpty;
+    final pages = !hasSummary
+        ? 1
+        : (hasItems || doc.buildings.length > 1 ? 3 : 2);
     final ctx = _Ctx(doc, emblem, arabic, pages);
 
+    const margin = pw.EdgeInsets.fromLTRB(36, 30, 36, 30);
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.fromLTRB(36, 30, 36, 30),
+        margin: margin,
         footer: ctx.footer,
         build: (context) => [
           ...ctx.pageOne(),
-          if (hasSummary) ...[
-            pw.NewPage(),
-            ...ctx.pageTwo(),
-            if (pages > 2) ...[pw.NewPage(), ...ctx.pageThree()],
-          ],
+          if (hasSummary) ...[pw.NewPage(), ...ctx.pageTwo()],
         ],
       ),
     );
+    if (hasItems) {
+      for (final key in itemStageKeys) {
+        pdf.addPage(
+          pw.MultiPage(
+            pageFormat: PdfPageFormat.a4.landscape,
+            margin: const pw.EdgeInsets.fromLTRB(28, 24, 28, 24),
+            footer: ctx.footer,
+            build: (context) => ctx.itemSheets(key),
+          ),
+        );
+      }
+    } else if (hasSummary && pages > 2) {
+      // Landscape, as the signed invoices print the building breakdown: ten
+      // paired %/amount columns do not fit a portrait page without wrapping.
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: margin,
+          footer: ctx.footer,
+          build: (context) => ctx.pageThree(),
+        ),
+      );
+    }
     return pdf.save();
   }
 
@@ -211,11 +240,13 @@ final class _Ctx {
   double _n(YorksAccountsDecimal? v) =>
       YorksClientInvoiceDocumentBuilder.number(v);
 
-  double get _contract => _n(doc.contractValue ?? doc.summary?.contractTotal);
-
-  String _ofContract(YorksAccountsDecimal? v) => _contract > 0
-      ? YorksClientInvoiceDocumentBuilder.pct(_n(v) / _contract * 100)
-      : '—';
+  // Every percentage on the summary and building pages is a share of the
+  // whole contract, as on Yorks' signed invoices. See percentOfContract.
+  String _ofContract(YorksAccountsDecimal? v) {
+    if (v == null) return '—';
+    final p = doc.percentOfContract(v);
+    return p == null ? '—' : YorksClientInvoiceDocumentBuilder.pct(p);
+  }
 
   String get _legalName =>
       _s(_c['legal_name']) ?? 'Yorks Air Conditioning & Refrigeration LLC-SPC';
@@ -946,60 +977,63 @@ final class _Ctx {
         ],
       ),
       pw.SizedBox(height: 16),
-      _sectionTitle('SUMMARY BY BUILDING', 'Amounts excl. VAT'),
+      _sectionTitle('SUMMARY BY BUILDING', 'Amounts excl. VAT · % of contract'),
       pw.SizedBox(height: 6),
       pw.Table(
         border: _border,
         columnWidths: const {
           0: pw.FlexColumnWidth(),
-          1: pw.FixedColumnWidth(40),
-          2: pw.FixedColumnWidth(74),
-          3: pw.FixedColumnWidth(74),
-          4: pw.FixedColumnWidth(74),
-          5: pw.FixedColumnWidth(74),
-          6: pw.FixedColumnWidth(46),
+          1: pw.FixedColumnWidth(38),
+          2: pw.FixedColumnWidth(62),
+          3: pw.FixedColumnWidth(40),
+          4: pw.FixedColumnWidth(58),
+          5: pw.FixedColumnWidth(40),
+          6: pw.FixedColumnWidth(58),
+          7: pw.FixedColumnWidth(40),
+          8: pw.FixedColumnWidth(60),
         },
         children: [
-          _head(
-            const [
-              'Building',
-              'Share',
-              'Building value',
-              'Till previous',
-              'This month',
-              'Total',
-              'Done',
-            ],
-            const {1, 2, 3, 4, 5, 6},
-          ),
+          _head(const [
+            'Building',
+            'Share',
+            'Building value',
+            '%',
+            'Till previous',
+            '%',
+            'This month',
+            '%',
+            'Total completion',
+          ], numeric),
           for (final b in doc.buildings)
             pw.TableRow(
               children: [
-                _cell(b.name, bold: true),
+                _cell(b.name, bold: true, size: 8),
                 _cell(
                   YorksClientInvoiceDocumentBuilder.pct(_n(b.sharePercent), 0),
                   right: true,
+                  size: 8,
                 ),
-                _cell(_m(b.buildingValue), right: true),
-                _cell(_m(b.previousAmount), right: true),
-                _cell(_m(b.thisAmount), right: true),
-                _cell(_m(b.totalAmount), right: true),
-                _cell(
-                  YorksClientInvoiceDocumentBuilder.pct(b.donePercent),
-                  right: true,
-                ),
+                _cell(_m(b.buildingValue), right: true, size: 8),
+                _cell(ofc(b.previousAmount), right: true, size: 8),
+                _cell(amt(b.previousAmount), right: true, size: 8),
+                _cell(ofc(b.thisAmount), right: true, size: 8),
+                _cell(amt(b.thisAmount), right: true, size: 8),
+                _cell(ofc(b.totalAmount), right: true, size: 8),
+                _cell(amt(b.totalAmount), right: true, size: 8),
               ],
             ),
           pw.TableRow(
             decoration: _sumBand,
             children: [
-              _cell('Total', bold: true),
-              _cell('100%', right: true, bold: true),
-              _cell(_m(s.contractTotal), right: true, bold: true),
-              _cell(_m(s.previousTotal), right: true, bold: true),
-              _cell(_m(s.thisTotal), right: true, bold: true),
-              _cell(_m(s.totalTotal), right: true, bold: true),
-              _cell(_ofContract(s.totalTotal), right: true, bold: true),
+              _cell('Total', bold: true, size: 8),
+              _cell('100%', right: true, bold: true, size: 8),
+              _cell(_m(s.contractTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.previousTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.previousTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.thisTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.thisTotal), right: true, bold: true, size: 8),
+              _cell(ofc(s.totalTotal), right: true, bold: true, size: 8),
+              _cell(amt(s.totalTotal), right: true, bold: true, size: 8),
             ],
           ),
         ],
@@ -1050,64 +1084,93 @@ final class _Ctx {
 
   List<pw.Widget> pageThree() {
     final out = <pw.Widget>[_miniHeader('BREAKDOWN PER BUILDING')];
+    String amt(YorksAccountsDecimal v) => _n(v).abs() > 0.004 ? _m(v) : '0.00';
+    String ofc(YorksAccountsDecimal v) =>
+        _n(v).abs() > 0.004 ? _ofContract(v) : '0.00%';
+    String stagePct(String key) {
+      final p = doc.stageContractPercent(key);
+      return p == null ? '' : YorksClientInvoiceDocumentBuilder.pct(_n(p), 0);
+    }
+
+    const numeric = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     for (final (bi, b) in doc.buildings.indexed) {
       final letter = String.fromCharCode(65 + (bi % 26));
-      String done(YorksAccountsDecimal total, YorksAccountsDecimal value) =>
-          _n(value) > 0
-          ? YorksClientInvoiceDocumentBuilder.pct(
-              _n(total) / _n(value) * 100,
-              1,
-            )
-          : '—';
+      // Two buildings per landscape page, so no building's table splits.
+      if (bi > 0 && bi % 2 == 0) {
+        out
+          ..add(pw.NewPage())
+          ..add(_miniHeader('BREAKDOWN PER BUILDING'));
+      }
       out
         ..add(
           pw.Table(
             border: _border,
             columnWidths: const {
               0: pw.FlexColumnWidth(),
-              1: pw.FixedColumnWidth(74),
-              2: pw.FixedColumnWidth(74),
-              3: pw.FixedColumnWidth(74),
-              4: pw.FixedColumnWidth(74),
-              5: pw.FixedColumnWidth(42),
+              1: pw.FixedColumnWidth(60),
+              2: pw.FixedColumnWidth(60),
+              3: pw.FixedColumnWidth(72),
+              4: pw.FixedColumnWidth(44),
+              5: pw.FixedColumnWidth(72),
+              6: pw.FixedColumnWidth(44),
+              7: pw.FixedColumnWidth(72),
+              8: pw.FixedColumnWidth(44),
+              9: pw.FixedColumnWidth(76),
             },
             children: [
-              _head(
-                [
-                  '$letter · ${b.name} — '
-                      '${YorksClientInvoiceDocumentBuilder.pct(_n(b.sharePercent), 0)} of contract',
-                  'Contract',
-                  'Till previous',
-                  'This month',
-                  'Total',
-                  'Done',
-                ],
-                const {1, 2, 3, 4, 5},
-              ),
+              _head([
+                '$letter · ${b.name}',
+                'Contract %',
+                'Building %',
+                'Amount',
+                '%',
+                'Till previous',
+                '%',
+                'This month',
+                '%',
+                'Total completion',
+              ], numeric),
               for (final (i, st) in b.stages.indexed)
                 pw.TableRow(
                   children: [
-                    _cell('$letter.${i + 1}  ${st.stageLabel ?? st.stageKey}'),
-                    _cell(_m(st.stageValue), right: true),
-                    _cell(_m(st.previousAmount), right: true),
-                    _cell(_m(st.thisAmount), right: true),
-                    _cell(_m(st.totalAmount), right: true),
-                    _cell(done(st.totalAmount, st.stageValue), right: true),
+                    _cell(
+                      '$letter.${i + 1}  ${st.stageLabel ?? st.stageKey}',
+                      size: 8,
+                    ),
+                    _cell(stagePct(st.stageKey), right: true, size: 8),
+                    _cell(ofc(st.stageValue), right: true, size: 8),
+                    _cell(_m(st.stageValue), right: true, size: 8),
+                    _cell(ofc(st.previousAmount), right: true, size: 8),
+                    _cell(amt(st.previousAmount), right: true, size: 8),
+                    _cell(ofc(st.thisAmount), right: true, size: 8),
+                    _cell(amt(st.thisAmount), right: true, size: 8),
+                    _cell(ofc(st.totalAmount), right: true, size: 8),
+                    _cell(amt(st.totalAmount), right: true, size: 8),
                   ],
                 ),
               pw.TableRow(
                 decoration: _sumBand,
                 children: [
-                  _cell('Total ${b.name}', bold: true),
-                  _cell(_m(b.buildingValue), right: true, bold: true),
-                  _cell(_m(b.previousAmount), right: true, bold: true),
-                  _cell(_m(b.thisAmount), right: true, bold: true),
-                  _cell(_m(b.totalAmount), right: true, bold: true),
+                  _cell('Total', bold: true, size: 8),
+                  _cell('100%', right: true, bold: true, size: 8),
+                  _cell(ofc(b.buildingValue), right: true, bold: true, size: 8),
+                  _cell(_m(b.buildingValue), right: true, bold: true, size: 8),
                   _cell(
-                    done(b.totalAmount, b.buildingValue),
+                    ofc(b.previousAmount),
                     right: true,
                     bold: true,
+                    size: 8,
                   ),
+                  _cell(
+                    amt(b.previousAmount),
+                    right: true,
+                    bold: true,
+                    size: 8,
+                  ),
+                  _cell(ofc(b.thisAmount), right: true, bold: true, size: 8),
+                  _cell(amt(b.thisAmount), right: true, bold: true, size: 8),
+                  _cell(ofc(b.totalAmount), right: true, bold: true, size: 8),
+                  _cell(amt(b.totalAmount), right: true, bold: true, size: 8),
                 ],
               ),
             ],
@@ -1117,6 +1180,415 @@ final class _Ctx {
     }
     return out;
   }
+
+  // ─── Material / Installation sheets per building ────────────────────────
+
+  /// The workbook's sheet for one items-mode stage: a table per building
+  /// (item, total qty, unit, weight, contract amount; qty, % and amount till
+  /// the previous month, this month and to date), then all buildings together.
+  List<pw.Widget> itemSheets(String stageKey) {
+    final out = <pw.Widget>[];
+    final sheets =
+        <(int, YorksClientInvoiceBuilding, YorksClientInvoiceItemStage)>[
+          for (final (bi, b) in doc.buildings.indexed)
+            for (final st in b.itemStages)
+              if (st.stageKey == stageKey) (bi, b, st),
+        ];
+    if (sheets.isEmpty) return out;
+    final label = sheets.first.$3.stageLabel ?? stageKey;
+    final installation = stageKey == 'installation';
+    final title = installation
+        ? 'MATERIAL INSTALLATION SUMMARY'
+        : 'DELIVERED MATERIAL SUMMARY';
+    final breakdown = installation
+        ? 'Total Breakdown of Material Installation'
+        : 'Total Breakdown of Delivered Materials';
+    // One building per page, as the workbook prints its sheets.
+    for (final (i, (bi, b, st)) in sheets.indexed) {
+      final letter = String.fromCharCode(65 + (bi % 26));
+      out
+        ..addAll([
+          if (i > 0) pw.NewPage(),
+          _miniHeader('${label.toUpperCase()} — PER BUILDING'),
+        ])
+        ..add(
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(top: 2, bottom: 4),
+            child: pw.Text(
+              '($letter) $title (${b.name})',
+              style: _st(8.5, bold: true),
+            ),
+          ),
+        )
+        ..add(_itemTable(letter, breakdown, st));
+    }
+    if (sheets.length > 1) {
+      // The stage's money across buildings is the Main Summary's (rounded
+      // once from the exact sum), so it equals the invoice to the fil.
+      YorksClientInvoiceSummaryStage? summary;
+      for (final s in doc.summary?.stages ?? const []) {
+        if (s.stageKey == stageKey) summary = s;
+      }
+      out
+        ..add(pw.SizedBox(height: 10))
+        ..add(
+          _itemGrandTotal('TOTAL — ALL BUILDINGS', [
+            for (final s in sheets) s.$3,
+          ], summary: summary),
+        );
+    }
+    return out;
+  }
+
+  static const _itemColumns = <int, pw.TableColumnWidth>{
+    0: pw.FixedColumnWidth(38),
+    1: pw.FlexColumnWidth(),
+    2: pw.FixedColumnWidth(42),
+    3: pw.FixedColumnWidth(28),
+    4: pw.FixedColumnWidth(36),
+    5: pw.FixedColumnWidth(62),
+    6: pw.FixedColumnWidth(30),
+    7: pw.FixedColumnWidth(34),
+    8: pw.FixedColumnWidth(58),
+    9: pw.FixedColumnWidth(30),
+    10: pw.FixedColumnWidth(34),
+    11: pw.FixedColumnWidth(58),
+    12: pw.FixedColumnWidth(30),
+    13: pw.FixedColumnWidth(34),
+    14: pw.FixedColumnWidth(60),
+  };
+
+  static const _numericItemColumns = {2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+  static const _thisMonthFill = 0xFFFFF4B8;
+
+  String _qty(YorksAccountsDecimal v, {bool blankZero = true}) {
+    final n = _n(v);
+    if (n.abs() < 0.00005) return blankZero ? '' : '0';
+    return n == n.roundToDouble() ? n.toStringAsFixed(0) : n.toStringAsFixed(2);
+  }
+
+  String _ipct(YorksAccountsDecimal v, {bool blankZero = true}) {
+    final n = _n(v);
+    if (n.abs() < 0.00005) return blankZero ? '' : '0.00%';
+    return YorksClientInvoiceDocumentBuilder.pct(n);
+  }
+
+  String _iamt(YorksAccountsDecimal v, {bool blankZero = true}) {
+    if (_n(v).abs() < 0.005) return blankZero ? '' : '0.00';
+    return _m(v);
+  }
+
+  pw.Widget _icell(
+    String value, {
+    bool right = false,
+    bool bold = false,
+    int? fill,
+  }) => pw.Container(
+    color: fill == null ? null : PdfColor.fromInt(fill),
+    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.6),
+    child: pw.Text(
+      value,
+      textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
+      style: _st(6.8, bold: bold),
+    ),
+  );
+
+  /// The sheet's two-line heading: column names, with "Till previous month",
+  /// "This month" and "Total completed" each across its three columns, then
+  /// Qty. / % / Amount under them. Widths match [_itemColumns].
+  pw.Widget _itemHead() {
+    pw.Widget box(double? width, String text, {bool right = false}) {
+      final child = pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+        child: pw.Text(
+          text,
+          textAlign: right ? pw.TextAlign.right : pw.TextAlign.left,
+          style: _st(6.8, bold: true, color: 0xFFFFFFFF),
+        ),
+      );
+      return width == null
+          ? pw.Expanded(child: child)
+          : pw.SizedBox(width: width, child: child);
+    }
+
+    pw.Widget band(List<pw.Widget> children) => pw.Container(
+      color: PdfColor.fromInt(YorksClientInvoiceDocumentBuilder._navy),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
+        children: children,
+      ),
+    );
+    pw.Widget group(double width, String text) => pw.Container(
+      width: width,
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(
+            color: PdfColor.fromInt(0x66FFFFFF),
+            width: 0.5,
+          ),
+        ),
+      ),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+      child: pw.Text(
+        text,
+        textAlign: pw.TextAlign.center,
+        style: _st(6.8, bold: true, color: 0xFFFFFFFF),
+      ),
+    );
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        band([
+          box(38, 'Item'),
+          box(null, 'Description'),
+          box(42, 'Total Qty.', right: true),
+          box(28, 'Units'),
+          box(36, 'Weight', right: true),
+          box(62, 'Contract', right: true),
+          group(122, 'Till previous month'),
+          group(122, 'This month'),
+          group(124, 'Total completed'),
+        ]),
+        band([
+          box(38, ''),
+          box(null, ''),
+          box(42, ''),
+          box(28, ''),
+          box(36, ''),
+          box(62, 'Amount', right: true),
+          for (final w in const [58.0, 58.0, 60.0]) ...[
+            box(30, 'Qty.', right: true),
+            box(34, '%', right: true),
+            box(w, 'Amount', right: true),
+          ],
+        ]),
+      ],
+    );
+  }
+
+  pw.Widget _itemTable(
+    String letter,
+    String breakdown,
+    YorksClientInvoiceItemStage st,
+  ) {
+    final rows = <pw.TableRow>[];
+    pw.TableRow plain(
+      List<String> cells, {
+      bool bold = false,
+      bool band = false,
+    }) => pw.TableRow(
+      decoration: band ? _sumBand : null,
+      children: [
+        for (final (i, c) in cells.indexed)
+          _icell(c, right: _numericItemColumns.contains(i), bold: bold),
+      ],
+    );
+    final blank = List.filled(9, '');
+    rows
+      ..add(
+        plain(
+          [
+            letter,
+            'Total Contract Value',
+            '',
+            '',
+            '',
+            _m(doc.contractValue ?? doc.summary?.contractTotal),
+            ...blank,
+          ],
+          bold: true,
+          band: true,
+        ),
+      )
+      ..add(
+        plain([
+          '',
+          breakdown,
+          '',
+          '',
+          _ipct(st.weightPercent),
+          _m(st.contractAmount),
+          ...blank,
+        ], bold: true),
+      );
+
+    // Items keyed "10-1", "10-2" … sit under a group row "A.10" named by the
+    // label before " — " (the workbook's "Ducting works").
+    final groupsSeen = <String>{};
+    var number = 0;
+    final groupNumber = <String, int>{};
+    for (final it in st.items) {
+      final dash = it.itemKey.indexOf('-');
+      final group = dash > 0 ? it.itemKey.substring(0, dash) : null;
+      final split = it.itemLabel.indexOf(' — ');
+      String code;
+      String description;
+      if (group != null) {
+        if (groupsSeen.add(group)) {
+          number += 1;
+          groupNumber[group] = number;
+          rows.add(
+            plain([
+              '$letter.$number',
+              split > 0 ? it.itemLabel.substring(0, split) : it.itemLabel,
+              ...List.filled(13, ''),
+            ], bold: true),
+          );
+        }
+        code =
+            '$letter.${groupNumber[group]}.${it.itemKey.substring(dash + 1)}';
+        description = split > 0
+            ? '    ${it.itemLabel.substring(split + 3)}'
+            : '    ${it.itemLabel}';
+      } else {
+        number += 1;
+        code = '$letter.$number';
+        description = it.itemLabel;
+      }
+      final hasThis = _n(it.thisQty).abs() > 0.00005;
+      final fill = hasThis ? _thisMonthFill : null;
+      rows.add(
+        pw.TableRow(
+          children: [
+            _icell(code),
+            _icell(description),
+            _icell(_qty(it.quantity, blankZero: false), right: true),
+            _icell(it.unitCode),
+            _icell(_ipct(it.weightPercent), right: true),
+            _icell(_m(it.contractAmount), right: true),
+            _icell(_qty(it.previousQty), right: true),
+            _icell(_ipct(it.previousPercent), right: true),
+            _icell(_iamt(it.previousAmount), right: true),
+            _icell(_qty(it.thisQty), right: true, fill: fill),
+            _icell(_ipct(it.thisPercent), right: true, fill: fill),
+            _icell(_iamt(it.thisAmount), right: true, fill: fill),
+            _icell(_qty(it.totalQty, blankZero: false), right: true),
+            _icell(_ipct(it.totalPercent, blankZero: false), right: true),
+            _icell(_iamt(it.totalAmount, blankZero: false), right: true),
+          ],
+        ),
+      );
+    }
+    final adjPrev = _n(st.adjustmentPreviousAmount).abs() >= 0.005;
+    final adjThis = _n(st.adjustmentThisAmount).abs() >= 0.005;
+    if (adjPrev || adjThis) {
+      rows.add(
+        plain([
+          '',
+          'Contract value correction (work billed at the earlier contract value)',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          adjPrev ? _m(st.adjustmentPreviousAmount) : '',
+          '',
+          '',
+          adjThis ? _m(st.adjustmentThisAmount) : '',
+          '',
+          '',
+          _iamt(
+            YorksAccountsDecimal.parse(
+              (_n(st.adjustmentPreviousAmount) + _n(st.adjustmentThisAmount))
+                  .toStringAsFixed(2),
+            ),
+          ),
+        ]),
+      );
+    }
+    rows.add(_itemTotalRow('TOTAL', [st]));
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        _itemHead(),
+        pw.Table(border: _border, columnWidths: _itemColumns, children: rows),
+      ],
+    );
+  }
+
+  pw.TableRow _itemTotalRow(
+    String label,
+    List<YorksClientInvoiceItemStage> sts, {
+    YorksClientInvoiceSummaryStage? summary,
+  }) {
+    double sum(double Function(YorksClientInvoiceItemStage) f) =>
+        sts.fold<double>(0, (a, s) => a + f(s));
+    double items(
+      YorksClientInvoiceItemStage s,
+      YorksAccountsDecimal Function(YorksClientInvoiceItemRow) f,
+    ) => s.items.fold<double>(0, (a, i) => a + _n(f(i)));
+    final prev = summary != null
+        ? _n(summary.previousAmount)
+        : sum((s) => _n(s.previousAmount));
+    final now = summary != null
+        ? _n(summary.thisAmount)
+        : sum((s) => _n(s.thisAmount));
+    final total = summary != null
+        ? _n(summary.totalAmount)
+        : sum((s) => _n(s.totalAmount));
+    String amount(double v) => YorksClientInvoiceDocumentBuilder.money(
+      YorksAccountsDecimal.parse(v.toStringAsFixed(2)),
+    );
+    return pw.TableRow(
+      decoration: _sumBand,
+      children: [
+        _icell(''),
+        _icell(label, bold: true),
+        _icell(''),
+        _icell(''),
+        _icell(
+          YorksClientInvoiceDocumentBuilder.pct(
+            sum((s) => _n(s.weightPercent)),
+          ),
+          right: true,
+          bold: true,
+        ),
+        _icell(
+          amount(sum((s) => _n(s.contractAmount))),
+          right: true,
+          bold: true,
+        ),
+        _icell(''),
+        _icell(
+          YorksClientInvoiceDocumentBuilder.pct(
+            sum((s) => items(s, (i) => i.previousPercent)),
+          ),
+          right: true,
+          bold: true,
+        ),
+        _icell(amount(prev), right: true, bold: true),
+        _icell(''),
+        _icell(
+          YorksClientInvoiceDocumentBuilder.pct(
+            sum((s) => items(s, (i) => i.thisPercent)),
+          ),
+          right: true,
+          bold: true,
+        ),
+        _icell(amount(now), right: true, bold: true),
+        _icell(''),
+        _icell(
+          YorksClientInvoiceDocumentBuilder.pct(
+            sum((s) => items(s, (i) => i.totalPercent)),
+          ),
+          right: true,
+          bold: true,
+        ),
+        _icell(amount(total), right: true, bold: true),
+      ],
+    );
+  }
+
+  pw.Widget _itemGrandTotal(
+    String label,
+    List<YorksClientInvoiceItemStage> sts, {
+    YorksClientInvoiceSummaryStage? summary,
+  }) => pw.Table(
+    border: _border,
+    columnWidths: _itemColumns,
+    children: [_itemTotalRow(label, sts, summary: summary)],
+  );
 
   // ─── Footer on every page ────────────────────────────────────────────────
 

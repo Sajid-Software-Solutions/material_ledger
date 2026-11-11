@@ -1,0 +1,50 @@
+[
+  {
+    "event": "Network.requestWillBeSent",
+    "path": "/auth/v1/user",
+    "time": 179852.428913,
+    "method": "GET"
+  },
+  {
+    "event": "Network.responseReceived",
+    "path": "/auth/v1/user",
+    "time": 179852.851571,
+    "status": 200
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "path": "/rest/v1/v1_profiles",
+    "time": 179852.855529,
+    "method": "GET"
+  },
+  {
+    "event": "Network.responseReceived",
+    "path": "/rest/v1/v1_profiles",
+    "time": 179853.099303,
+    "status": 200
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "path": "/auth/v1/user",
+    "time": 179853.106561,
+    "method": "GET"
+  },
+  {
+    "event": "Network.responseReceived",
+    "path": "/auth/v1/user",
+    "time": 179853.330955,
+    "status": 200
+  },
+  {
+    "event": "Network.requestWillBeSent",
+    "path": "/rest/v1/v1_projects",
+    "time": 179854.796249,
+    "method": "GET"
+  },
+  {
+    "event": "Network.responseReceived",
+    "path": "/rest/v1/v1_projects",
+    "time": 179855.091751,
+    "status": 200
+  }
+]

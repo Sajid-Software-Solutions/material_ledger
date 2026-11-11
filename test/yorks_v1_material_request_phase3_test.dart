@@ -72,7 +72,6 @@ void main() {
       'decision': 'full',
       'arranged_qty': '4',
       'reason': null,
-      'unit_cost': null,
     });
   });
 

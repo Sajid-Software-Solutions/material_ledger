@@ -131,4 +131,5 @@ YorksV1MaterialRequest _request({
   requesterProjectRole: 'Project Engineer',
   itemCount: itemCount,
   lines: const [],
+  dispatchReady: state == YorksV1MaterialRequestState.approved,
 );

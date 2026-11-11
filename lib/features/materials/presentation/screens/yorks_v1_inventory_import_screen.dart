@@ -1,3 +1,5 @@
+import '../../../../shared/providers/yorks_v1_inventory_import_recovery_provider.dart';
+import 'yorks_v1_inventory_recovery_panel.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -121,6 +123,20 @@ class _YorksV1InventoryImportScreenState
       return _RestrictedImportSurface(language: language);
     }
 
+    final importState = ref.watch(yorksV1InventoryImportControllerProvider);
+    final pending = ref.watch(yorksV1InventoryImportRecoveryProvider);
+    if (pending?.exists == true &&
+        importState.status == YorksV1InventoryImportStatus.idle) {
+      return Scaffold(
+        body: SafeArea(
+          child: YorksV1InventoryImportRecoveryPanel(
+            onResolved: () {
+              if (mounted) setState(() {});
+            },
+          ),
+        ),
+      );
+    }
     final unitsAsync = ref.watch(yorksV1ConfigurationUnitCodesProvider);
     if (unitsAsync.isLoading && !unitsAsync.hasError) {
       return const _ImportLoadingSurface();
@@ -192,51 +208,68 @@ class _YorksV1InventoryImportScreenState
         ? AppSpacing.mobileScreenHorizontal
         : AppSpacing.screenHorizontal;
 
-    return Scaffold(
-      backgroundColor: compact ? AppColors.mobileSurface : AppColors.surface,
-      body: SafeArea(
-        top: false,
-        child: CustomScrollView(
-          key: const ValueKey('inventory-import-scroll-view'),
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontal,
-                compact ? AppSpacing.lg : AppSpacing.xxl,
-                horizontal,
-                AppSpacing.xxl,
-              ),
-              sliver: SliverList.list(
-                children: [
-                  _ImportHeader(language: language, onCancel: widget.onCancel),
-                  const SizedBox(height: AppSpacing.lg),
-                  _ImportStageRail(language: language, stage: state.stage),
-                  const SizedBox(height: AppSpacing.lg),
-                  if (state.status == YorksV1InventoryImportStatus.failed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: _ImportFailureBanner(
-                        language: language,
-                        onRetry:
-                            state.stage ==
-                                YorksV1InventoryImportStage.uploadFile
-                            ? () =>
-                                  _chooseFile(controller, workspace, suppliers)
-                            : null,
-                      ),
+    return PopScope(
+      canPop:
+          state.status != YorksV1InventoryImportStatus.committing &&
+          !state.hasUnconfirmedCommit,
+      child: Scaffold(
+        backgroundColor: compact ? AppColors.mobileSurface : AppColors.surface,
+        body: SafeArea(
+          top: false,
+          child: CustomScrollView(
+            key: const ValueKey('inventory-import-scroll-view'),
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontal,
+                  compact ? AppSpacing.lg : AppSpacing.xxl,
+                  horizontal,
+                  AppSpacing.xxl,
+                ),
+                sliver: SliverList.list(
+                  children: [
+                    _ImportHeader(
+                      language: language,
+                      onCancel:
+                          (state.status ==
+                                  YorksV1InventoryImportStatus.committing ||
+                              state.hasUnconfirmedCommit)
+                          ? null
+                          : widget.onCancel,
                     ),
-                  _stageBody(
-                    language: language,
-                    state: state,
-                    controller: controller,
-                    workspace: workspace,
-                    suppliers: suppliers,
-                    controlledUnits: controlledUnits,
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.lg),
+                    _ImportStageRail(language: language, stage: state.stage),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (state.status == YorksV1InventoryImportStatus.failed)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                        child: _ImportFailureBanner(
+                          language: language,
+                          uncertain: state.hasUnconfirmedCommit,
+                          onRetry:
+                              state.stage ==
+                                  YorksV1InventoryImportStage.uploadFile
+                              ? () => _chooseFile(
+                                  controller,
+                                  workspace,
+                                  suppliers,
+                                )
+                              : null,
+                        ),
+                      ),
+                    _stageBody(
+                      language: language,
+                      state: state,
+                      controller: controller,
+                      workspace: workspace,
+                      suppliers: suppliers,
+                      controlledUnits: controlledUnits,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -4064,11 +4097,13 @@ class _SupplierReceiptActions extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         FilledButton.icon(
           key: const ValueKey('inventory-import-commit'),
-          onPressed: state.isBusy || onCommit == null
+          onPressed:
+              state.status == YorksV1InventoryImportStatus.committing ||
+                  onCommit == null
               ? null
               : () async => onCommit!(),
           style: _primaryButtonStyle(),
-          icon: state.isBusy
+          icon: state.status == YorksV1InventoryImportStatus.committing
               ? const SizedBox.square(
                   dimension: 18,
                   child: CircularProgressIndicator(
@@ -4773,7 +4808,12 @@ class _IssueChip extends StatelessWidget {
 }
 
 class _ImportFailureBanner extends StatelessWidget {
-  const _ImportFailureBanner({required this.language, required this.onRetry});
+  const _ImportFailureBanner({
+    required this.language,
+    required this.onRetry,
+    this.uncertain = false,
+  });
+  final bool uncertain;
 
   final AppLanguage language;
   final VoidCallback? onRetry;
@@ -4786,7 +4826,11 @@ class _ImportFailureBanner extends StatelessWidget {
         icon: Icons.error_outline_rounded,
         color: AppColors.error,
         title: YorksV1InventorySupplierStrings.importFailed.active(language),
-        body: YorksV1InventoryStrings.savingFailed.active(language),
+        body:
+            (uncertain
+                    ? YorksV1InventoryStrings.uncertainSave
+                    : YorksV1InventoryStrings.savingFailed)
+                .active(language),
       ),
       if (onRetry != null) ...[
         const SizedBox(height: AppSpacing.sm),

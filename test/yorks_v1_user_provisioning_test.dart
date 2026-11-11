@@ -532,7 +532,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(FloatingActionButton));
+        await tester.tap(find.byKey(const ValueKey('user-management-create')));
         await tester.pumpAndSettle();
 
         expect(find.text('Additional roles (optional)'), findsNothing);
@@ -588,6 +588,7 @@ void main() {
 
         expect(find.text('Noor Zaman Dropdown'), findsOneWidget);
         await tester.ensureVisible(find.text('Noor Zaman Dropdown'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Noor Zaman Dropdown'));
         await tester.pumpAndSettle();
         expect(find.text('Edit User'), findsOneWidget);

@@ -16,11 +16,13 @@ const _uuid = Uuid();
 final auditLogProvider =
     StateNotifierProvider<AuditLogNotifier, List<AuditEntry>>((ref) {
       return AuditLogNotifier(
-        ref.watch(storageProvider).collection<AuditEntry>(
-          _kAuditKey,
-          toJson: (e) => e.toJson(),
-          fromJson: AuditEntry.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<AuditEntry>(
+              _kAuditKey,
+              toJson: (e) => e.toJson(),
+              fromJson: AuditEntry.fromJson,
+            ),
       );
     });
 
