@@ -109,21 +109,103 @@ grant select on deletion_payload to authenticated;
 set local role authenticated;
 select throws_ok($$select public.v1_save_material_request_draft((select payload from deletion_payload))$$,
   '55000', 'V1_PRIVATE_DRAFT_DELETED', 'stale connected Save cannot create a request after deletion');
+reset role;
+insert into public.v1_material_request_private_drafts
+(draft_id,owner_auth_user_id,sync_version,draft_data,client_updated_at,created_at,updated_at)
+select 'de270000-0000-4000-8000-000000000020','10000000-0000-4000-8000-000000000001',1,
+ payload-'request_id'-'expected_version',now(),now(),now() from deletion_payload;
+set local role authenticated;
 select lives_ok($$select public.v1_save_material_request_draft((select payload ||
   '{"request_id":"de270000-0000-4000-8000-000000000020"}' from deletion_payload))$$, 'a fresh UUID still saves normally');
-select lives_ok($$select public.v1_sync_material_request_private_draft(
+reset role;
+select is((select count(*) from public.v1_material_request_private_drafts where draft_id='de270000-0000-4000-8000-000000000020'),0::bigint,'exact accepted save snapshot is atomically retired');
+select is((select reason from public.v1_material_request_recovery_archive where draft_id='de270000-0000-4000-8000-000000000020' and sync_version=1),'saved_snapshot_matches','save archive explains its supersession');
+set local role authenticated;
+select throws_ok($$select public.v1_sync_material_request_private_draft(
   '{"draft_id":"de270000-0000-4000-8000-000000000020","expected_sync_version":0,"client_updated_at":"2026-09-27T00:00:00Z","draft_data":{"lines":[]}}', gen_random_uuid())$$,
-  'legacy saved-record recovery can be retained without deleting business history');
+  '55000', 'V1_PRIVATE_DRAFT_ALREADY_SAVED', 'delayed autosave cannot recreate a saved request recovery');
 select is((select count(*) from jsonb_array_elements(public.v1_list_my_material_request_private_drafts()) draft
   where draft->>'draft_id'='de270000-0000-4000-8000-000000000020'), 0::bigint,
   'saved workflow records are excluded from the private recovery notice');
-select throws_ok($$select public.v1_delete_my_material_request_private_draft(
+select lives_ok($$select public.v1_delete_my_material_request_private_draft(
   '{"draft_id":"de270000-0000-4000-8000-000000000020","expected_sync_version":0}', gen_random_uuid())$$,
-  '55000', 'V1_PRIVATE_DRAFT_ALREADY_SAVED', 'recovery deletion cannot erase a saved workflow draft');
+  'removing absent recovery succeeds and preserves saved workflow draft');
 reset role;
 select is((select count(*) from public.v1_material_requests where id=
   'de270000-0000-4000-8000-000000000020'),1::bigint,'saved MR remains intact');
 
+-- A retained legacy recovery contains extra input, including unknown keys.
+reset role;
+insert into public.v1_material_request_private_drafts
+(draft_id,owner_auth_user_id,sync_version,draft_data,client_updated_at,created_at,updated_at)
+values ('de270000-0000-4000-8000-000000000020','10000000-0000-4000-8000-000000000001',7,
+ '{"title":"Extra work","unknown_future_field":{"preserve":true},"lines":[{"id":"extra-line"}]}',now(),now(),now());
+set local role authenticated;
+select is((public.v1_get_my_material_request_private_draft('de270000-0000-4000-8000-000000000020')->>'saved_request_version')::int,
+  1, 'saved recovery identifies its normalized version');
+select is((select count(*) from jsonb_array_elements(public.v1_list_my_material_request_private_drafts()) d
+  where d->>'draft_id'='de270000-0000-4000-8000-000000000020'),1::bigint,
+  'divergent saved recovery is visible for review');
+select throws_ok($$select public.v1_delete_my_material_request_private_draft(
+  '{"draft_id":"de270000-0000-4000-8000-000000000020","expected_sync_version":6}',gen_random_uuid())$$,
+  '40001','V1_PRIVATE_DRAFT_VERSION_CONFLICT','newer saved recovery cannot be erased by stale delete');
+select lives_ok($$select public.v1_delete_my_material_request_private_draft(
+  '{"draft_id":"de270000-0000-4000-8000-000000000020","expected_sync_version":7}',gen_random_uuid())$$,
+  'explicit deletion removes only current saved recovery');
+select throws_ok($$select public.v1_archive_material_request_recovery(
+  'de270000-0000-4000-8000-000000000020',auth.uid(),'request_progressed')$$,
+  '42501','permission denied for function v1_archive_material_request_recovery','ordinary callers cannot invoke cleanup helper');
+reset role;
+select is((select draft_data->'unknown_future_field' from public.v1_material_request_recovery_archive
+  where draft_id='de270000-0000-4000-8000-000000000020' and sync_version=7),'{"preserve":true}'::jsonb,
+  'archive retains unknown recovery contents verbatim');
+select is((select count(*) from public.v1_material_request_private_draft_retirements
+  where draft_id='de270000-0000-4000-8000-000000000020'),0::bigint,
+  'recovery removal does not retire the editable business draft');
+select ok(not has_table_privilege('authenticated','public.v1_material_request_recovery_archive','select,insert,update,delete'),
+  'archive has no ordinary client authority');
+select ok(not has_table_privilege('anon','public.v1_material_request_recovery_archive','select,insert,update,delete'),
+  'archive has no anonymous authority');
+set local role authenticated;
+select lives_ok($$select public.v1_save_material_request_draft((select payload ||
+  '{"request_id":"de270000-0000-4000-8000-000000000020","expected_version":1}' from deletion_payload))$$,
+  'saved request remains editable after recovery removal');
+reset role;
+-- Simulate a different pre-existing snapshot; progression archives atomically.
+insert into public.v1_material_request_private_drafts
+(draft_id,owner_auth_user_id,sync_version,draft_data,client_updated_at,created_at,updated_at)
+values ('de270000-0000-4000-8000-000000000020','10000000-0000-4000-8000-000000000001',8,
+ '{"title":"Pre-submit recovery","lines":[]}',now(),now(),now());
+update public.v1_material_requests set state='closed', request_number='TEST-RECOVERY', submitted_at=now()
+where id='de270000-0000-4000-8000-000000000020';
+select is((select count(*) from public.v1_material_request_private_drafts
+  where draft_id='de270000-0000-4000-8000-000000000020'),0::bigint,
+  'progression removes active recovery in the same transaction');
+select is((select count(*) from public.v1_material_request_recovery_archive
+  where draft_id='de270000-0000-4000-8000-000000000020'),3::bigint,
+  'all historical recovery versions remain preserved');
+select is((select state from public.v1_material_requests
+  where id='de270000-0000-4000-8000-000000000020'),'closed','progressed business state remains intact');
+set local role authenticated;
+select throws_ok($$select public.v1_get_my_material_request_private_draft(
+  'de270000-0000-4000-8000-000000000020')$$,'55000','V1_PRIVATE_DRAFT_ALREADY_SAVED',
+  'old private resume resolves to existing request instead of a draft editor');
+select lives_ok($$select public.v1_delete_my_material_request_private_draft(
+  '{"draft_id":"de270000-0000-4000-8000-000000000020","expected_sync_version":8}',gen_random_uuid())$$,
+  'old-device recovery removal succeeds after progression');
+select is(jsonb_array_length(public.v1_obsolete_material_request_recovery_ids(array[
+  'de270000-0000-4000-8000-000000000020'::uuid,
+  'de270000-0000-4000-8000-000000000001'::uuid,
+  'de270000-0000-4000-8000-000000000099'::uuid])),2,
+  'classification suppresses only confirmed progressed or retired IDs');
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-site-engineer"}}',true);
+select is(public.v1_obsolete_material_request_recovery_ids(array[
+  'de270000-0000-4000-8000-000000000020'::uuid,
+  'de270000-0000-4000-8000-000000000001'::uuid]),'[]'::jsonb,
+  'another owner cannot classify a guessed request or retirement');
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}',true);
 reset role;
 update public.v1_profiles set is_active=false where auth_user_id='10000000-0000-4000-8000-000000000001';
 set local role authenticated;

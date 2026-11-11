@@ -30,7 +30,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
-    'T09 Reports is overflow-free desktop and deliberate read-only mobile RTL',
+    'T09 Reports is overflow-free desktop and actionable mobile RTL',
     (tester) async {
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -97,26 +97,10 @@ void main() {
           Directionality.of(context),
           language.isRtl ? TextDirection.rtl : TextDirection.ltr,
         );
-        if (viewport.width < 720) {
-          expect(
-            find.text(
-              YorksV1WorkforceStrings.text(
-                language,
-                'reports_read_only_mobile',
-              ),
-            ),
-            findsOneWidget,
-          );
-          expect(
-            find.byKey(const Key('workforce-report-generate')),
-            findsNothing,
-          );
-        } else {
-          expect(
-            find.byKey(const Key('workforce-report-generate')),
-            findsOneWidget,
-          );
-        }
+        expect(
+          find.byKey(const Key('workforce-report-generate')),
+          findsOneWidget,
+        );
         expect(
           tester.takeException(),
           isNull,
@@ -126,10 +110,11 @@ void main() {
     },
   );
 
-  testWidgets(
-    'history opens one protected preview and desktop export actions',
-    (tester) async {
-      tester.view.physicalSize = const Size(1366, 768);
+  for (final exportWidth in [360.0, 1366.0]) {
+    testWidgets('history opens protected export actions at $exportWidth', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(exportWidth, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(() {
         tester.view.resetPhysicalSize();
@@ -155,7 +140,7 @@ void main() {
                     selectedTeamId: _teamId,
                   ),
                   reviewState: const YorksWorkforceReviewState(),
-                  compact: false,
+                  compact: exportWidth < 720,
                 ),
               ),
             ),
@@ -177,8 +162,8 @@ void main() {
       expect(find.text('Print'), findsOneWidget);
       expect(find.text('Share PDF'), findsOneWidget);
       expect(tester.takeException(), isNull);
-    },
-  );
+    });
+  }
 }
 
 Future<YorksWorkforceReportController> _controller() async =>

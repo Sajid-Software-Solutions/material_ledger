@@ -1,3 +1,5 @@
+import '../../../shared/services/analytics_service.dart';
+import '../../../shared/models/analytics_event.dart';
 import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,16 +39,19 @@ class SupabaseCompanyAnalyticsRepository implements CompanyAnalyticsRepository {
     required YorksV1FeatureFlags featureFlags,
     required ConnectivityService connectivity,
     CompanyAnalyticsRpcClient? rpcClient,
+    AnalyticsService analytics = const NoopAnalyticsService(),
     Duration timeout = const Duration(seconds: 20),
   }) : _featureFlags = featureFlags,
        _connectivity = connectivity,
        _rpcClient = rpcClient,
-       _timeout = timeout;
+       _timeout = timeout,
+       _analytics = analytics;
 
   final YorksV1FeatureFlags _featureFlags;
   final ConnectivityService _connectivity;
   final CompanyAnalyticsRpcClient? _rpcClient;
   final Duration _timeout;
+  final AnalyticsService _analytics;
 
   @override
   Future<CompanyAnalyticsProjection> getProjection(
@@ -67,6 +72,13 @@ class SupabaseCompanyAnalyticsRepository implements CompanyAnalyticsRepository {
       );
     }
 
+    final operation = _analytics.beginOperation(
+      'dashboard_load',
+      properties: const {
+        AnalyticsProperty.source: 'company_analytics',
+        AnalyticsProperty.workflow: 'dashboard',
+      },
+    );
     try {
       final raw = await rpc
           .invoke(
@@ -79,19 +91,25 @@ class SupabaseCompanyAnalyticsRepository implements CompanyAnalyticsRepository {
           YorksV1DomainErrorCode.unexpectedResponse,
         );
       }
-      return CompanyAnalyticsProjection.fromRpcJson(
+      final result = CompanyAnalyticsProjection.fromRpcJson(
         Map<String, dynamic>.from(raw),
       );
-    } on YorksV1DomainException {
+      operation.complete();
+      return result;
+    } on YorksV1DomainException catch (error) {
+      operation.fail(error);
       rethrow;
     } on TimeoutException catch (error) {
+      operation.fail(error);
       throw YorksV1DomainException(
         YorksV1DomainErrorCode.backendUnavailable,
         cause: error,
       );
     } on PostgrestException catch (error) {
+      operation.fail(_mapPostgrest(error));
       throw _mapPostgrest(error);
     } catch (error) {
+      operation.fail(error);
       throw YorksV1DomainException(
         YorksV1DomainErrorCode.backendUnavailable,
         cause: error,

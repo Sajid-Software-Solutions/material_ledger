@@ -58,6 +58,7 @@ import '../../../accounts/presentation/screens/yorks_accounts_screens.dart';
 import '../../../accounts/presentation/v2/accounts_v2_common.dart';
 import '../../../accounts/presentation/v2/accounts_v2_deferred.dart';
 import '../widgets/yorks_v1_project_local_draft_section.dart';
+import '../widgets/yorks_v1_project_material_summary_panel.dart';
 import '../../../../shared/providers/yorks_v1_project_creation_draft_provider.dart';
 
 /// The normalized, R35-aligned project portfolio.
@@ -111,6 +112,56 @@ class YorksV1OverviewScreen extends ConsumerWidget {
     final executive =
         role == YorksV1Role.admin || (role?.isGlobalProjectEngineer ?? false);
     final admin = role == YorksV1Role.admin;
+    final canOpenAnalytics =
+        featureFlags.analytics &&
+        permissions.hybridAllows(
+          YorksV1CapabilityKeys.analyticsView,
+          legacyAllowed: false,
+          organizationSummary: true,
+        );
+    final AsyncValue<CompanyAnalyticsProjection?> companyAnalytics =
+        admin && canOpenAnalytics
+        ? ref
+              .watch(
+                companyAnalyticsProjectionProvider(
+                  const CompanyAnalyticsFilters(months: 6),
+                ),
+              )
+              .whenData<CompanyAnalyticsProjection?>((value) => value)
+        : const AsyncData<CompanyAnalyticsProjection?>(null);
+    // The protected company response already contains the Admin summaries.
+    // Subscribe to legacy module projections only when this view is unavailable.
+    if (admin && canOpenAnalytics && !companyAnalytics.hasError) {
+      return YorksV1ExecutiveOverview(
+        language: language,
+        role: role!,
+        displayName: user?.fullName,
+        projects: const AsyncData([]),
+        requests: const AsyncData([]),
+        inventory: const AsyncData(null),
+        configuration: const AsyncData(null),
+        rentals: const AsyncData(null),
+        audit: null,
+        activeUsers: null,
+        canBrowseInventory: false,
+        canAccessRentals: false,
+        canOpenAnalytics: true,
+        companyAnalytics: companyAnalytics,
+        featureFlags: featureFlags,
+        onRefresh: () async {
+          final provider = companyAnalyticsProjectionProvider(
+            const CompanyAnalyticsFilters(),
+          );
+          if (ref.read(provider).isLoading) return;
+          try {
+            ref.invalidate(provider);
+            await ref.read(provider.future);
+          } catch (_) {
+            // The typed provider failure activates the existing source fallback.
+          }
+        },
+      );
+    }
     final AsyncValue<YorksV1ProjectOverview> projectOverview = ref.watch(
       yorksV1ProjectOverviewProvider,
     );
@@ -159,23 +210,6 @@ class YorksV1OverviewScreen extends ConsumerWidget {
       legacyAllowed: role?.canBrowseInventory == true,
       organizationSummary: true,
     );
-    final canOpenAnalytics =
-        featureFlags.analytics &&
-        permissions.hybridAllows(
-          YorksV1CapabilityKeys.analyticsView,
-          legacyAllowed: false,
-          organizationSummary: true,
-        );
-    final AsyncValue<CompanyAnalyticsProjection?> companyAnalytics =
-        admin && canOpenAnalytics
-        ? ref
-              .watch(
-                companyAnalyticsProjectionProvider(
-                  const CompanyAnalyticsFilters(months: 6),
-                ),
-              )
-              .whenData<CompanyAnalyticsProjection?>((value) => value)
-        : const AsyncData<CompanyAnalyticsProjection?>(null);
     final canAccessRentals = admin && ref.watch(canAccessRentalsProvider);
     final shouldLoadInventory = canBrowseInventory;
     final AsyncValue<YorksV1InventoryWorkspace?> inventory = shouldLoadInventory
@@ -5150,6 +5184,8 @@ class _ProjectWorkspaceBody extends StatelessWidget {
                       YorksV1ProjectWorkspaceTab.materialMovement =>
                         _ProjectMaterialMovementPanel(
                           projectId: project.id,
+                          projectReference: project.reference,
+                          projectName: project.name,
                           language: language,
                         ),
                     },
@@ -6055,6 +6091,8 @@ class _MobileProjectWorkspace extends StatelessWidget {
               YorksV1ProjectWorkspaceTab.materialMovement =>
                 _ProjectMaterialMovementPanel(
                   projectId: item.project.id,
+                  projectReference: item.project.reference,
+                  projectName: item.project.name,
                   language: language,
                 ),
               YorksV1ProjectWorkspaceTab.boq => const SizedBox.shrink(),
@@ -7059,8 +7097,35 @@ class _ProjectWorkspaceTabs extends StatelessWidget {
   }
 }
 
-class _ProjectMaterialMovementPanel extends ConsumerWidget {
+class _ProjectMaterialMovementPanel extends StatelessWidget {
   const _ProjectMaterialMovementPanel({
+    required this.projectId,
+    required this.projectReference,
+    required this.projectName,
+    required this.language,
+  });
+
+  final String projectId;
+  final String projectReference;
+  final String projectName;
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) => YorksV1ProjectMaterialMovementWorkspace(
+    projectId: projectId,
+    projectReference: projectReference,
+    projectName: projectName,
+    language: language,
+    register: _ProjectMaterialMovementRegister(
+      projectId: projectId,
+      language: language,
+    ),
+  );
+}
+
+/// Chronological dispatch and confirmed-return register (unchanged).
+class _ProjectMaterialMovementRegister extends ConsumerWidget {
+  const _ProjectMaterialMovementRegister({
     required this.projectId,
     required this.language,
   });
@@ -7073,84 +7138,47 @@ class _ProjectMaterialMovementPanel extends ConsumerWidget {
     final movements = ref.watch(
       yorksV1ProjectMaterialMovementsProvider(projectId),
     );
-    return LedgerCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  YorksV1ProjectStrings.materialMovement.active(language),
-                  style: AppTypography.titleLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  YorksV1ProjectStrings.materialMovementDescription.active(
-                    language,
-                  ),
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
+    return movements.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(AppSpacing.xxxl),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: OutlinedButton.icon(
+          onPressed: () => ref.invalidate(
+            yorksV1ProjectMaterialMovementsProvider(projectId),
           ),
-          const Divider(height: 1),
-          movements.when(
-            loading: () => const Padding(
-              padding: EdgeInsets.all(AppSpacing.xxxl),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (_, _) => Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: OutlinedButton.icon(
-                onPressed: () => ref.invalidate(
-                  yorksV1ProjectMaterialMovementsProvider(projectId),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text(YorksV1MaterialRequestStrings.tryAgain.active(language)),
+        ),
+      ),
+      data: (items) => items.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.all(AppSpacing.xxxl),
+              child: Text(
+                YorksV1ProjectStrings.noMaterialMovements.active(language),
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.muted,
                 ),
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(
-                  YorksV1MaterialRequestStrings.tryAgain.active(language),
+              ),
+            )
+          : ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 520),
+              child: Scrollbar(
+                child: ListView.separated(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) => _ProjectMaterialMovementRow(
+                    movement: items[index],
+                    language: language,
+                  ),
                 ),
               ),
             ),
-            data: (items) => items.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxxl),
-                    child: Text(
-                      YorksV1ProjectStrings.noMaterialMovements.active(
-                        language,
-                      ),
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  )
-                : ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 520),
-                    child: Scrollbar(
-                      child: ListView.separated(
-                        primary: false,
-                        padding: EdgeInsets.zero,
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (context, index) =>
-                            _ProjectMaterialMovementRow(
-                              movement: items[index],
-                              language: language,
-                            ),
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }

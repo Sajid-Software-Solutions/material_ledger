@@ -77,12 +77,16 @@ void main() {
     AnalyticsService? analytics,
     List<YorksV1ProjectPortfolioItem> Function()? portfolioItems,
     ProjectDraftAtomicStorage Function(SharedPreferences)? draftStorageFactory,
+    int automaticReconciliationAttempts = 2,
   }) async {
     SharedPreferences.setMockInitialValues({});
     repository.creatorRole = role;
     final preferences = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [
+        yorksV1ProjectAutomaticReconciliationAttemptsProvider.overrideWithValue(
+          automaticReconciliationAttempts,
+        ),
         sharedPreferencesProvider.overrideWithValue(preferences),
         yorksV1ProjectReferenceAdvisoryProvider.overrideWith(
           (ref, query) async => YorksV1ProjectReferenceAdvisory.unavailable,
@@ -996,7 +1000,6 @@ void main() {
           ],
         );
     await draftNotifier.save(initialDraft);
-    final originalIdempotencyKey = initialDraft.creationIdempotencyKey;
     YorksV1Project? createdProject;
     var createdCallbacks = 0;
 
@@ -1014,18 +1017,7 @@ void main() {
     await tester.tap(createButton);
     await tester.pumpAndSettle();
 
-    expect(repository.receivedCreationInputs, hasLength(1));
-    expect(
-      container
-          .read(yorksV1ProjectSetupCreationDraftProvider(_authUserId))
-          .creationIdempotencyKey,
-      originalIdempotencyKey,
-    );
-    expect(createdProject, isNull);
-
-    await tester.tap(createButton);
-    await tester.pumpAndSettle();
-
+    // Recovery completes automatically with the same reviewed command key.
     expect(repository.receivedCreationInputs, hasLength(2));
     expect(
       repository.receivedCreationInputs
@@ -2192,6 +2184,8 @@ void main() {
       final container = await createContainer(
         role: YorksV1Role.siteEngineer,
         repository: repository,
+        // Seed an unresolved journal from the pre-automatic-recovery release.
+        automaticReconciliationAttempts: 0,
       );
       final provider = yorksV1ProjectSetupCreationDraftProvider(_authUserId);
       await container

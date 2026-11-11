@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(28);
+select plan(40);
 
 select ok(
   has_function_privilege(
@@ -344,6 +344,83 @@ select lives_ok(
   )$$,
   'Project Engineer approves the exact Procurement clarification revision'
 );
+select ok(
+  (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010') ->> 'status') = 'confirmed'
+  and (public.v1_get_material_workflow_command_view('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010') -> 'response') ?& array['id','state','lines'],
+  'actor can reconcile a receipt before separately reading the current projection'
+);
+select ok(
+  not (public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010')::text like '%unit_cost%'),
+  'Engineering outcome readback contains no protected commercial fields'
+);
+select is(
+  public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000099')->>'status', 'unknown',
+  'absent command is unknown, never a fabricated rejection'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer"}}',true);
+select is(
+  public.v1_get_material_workflow_command_outcome('v1_decide_material_request',
+    '90730000-0000-4000-8000-000000000010')->>'status','unknown',
+  'another actor cannot discover or retrieve the confirmed receipt'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}',true);
+select ok(not has_function_privilege('anon',
+  'public.v1_get_material_workflow_command_outcome(text,uuid)','execute'),
+  'anonymous callers cannot read command outcomes');
+
+reset role;
+
+select ok(
+  (select response_json ?& array['id','state','timing','lines','project_id','scope_id']
+    and response_json ->> 'state' = 'arranging'
+    and not (response_json::text like '%unit_cost%')
+   from public.v1_idempotency_keys
+   where idempotency_key = '90730000-0000-4000-8000-000000000010'),
+  'clarification approval stores the role-safe Material Request response'
+);
+
+select ok(
+  not has_function_privilege('authenticated',
+    'public.v1_decide_material_request_before_response_contract(jsonb,uuid)', 'execute')
+  and not has_function_privilege('anon',
+    'public.v1_decide_material_request(jsonb,uuid)', 'execute'),
+  'response adapter retains the private implementation and public RPC boundary'
+);
+-- Simulate the stored response of an approval completed before this migration.
+update public.v1_idempotency_keys
+set response_json = jsonb_build_object(
+  'request_id','90710000-0000-4000-8000-000000000001', 'request_state','arranging')
+where idempotency_key = '90730000-0000-4000-8000-000000000010';
+set local role authenticated;
+select ok(
+  public.v1_decide_material_request(
+    jsonb_build_object('request_id','90710000-0000-4000-8000-000000000001',
+      'expected_version',5,'decision','approved','reason',null),
+    '90730000-0000-4000-8000-000000000010'::uuid
+  ) ?& array['id','state','timing','lines'],
+  'retry of a pre-fix committed approval returns a readable request'
+);
+select ok(
+  public.v1_decide_material_request(
+    jsonb_build_object('request_id','90710000-0000-4000-8000-000000000001',
+      'expected_version',5,'decision','approved','reason',null),
+    '90730000-0000-4000-8000-000000000010'::uuid
+  ) ?& array['id','state','timing','lines'],
+  'subsequent retry retains the repaired response'
+);
+reset role;
+select is(
+  (select count(*)::integer from public.v1_audit_events
+   where idempotency_key = '90730000-0000-4000-8000-000000000010'),
+  1, 'response repair does not duplicate the approval audit event'
+);
+
 
 set local role authenticated;
 select set_config(
@@ -394,11 +471,32 @@ select set_config(
   '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}',
   true
 );
+select ok(
+  public.v1_decide_material_request(
+    jsonb_build_object('request_id','90710000-0000-4000-8000-000000000001',
+      'expected_version',7,'decision','returned','reason','Check model again'),
+    '90730000-0000-4000-8000-000000000014'::uuid
+  ) ?& array['id','state','timing','lines'],
+  'returning a clarification also returns the Material Request contract'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000003","role":"authenticated","app_metadata":{"role":"procurement","app_user_id":"usr-local-procurement"}}', true);
+select lives_ok(
+  $$select public.v1_update_material_request_procurement_item(
+    jsonb_build_object('request_id','90710000-0000-4000-8000-000000000001',
+      'request_line_id','90720000-0000-4000-8000-000000000001',
+      'expected_request_version',8,'item_description','Exhaust fan final checked',
+      'model_reference','EF-300R'),
+    '90730000-0000-4000-8000-000000000015'::uuid
+  )$$, 'Procurement can correct a returned clarification'
+);
+select set_config('request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}', true);
 select lives_ok(
   $$select public.v1_decide_material_request(
     jsonb_build_object(
       'request_id', '90710000-0000-4000-8000-000000000001',
-      'expected_version', 7, 'decision', 'approved', 'reason', null
+      'expected_version', 9, 'decision', 'approved', 'reason', null
     ), '90730000-0000-4000-8000-000000000013'::uuid
   )$$,
   'Project Engineer approves the newer clarification revision independently'
@@ -417,7 +515,7 @@ select lives_ok(
       'request_id', '90710000-0000-4000-8000-000000000001',
       'arrangement_id', (select arrangement_id
         from v1_clarification_arrangement),
-      'expected_request_version', 8,
+      'expected_request_version', 10,
       'expected_arrangement_version', 1,
       'procurement_note', null,
       'lines', jsonb_build_array(jsonb_build_object(

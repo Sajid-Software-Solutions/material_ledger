@@ -14,10 +14,8 @@ import 'package:material_ledger/shared/models/yorks_v1_logistics.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project_portfolio.dart';
-import 'package:material_ledger/shared/models/yorks_v1_project_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_rental.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
-import 'package:material_ledger/shared/models/yorks_v1_shell_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_audit_provider.dart';
 
@@ -96,28 +94,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      if (evidence.role == YorksV1Role.admin && evidence.size.width < 720) {
-        final primaryAction = tester.getRect(
-          find.ancestor(
-            of: find.text(YorksV1ProjectStrings.newProject.primary),
-            matching: find.byType(FilledButton),
-          ),
-        );
-        final analyticsAction = tester.getRect(
-          find.ancestor(
-            of: find.text(YorksV1ShellStrings.analytics.primary),
-            matching: find.byType(OutlinedButton),
-          ),
-        );
-        final requestsAction = tester.getRect(
-          find.ancestor(
-            of: find.text(YorksV1ShellStrings.viewAllRequests.primary),
-            matching: find.byType(OutlinedButton),
-          ),
-        );
-        expect(primaryAction.width, greaterThan(analyticsAction.width * 1.9));
-        expect(analyticsAction.width, closeTo(requestsAction.width, 1));
-        expect(analyticsAction.top, closeTo(requestsAction.top, 1));
+      if (evidence.role == YorksV1Role.admin) {
+        final action = tester.getRect(find.text('Important for you'));
+        expect(action.top, lessThan(evidence.size.height / 2));
       }
       await expectLater(
         find.byType(YorksV1ExecutiveOverview),

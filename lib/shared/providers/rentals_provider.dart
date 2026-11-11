@@ -57,8 +57,9 @@ List<String> _monthsBetween(DateTime start, DateTime end) {
       if (p.unitId != unit.id || p.isVoided || p.periodMonth != key) continue;
       paid += p.amountPaidAED.clamp(0, unit.monthlyRentAED).toDouble();
     }
-    final outstanding =
-        (unit.monthlyRentAED - paid).clamp(0, double.infinity).toDouble();
+    final outstanding = (unit.monthlyRentAED - paid)
+        .clamp(0, double.infinity)
+        .toDouble();
     if (outstanding <= 0) continue;
     if (key == thisMonth) {
       currentDue += outstanding;
@@ -75,11 +76,13 @@ final rentalUnitsProvider =
     StateNotifierProvider<RentalUnitsNotifier, List<RentalUnit>>((ref) {
       return RentalUnitsNotifier(
         ref,
-        ref.watch(storageProvider).collection<RentalUnit>(
-          _kRentalUnitsKey,
-          toJson: (u) => u.toJson(),
-          fromJson: RentalUnit.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<RentalUnit>(
+              _kRentalUnitsKey,
+              toJson: (u) => u.toJson(),
+              fromJson: RentalUnit.fromJson,
+            ),
       );
     });
 
@@ -167,11 +170,13 @@ final rentPaymentsProvider =
     StateNotifierProvider<RentPaymentsNotifier, List<RentPayment>>((ref) {
       return RentPaymentsNotifier(
         ref,
-        ref.watch(storageProvider).collection<RentPayment>(
-          _kRentPaymentsKey,
-          toJson: (p) => p.toJson(),
-          fromJson: RentPayment.fromJson,
-        ),
+        ref
+            .watch(storageProvider)
+            .collection<RentPayment>(
+              _kRentPaymentsKey,
+              toJson: (p) => p.toJson(),
+              fromJson: RentPayment.fromJson,
+            ),
       );
     });
 
@@ -308,7 +313,9 @@ final unitRentStatusProvider = Provider.family<RentStatus, String>((
   // Current month has a balance: partial if something's in this month, else due.
   final thisMonth = _monthKey(now);
   final paidThis = payments
-      .where((p) => p.unitId == unitId && !p.isVoided && p.periodMonth == thisMonth)
+      .where(
+        (p) => p.unitId == unitId && !p.isVoided && p.periodMonth == thisMonth,
+      )
       .fold(0.0, (s, p) => s + p.amountPaidAED);
   return paidThis > 0 ? RentStatus.partial : RentStatus.due;
 });

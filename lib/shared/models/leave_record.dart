@@ -31,11 +31,8 @@ enum LeaveRecordStatus {
   final String ur;
   final String hi;
 
-  static LeaveRecordStatus fromName(String n) =>
-      LeaveRecordStatus.values.firstWhere(
-        (s) => s.name == n,
-        orElse: () => pending,
-      );
+  static LeaveRecordStatus fromName(String n) => LeaveRecordStatus.values
+      .firstWhere((s) => s.name == n, orElse: () => pending);
 }
 
 /// A leave request/record for an employee (FR-126).

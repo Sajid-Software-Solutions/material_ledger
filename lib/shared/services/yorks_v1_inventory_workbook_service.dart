@@ -6,6 +6,10 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../models/yorks_v1_boq_workbook.dart';
 import '../models/yorks_v1_domain_error.dart';
@@ -55,6 +59,17 @@ abstract interface class YorksV1InventoryWorkbookFileService {
   });
 }
 
+abstract interface class YorksV1InventoryMovementPrintService {
+  Future<bool> printMovementRegister(
+    List<YorksV1InventoryMovement> movements, {
+    bool Function()? canPrint,
+  });
+}
+
+abstract interface class YorksV1InventoryMovementFileService {
+  Future<bool> saveMovementRegister(List<YorksV1InventoryMovement> movements);
+}
+
 abstract interface class YorksV1InventorySupplierRegisterFileService {
   Future<bool> saveSupplierRegister({
     required List<YorksV1InventorySupplierDirectoryEntry> suppliers,
@@ -81,6 +96,8 @@ abstract interface class YorksV1InventoryImportEvidenceFileService {
 class YorksV1PlatformInventoryWorkbookFileService
     implements
         YorksV1InventoryWorkbookFileService,
+        YorksV1InventoryMovementFileService,
+        YorksV1InventoryMovementPrintService,
         YorksV1InventorySupplierRegisterFileService,
         YorksV1InventoryImportEvidenceFileService {
   const YorksV1PlatformInventoryWorkbookFileService();
@@ -131,6 +148,112 @@ class YorksV1PlatformInventoryWorkbookFileService
     type: _xlsx,
     mimeType: _xlsxMime,
   );
+
+  @override
+  Future<bool> saveMovementRegister(List<YorksV1InventoryMovement> movements) =>
+      _save(
+        bytes: buildMovementRegisterWorkbook(movements),
+        name:
+            'Yorks_Stock_Movements_${_dateStamp(DateTime.now().toUtc())}.xlsx',
+        type: _xlsx,
+        mimeType: _xlsxMime,
+      );
+
+  static const movementHeadings = [
+    'Date (UTC)',
+    'Item Code',
+    'Item Description',
+    'Unit',
+    'Movement',
+    'Quantity Change',
+    'On Hand After',
+    'Reason',
+    'Actor',
+    'Reference',
+  ];
+
+  static List<List<String>> movementRows(
+    List<YorksV1InventoryMovement> movements,
+  ) => [
+    for (final m in movements)
+      [
+        m.createdAt.toUtc().toIso8601String(),
+        m.itemCode ?? '',
+        m.itemDescription ?? '',
+        m.unit ?? '',
+        m.movementType,
+        m.quantityDelta,
+        m.onHandAfterQuantity,
+        m.reason,
+        m.actorDisplayName,
+        m.sourceEntityId ?? '',
+      ],
+  ];
+
+  static Uint8List buildMovementRegisterWorkbook(
+    List<YorksV1InventoryMovement> movements,
+  ) => _encodeStyledStockRegister(
+    title: 'Yorks Stock Movements',
+    headings: movementHeadings,
+    rows: movementRows(movements),
+  );
+
+  static Future<Uint8List> buildMovementPdf(
+    List<YorksV1InventoryMovement> movements,
+  ) async {
+    final regular = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
+    );
+    final bold = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
+    );
+    final arabic = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'),
+    );
+    final pdf = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: regular,
+        bold: bold,
+        fontFallback: [arabic],
+      ),
+    );
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        maxPages: 10000,
+        margin: const pw.EdgeInsets.all(24),
+        header: (_) => pw.Text(
+          'Yorks Stock Movements',
+          style: pw.TextStyle(font: bold, fontSize: 14),
+        ),
+        footer: (context) => pw.Text(
+          '${context.pageNumber} / ${context.pagesCount}',
+          style: const pw.TextStyle(fontSize: 8),
+        ),
+        build: (_) => [
+          pw.TableHelper.fromTextArray(
+            headers: movementHeadings,
+            data: movementRows(movements),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            headerStyle: pw.TextStyle(font: bold, fontSize: 7),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+            cellAlignment: pw.Alignment.centerLeft,
+          ),
+        ],
+      ),
+    );
+    return pdf.save();
+  }
+
+  @override
+  Future<bool> printMovementRegister(
+    List<YorksV1InventoryMovement> movements, {
+    bool Function()? canPrint,
+  }) async {
+    final bytes = await buildMovementPdf(movements);
+    if (canPrint != null && !canPrint()) return false;
+    return Printing.layoutPdf(onLayout: (_) async => bytes);
+  }
 
   @override
   Future<bool> saveSupplierRegister({

@@ -1,3 +1,8 @@
+import '../shared/providers/yorks_v1_procurement_progress_provider.dart';
+import '../shared/providers/yorks_v1_inventory_stock_command_provider.dart';
+import '../shared/providers/yorks_v1_inventory_workbook_provider.dart';
+import '../shared/controllers/yorks_v1_inventory_import_controller.dart';
+import '../features/workforce/presentation/screens/yorks_workforce_team_workers_screen.dart';
 import '../shared/providers/yorks_v1_calculator_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -53,12 +58,14 @@ import '../features/inventory/presentation/screens/inventory_screen.dart';
 import '../features/inventory/presentation/screens/stock_history_screen.dart';
 import '../features/materials/presentation/screens/materials_hub_screen.dart';
 import '../features/materials/presentation/screens/material_line_grid_demo_screen.dart';
-import '../features/materials/presentation/screens/yorks_v1_arrangement_screen.dart';
+import '../features/materials/presentation/screens/yorks_v1_arrangement_screen.dart'
+    deferred as procurement_arrangement;
 import '../features/materials/presentation/screens/yorks_v1_logistics_screen.dart';
 import '../features/materials/presentation/screens/yorks_v1_material_request_screens.dart';
 import '../features/materials/presentation/screens/yorks_v1_company_material_request_screen.dart'
     deferred as company_material_request;
-import '../features/materials/presentation/screens/yorks_v1_material_returns_screen.dart';
+import '../features/materials/presentation/screens/yorks_v1_material_returns_screen.dart'
+    deferred as material_returns;
 import '../features/materials/presentation/screens/yorks_v1_returns_documents_screen.dart';
 import '../features/onboarding/presentation/screens/language_selection_screen.dart';
 import '../features/onboarding/presentation/screens/splash_screen.dart';
@@ -73,8 +80,8 @@ import '../features/projects/presentation/screens/yorks_v1_project_setup_entry_s
 import '../features/projects/presentation/screens/yorks_v1_project_legacy_flow_screen.dart';
 import '../features/projects/presentation/screens/yorks_v1_documents_screen.dart';
 import '../features/projects/presentation/screens/yorks_v1_projects_screen.dart';
-import '../features/rentals/presentation/screens/rental_unit_detail_screen.dart';
-import '../features/rentals/presentation/screens/rentals_dashboard_screen.dart';
+import '../features/rentals/presentation/screens/yorks_v1_rental_screens.dart'
+    deferred as rental_workspace;
 import '../features/chat/presentation/screens/yorks_v1_team_chat_screen.dart';
 import '../features/company_overview/presentation/company_analytics_screen.dart'
     deferred as company_analytics;
@@ -619,8 +626,9 @@ bool? _isAllowedForRole(
   AppUser? user,
   RolePermissions perms,
   YorksV1Role? yorksV1Role,
-  YorksV1HybridPermissionResolver? permissionResolver,
-) {
+  YorksV1HybridPermissionResolver? permissionResolver, {
+  bool workerRecordsEnabled = false,
+}) {
   // Grantable boundaries resolve through: per-user override → editable role
   // default (Access & Roles matrix) → built-in baseline.
   final canReceiveGoods = resolveCapability(
@@ -665,6 +673,23 @@ bool? _isAllowedForRole(
   if (_isYorksV1AccountsPath(path)) return true;
   if (_isYorksV1WorkforcePath(path)) return true;
   if (_isYorksV1AnalyticsPath(path)) return true;
+
+  // Worker Records lives on the User Management page itself (never its
+  // per-user access sub-pages). Any role may reach it once the confirmed
+  // permission snapshot grants `worker_records.view`; there is no legacy
+  // authority. Without the grant the ordinary User Management rule applies.
+  if (workerRecordsEnabled &&
+      path == RoutePaths.users &&
+      yorksV1Role != null &&
+      permissionResolver != null) {
+    final recordsAllowed = _hybridRouteAllows(
+      permissionResolver,
+      YorksV1CapabilityKeys.workerRecordsView,
+      legacyAllowed: false,
+    );
+    if (recordsAllowed == true) return true;
+    if (recordsAllowed == null && role == UserRole.accountant) return null;
+  }
 
   // The protected V1 guard resolves Company flag/scope separately. Accept
   // only its shared home and Company paths at this compatibility layer.
@@ -1155,6 +1180,7 @@ GoRouter createAppRouter({
   bool yorksV1AccountsEnabled = false,
   bool yorksV1AccountsWorkspaceV2Enabled = false,
   bool yorksV1WorkforceEnabled = false,
+  bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1AnalyticsEnabled = false,
   YorksV1Role? yorksV1Role,
   YorksV1HybridPermissionResolver? yorksV1PermissionResolver,
@@ -1433,6 +1459,7 @@ GoRouter createAppRouter({
         perms,
         yorksV1Role,
         yorksV1PermissionResolver,
+        workerRecordsEnabled: yorksV1WorkerRecordsEnabled,
       );
       if (roleAllowed == false) {
         return RoutePaths.engineerHome;
@@ -1567,8 +1594,9 @@ GoRouter createAppRouter({
               routes: [
                 GoRoute(
                   path: RoutePaths.rentals,
-                  pageBuilder: (context, state) =>
-                      const NoTransitionPage(child: RentalsDashboardScreen()),
+                  pageBuilder: (context, state) => const NoTransitionPage(
+                    child: _DeferredRentalWorkspaceScreen(),
+                  ),
                 ),
               ],
             ),
@@ -2055,16 +2083,38 @@ GoRouter createAppRouter({
         ),
       GoRoute(
         path: RoutePaths.yorksV1MaterialRequestArrangement,
+        onExit: (context, state) async =>
+            await ProviderScope.containerOf(
+              context,
+              listen: false,
+            ).read(yorksV1ProcurementExitGuardProvider).check?.call() ??
+            true,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1ArrangementScreen(
+          _DeferredProcurementArrangementScreen(
             requestId: state.pathParameters['requestId'] ?? '',
-            onCompleted: () => context.pop(),
+            onCompleted: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(
+                  RoutePaths.yorksV1MaterialRequestPath(
+                    state.pathParameters['requestId'] ?? '',
+                  ),
+                );
+              }
+            },
           ),
         ),
       ),
       GoRoute(
         path: RoutePaths.yorksV1MaterialRequestLogistics,
+        onExit: (context, state) async =>
+            await ProviderScope.containerOf(
+              context,
+              listen: false,
+            ).read(yorksV1ProcurementExitGuardProvider).check?.call() ??
+            true,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
           YorksV1LogisticsScreen(
@@ -2089,6 +2139,13 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1Inventory,
+        onExit: (context, state) {
+          final command = ProviderScope.containerOf(
+            context,
+            listen: false,
+          ).read(yorksV1InventoryStockCommandProvider);
+          return !command.busy && !command.unresolved;
+        },
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
           yorksInventoryScreen(initialTab: state.uri.queryParameters['tab']),
@@ -2113,6 +2170,14 @@ GoRouter createAppRouter({
       if (yorksV1InventorySuppliersEnabled)
         GoRoute(
           path: RoutePaths.yorksV1InventoryImport,
+          onExit: (context, state) {
+            final pending = ProviderScope.containerOf(
+              context,
+              listen: false,
+            ).read(yorksV1InventoryImportControllerProvider);
+            return pending.status != YorksV1InventoryImportStatus.committing &&
+                !pending.hasUnconfirmedCommit;
+          },
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
             yorksInventoryImportScreen(
@@ -2143,6 +2208,14 @@ GoRouter createAppRouter({
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
             const YorksWorkforceOverviewScreen(),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled && workforceTeamWorkersEnabled)
+        GoRoute(
+          path: '/yorks/workforce/workers',
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const YorksWorkforceTeamWorkersScreen(),
           ),
         ),
       if (yorksV1WorkforceEnabled)
@@ -2200,13 +2273,14 @@ GoRouter createAppRouter({
       GoRoute(
         path: RoutePaths.yorksV1Returns,
         pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, const YorksV1MaterialReturnsScreen()),
+            _yorksV1Slide(state.pageKey, const _DeferredMaterialReturnScreen()),
       ),
       GoRoute(
         path: RoutePaths.yorksV1MaterialReturnNew,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1MaterialReturnEditorScreen(
+          _DeferredMaterialReturnScreen(
+            editor: true,
             initialProjectId: state.uri.queryParameters['project_id'],
             returnId: state.uri.queryParameters['return_id'],
           ),
@@ -2216,7 +2290,7 @@ GoRouter createAppRouter({
         path: RoutePaths.yorksV1MaterialReturn,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          YorksV1MaterialReturnDetailScreen(
+          _DeferredMaterialReturnScreen(
             returnId: state.pathParameters['returnId'] ?? '',
           ),
         ),
@@ -2445,12 +2519,16 @@ GoRouter createAppRouter({
         ),
       ),
 
-      // ─── Rentals / People details (full-screen) ───────────
+      // Rentals retain the same office chrome and native Back stack as other
+      // Yorks record routes. People keeps its existing full-screen behavior.
       GoRoute(
         path: RoutePaths.rentalUnit,
-        pageBuilder: (context, state) => _slide(
+        pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
-          RentalUnitDetailScreen(unitId: state.pathParameters['id'] ?? ''),
+          _DeferredRentalWorkspaceScreen(
+            propertyId: state.pathParameters['id'] ?? '',
+            action: state.uri.queryParameters['action'],
+          ),
         ),
       ),
       GoRoute(
@@ -2515,6 +2593,59 @@ GoRouter createAppRouter({
   );
 }
 
+/// Loads the protected rental workspace only when its guarded route is opened.
+class _DeferredRentalWorkspaceScreen extends StatefulWidget {
+  const _DeferredRentalWorkspaceScreen({this.propertyId, this.action});
+  final String? propertyId;
+  final String? action;
+
+  @override
+  State<_DeferredRentalWorkspaceScreen> createState() =>
+      _DeferredRentalWorkspaceScreenState();
+}
+
+class _DeferredRentalWorkspaceScreenState
+    extends State<_DeferredRentalWorkspaceScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= rental_workspace.loadLibrary();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _load,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.done &&
+          !snapshot.hasError) {
+        return widget.propertyId == null
+            ? rental_workspace.YorksV1RentalDashboardScreen()
+            : rental_workspace.YorksV1RentalPropertyScreen(
+                propertyId: widget.propertyId!,
+                initialAction: widget.action,
+              );
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            onPressed: () => setState(() {
+              _load = _sharedLoad = rental_workspace.loadLibrary();
+            }),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    },
+  );
+}
+
 /// Keeps the rich My Yorks workspace out of the initial web download. Native
 /// builds resolve this deferred library immediately; web loads the same
 /// reviewed screen only when the person opens Profile.
@@ -2528,18 +2659,100 @@ class _DeferredEngineerProfileScreen extends StatefulWidget {
 
 class _DeferredEngineerProfileScreenState
     extends State<_DeferredEngineerProfileScreen> {
+  // Same contract as User Management: only the completed state is shared.
+  static bool _loaded = false;
+  Future<void>? _load;
+
+  static Future<void> _startLoad() =>
+      engineer_profile.loadLibrary().then((_) => _loaded = true);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_loaded) _load = _startLoad();
+  }
+
+  void _retry() {
+    setState(() {
+      _load = _startLoad();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loaded) return engineer_profile.EngineerProfileScreen();
+    return FutureBuilder<void>(
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return engineer_profile.EngineerProfileScreen();
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: MaterialLocalizations.of(
+                context,
+              ).refreshIndicatorSemanticLabel,
+              onPressed: _retry,
+            ),
+          );
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+  }
+}
+
+/// Loads the on-demand libraries that router tests open (Profile) ahead of
+/// time. User Management is built directly off the web (see
+/// `deferred/yorks_deferred_screens.dart`).
+///
+/// Widget tests run on a fake clock that does not reliably deliver the VM's
+/// deferred-load completion, so router tests call this from `setUpAll` (real
+/// time). Afterwards both routes build their screens synchronously, with no
+/// pending future. Production code never needs it.
+@visibleForTesting
+Future<void> debugPreloadDeferredRoutes() async {
+  await _DeferredEngineerProfileScreenState._startLoad();
+}
+
+/// Loads the Material Return centre, editor and detail only after a returns
+/// route is opened. Routes, permissions and server checks are unchanged; this
+/// keeps the return workflow out of the initial web download.
+class _DeferredMaterialReturnScreen extends StatefulWidget {
+  const _DeferredMaterialReturnScreen({
+    this.editor = false,
+    this.initialProjectId,
+    this.returnId,
+  });
+
+  /// True for the new/edit form; otherwise [returnId] opens the detail
+  /// screen and a null [returnId] opens the centre.
+  final bool editor;
+  final String? initialProjectId;
+  final String? returnId;
+
+  @override
+  State<_DeferredMaterialReturnScreen> createState() =>
+      _DeferredMaterialReturnScreenState();
+}
+
+class _DeferredMaterialReturnScreenState
+    extends State<_DeferredMaterialReturnScreen> {
   static Future<void>? _sharedLoad;
   late Future<void> _load;
 
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= engineer_profile.loadLibrary();
+    _load = _sharedLoad ??= material_returns.loadLibrary();
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = engineer_profile.loadLibrary();
+      _load = _sharedLoad = material_returns.loadLibrary();
     });
   }
 
@@ -2550,7 +2763,18 @@ class _DeferredEngineerProfileScreenState
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
-          return engineer_profile.EngineerProfileScreen();
+          if (widget.editor) {
+            return material_returns.YorksV1MaterialReturnEditorScreen(
+              initialProjectId: widget.initialProjectId,
+              returnId: widget.returnId,
+            );
+          }
+          if (widget.returnId != null) {
+            return material_returns.YorksV1MaterialReturnDetailScreen(
+              returnId: widget.returnId!,
+            );
+          }
+          return material_returns.YorksV1MaterialReturnsScreen();
         }
         if (snapshot.hasError) {
           return Center(
@@ -2650,11 +2874,7 @@ class _DeferredCompanyAnalyticsScreen extends StatefulWidget {
     this.initialProjectId,
     required this.initialMonths,
     required this.initialDomain,
-  }) : super(
-         key: ValueKey(
-           'company-analytics-route:$initialProjectId:$initialMonths:$initialDomain',
-         ),
-       );
+  }) : super(key: ValueKey('company-analytics-route'));
 
   final String? initialProjectId;
   final int initialMonths;
@@ -2689,7 +2909,11 @@ class _DeferredCompanyAnalyticsScreenState
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             !snapshot.hasError) {
-          return company_analytics.CompanyAnalyticsScreen();
+          return company_analytics.CompanyAnalyticsScreen(
+            initialProjectId: widget.initialProjectId,
+            initialMonths: widget.initialMonths,
+            initialDomain: widget.initialDomain,
+          );
         }
         if (snapshot.hasError) {
           return Center(
@@ -2776,4 +3000,60 @@ class _ProjectAccountsRoute extends ConsumerWidget {
       initialAccountsTab: initialAccountsTab,
     );
   }
+}
+
+/// Loads the Procurement editor only after its guarded route opens. Shared
+/// navigation and domain providers remain available during the download.
+class _DeferredProcurementArrangementScreen extends StatefulWidget {
+  const _DeferredProcurementArrangementScreen({
+    required this.requestId,
+    required this.onCompleted,
+  });
+
+  final String requestId;
+  final VoidCallback onCompleted;
+
+  @override
+  State<_DeferredProcurementArrangementScreen> createState() =>
+      _DeferredProcurementArrangementScreenState();
+}
+
+class _DeferredProcurementArrangementScreenState
+    extends State<_DeferredProcurementArrangementScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= procurement_arrangement.loadLibrary();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _load,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.done &&
+          !snapshot.hasError) {
+        return procurement_arrangement.YorksV1ArrangementScreen(
+          requestId: widget.requestId,
+          onCompleted: widget.onCompleted,
+        );
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            onPressed: () => setState(() {
+              _load = _sharedLoad = procurement_arrangement.loadLibrary();
+            }),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    },
+  );
 }

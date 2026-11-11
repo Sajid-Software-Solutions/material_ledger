@@ -773,7 +773,13 @@ void main() {
         independentProposal,
       );
       expect(repository.creates, hasLength(1));
-      expect(repository.activations, hasLength(1));
+      expect(repository.activations, hasLength(3));
+      expect(
+        repository.activations.map((input) => input.idempotencyKey).toSet(),
+        {frozen.activation!.idempotencyKey},
+        reason:
+            'Automatic status checks retain the original activation identity',
+      );
       expect(opened, hasLength(1));
       expect(tester.takeException(), isNull);
     },

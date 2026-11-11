@@ -1,4 +1,5 @@
 import 'yorks_v1_domain_error.dart';
+import 'yorks_v1_material_return_candidates.dart';
 
 /// Project-wide controlled Material Return state.
 ///
@@ -182,11 +183,20 @@ class YorksV1MaterialReturnLineRecord {
     required this.sourceKind,
     required this.returnQuantity,
     this.receiptReviewLineId,
+    this.dispatchLineId,
+    this.requestLineId,
+    this.basisKind,
     this.sourceRequestId,
     this.sourceRequestNumber,
     this.sourceDispatchId,
     this.sourceDispatchNumber,
+    this.sourceScopeId,
+    this.sourceScopeName,
     this.brandOrigin,
+    this.size,
+    this.model,
+    this.equipmentTag,
+    this.itemCode,
     this.goodQuantitySnapshot,
     this.eligibleQuantityAtSubmit,
     this.lineNote,
@@ -201,13 +211,24 @@ class YorksV1MaterialReturnLineRecord {
   final String id;
   final YorksV1ReturnLineOrigin origin;
   final String? receiptReviewLineId;
+  final String? dispatchLineId;
+  final String? requestLineId;
+
+  /// Null for custom lines and for responses from servers before 4 Nov 2026.
+  final YorksV1ReturnBasisKind? basisKind;
   final String? sourceRequestId;
   final String? sourceRequestNumber;
   final String? sourceDispatchId;
   final String? sourceDispatchNumber;
+  final String? sourceScopeId;
+  final String? sourceScopeName;
   final int displayOrder;
   final String description;
   final String? brandOrigin;
+  final String? size;
+  final String? model;
+  final String? equipmentTag;
+  final String? itemCode;
   final String unit;
   final String sourceKind;
   final String? goodQuantitySnapshot;
@@ -227,13 +248,22 @@ class YorksV1MaterialReturnLineRecord {
     id: _requiredString(json, 'id'),
     origin: YorksV1ReturnLineOrigin.fromWireValue(json['origin_kind']),
     receiptReviewLineId: _optionalString(json['receipt_review_line_id']),
+    dispatchLineId: _optionalString(json['dispatch_line_id']),
+    requestLineId: _optionalString(json['request_line_id']),
+    basisKind: YorksV1ReturnBasisKind.fromWireValue(json['basis_kind']),
     sourceRequestId: _optionalString(json['source_request_id']),
     sourceRequestNumber: _optionalString(json['source_request_number']),
     sourceDispatchId: _optionalString(json['source_dispatch_id']),
     sourceDispatchNumber: _optionalString(json['source_dispatch_number']),
+    sourceScopeId: _optionalString(json['source_scope_id']),
+    sourceScopeName: _optionalString(json['source_scope_name']),
     displayOrder: _int(json['display_order']),
     description: _requiredString(json, 'item_description'),
     brandOrigin: _optionalString(json['brand_origin']),
+    size: _optionalString(json['size']),
+    model: _optionalString(json['model']),
+    equipmentTag: _optionalString(json['equipment_tag']),
+    itemCode: _optionalString(json['item_code']),
     unit: _requiredString(json, 'unit'),
     sourceKind: _requiredString(json, 'source_kind'),
     goodQuantitySnapshot: _optionalDecimal(json['good_quantity_snapshot']),
@@ -518,26 +548,42 @@ class YorksV1MaterialReturnDraftLineInput {
     required this.origin,
     required this.quantity,
     this.receiptReviewLineId,
+    this.dispatchLineId,
     this.description,
     this.brandOrigin,
     this.unit,
+    this.size,
+    this.model,
+    this.equipmentTag,
     this.note,
   });
 
   final YorksV1ReturnLineOrigin origin;
   final String? receiptReviewLineId;
+
+  /// Delivered lines anchor on the dispatch line (servers from 4 Nov 2026).
+  final String? dispatchLineId;
   final String? description;
   final String? brandOrigin;
   final String? unit;
+  final String? size;
+  final String? model;
+  final String? equipmentTag;
   final String quantity;
   final String? note;
 
   Map<String, Object?> toRpcJson() => {
     'origin_kind': origin.wireValue,
+    'dispatch_line_id': ?_trim(dispatchLineId),
     'receipt_review_line_id': _trim(receiptReviewLineId),
     'item_description': _trim(description),
     'brand_origin': _trim(brandOrigin),
     'unit': _trim(unit),
+    if (origin == YorksV1ReturnLineOrigin.custom) ...{
+      'size': _trim(size),
+      'model': _trim(model),
+      'equipment_tag': _trim(equipmentTag),
+    },
     'return_qty': quantity.trim(),
     'note': _trim(note),
   };

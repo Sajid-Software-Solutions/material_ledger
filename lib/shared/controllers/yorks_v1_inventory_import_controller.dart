@@ -48,7 +48,18 @@ class YorksV1InventoryImportState {
   final bool supplierReceiptConfirmed;
   final String? openingBalanceAsOfDate;
 
+  bool get hasUnconfirmedCommit =>
+      stage == YorksV1InventoryImportStage.supplierReceipt &&
+      supplierReceiptConfirmed &&
+      status == YorksV1InventoryImportStatus.failed &&
+      {
+        YorksV1DomainErrorCode.backendUnavailable,
+        YorksV1DomainErrorCode.unexpectedResponse,
+        YorksV1DomainErrorCode.offline,
+      }.contains(errorCode);
+
   bool get isBusy =>
+      hasUnconfirmedCommit ||
       status == YorksV1InventoryImportStatus.selecting ||
       status == YorksV1InventoryImportStatus.committing;
 
@@ -58,7 +69,9 @@ class YorksV1InventoryImportState {
       mapping?.treatWorkbookAsOpeningBalance == true;
   bool get canTreatWorkbookAsOpeningBalance =>
       mapping != null &&
-      !mapping!.indexes.containsKey(YorksV1InventoryControlledField.sourceType) &&
+      !mapping!.indexes.containsKey(
+        YorksV1InventoryControlledField.sourceType,
+      ) &&
       !(preview?.hasOpeningBalanceRows ?? false);
   List<YorksV1InventoryUnitReviewGroup> get unresolvedUnitGroups =>
       preview?.unresolvedUnitGroups ?? const [];
@@ -73,7 +86,7 @@ class YorksV1InventoryImportState {
       supplierReceiptConfirmed &&
       preview?.canCommit == true &&
       hasValidOpeningBalanceAsOfDate &&
-      !isBusy;
+      (!isBusy || hasUnconfirmedCommit);
 }
 
 class YorksV1InventoryImportController
@@ -84,6 +97,8 @@ class YorksV1InventoryImportController
     YorksV1InventoryWorkbookCodec? codec,
     YorksV1R389InventoryCommit? r38_9Commit,
     String Function()? uuidFactory,
+    this.persistPending,
+    this.canExecute,
   }) : _repository = repository,
        _fileService = fileService,
        _codec = codec ?? const YorksV1InventoryWorkbookCodec(),
@@ -98,6 +113,8 @@ class YorksV1InventoryImportController
   final bool _canOffloadPreparation;
   final YorksV1R389InventoryCommit? _r38_9Commit;
   final String Function() _uuidFactory;
+  final Future<void> Function(Map<String, Object?>?)? persistPending;
+  final bool Function()? canExecute;
   String? _idempotencyKey;
   YorksV1InventoryWorkspace? _workspace;
   List<YorksV1InventorySupplierMaster> _suppliers = const [];
@@ -587,11 +604,33 @@ class YorksV1InventoryImportController
       openingBalanceAsOfDate: state.openingBalanceAsOfDate,
     );
     try {
+      final supplierImport =
+          _r38_9Commit != null &&
+          preview.rows.every((row) => row.isReceiptAction);
+      if (persistPending != null) {
+        await persistPending!({
+          'key': idempotencyKey,
+          'supplier': supplierImport,
+          'payload': supplierImport
+              ? preview.toR38_9RpcPayload(
+                  openingBalanceAsOfDate: state.openingBalanceAsOfDate,
+                )
+              : YorksV1InventoryImportInput(
+                  fileName: preview.fileName,
+                  rows: [for (final row in preview.rows) row.toRpcInput()],
+                  idempotencyKey: idempotencyKey,
+                ).toRpcPayload(),
+        });
+      }
+      if (canExecute != null && !canExecute!()) {
+        throw StateError('Authority changed');
+      }
       // Supplier receipts use the provenance-aware command. Controlled stock
       // corrections, removals and metadata-only imports deliberately use the
       // established adjustment import command instead: they do not fabricate
       // a supplier receipt or receipt condition record.
-      final result = _r38_9Commit != null &&
+      final result =
+          _r38_9Commit != null &&
               preview.rows.every((row) => row.isReceiptAction)
           ? await _r38_9Commit(
               payload: preview.toR38_9RpcPayload(
@@ -606,6 +645,8 @@ class YorksV1InventoryImportController
                 idempotencyKey: idempotencyKey,
               ),
             );
+      if (persistPending != null) await persistPending!(null);
+      if (!mounted) return result;
       state = YorksV1InventoryImportState(
         status: YorksV1InventoryImportStatus.succeeded,
         stage: YorksV1InventoryImportStage.importSummary,
@@ -618,6 +659,22 @@ class YorksV1InventoryImportController
       );
       return result;
     } on YorksV1DomainException catch (error) {
+      if (persistPending != null &&
+          !{
+            YorksV1DomainErrorCode.offline,
+            YorksV1DomainErrorCode.backendUnavailable,
+            YorksV1DomainErrorCode.unexpectedResponse,
+          }.contains(error.code)) {
+        try {
+          await persistPending!(null);
+        } catch (_) {
+          _setFailure(
+            YorksV1DomainErrorCode.backendUnavailable,
+            preserveConfirmation: true,
+          );
+          return null;
+        }
+      }
       _setFailure(error.code, preserveConfirmation: true);
     } catch (_) {
       _setFailure(
@@ -767,6 +824,7 @@ class YorksV1InventoryImportController
     YorksV1DomainErrorCode code, {
     bool preserveConfirmation = false,
   }) {
+    if (!mounted) return;
     state = YorksV1InventoryImportState(
       status: YorksV1InventoryImportStatus.failed,
       stage: state.stage,

@@ -57,6 +57,11 @@ abstract interface class YorksV1MaterialRequestDraftSaveRecoveryRepository {
   });
 }
 
+/// Metadata-only, owner-scoped classification. Missing IDs remain unverified.
+abstract interface class YorksV1MaterialRequestRecoveryLifecycleRepository {
+  Future<Set<String>> obsoleteRecoveryIds(List<String> draftIds);
+}
+
 abstract interface class YorksV1MaterialRequestRepository {
   Future<List<YorksV1MaterialRequestProjectOption>> listDraftProjects();
 
@@ -231,6 +236,7 @@ class YorksV1SupabaseMaterialRequestRepository
     implements
         YorksV1MaterialRequestRepository,
         YorksV1UnifiedMaterialRequestRegisterRepository,
+        YorksV1MaterialRequestRecoveryLifecycleRepository,
         YorksV1MaterialRequestDraftSaveRecoveryRepository,
         YorksV1MaterialRequestSubmissionRecoveryRepository,
         YorksV1MaterialRequestPhase2Repository,
@@ -628,7 +634,14 @@ class YorksV1SupabaseMaterialRequestRepository
     );
     final operation = _analytics.beginOperation(
       'material_request_decide',
-      properties: const {AnalyticsProperty.workflow: 'material_request'},
+      properties: {
+        AnalyticsProperty.workflow: 'material_request',
+        AnalyticsProperty.commandFingerprint: analyticsCommandFingerprint(
+          'v1_decide_material_request',
+          input.idempotencyKey,
+        ),
+        AnalyticsProperty.commandPhase: 'transport',
+      },
     );
     try {
       final response = await _invoke(
@@ -822,6 +835,29 @@ class YorksV1SupabaseMaterialRequestRepository
     );
     if (response == null) return null;
     return YorksV1MaterialRequestChangeSummary.fromRpcJson(_map(response));
+  }
+
+  @override
+  Future<Set<String>> obsoleteRecoveryIds(List<String> draftIds) async {
+    final result = <String>{};
+    for (var offset = 0; offset < draftIds.length; offset += 100) {
+      final end = offset + 100 < draftIds.length
+          ? offset + 100
+          : draftIds.length;
+      final batch = draftIds.sublist(offset, end);
+      final response = await _invoke(
+        functionName: 'v1_obsolete_material_request_recovery_ids',
+        parameters: {'p_draft_ids': batch},
+      );
+      if (response is! List ||
+          response.any((value) => value is! String || !batch.contains(value))) {
+        throw const YorksV1DomainException(
+          YorksV1DomainErrorCode.unexpectedResponse,
+        );
+      }
+      result.addAll(response.cast<String>());
+    }
+    return Set.unmodifiable(result);
   }
 
   @override

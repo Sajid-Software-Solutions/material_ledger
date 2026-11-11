@@ -2,6 +2,84 @@ import '../../../shared/models/app_strings.dart';
 import '../../../shared/models/yorks_v1_domain_error.dart';
 
 abstract final class CompanyAnalyticsStrings {
+  static const filters = TranslatableString(
+    en: "Filters",
+    ar: "الفلاتر",
+    ur: "فلٹرز",
+    hi: "फ़िल्टर",
+  );
+  static const applyFilters = TranslatableString(
+    en: "Apply filters",
+    ar: "تطبيق الفلاتر",
+    ur: "فلٹر لگائیں",
+    hi: "फ़िल्टर लागू करें",
+  );
+  static const resetFilters = TranslatableString(
+    en: "Reset filters",
+    ar: "إعادة ضبط الفلاتر",
+    ur: "فلٹر ری سیٹ کریں",
+    hi: "फ़िल्टर रीसेट करें",
+  );
+  static const retryProjects = TranslatableString(
+    en: "Retry project list",
+    ar: "إعادة تحميل المشاريع",
+    ur: "پراجیکٹ فہرست دوبارہ لوڈ کریں",
+    hi: "प्रोजेक्ट सूची फिर लोड करें",
+  );
+  static const noProperties = TranslatableString(
+    en: "No properties yet",
+    ar: "لا توجد عقارات بعد",
+    ur: "ابھی کوئی جائیداد نہیں",
+    hi: "अभी कोई संपत्ति नहीं",
+  );
+  static const companyDetails = TranslatableString(
+    en: "Company details",
+    ar: "تفاصيل الشركة",
+    ur: "کمپنی کی تفصیلات",
+    hi: "कंपनी का विवरण",
+  );
+  static const projectsAttention = TranslatableString(
+    en: "Projects needing attention",
+    ar: "مشاريع تحتاج إلى اهتمام",
+    ur: "توجہ طلب پراجیکٹس",
+    hi: "ध्यान देने योग्य प्रोजेक्ट",
+  );
+  static const updated = TranslatableString(
+    en: "Updated",
+    ar: "تم التحديث",
+    ur: "تازہ کاری",
+    hi: "अपडेट",
+  );
+  static const snapshot = TranslatableString(
+    en: "Current position",
+    ar: "الوضع الحالي",
+    ur: "موجودہ صورتحال",
+    hi: "वर्तमान स्थिति",
+  );
+  static const monthlyComparison = TranslatableString(
+    en: "Last two complete months",
+    ar: "آخر شهرين مكتملين",
+    ur: "آخری دو مکمل ماہ",
+    hi: "पिछले दो पूरे महीने",
+  );
+  static const viewTable = TranslatableString(
+    en: "View data table",
+    ar: "عرض جدول البيانات",
+    ur: "ڈیٹا ٹیبل دیکھیں",
+    hi: "डेटा तालिका देखें",
+  );
+  static const recentActivity = TranslatableString(
+    en: "Recently updated projects",
+    ar: "المشاريع المحدثة مؤخراً",
+    ur: "حال ہی میں اپ ڈیٹ کردہ پراجیکٹس",
+    hi: "हाल में अपडेट किए गए प्रोजेक्ट",
+  );
+  static const registerPreview = TranslatableString(
+    en: "Preview of the authorised project register",
+    ar: "معاينة سجل المشاريع المصرح بها",
+    ur: "مجاز پراجیکٹ رجسٹر کا پیش منظر",
+    hi: "अधिकृत प्रोजेक्ट रजिस्टर का पूर्वावलोकन",
+  );
   static const title = TranslatableString(
     en: 'Analytics',
     ar: 'التحليلات',
@@ -285,7 +363,7 @@ abstract final class CompanyAnalyticsStrings {
     hi: 'अभी किसी पुष्ट कार्रवाई को आपके ध्यान की आवश्यकता नहीं है।',
   );
   static const openSource = TranslatableString(
-    en: 'Open source',
+    en: 'View records',
     ar: 'فتح المصدر',
     ur: 'اصل ریکارڈ کھولیں',
     hi: 'स्रोत खोलें',

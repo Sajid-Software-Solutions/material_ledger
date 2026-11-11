@@ -17,12 +17,17 @@ import 'package:material_ledger/shared/providers/permissions_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_arrangement_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_logistics_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_material_request_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_material_request_repository_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_permission_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_arrangement_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_logistics_repository.dart';
+import 'package:material_ledger/shared/repositories/yorks_v1_material_request_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/yorks_v1_permission_test_support.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_procurement_progress_provider.dart';
+import 'yorks_v1_procurement_progress_test.dart' show FakeRepository;
 
 late SharedPreferences _preferences;
 
@@ -74,19 +79,18 @@ void main() {
         find.byKey(const ValueKey('mobile-arrangement-line')),
         findsOneWidget,
       );
-      expect(find.text('Cannot Provide Now'), findsOneWidget);
-      for (final decision in YorksV1ArrangementDecision.values) {
-        expect(
-          tester
-              .getSize(
-                find.byKey(
-                  ValueKey('mobile-arrangement-decision-${decision.name}'),
-                ),
-              )
-              .height,
-          greaterThanOrEqualTo(AppSpacing.minTapTarget),
-        );
-      }
+      expect(find.text('Full'), findsOneWidget);
+      expect(find.text('Cannot Provide Now'), findsNothing);
+      expect(
+        find.byType(DropdownButtonFormField<YorksV1ArrangementDecision>),
+        findsNothing,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('arranged-arrangement-line-1')))
+            .height,
+        greaterThanOrEqualTo(AppSpacing.minTapTarget),
+      );
       await _golden(tester, '30_arrangement_line_$suffix');
     });
 
@@ -200,6 +204,84 @@ void main() {
     });
   }
 
+  testWidgets(
+    'mobile arrangement saves incomplete progress from the line editor',
+    (tester) async {
+      await _setViewport(tester, const Size(360, 800));
+      final progress = await _pumpArrangement(
+        tester,
+        _workingArrangementWorkspace,
+      );
+      expect(find.text('Save progress'), findsOneWidget);
+      await tester.tap(find.text('Motorized smoke damper'));
+      await tester.pumpAndSettle();
+      final quantity = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Arranged',
+      );
+      await tester.enterText(quantity, '1.');
+      final save = find.text('Save progress');
+      await Scrollable.ensureVisible(tester.element(save), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(progress.saved, isNotNull);
+      final lines = progress.saved!.inputs['lines'] as List;
+      expect((lines.first as Map)['arranged_qty'], '1.');
+      expect(find.text('Progress saved to your account'), findsOneWidget);
+      expect(find.text('Save arrangement'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'quantity drives status without losing focus or source selection',
+    (tester) async {
+      await _setViewport(tester, const Size(360, 800));
+      final progress = await _pumpArrangement(
+        tester,
+        _workingArrangementWorkspace,
+      );
+      await tester.tap(find.text('Motorized smoke damper'));
+      await tester.pumpAndSettle();
+      final quantity = find.byKey(
+        const ValueKey('arranged-arrangement-line-1'),
+      );
+      await tester.enterText(quantity, '4');
+      await tester.pumpAndSettle();
+      expect(find.text('Partial'), findsOneWidget);
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: quantity, matching: find.byType(EditableText)),
+      );
+      expect(editable.focusNode.hasFocus, isTrue);
+      await tester.enterText(quantity, '0');
+      await tester.pumpAndSettle();
+      expect(find.text('Cannot Provide Now'), findsOneWidget);
+      expect(tester.widget<TextFormField>(quantity).enabled, isTrue);
+      await tester.enterText(quantity, '');
+      await tester.pumpAndSettle();
+      expect(find.text('Cannot Provide Now'), findsNothing);
+      expect(find.text('Enter quantity'), findsOneWidget);
+      await tester.enterText(quantity, '1.');
+      await tester.pumpAndSettle();
+      expect(find.text('Partial'), findsNothing);
+      expect(find.text('Enter quantity'), findsOneWidget);
+      await tester.enterText(quantity, '11');
+      await tester.pumpAndSettle();
+      expect(find.text('Full'), findsOneWidget);
+      final save = find.text('Save progress');
+      await Scrollable.ensureVisible(tester.element(save), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      final line = (progress.saved!.inputs['lines'] as List).first as Map;
+      expect(line['decision'], 'full');
+      expect(line['inventory_item_id'], 'inventory-1');
+      expect(line['source_kind'], 'warehouse');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('receipt requires an explicit outcome for every line', (
     tester,
   ) async {
@@ -285,11 +367,15 @@ void main() {
     final repository = _OperationsRepository()..dispatchFailures = 1;
     await _pumpLogistics(tester, requestId: 'dispatch', repository: repository);
     await tester.enterText(find.byType(TextField).first, 'DN-100');
-    await tester.tap(find.widgetWithText(FilledButton, 'Dispatch now'));
+    await tester.tap(find.text('Review dispatch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-dispatch')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Dispatch now'));
+    await tester.tap(find.text('Check status'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Retry saved submission'));
     await tester.pumpAndSettle();
 
     expect(repository.dispatches, hasLength(2));
@@ -300,16 +386,18 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
   });
 
-  testWidgets('receipt retry preserves reviewed state and command identity', (
+  testWidgets('pending receipt checks preserve review and never resend mutation', (
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 844));
     final repository = _OperationsRepository()..receiptFailures = 1;
+    final outcomes = _ReceiptOutcomeRpcClient();
     await _pumpLogistics(
       tester,
       requestId: 'receipt',
       focusReceipt: true,
       repository: repository,
+      outcomeRpc: outcomes,
     );
     await tester.tap(find.text('Receive all as dispatched'));
     await tester.pumpAndSettle();
@@ -317,20 +405,41 @@ void main() {
       find.widgetWithText(FilledButton, 'Confirm receipt review'),
     );
     await tester.pumpAndSettle();
-    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    // Finish the bounded automatic status reads without resending the receipt.
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    expect(find.text('Confirm receipt review'), findsNothing);
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys, hasLength(3));
+
+    final receiveAll = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Receive all as dispatched'),
+    );
+    expect(receiveAll.onPressed, isNull);
+    final statusReads = outcomes.keys.length;
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Confirm receipt review'),
+      find.widgetWithText(FilledButton, 'Check submission status'),
     );
     await tester.pumpAndSettle();
+    expect(find.text('2 / 2 lines reviewed'), findsOneWidget);
+    expect(outcomes.keys, hasLength(statusReads + 1));
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys.toSet(), {repository.receipts.single.idempotencyKey});
 
-    expect(repository.receipts, hasLength(2));
-    expect(
-      repository.receipts.first.idempotencyKey,
-      repository.receipts.last.idempotencyKey,
+    // A committed command stays successful even if its optional view is absent.
+    outcomes.confirmed = true;
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Check submission status'),
     );
+    await tester.pumpAndSettle();
+    expect(repository.receipts, hasLength(1));
+    expect(outcomes.keys, hasLength(statusReads + 2));
+    expect(find.byKey(const ValueKey('mobile-receipt-review')), findsNothing);
     await tester.pump(const Duration(seconds: 6));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('return draft retry reuses the same command identity', (
@@ -419,13 +528,15 @@ Future<void> _golden(WidgetTester tester, String name) async {
   expect(tester.takeException(), isNull);
 }
 
-Future<void> _pumpArrangement(
+Future<FakeRepository> _pumpArrangement(
   WidgetTester tester,
   YorksV1ArrangementWorkspace workspace,
 ) async {
   final repository = _ArrangementRepository(workspace);
+  final progress = FakeRepository();
   await tester.pumpWidget(
     _app(
+      progressRepository: progress,
       overrides: [
         canManageCommercialsProvider.overrideWithValue(true),
         canViewCommercialsProvider.overrideWithValue(true),
@@ -438,6 +549,7 @@ Future<void> _pumpArrangement(
     ),
   );
   await tester.pumpAndSettle();
+  return progress;
 }
 
 Future<_OperationsRepository> _pumpLogistics(
@@ -445,12 +557,15 @@ Future<_OperationsRepository> _pumpLogistics(
   required String requestId,
   bool focusReceipt = false,
   _OperationsRepository? repository,
+  YorksV1MaterialRequestRpcClient? outcomeRpc,
 }) async {
   final fixture = repository ?? _OperationsRepository();
   await tester.pumpWidget(
     _app(
       overrides: [
         yorksV1LogisticsRepositoryProvider.overrideWithValue(fixture),
+        if (outcomeRpc != null)
+          yorksV1MaterialRequestRpcClientProvider.overrideWithValue(outcomeRpc),
       ],
       child: YorksV1LogisticsScreen(
         requestId: requestId,
@@ -504,23 +619,30 @@ Future<_OperationsRepository> _pumpReturns(
   return fixture;
 }
 
-Widget _app({required List<Override> overrides, required Widget child}) =>
-    ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(_preferences),
-        yorksV1CurrentPermissionSnapshotProvider.overrideWith(
-          (ref) => YorksV1TestPermissionController(
-            yorksV1TrustedFeaturePermissionState(),
-          ),
-        ),
-        ...overrides,
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: child,
+Widget _app({
+  required List<Override> overrides,
+  required Widget child,
+  FakeRepository? progressRepository,
+}) => ProviderScope(
+  overrides: [
+    sharedPreferencesProvider.overrideWithValue(_preferences),
+    yorksV1AuthUserIdProvider.overrideWithValue('procurement-test-user'),
+    yorksV1ProcurementProgressRepositoryProvider.overrideWithValue(
+      progressRepository ?? FakeRepository(),
+    ),
+    yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+      (ref) => YorksV1TestPermissionController(
+        yorksV1TrustedFeaturePermissionState(),
       ),
-    );
+    ),
+    ...overrides,
+  ],
+  child: MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light,
+    home: child,
+  ),
+);
 
 Future<void> _setViewport(
   WidgetTester tester,
@@ -1052,3 +1174,27 @@ final _returnsWorkspaceWithScaledDraft = YorksV1ReturnsDocumentsWorkspace(
   ],
   returnInventoryItems: const [],
 );
+
+class _ReceiptOutcomeRpcClient implements YorksV1MaterialRequestRpcClient {
+  final List<String> keys = [];
+  bool confirmed = false;
+
+  @override
+  Future<Object?> invoke({
+    required String functionName,
+    required Map<String, Object?> parameters,
+  }) async {
+    expect(functionName, 'v1_get_material_workflow_command_outcome');
+    expect(parameters['p_command_name'], 'v1_confirm_receipt');
+    final key = parameters['p_idempotency_key']! as String;
+    keys.add(key);
+    return {
+      'status': confirmed ? 'confirmed' : 'unknown',
+      'command_name': 'v1_confirm_receipt',
+      'command_key': key,
+      if (confirmed) 'entity_id': 'receipt',
+      if (confirmed) 'record_version': 9,
+      'response': null,
+    };
+  }
+}

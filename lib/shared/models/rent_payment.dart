@@ -31,8 +31,8 @@ class RentPayment {
     required this.recordedAt,
     this.voidedAt,
     this.voidReason = '',
-  })  : assert(amountDueAED >= 0, 'amountDueAED cannot be negative'),
-        assert(amountPaidAED >= 0, 'amountPaidAED cannot be negative');
+  }) : assert(amountDueAED >= 0, 'amountDueAED cannot be negative'),
+       assert(amountPaidAED >= 0, 'amountPaidAED cannot be negative');
 
   final String id;
   final String unitId;
@@ -144,7 +144,8 @@ class RentPayment {
     note: json['note'] as String?,
     recordedBy: json['recordedBy'] as String? ?? 'system',
     recordedAt:
-        DateTime.tryParse(json['recordedAt'] as String? ?? '') ?? DateTime.now(),
+        DateTime.tryParse(json['recordedAt'] as String? ?? '') ??
+        DateTime.now(),
     voidedAt: DateTime.tryParse(json['voidedAt'] as String? ?? ''),
     voidReason: json['voidReason'] as String? ?? '',
   );

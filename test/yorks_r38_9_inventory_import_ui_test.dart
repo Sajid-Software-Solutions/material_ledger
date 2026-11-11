@@ -215,6 +215,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('import persists exact receipt command before failed commit', () async {
+    Map<String, Object?>? stored;
+    final controller = _controller(
+      failCommit: true,
+      persistPending: (record) async {
+        stored = record;
+      },
+    );
+    await controller.chooseFile(_workspace, suppliers: _suppliers);
+    expect(controller.confirmMapping(), isTrue);
+    expect(controller.continueToSupplierReceipt(), isTrue);
+    controller.confirmSupplierAndReceipt();
+    await controller.commit();
+    expect(stored?['key'], '93000000-0000-4000-8000-000000000091');
+    expect(stored?['supplier'], isTrue);
+    expect((stored?['payload'] as Map)['rows'], isNotEmpty);
+    final original = jsonEncode(stored);
+    await controller.commit();
+    expect(jsonEncode(stored), original);
+    controller.dispose();
+  });
+
   testWidgets('commit failure is identified as an inventory import failure', (
     tester,
   ) async {
@@ -232,6 +254,19 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Supplier workspace could not be loaded.'), findsNothing);
+    expect(controller.state.hasUnconfirmedCommit, isTrue);
+    expect(controller.state.canCommit, isTrue);
+    final commit = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('inventory-import-commit')),
+    );
+    expect(commit.onPressed, isNotNull);
+    expect(tester.widget<PopScope>(find.byType(PopScope).last).canPop, isFalse);
+    final source = controller.state.source;
+    controller.previousStage();
+    controller.reset();
+    expect(controller.state.stage, YorksV1InventoryImportStage.supplierReceipt);
+    expect(controller.state.source, same(source));
+
     expect(tester.takeException(), isNull);
   });
 
@@ -592,7 +627,9 @@ Future<void> _pump(
 YorksV1InventoryImportController _controller({
   YorksV1InventoryWorkbookFileService fileService = const _ImportFileService(),
   bool failCommit = false,
+  Future<void> Function(Map<String, Object?>?)? persistPending,
 }) => YorksV1InventoryImportController(
+  persistPending: persistPending,
   repository: _ImportRepository(),
   fileService: fileService,
   // Widget tests run in a fake-async zone; keep the explicit codec local so

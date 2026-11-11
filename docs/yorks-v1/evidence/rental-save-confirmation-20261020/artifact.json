@@ -1,0 +1,15 @@
+{
+  "commit": "ae7e909d9dc92bba5435dae77b503a9403ec1ef4",
+  "canonicalUrl": "https://yorks-r35.vercel.app",
+  "project": {
+    "projectId": "prj_5jbKMKUBHdccpOCifJCgSOB6snDj",
+    "orgId": "team_EsIrL8Cazj49Pzj2tN6wB2SJ",
+    "projectName": "yorks-r35"
+  },
+  "mainBytes": 9969915,
+  "startupGateDartGzipBytes": 2872700,
+  "mainSha256": "47fed4e2e4d97d3298fc1477d6f5e531da0865135a69715ea482f98bd2f64b5e",
+  "deferredParts": 15,
+  "credentialsCheck": "main bundle scan passed",
+  "cleanBuild": true
+}

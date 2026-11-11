@@ -7,6 +7,7 @@ import '../../../../core/widgets/ledger_card.dart';
 import '../../../../core/widgets/yorks_v1_active_text.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
 import '../../../../shared/models/yorks_v1_material_register.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
@@ -106,6 +107,8 @@ class _YorksV1MaterialRequestCentreState
   Object? _serverError;
   bool _serverLoading = false;
   Timer? _serverSearchDebounce;
+  Timer? _serverRecoveryTimer;
+  int _serverRecoveryAttempts = 0;
   Future<void>? _serverLoadInFlight;
   bool _serverReloadQueued = false;
   DateTime _dateRangeAnchor = DateTime.now().toUtc();
@@ -145,6 +148,7 @@ class _YorksV1MaterialRequestCentreState
   void dispose() {
     _searchController.dispose();
     _serverSearchDebounce?.cancel();
+    _serverRecoveryTimer?.cancel();
     super.dispose();
   }
 
@@ -210,7 +214,9 @@ class _YorksV1MaterialRequestCentreState
     );
   }
 
-  Future<void> _loadServerPage() async {
+  Future<void> _loadServerPage({bool automaticRetry = false}) async {
+    _serverRecoveryTimer?.cancel();
+    if (!automaticRetry) _serverRecoveryAttempts = 0;
     if (_serverLoadInFlight != null) {
       _serverReloadQueued = true;
       return _serverLoadInFlight;
@@ -272,15 +278,33 @@ class _YorksV1MaterialRequestCentreState
       setState(() {
         _serverPage = page;
         _serverLoading = false;
+        _serverRecoveryAttempts = 0;
       });
     } catch (error) {
       if (!mounted || _serverReloadQueued || query != _serverQuery) return;
       setState(() {
         _serverError = error;
         _serverLoading = false;
+        if (!_isTemporaryReadFailure(error)) {
+          // A confirmed denial, invalid identity or invalid projection ends
+          // earlier authorization evidence. Never restore it after a timeout.
+          _serverPage = null;
+        }
       });
+      if (_isTemporaryReadFailure(error) && _serverRecoveryAttempts < 2) {
+        final delay = Duration(seconds: _serverRecoveryAttempts == 0 ? 1 : 3);
+        _serverRecoveryAttempts++;
+        _serverRecoveryTimer = Timer(delay, () {
+          if (mounted) unawaited(_loadServerPage(automaticRetry: true));
+        });
+      }
     }
   }
+
+  bool _isTemporaryReadFailure(Object error) =>
+      error is YorksV1DomainException &&
+      (error.code == YorksV1DomainErrorCode.backendUnavailable ||
+          error.code == YorksV1DomainErrorCode.offline);
 
   Future<void> _loadOperationsDashboard() async {
     final loader = widget.operationsDashboardLoader;
@@ -326,6 +350,7 @@ class _YorksV1MaterialRequestCentreState
       setState(() {
         _operationsError = error;
         _operationsLoading = false;
+        if (!_isTemporaryReadFailure(error)) _operationsDashboard = null;
       });
     }
   }
@@ -520,16 +545,25 @@ class _YorksV1MaterialRequestCentreState
           if (_serverError != null && _serverPage != null)
             Padding(
               padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => unawaited(_loadServerPage()),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: YorksV1ActiveText(
-                    copy: YorksV1MaterialRequestStrings.tryAgain,
-                    language: widget.language,
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off_outlined, color: AppColors.muted),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: YorksV1ActiveText(
+                      copy: YorksV1MaterialRequestStrings.showingLastKnownData,
+                      language: widget.language,
+                    ),
                   ),
-                ),
+                  TextButton.icon(
+                    onPressed: () => unawaited(_loadServerPage()),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: YorksV1ActiveText(
+                      copy: YorksV1MaterialRequestStrings.tryAgain,
+                      language: widget.language,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],

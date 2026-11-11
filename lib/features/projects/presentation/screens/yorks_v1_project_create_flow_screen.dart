@@ -1266,7 +1266,9 @@ class _YorksV1ProjectCreateFlowScreenState
                               ? _createProject
                               : null,
                           primaryLabel: intentLocked
-                              ? (setupState.outcomeUncertain
+                              ? (setupState.busy && setupState.outcomeUncertain
+                                    ? YorksV1ProjectStrings.checkingSavedStatus
+                                    : setupState.outcomeUncertain
                                     ? YorksV1ProjectStrings.checkSavedStatus
                                     : YorksV1ProjectStrings
                                           .continueFileRecovery)
@@ -1756,7 +1758,11 @@ class _YorksV1ProjectCreateFlowScreenState
                                 ? _createProject
                                 : null,
                             primaryLabel: intentLocked
-                                ? (setupState.outcomeUncertain
+                                ? (setupState.busy &&
+                                          setupState.outcomeUncertain
+                                      ? YorksV1ProjectStrings
+                                            .checkingSavedStatus
+                                      : setupState.outcomeUncertain
                                       ? YorksV1ProjectStrings.checkSavedStatus
                                       : YorksV1ProjectStrings
                                             .continueFileRecovery)
@@ -7607,7 +7613,9 @@ class _ProjectSetupOutcomePanel extends StatelessWidget {
     final project = state.project;
     final original = operation?.core.payload;
     final supportReference = operation?.supportReference;
-    final copy = known
+    final copy = state.busy && state.outcomeUncertain
+        ? YorksV1ProjectStrings.automaticallyCheckingSave
+        : known
         ? (operation!.filesPending
               ? YorksV1ProjectStrings.projectSavedFilesPending
               : project?.state == YorksV1ProjectLifecycle.draft

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +34,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/yorks_v1_permission_test_support.dart';
 
 void main() {
+  setUpAll(() async {
+    final font = FontLoader('NexusSans')
+      ..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'));
+    await font.load();
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final entry in <({String name, Widget child, String expected})>[
@@ -390,7 +397,7 @@ void main() {
             size: '500 x 300 mm',
             planningModelTag: 'DX-01',
             quantity: '21',
-            unit: 'Nos',
+            unit: 'Cylinder',
           ),
         ],
       );
@@ -484,6 +491,44 @@ void main() {
             lessThanOrEqualTo(2),
           );
         }
+        if (size.width > 720) {
+          for (final tableKey in [
+            'material-request-items-table',
+            'material-request-quantity-history-table',
+          ]) {
+            final units = find.descendant(
+              of: find.byKey(ValueKey(tableKey)),
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Text &&
+                    (widget.data?.contains('Cylinder') ?? false),
+              ),
+            );
+            expect(units, findsWidgets);
+            for (final element in units.evaluate()) {
+              final paragraph = element.findRenderObject()! as RenderParagraph;
+              final boxes = paragraph.getBoxesForSelection(
+                TextSelection(
+                  baseOffset: 0,
+                  extentOffset: (element.widget as Text).data!.length,
+                ),
+              );
+              expect(
+                boxes.map((box) => box.top).toSet().length,
+                1,
+                reason: 'quantity/unit must fit one line at $size',
+              );
+            }
+          }
+        }
+        if (size.width == 1366 || size.width == 360) {
+          await expectLater(
+            find.byType(MaterialApp),
+            matchesGoldenFile(
+              'goldens/r35/material_request_table_widths_${size.width.toInt()}.png',
+            ),
+          );
+        }
         final requestInformation = find.byKey(
           const ValueKey('material-request-information-action'),
         );
@@ -508,9 +553,14 @@ void main() {
             find.byKey(const ValueKey('material-request-items-table')),
           );
           final quantityTableRect = tester.getRect(
-            find.byKey(
-              const ValueKey('material-request-quantity-history-table'),
-            ),
+            find
+                .ancestor(
+                  of: find.byKey(
+                    const ValueKey('material-request-quantity-history-table'),
+                  ),
+                  matching: find.byType(SingleChildScrollView),
+                )
+                .first,
           );
           expect(itemsTableRect.right, lessThan(panelRect.left));
           expect(quantityTableRect.right, lessThan(panelRect.left));

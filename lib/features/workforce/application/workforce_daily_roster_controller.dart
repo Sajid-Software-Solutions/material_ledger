@@ -528,6 +528,47 @@ final class YorksWorkforceDailyRosterController
     });
   }
 
+  /// Marks a single worker using retained shift hours. Returns false when
+  /// hours must be entered explicitly; never invents an eight-hour shift.
+  bool markPresent(String workerId) {
+    final row = _find(workerId);
+    if (row == null || !row.isEditable || state.isBusy || state.isReviewing) {
+      return false;
+    }
+    if (row.status == YorksWorkforceAttendanceStatus.present) return true;
+    final minutes = row.source.scheduleSuggestion.suggestedRegularMinutes;
+    if (minutes <= 0) return false;
+    updateRow(
+      workerId,
+      status: YorksWorkforceAttendanceStatus.present,
+      regularMinutes: minutes,
+      overtimeMinutes: 0,
+      clearOvertimeReason: true,
+      source: YorksWorkforceRosterDraftSource.scheduleStandard,
+    );
+    return true;
+  }
+
+  YorksWorkforceDailyRosterDraftRow? currentRow(String workerId) =>
+      _find(workerId);
+
+  /// Undo only the exact still-current local edit. A refresh, newer edit,
+  /// save, or authority purge invalidates the captured row identity.
+  void undoQuickMark(
+    YorksWorkforceDailyRosterDraftRow before,
+    YorksWorkforceDailyRosterDraftRow after,
+  ) {
+    if (state.isBusy ||
+        state.isReviewing ||
+        !identical(_find(after.workerId), after)) {
+      return;
+    }
+    _replaceRow(
+      after.workerId,
+      (current) => current.isEditable ? before : current,
+    );
+  }
+
   void toggleSelection(String workerId) {
     final selected = {...state.selectedWorkerIds};
     if (!selected.add(workerId)) selected.remove(workerId);

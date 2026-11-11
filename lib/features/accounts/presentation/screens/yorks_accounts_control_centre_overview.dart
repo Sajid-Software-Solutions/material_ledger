@@ -484,48 +484,23 @@ class _FinancialHealthCard extends StatelessWidget {
                       size: const Size.square(88),
                       painter: _HealthDonutPainter(segments: segments),
                     ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _percent(healthRatio),
-                          style: AppTypography.headlineSmall,
-                        ),
-                        Text(
-                          _text(language, 'overview_healthy'),
-                          style: AppTypography.labelSmall,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  children: [
-                    for (final segment in segments)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
+                    // Stay inside the ring (88 px, 12 px stroke) whatever
+                    // the value or language.
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: segment.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                segment.label,
-                                style: AppTypography.bodySmall,
-                              ),
+                            Text(
+                              _percent(healthRatio),
+                              maxLines: 1,
+                              style: AppTypography.titleMedium,
                             ),
                             Text(
-                              _percent(segment.value),
+                              _text(language, 'overview_healthy'),
+                              maxLines: 1,
                               style: AppTypography.labelSmall.copyWith(
                                 color: AppColors.inkSecondary,
                               ),
@@ -533,7 +508,48 @@ class _FinancialHealthCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                    ),
                   ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              // Keep each value next to its label on a wide card.
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 280),
+                  child: Column(
+                    children: [
+                      for (final segment in segments)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: segment.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: Text(
+                                  segment.label,
+                                  style: AppTypography.bodySmall,
+                                ),
+                              ),
+                              Text(
+                                _percent(segment.value),
+                                style: AppTypography.labelSmall.copyWith(
+                                  color: AppColors.inkSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -2220,10 +2236,20 @@ double _ratio(YorksAccountsDecimal value, YorksAccountsDecimal baseline) {
   return (_decimalDouble(value) / denominator).clamp(0.0, 1.0);
 }
 
+/// A display share: at most one decimal place, never rounded to a value the
+/// data does not support (a small share is not "0%", an incomplete one is not
+/// "100%"). Exact amounts stay in the money figures beside it.
 String _percent(double value) {
   final bounded = value.clamp(0.0, 1.0) * 100;
-  final decimal = YorksAccountsDecimal.parse(bounded.toStringAsFixed(8));
-  return '${decimal.displayText()}%';
+  if (bounded == 0) return '0%';
+  if (bounded == 100) return '100%';
+  if (bounded < 0.1) return '<0.1%';
+  if (bounded > 99.9) return '>99.9%';
+  final rounded = (bounded * 10).round() / 10;
+  final text = rounded == rounded.roundToDouble()
+      ? rounded.toStringAsFixed(0)
+      : rounded.toStringAsFixed(1);
+  return '$text%';
 }
 
 String _compactNumber(YorksAccountsDecimal value) =>
