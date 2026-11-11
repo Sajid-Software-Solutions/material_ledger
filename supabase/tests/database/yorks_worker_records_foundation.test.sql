@@ -46,6 +46,60 @@ select is(
   'Only Admin may delegate worker record access'
 );
 
+-- Accountant boundary: only the two worker record keys are added -----------------
+
+select ok(
+  public.v1_accountant_may_hold_capability('worker_records.view')
+  and public.v1_accountant_may_hold_capability('worker_records.manage')
+  and public.v1_accountant_may_hold_capability('view_project_accounts')
+  and not public.v1_accountant_may_hold_capability('projects.create')
+  and not public.v1_accountant_may_hold_capability('boq.edit')
+  and not public.v1_accountant_may_hold_capability('inventory.adjust')
+  and not public.v1_accountant_may_hold_capability('users.view')
+  and not public.v1_accountant_may_hold_capability('workforce.view'),
+  'Accountant may hold Accounts keys and the two worker record keys only'
+);
+select ok(
+  (public.v1_permission_candidate_raw(
+    '10000000-0000-4000-8000-000000000013', 'worker_records.manage', null
+  ) ->> 'effective')::boolean,
+  'The resolver grants Accountant worker record management'
+);
+select is(
+  public.v1_permission_candidate_raw(
+    '10000000-0000-4000-8000-000000000013', 'projects.create', null
+  ) ->> 'source',
+  'hard_invariant',
+  'The resolver still refuses Accountant a technical capability'
+);
+select throws_ok(
+  $$insert into public.v1_permission_assignments(
+      id, auth_user_id, capability_key, effect, scope_kind, origin,
+      effective_from, reason, changed_by_auth_user_id
+    ) values (
+      '7a200000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000013',
+      'boq.edit', 'grant', 'organization', 'permission_management',
+      '2026-08-01', 'Boundary test',
+      '10000000-0000-4000-8000-000000000004'
+    )$$,
+  '42501', null,
+  'An Accountant still cannot be granted a non-Accounts technical capability'
+);
+select lives_ok(
+  $$insert into public.v1_permission_assignments(
+      id, auth_user_id, capability_key, effect, scope_kind, origin,
+      effective_from, reason, changed_by_auth_user_id
+    ) values (
+      '7a200000-0000-4000-8000-000000000002',
+      '10000000-0000-4000-8000-000000000013',
+      'worker_records.view', 'grant', 'organization', 'permission_management',
+      '2026-08-01', 'Boundary test',
+      '10000000-0000-4000-8000-000000000004'
+    )$$,
+  'An Accountant may be granted a worker record capability'
+);
+
 -- Protected relations -----------------------------------------------------------
 
 select ok(
