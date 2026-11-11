@@ -147,7 +147,9 @@ class Employee {
     nationality: json['nationality'] as String? ?? '',
     contact: json['contact'] as String?,
     emiratesId: json['emiratesId'] as String?,
-    emiratesIdExpiry: DateTime.tryParse(json['emiratesIdExpiry'] as String? ?? ''),
+    emiratesIdExpiry: DateTime.tryParse(
+      json['emiratesIdExpiry'] as String? ?? '',
+    ),
     passportNo: json['passportNo'] as String?,
     passportExpiry: DateTime.tryParse(json['passportExpiry'] as String? ?? ''),
     visaExpiry: DateTime.tryParse(json['visaExpiry'] as String? ?? ''),
@@ -164,6 +166,8 @@ class Employee {
 
   static List<Employee> decodeList(String jsonStr) {
     final list = jsonDecode(jsonStr) as List;
-    return list.map((e) => Employee.fromJson(e as Map<String, dynamic>)).toList();
+    return list
+        .map((e) => Employee.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }

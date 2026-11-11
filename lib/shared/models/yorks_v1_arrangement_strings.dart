@@ -3,6 +3,55 @@ import 'yorks_v1_arrangement.dart';
 
 /// Centralized user-facing copy for the Batch 6 arrangement workflow.
 abstract final class YorksV1ArrangementStrings {
+  static const quantityNeeded = TranslatableString(
+    en: 'Enter quantity',
+    ar: 'أدخل الكمية',
+    ur: 'مقدار درج کریں',
+    hi: 'मात्रा दर्ज करें',
+  );
+  static const shelfLocation = TranslatableString(
+    en: 'Shelf / bin',
+    ar: 'الرف / الموقع',
+    ur: 'شیلف / خانہ',
+    hi: 'शेल्फ / बिन',
+  );
+  static const shelfLocationMissing = TranslatableString(
+    en: 'Shelf / bin not set',
+    ar: 'لم يتم تحديد الرف / الموقع',
+    ur: 'شیلف / خانہ درج نہیں ہے',
+    hi: 'शेल्फ / बिन दर्ज नहीं है',
+  );
+  static const searchItems = TranslatableString(
+    en: 'Search items',
+    ar: 'بحث عن المواد',
+    ur: 'اشیاء تلاش کریں',
+    hi: 'आइटम खोजें',
+  );
+  static const allItems = TranslatableString(
+    en: 'All items',
+    ar: 'كل المواد',
+    ur: 'تمام اشیاء',
+    hi: 'सभी आइटम',
+  );
+  static const reviewArrangement = TranslatableString(
+    en: 'Review arrangement',
+    ar: 'مراجعة الترتيب',
+    ur: 'انتظام کا جائزہ',
+    hi: 'व्यवस्था की समीक्षा',
+  );
+  static const reviewBeforeSave = TranslatableString(
+    en: 'Check quantities and sources. Saving commits this arrangement and reserves warehouse stock.',
+    ar: 'تحقق من الكميات والمصادر. يؤدي الحفظ إلى اعتماد هذا الترتيب وحجز مخزون المستودع.',
+    ur: 'مقدار اور ذرائع چیک کریں۔ محفوظ کرنے سے انتظام اور گودام اسٹاک کا ریزرویشن مکمل ہوگا۔',
+    hi: 'मात्राएँ और स्रोत जाँचें। सहेजने से व्यवस्था पूरी होगी और गोदाम स्टॉक आरक्षित होगा।',
+  );
+  static const noMatchingWarehouse = TranslatableString(
+    en: 'No matching items',
+    ar: 'لا توجد مواد مطابقة',
+    ur: 'کوئی متعلقہ آئٹم نہیں',
+    hi: 'कोई मिलान नहीं',
+  );
+
   static const arrangement = TranslatableString(
     en: 'Procurement arrangement',
     ar: 'ترتيب المشتريات',
@@ -28,10 +77,10 @@ abstract final class YorksV1ArrangementStrings {
     hi: 'अनुरोधित सामग्री व्यवस्थित करें',
   );
   static const decideEveryLine = TranslatableString(
-    en: 'Decide each line before saving the arrangement.',
-    ar: 'حدّد قرار كل بند قبل حفظ الترتيب.',
-    ur: 'انتظام محفوظ کرنے سے پہلے ہر لائن کا فیصلہ کریں۔',
-    hi: 'व्यवस्था सहेजने से पहले प्रत्येक पंक्ति तय करें।',
+    en: 'Requested quantities are filled in. Adjust any quantity you cannot provide in full.',
+    ar: 'تمت تعبئة الكميات المطلوبة. عدّل أي كمية لا يمكنك توفيرها بالكامل.',
+    ur: 'مطلوبہ مقداریں درج ہیں۔ جو مقدار مکمل فراہم نہیں کر سکتے اسے تبدیل کریں۔',
+    hi: 'माँगी गई मात्राएँ भरी हैं। जो मात्रा पूरी नहीं दे सकते उसे बदलें।',
   );
   static const arrangeItem = TranslatableString(
     en: 'Arrange Item',
@@ -52,10 +101,10 @@ abstract final class YorksV1ArrangementStrings {
     hi: 'पिछला',
   );
   static const saveAndNext = TranslatableString(
-    en: 'Save & Next',
-    ar: 'حفظ والتالي',
-    ur: 'محفوظ کریں اور اگلا',
-    hi: 'सहेजें और अगला',
+    en: 'Next item',
+    ar: 'البند التالي',
+    ur: 'اگلی شے',
+    hi: 'अगला आइटम',
   );
   static const arrangementReview = TranslatableString(
     en: 'Arrangement Summary',
@@ -632,10 +681,10 @@ abstract final class YorksV1ArrangementStrings {
 
   static TranslatableString linesDecided(int decided, int total) =>
       TranslatableString(
-        en: '$decided / $total lines decided',
-        ar: 'تم تحديد $decided من $total بنداً',
-        ur: '$decided / $total لائنز کا فیصلہ',
-        hi: '$decided / $total पंक्तियाँ तय',
+        en: '$decided / $total quantities entered',
+        ar: 'تم إدخال $decided من $total كمية',
+        ur: '$decided / $total مقدار درج',
+        hi: '$decided / $total मात्राएँ दर्ज',
       );
 
   static TranslatableString exceptionsRequireAttention(int count) =>

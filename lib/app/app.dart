@@ -20,6 +20,7 @@ import '../shared/providers/language_provider.dart';
 import '../shared/providers/analytics_identity_provider.dart';
 import '../shared/providers/role_permissions_provider.dart';
 import '../shared/providers/session_provider.dart';
+import '../shared/providers/yorks_v1_rental_provider.dart';
 import '../shared/providers/yorks_v1_arrangement_provider.dart';
 import '../shared/providers/yorks_v1_boq_provider.dart';
 import '../shared/providers/yorks_v1_documents_provider.dart';
@@ -45,6 +46,9 @@ class _RouterRefresh extends ChangeNotifier {
 }
 
 void _invalidateYorksV1ProtectedProjectionCaches(Ref ref) {
+  ref.invalidate(yorksV1RentalPortfolioProvider);
+  ref.invalidate(yorksV1RentalPropertyProvider);
+  ref.invalidate(yorksV1RentalCommandProvider);
   // A permission revision is a refresh signal, never a row-level transaction.
   // Destroy each protected cache so a revoked project/request cannot remain in
   // memory while the same actor retains access to other projects.
@@ -224,6 +228,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         .read(yorksV1FeatureFlagsProvider)
         .accountsWorkspaceV2,
     yorksV1WorkforceEnabled: yorksV1WorkforceEnabled,
+    yorksV1WorkerRecordsEnabled: ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .workerRecords,
     yorksV1AnalyticsEnabled: yorksV1AnalyticsEnabled,
     yorksV1Role: yorksV1Role,
     yorksV1PermissionResolver: connectedV1Permissions

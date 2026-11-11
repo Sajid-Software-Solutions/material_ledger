@@ -308,6 +308,18 @@ abstract final class YorksV1ProjectStrings {
     ur: "بحالی کا یہ ریکارڈ محفوظ طور پر پڑھا نہیں جا سکتا۔ اسے محفوظ رکھا گیا ہے۔",
     hi: "यह पुनर्प्राप्ति रिकॉर्ड सुरक्षित रूप से पढ़ा नहीं जा सकता। इसे सुरक्षित रखा गया है।",
   );
+  static const checkingSavedStatus = TranslatableString(
+    en: 'Checking status…',
+    ar: 'جارٍ التحقق من الحالة…',
+    ur: 'حالت کی جانچ ہو رہی ہے…',
+    hi: 'स्थिति जाँची जा रही है…',
+  );
+  static const automaticallyCheckingSave = TranslatableString(
+    en: 'Yorks is checking whether this action completed. Do not retry or close this screen.',
+    ar: 'يتحقق يوركس مما إذا اكتمل الإجراء. لا تعِد المحاولة ولا تغلق هذه الشاشة.',
+    ur: 'Yorks جانچ کر رہا ہے کہ یہ عمل مکمل ہوا یا نہیں۔ دوبارہ کوشش نہ کریں اور یہ اسکرین بند نہ کریں۔',
+    hi: 'Yorks जाँच रहा है कि यह कार्रवाई पूरी हुई या नहीं। दोबारा प्रयास न करें और यह स्क्रीन बंद न करें।',
+  );
   static const commandOutcomeUncertain = TranslatableString(
     en: "We are checking whether your project was saved. Retry checks the same submission.",
     ar: "نتحقق مما إذا تم حفظ المشروع. تعيد المحاولة فحص الطلب نفسه.",

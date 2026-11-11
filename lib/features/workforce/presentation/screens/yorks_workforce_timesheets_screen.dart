@@ -1020,13 +1020,16 @@ class YorksWorkforceMonthlyView extends StatelessWidget {
                                 ),
                                 const SizedBox(height: AppSpacing.lg),
                               ],
-                              if (compact)
+                              if (compact && state.workerDetail == null)
                                 _CompactMonthlyBody(
                                   language: language,
                                   state: state,
                                   onWorkerChanged: onWorkerChanged,
+                                  searchController: searchController,
+                                  onSearchChanged: onSearchChanged,
+                                  onLoadMore: onLoadMoreWorkers,
                                 )
-                              else if (!tablet)
+                              else if (!compact && !tablet)
                                 _DesktopMonthlyBody(
                                   language: language,
                                   state: state,
@@ -3148,90 +3151,115 @@ class _CompactMonthlyBody extends StatelessWidget {
     required this.language,
     required this.state,
     required this.onWorkerChanged,
+    required this.searchController,
+    required this.onSearchChanged,
+    required this.onLoadMore,
   });
 
   final AppLanguage language;
   final YorksWorkforceMonthlyState state;
   final ValueChanged<String> onWorkerChanged;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onLoadMore;
 
   @override
   Widget build(BuildContext context) {
     final workers = state.projection?.workers ?? const [];
     return Column(
-      children: workers
-          .map(
-            (worker) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: _Panel(
-                padding: EdgeInsets.zero,
-                child: InkWell(
-                  onTap: () => onWorkerChanged(worker.workerId),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    worker.workerName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+      children: [
+        TextField(
+          key: const Key('workforce-month-worker-search'),
+          controller: searchController,
+          onChanged: onSearchChanged,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            hintText: YorksV1WorkforceStrings.text(
+              language,
+              'monthly_search_workers',
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ...workers.map(
+          (worker) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: _Panel(
+              padding: EdgeInsets.zero,
+              child: InkWell(
+                onTap: () => onWorkerChanged(worker.workerId),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  worker.workerName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
                                   ),
-                                  const SizedBox(height: AppSpacing.xs),
-                                  Text(
-                                    '${worker.workerNumber} · ${worker.tradeName ?? '—'}',
-                                    style: const TextStyle(
-                                      color: AppColors.muted,
-                                    ),
+                                ),
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  '${worker.workerNumber} · ${worker.tradeName ?? '—'}',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            _WorkerStatusPill(
-                              language: language,
-                              status: worker.status,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Wrap(
-                          spacing: AppSpacing.lg,
-                          runSpacing: AppSpacing.sm,
-                          children: [
-                            _InlineFact(
-                              icon: Icons.event_available_outlined,
-                              value:
-                                  '${worker.presentDayCount}/${worker.scheduledDayCount}',
-                            ),
-                            _InlineFact(
-                              icon: Icons.schedule_outlined,
-                              value: _minutes(language, worker.regularMinutes),
-                            ),
-                            _InlineFact(
-                              icon: Icons.more_time_outlined,
-                              value: _minutes(language, worker.overtimeMinutes),
-                            ),
-                            _InlineFact(
-                              icon: Icons.pending_actions_outlined,
-                              value: '${worker.missingDayCount}',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                          _WorkerStatusPill(
+                            language: language,
+                            status: worker.status,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Wrap(
+                        spacing: AppSpacing.lg,
+                        runSpacing: AppSpacing.sm,
+                        children: [
+                          _InlineFact(
+                            icon: Icons.event_available_outlined,
+                            value:
+                                '${worker.presentDayCount}/${worker.scheduledDayCount}',
+                          ),
+                          _InlineFact(
+                            icon: Icons.schedule_outlined,
+                            value: _minutes(language, worker.regularMinutes),
+                          ),
+                          _InlineFact(
+                            icon: Icons.more_time_outlined,
+                            value: _minutes(language, worker.overtimeMinutes),
+                          ),
+                          _InlineFact(
+                            icon: Icons.pending_actions_outlined,
+                            value: '${worker.missingDayCount}',
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          )
-          .toList(growable: false),
+          ),
+        ),
+        if (state.canLoadMore)
+          OutlinedButton.icon(
+            onPressed: onLoadMore,
+            icon: const Icon(Icons.expand_more),
+            label: Text(YorksV1WorkforceStrings.text(language, 'load_more')),
+          ),
+      ],
     );
   }
 }
@@ -3295,35 +3323,54 @@ class _WorkerMonthDetail extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _WorkerMetricChip(
-                icon: Icons.schedule_outlined,
-                label: _t('monthly_metric_regular'),
-                value: _minutes(language, detail.worker.regularMinutes),
-                color: AppColors.primary,
-              ),
-              _WorkerMetricChip(
-                icon: Icons.more_time_outlined,
-                label: _t('monthly_metric_overtime'),
-                value: _minutes(language, detail.worker.overtimeMinutes),
-                color: AppColors.warning,
-              ),
-              _WorkerMetricChip(
-                icon: Icons.medical_services_outlined,
-                label: _t('monthly_metric_leave'),
-                value: '${detail.worker.leaveDayCount}',
-                color: AppColors.success,
-              ),
-              _WorkerMetricChip(
-                icon: Icons.event_busy_outlined,
-                label: _t('monthly_metric_weekly_off'),
-                value: '${detail.worker.weeklyOffDayCount}',
-                color: AppColors.purple,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final metrics = <Widget>[
+                _WorkerMetricChip(
+                  icon: Icons.schedule_outlined,
+                  label: _t('monthly_metric_regular'),
+                  value: _minutes(language, detail.worker.regularMinutes),
+                  color: AppColors.primary,
+                ),
+                _WorkerMetricChip(
+                  icon: Icons.more_time_outlined,
+                  label: _t('monthly_metric_overtime'),
+                  value: _minutes(language, detail.worker.overtimeMinutes),
+                  color: AppColors.warning,
+                ),
+                _WorkerMetricChip(
+                  icon: Icons.medical_services_outlined,
+                  label: _t('monthly_metric_leave'),
+                  value: '${detail.worker.leaveDayCount}',
+                  color: AppColors.success,
+                ),
+                _WorkerMetricChip(
+                  icon: Icons.event_busy_outlined,
+                  label: _t('monthly_metric_weekly_off'),
+                  value: '${detail.worker.weeklyOffDayCount}',
+                  color: AppColors.purple,
+                ),
+              ];
+              if (MediaQuery.sizeOf(context).width <
+                  AppSpacing.compactBreakpoint) {
+                return Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final metric in metrics)
+                      SizedBox(
+                        width: (constraints.maxWidth - AppSpacing.sm) / 2,
+                        child: metric,
+                      ),
+                  ],
+                );
+              }
+              return Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: metrics,
+              );
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -3331,20 +3378,84 @@ class _WorkerMonthDetail extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (compact)
+          if (compact &&
+              MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint)
+            Column(
+              key: const Key('workforce-worker-month-day-list'),
+              children: [
+                for (final day in detail.days)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Material(
+                      color: selected?.workDate == day.workDate
+                          ? AppColors.blueContainer
+                          : AppColors.surfaceContainerLowest,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusMd,
+                        ),
+                        side: const BorderSide(color: AppColors.line),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: Key('workforce-month-day-${day.workDate}'),
+                        onTap: () => onDateChanged(day.workDate),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                day.workDate,
+                                style: AppTypography.titleSmall,
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(_monthlyAttendanceLabel(language, day)),
+                              Wrap(
+                                spacing: AppSpacing.md,
+                                runSpacing: AppSpacing.xs,
+                                children: [
+                                  Text(
+                                    '${_t('regular_hours')}: ${_minutes(language, day.regularMinutes)}',
+                                  ),
+                                  Text(
+                                    '${_t('overtime_hours')}: ${_minutes(language, day.overtimeMinutes)}',
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _monthlyTargetLabel(day),
+                                style: AppTypography.bodySmall,
+                              ),
+                              if (selected?.workDate == day.workDate) ...[
+                                const Divider(),
+                                _DayFacts(
+                                  language: language,
+                                  day: day,
+                                  compact: true,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          else if (compact)
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
-              children: detail.days
-                  .map(
-                    (day) => _CalendarDayButton(
-                      language: language,
-                      day: day,
-                      selected: selected?.workDate == day.workDate,
-                      onPressed: () => onDateChanged(day.workDate),
-                    ),
-                  )
-                  .toList(growable: false),
+              children: [
+                for (final day in detail.days)
+                  _CalendarDayButton(
+                    language: language,
+                    day: day,
+                    selected: selected?.workDate == day.workDate,
+                    onPressed: () => onDateChanged(day.workDate),
+                  ),
+              ],
             )
           else
             _WorkerDayTable(
@@ -3353,7 +3464,10 @@ class _WorkerMonthDetail extends StatelessWidget {
               selectedDate: selected?.workDate,
               onDateChanged: onDateChanged,
             ),
-          if (selected != null) ...[
+          if (selected != null &&
+              (!compact ||
+                  MediaQuery.sizeOf(context).width >=
+                      AppSpacing.compactBreakpoint)) ...[
             const SizedBox(height: AppSpacing.xl),
             const Divider(height: 1),
             const SizedBox(height: AppSpacing.lg),
@@ -3400,18 +3514,20 @@ class _WorkerMetricChip extends StatelessWidget {
       children: [
         Icon(icon, color: color, size: 19),
         const SizedBox(width: AppSpacing.sm),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTypography.labelSmall),
-            Text(
-              value,
-              style: AppTypography.titleMedium.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w800,
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppTypography.labelSmall),
+              Text(
+                value,
+                style: AppTypography.titleMedium.copyWith(
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     ),
@@ -3520,6 +3636,29 @@ class _DayFacts extends StatelessWidget {
         '${day.blockingIssueCount + day.warningIssueCount}',
       ),
     ];
+    if (compact &&
+        MediaQuery.sizeOf(context).width < AppSpacing.compactBreakpoint) {
+      return Column(
+        children: [
+          for (final fact in facts)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(fact.$1, style: AppTypography.bodySmall),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Text(fact.$2, style: AppTypography.bodySmall),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+    }
     return Wrap(
       spacing: AppSpacing.md,
       runSpacing: AppSpacing.md,

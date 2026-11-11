@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,12 +11,19 @@ import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
+import '../../../../shared/models/yorks_v1_document_strings.dart';
+import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_rental_strings.dart';
+import '../../../../shared/models/yorks_v1_rental_save_receipt.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
+import '../../../../shared/models/yorks_v1_rental_action.dart';
 import '../../../../shared/models/yorks_v1_rental_workbook.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart';
 import '../../../../shared/providers/yorks_v1_rental_provider.dart';
+import '../../../../shared/repositories/yorks_v1_rental_repository.dart';
 
 const _pageInset = 24.0;
 const _compactAt = 720.0;
@@ -31,6 +39,42 @@ final _month = DateFormat('MMM yyyy');
 
 String _optional(String? value) =>
     value == null || value.trim().isEmpty ? '—' : value.trim();
+
+String _rentText(BuildContext context, YorksV1RentalProperty property) =>
+    property.rentAmount == null
+    ? '—'
+    : '${_money.format(property.rentAmount)} / ${RentalWorkspaceStrings.text(context, property.isAnnual ? 'perYear' : 'perMonth')}';
+
+String _occupancyText(BuildContext context, YorksV1RentalProperty property) =>
+    RentalWorkspaceStrings.text(context, property.occupancy.name);
+
+String _termOption(String value) =>
+    const {
+      'shop': 'Shop',
+      'warehouse': 'Warehouse',
+      'store': 'Store',
+      'office': 'Office',
+      'office_store': 'Office (Store)',
+      'villa': 'Villa',
+      'labour_camp': 'Labour Camp',
+      'other': 'Other',
+      'tenancy_contract': 'Tenancy Contract',
+      'lease': 'Lease',
+      'licence': 'Licence',
+      'draft': 'Draft',
+      'active': 'Active',
+      'expired': 'Expired',
+      'terminated': 'Terminated',
+      'notice_due': 'Notice Due',
+      'renewed': 'Renewed',
+      'bank_transfer': 'Bank Transfer',
+      'cash': 'Cash',
+      'pdc': 'PDC',
+      'cdc': 'CDC',
+      'monthly': 'Monthly',
+      'annual': 'Annual',
+    }[value] ??
+    value;
 
 /// R38.4 normalized rental workspace. This screen intentionally does not read
 /// or write the legacy local rental collections; all facts come from the
@@ -48,6 +92,7 @@ class _YorksV1RentalDashboardScreenState
   final _search = TextEditingController();
   _RentalSection _section = _RentalSection.overview;
   _RentalFilter _filter = _RentalFilter.all;
+  _RentalActionFilter _actionFilter = _RentalActionFilter.all;
 
   @override
   void dispose() {
@@ -57,26 +102,14 @@ class _YorksV1RentalDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(yorksV1RentalCommandProvider);
     final portfolio = ref.watch(yorksV1RentalPortfolioProvider);
     final busy = ref.watch(yorksV1RentalCommandProvider).isLoading;
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: AppColors.workspaceChrome,
-        surfaceTintColor: Colors.transparent,
-        title: const Text('Rental Properties'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh rental register',
-            onPressed: busy
-                ? null
-                : () => ref.invalidate(yorksV1RentalPortfolioProvider),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
       body: portfolio.when(
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _RentalFailure(
           onRetry: () => ref.invalidate(yorksV1RentalPortfolioProvider),
@@ -90,9 +123,13 @@ class _YorksV1RentalDashboardScreenState
             return ListView(
               padding: padding,
               children: [
+                const _RentalPendingActionsPanel(),
                 _RentalPageHeader(
                   compact: compact,
-                  onAdd: busy ? null : () => _openPropertyEditor(context),
+                  onRefresh: busy || portfolio.isLoading
+                      ? null
+                      : () => ref.invalidate(yorksV1RentalPortfolioProvider),
+                  onAdd: busy ? null : _openPropertyEditor,
                   onDownloadTemplate: busy
                       ? null
                       : () => _downloadImportTemplate(context),
@@ -112,6 +149,10 @@ class _YorksV1RentalDashboardScreenState
                     portfolio: data,
                     compact: compact,
                     onOpenProperty: _openProperty,
+                    onOpenAction: _openAction,
+                    actionFilter: _actionFilter,
+                    onActionFilter: (filter) =>
+                        setState(() => _actionFilter = filter),
                     onOpenSection: (section) =>
                         setState(() => _section = section),
                   )
@@ -145,26 +186,23 @@ class _YorksV1RentalDashboardScreenState
   }
 
   void _openProperty(YorksV1RentalProperty property) {
-    context.go('${RoutePaths.rentals}/${property.id}');
+    context.push('${RoutePaths.rentals}/${property.id}');
   }
 
-  Future<void> _openPropertyEditor(BuildContext context) async {
-    final input = await showDialog<YorksV1RentalPropertyInput>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _PropertyEditorDialog(),
+  void _openAction(YorksV1RentalProperty property, YorksRentalAction action) {
+    context.push(
+      Uri(
+        path: RoutePaths.rentalUnitPath(property.id),
+        queryParameters: {'action': action.name},
+      ).toString(),
     );
-    if (input == null || !context.mounted) return;
-    final saved = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .saveProperty(input, expectedVersion: null);
-    if (!context.mounted) return;
-    _showResult(
-      context,
-      saved != null,
-      saved == null ? 'Property was not saved.' : 'Rental property saved.',
-    );
-    if (saved != null) _openProperty(saved.property);
+  }
+
+  Future<void> _openPropertyEditor() async {
+    final savedId = await _editRentalProperty(context, ref);
+    if (savedId != null && mounted) {
+      context.push('${RoutePaths.rentals}/$savedId');
+    }
   }
 
   Future<void> _downloadImportTemplate(BuildContext context) async {
@@ -251,56 +289,154 @@ enum _RentalSection { overview, properties, payments, cheques, expiry }
 
 enum _RentalFilter { all, occupied, due, overdue, expiring, vacant, archived }
 
+enum _RentalActionFilter {
+  all,
+  rent,
+  cheques,
+  leases,
+  billing,
+  details;
+
+  bool includes(YorksRentalAction action) => switch (this) {
+    all => true,
+    rent => action == YorksRentalAction.rent,
+    cheques => action == YorksRentalAction.cheque,
+    leases =>
+      action == YorksRentalAction.lease ||
+          action == YorksRentalAction.expiredLease,
+    billing => action == YorksRentalAction.billing,
+    details => action == YorksRentalAction.details,
+  };
+}
+
+class _RentalPendingActionsPanel extends ConsumerWidget {
+  const _RentalPendingActionsPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(yorksV1RentalCommandProvider);
+    final controller = ref.read(yorksV1RentalCommandProvider.notifier);
+    final pending = controller.pendingCommands;
+    if (pending.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _Panel(
+        title: RentalWorkspaceStrings.text(context, 'unfinishedAction'),
+        subtitle: RentalWorkspaceStrings.text(context, 'unfinishedActionHelp'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final command in pending)
+                OutlinedButton(
+                  onPressed: state.isLoading
+                      ? null
+                      : () => _review(context, ref, command),
+                  child: Text(
+                    '${RentalWorkspaceStrings.text(context, 'reviewUnfinishedAction')} · ${RentalWorkspaceStrings.text(context, 'pending_${command.commandName}')}',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _review(
+    BuildContext context,
+    WidgetRef ref,
+    YorksV1RentalPendingCommand pending,
+  ) async {
+    final resolve = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          RentalWorkspaceStrings.text(context, 'reviewUnfinishedAction'),
+        ),
+        content: Text(
+          RentalWorkspaceStrings.text(context, 'resolveActionHelp'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(RentalWorkspaceStrings.text(context, 'cancelAction')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(RentalWorkspaceStrings.text(context, 'resolveAction')),
+          ),
+        ],
+      ),
+    );
+    if (resolve != true || !context.mounted) return;
+    final resolution = await ref
+        .read(yorksV1RentalCommandProvider.notifier)
+        .settlePendingCommand(pending);
+    if (!context.mounted) return;
+    _showResult(
+      context,
+      resolution != null,
+      RentalWorkspaceStrings.text(context, switch (resolution) {
+        YorksV1RentalIntentResolution.confirmed => 'resolvedConfirmed',
+        YorksV1RentalIntentResolution.abandoned => 'resolvedAbandoned',
+        null => 'resolveFailed',
+      }),
+    );
+  }
+}
+
 class _RentalPageHeader extends StatelessWidget {
   const _RentalPageHeader({
     required this.compact,
     required this.onAdd,
+    required this.onRefresh,
     required this.onDownloadTemplate,
     required this.onImport,
     required this.onExport,
   });
-
   final bool compact;
   final VoidCallback? onAdd;
+  final VoidCallback? onRefresh;
   final VoidCallback? onDownloadTemplate;
   final VoidCallback? onImport;
   final ValueChanged<YorksV1RentalExportRegister>? onExport;
 
   @override
   Widget build(BuildContext context) {
-    final copy = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('ADMINISTRATION', style: AppTypography.eyebrow),
-        const SizedBox(height: 6),
-        Text('Rental Properties', style: AppTypography.displaySmall),
-        const SizedBox(height: 6),
-        Text(
-          'Owner view of every property, tenancy contract, rent receipt, '
-          'CDC/PDC and lease obligation.',
-          style: AppTypography.bodyMedium,
-        ),
-      ],
-    );
     final actions = Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SecondaryButton(
-          label: 'Download import format',
-          icon: YorksDataTransferIcons.downloadTemplate,
-          isExpanded: false,
-          onPressed: onDownloadTemplate,
+        IconButton(
+          tooltip: RentalWorkspaceStrings.text(context, 'refresh'),
+          onPressed: onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
         ),
-        SecondaryButton(
-          label: 'Import Excel',
-          icon: YorksDataTransferIcons.importData,
-          isExpanded: false,
-          onPressed: onImport,
+        PopupMenuButton<String>(
+          tooltip: RentalWorkspaceStrings.text(context, 'import'),
+          enabled: onImport != null,
+          icon: const Icon(YorksDataTransferIcons.importData),
+          onSelected: (value) => value == 'template'
+              ? onDownloadTemplate?.call()
+              : onImport?.call(),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: 'import',
+              child: Text(RentalWorkspaceStrings.text(context, 'import')),
+            ),
+            PopupMenuItem(
+              value: 'template',
+              child: Text(RentalWorkspaceStrings.text(context, 'template')),
+            ),
+          ],
         ),
         _ExportRegistersButton(onSelected: onExport),
         PrimaryButton(
-          label: 'Add property',
+          label: RentalWorkspaceStrings.text(context, 'add'),
           icon: Icons.add_rounded,
           isExpanded: false,
           onPressed: onAdd,
@@ -309,15 +445,26 @@ class _RentalPageHeader extends StatelessWidget {
     );
     if (compact) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [copy, const SizedBox(height: 16), actions],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            RentalWorkspaceStrings.text(context, 'title'),
+            style: AppTypography.headlineMedium,
+          ),
+          const SizedBox(height: 12),
+          actions,
+        ],
       );
     }
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: copy),
-        const SizedBox(width: 18),
+        Expanded(
+          child: Text(
+            RentalWorkspaceStrings.text(context, 'title'),
+            style: AppTypography.headlineMedium,
+          ),
+        ),
+        const SizedBox(width: 16),
         actions,
       ],
     );
@@ -333,7 +480,7 @@ class _ExportRegistersButton extends StatelessWidget {
   Widget build(BuildContext context) =>
       PopupMenuButton<YorksV1RentalExportRegister>(
         enabled: onSelected != null,
-        tooltip: 'Export rental registers',
+        tooltip: RentalWorkspaceStrings.text(context, 'export'),
         onSelected: onSelected,
         itemBuilder: (context) => [
           for (final register in YorksV1RentalExportRegister.values)
@@ -342,33 +489,7 @@ class _ExportRegistersButton extends StatelessWidget {
               child: Text(_rentalExportLabel(register)),
             ),
         ],
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: AppColors.line),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                YorksDataTransferIcons.exportData,
-                color: onSelected == null ? AppColors.muted : AppColors.navy,
-              ),
-              const SizedBox(width: 9),
-              Text(
-                'Export registers',
-                style: AppTypography.labelLarge.copyWith(
-                  color: onSelected == null ? AppColors.muted : AppColors.navy,
-                ),
-              ),
-              const SizedBox(width: 5),
-              const Icon(Icons.arrow_drop_down_rounded, color: AppColors.muted),
-            ],
-          ),
-        ),
+        icon: const Icon(YorksDataTransferIcons.exportData),
       );
 }
 
@@ -380,13 +501,52 @@ class _RentalSectionRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const labels = {
-      _RentalSection.overview: ('Overview', Icons.home_outlined),
-      _RentalSection.properties: ('Property register', Icons.apartment_rounded),
-      _RentalSection.payments: ('Payments', Icons.receipt_long_outlined),
-      _RentalSection.cheques: ('CDC / PDC', Icons.account_balance_outlined),
-      _RentalSection.expiry: ('Lease expiry', Icons.event_outlined),
+    final labels = {
+      _RentalSection.overview: (
+        RentalWorkspaceStrings.text(context, 'overview'),
+        Icons.home_outlined,
+      ),
+      _RentalSection.properties: (
+        RentalWorkspaceStrings.text(context, 'properties'),
+        Icons.apartment_rounded,
+      ),
+      _RentalSection.payments: (
+        RentalWorkspaceStrings.text(context, 'payments'),
+        Icons.receipt_long_outlined,
+      ),
+      _RentalSection.cheques: (
+        RentalWorkspaceStrings.text(context, 'cheques'),
+        Icons.account_balance_outlined,
+      ),
+      _RentalSection.expiry: (
+        RentalWorkspaceStrings.text(context, 'expiry'),
+        Icons.event_outlined,
+      ),
     };
+    if (MediaQuery.sizeOf(context).width < _compactAt) {
+      return DropdownButtonFormField<_RentalSection>(
+        key: const ValueKey('rental-section-selector'),
+        initialValue: selected,
+        isExpanded: true,
+        decoration: const InputDecoration(),
+        items: [
+          for (final entry in labels.entries)
+            DropdownMenuItem(
+              value: entry.key,
+              child: Row(
+                children: [
+                  Icon(entry.value.$2, size: 18),
+                  const SizedBox(width: 10),
+                  Text(entry.value.$1),
+                ],
+              ),
+            ),
+        ],
+        onChanged: (value) {
+          if (value != null) onSelected(value);
+        },
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
@@ -467,23 +627,80 @@ class _RailButton extends StatelessWidget {
   );
 }
 
-class _RentalOverview extends StatelessWidget {
+class _RentalOverview extends StatefulWidget {
   const _RentalOverview({
     required this.portfolio,
     required this.compact,
     required this.onOpenProperty,
     required this.onOpenSection,
+    required this.onOpenAction,
+    required this.actionFilter,
+    required this.onActionFilter,
   });
 
   final YorksV1RentalPortfolio portfolio;
   final bool compact;
   final ValueChanged<YorksV1RentalProperty> onOpenProperty;
   final ValueChanged<_RentalSection> onOpenSection;
+  final void Function(YorksV1RentalProperty, YorksRentalAction) onOpenAction;
+  final _RentalActionFilter actionFilter;
+  final ValueChanged<_RentalActionFilter> onActionFilter;
+
+  @override
+  State<_RentalOverview> createState() => _RentalOverviewState();
+}
+
+class _RentalOverviewState extends State<_RentalOverview> {
+  bool _showAllActions = false;
+
+  @override
+  void didUpdateWidget(covariant _RentalOverview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.actionFilter != widget.actionFilter) _showAllActions = false;
+  }
+
+  YorksRentalAction _visibleAction(YorksV1RentalProperty property) =>
+      rentalActions(property).firstWhere(widget.actionFilter.includes);
+  YorksV1RentalPortfolio get portfolio => widget.portfolio;
+  ValueChanged<YorksV1RentalProperty> get onOpenProperty =>
+      widget.onOpenProperty;
+  ValueChanged<_RentalSection> get onOpenSection => widget.onOpenSection;
 
   @override
   Widget build(BuildContext context) {
+    if (portfolio.properties.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.apartment_outlined,
+              size: 40,
+              color: AppColors.muted,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              RentalWorkspaceStrings.text(context, 'emptyTitle'),
+              style: AppTypography.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              RentalWorkspaceStrings.text(context, 'emptyBody'),
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
     final summary = portfolio.summary;
     final kpis = [
+      _KpiData(
+        RentalWorkspaceStrings.text(context, 'annualRentRoll'),
+        _money.format(summary.annualRentRoll),
+        Icons.calendar_month_outlined,
+        AppColors.blue,
+      ),
       _KpiData(
         'Monthly rent roll',
         _money.format(summary.monthlyRentRoll),
@@ -504,7 +721,9 @@ class _RentalOverview extends StatelessWidget {
       ),
       _KpiData(
         'Occupancy',
-        '${summary.occupancyPercent.toStringAsFixed(0)}%',
+        summary.totalProperties == 0
+            ? '—'
+            : '${summary.occupancyPercent.toStringAsFixed(0)}%',
         Icons.people_outline_rounded,
         AppColors.purple,
       ),
@@ -521,14 +740,144 @@ class _RentalOverview extends StatelessWidget {
         AppColors.warning,
       ),
     ];
-    final attention = portfolio.properties
-        .where(
-          (item) =>
-              item.outstanding > 0 || item.expiringSoon || !item.isOccupied,
-        )
+    final allAttention = portfolio.properties
+        .where((property) => rentalActions(property).isNotEmpty)
         .toList();
+    final attention =
+        allAttention
+            .where(
+              (property) =>
+                  rentalActions(property).any(widget.actionFilter.includes),
+            )
+            .toList()
+          ..sort((a, b) {
+            final priority = _visibleAction(
+              a,
+            ).index.compareTo(_visibleAction(b).index);
+            return priority != 0 ? priority : a.unitCode.compareTo(b.unitCode);
+          });
     return Column(
       children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked = constraints.maxWidth < 980;
+            final register = _Panel(
+              title: 'Property & Rent Register',
+              subtitle: RentalWorkspaceStrings.text(context, 'registerHelp'),
+              trailing: TextButton(
+                onPressed: () => onOpenSection(_RentalSection.properties),
+                child: Text(
+                  RentalWorkspaceStrings.text(context, 'viewRegister'),
+                ),
+              ),
+              child: _CompactPropertyList(
+                properties: portfolio.properties.take(7).toList(),
+                onOpen: onOpenProperty,
+              ),
+            );
+            final action = _Panel(
+              title: RentalWorkspaceStrings.text(context, 'actionTitle'),
+              subtitle: RentalWorkspaceStrings.text(context, 'actionHelp'),
+              trailing: _CountPill(
+                attention.length,
+                tone: attention.isEmpty ? AppColors.success : AppColors.warning,
+              ),
+              child: Column(
+                children: [
+                  if (allAttention.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: DropdownButtonFormField<_RentalActionFilter>(
+                        key: ValueKey(
+                          'rental-action-filter-${widget.actionFilter.name}',
+                        ),
+                        initialValue: widget.actionFilter,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: RentalWorkspaceStrings.text(
+                            context,
+                            'actionFilter',
+                          ),
+                        ),
+                        items: [
+                          for (final filter in _RentalActionFilter.values)
+                            DropdownMenuItem(
+                              value: filter,
+                              child: Text(
+                                '${RentalWorkspaceStrings.text(context, 'actionFilter_${filter.name}')} (${allAttention.where((p) => rentalActions(p).any(filter.includes)).length})',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) widget.onActionFilter(value);
+                        },
+                      ),
+                    ),
+                  if (attention.isEmpty) ...[
+                    _EmptyPanel(
+                      message: RentalWorkspaceStrings.text(
+                        context,
+                        allAttention.isEmpty
+                            ? 'actionEmpty'
+                            : 'actionFilterEmpty',
+                      ),
+                    ),
+                    if (allAttention.isNotEmpty)
+                      TextButton(
+                        onPressed: () =>
+                            widget.onActionFilter(_RentalActionFilter.all),
+                        child: Text(
+                          RentalWorkspaceStrings.text(
+                            context,
+                            'actionFilterReset',
+                          ),
+                        ),
+                      ),
+                  ] else ...[
+                    for (final item in attention.take(
+                      _showAllActions ? attention.length : 6,
+                    ))
+                      _AttentionRow(
+                        property: item,
+                        action: _visibleAction(item),
+                        onOpen: () =>
+                            widget.onOpenAction(item, _visibleAction(item)),
+                      ),
+                    if (attention.length > 6)
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _showAllActions = !_showAllActions),
+                        child: Text(
+                          RentalWorkspaceStrings.text(
+                            context,
+                            _showAllActions
+                                ? 'showFewerActions'
+                                : 'viewAllActions',
+                          ).replaceAll('{count}', '${attention.length}'),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            );
+            if (stacked) {
+              return Column(
+                children: [action, const SizedBox(height: 16), register],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 5, child: action),
+                const SizedBox(width: 16),
+                Expanded(flex: 5, child: register),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = constraints.maxWidth >= 1320
@@ -547,54 +896,6 @@ class _RentalOverview extends StatelessWidget {
                     width: width,
                     child: _KpiCard(data: kpi),
                   ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked = constraints.maxWidth < 980;
-            final register = _Panel(
-              title: 'Property & Rent Register',
-              subtitle:
-                  'Current rent position, next cheque, lease expiry and outstanding balance.',
-              child: _CompactPropertyList(
-                properties: portfolio.properties.take(7).toList(),
-                onOpen: onOpenProperty,
-              ),
-            );
-            final action = _Panel(
-              title: 'Action Required',
-              subtitle:
-                  'Rent, cheque and lease items that need the owner’s attention.',
-              trailing: _CountPill(
-                attention.length,
-                tone: attention.isEmpty ? AppColors.success : AppColors.warning,
-              ),
-              child: attention.isEmpty
-                  ? const _EmptyPanel(message: 'No urgent rent actions')
-                  : Column(
-                      children: [
-                        for (final item in attention.take(6))
-                          _AttentionRow(
-                            property: item,
-                            onOpen: () => onOpenProperty(item),
-                          ),
-                      ],
-                    ),
-            );
-            if (stacked) {
-              return Column(
-                children: [register, const SizedBox(height: 16), action],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 7, child: register),
-                const SizedBox(width: 16),
-                Expanded(flex: 3, child: action),
               ],
             );
           },
@@ -682,24 +983,43 @@ class _Panel extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: AppTypography.titleLarge),
-                    const SizedBox(height: 3),
-                    Text(subtitle, style: AppTypography.bodySmall),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stackAction =
+                constraints.maxWidth < 560 &&
+                trailing != null &&
+                trailing is! _CountPill;
+            final heading = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTypography.titleLarge),
+                const SizedBox(height: 3),
+                Text(subtitle, style: AppTypography.bodySmall),
+              ],
+            );
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: heading),
+                      if (!stackAction && trailing != null) trailing!,
+                    ],
+                  ),
+                  if (stackAction) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: trailing!,
+                    ),
                   ],
-                ),
+                ],
               ),
-              ?trailing,
-            ],
-          ),
+            );
+          },
         ),
         const Divider(height: 1, color: AppColors.line),
         child,
@@ -740,139 +1060,150 @@ class _CompactPropertyRow extends StatelessWidget {
     onTap: onOpen,
     child: Container(
       constraints: const BoxConstraints(minHeight: 70),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.blueContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              property.unitCode
-                  .replaceAll(RegExp(r'[^0-9]'), '')
-                  .padLeft(3, '0')
-                  .substring(
-                    math.max(
-                      0,
-                      property.unitCode
-                              .replaceAll(RegExp(r'[^0-9]'), '')
-                              .padLeft(3, '0')
-                              .length -
-                          3,
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      property.propertyName,
+                      style: AppTypography.titleSmall,
                     ),
-                  ),
-              style: AppTypography.labelLarge.copyWith(color: AppColors.blue),
-            ),
+                    Text(property.unitCode, style: AppTypography.bodySmall),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _RentalStatusChip(
+                label: _occupancyText(context, property),
+                tone: property.isOccupied ? AppColors.success : AppColors.muted,
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  property.propertyName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.titleSmall,
-                ),
-                Text(
-                  '${property.unitCode} · ${property.propertyType} · ${property.location}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          if (MediaQuery.sizeOf(context).width >= 760) ...[
-            Expanded(
-              flex: 2,
-              child: Text(
-                _optional(property.tenantName),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.bodyMedium,
-              ),
-            ),
-            SizedBox(
-              width: 140,
-              child: Text(
-                _money.format(property.monthlyRent),
-                style: AppTypography.labelLarge,
-              ),
-            ),
-            SizedBox(
-              width: 130,
-              child: Text(
-                _money.format(property.outstanding),
-                style: AppTypography.labelLarge.copyWith(
-                  color: property.outstanding > 0
-                      ? AppColors.error
-                      : AppColors.success,
-                ),
-              ),
-            ),
+          if (property.tenantName?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Text(property.tenantName!, style: AppTypography.bodySmall),
           ],
-          _RentalStatusChip(
-            label: property.isOccupied ? 'Occupied' : 'Vacant',
-            tone: property.isOccupied ? AppColors.success : AppColors.muted,
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          const SizedBox(height: 8),
+          Text(_rentText(context, property), style: AppTypography.labelLarge),
+          if (property.billingSetupPending)
+            Text(
+              RentalWorkspaceStrings.text(context, 'balancePending'),
+              style: AppTypography.bodySmall.copyWith(color: AppColors.warning),
+            ),
         ],
       ),
     ),
   );
 }
 
+String _actionText(
+  BuildContext context,
+  YorksV1RentalProperty property,
+  YorksRentalAction action,
+  String suffix,
+) => RentalWorkspaceStrings.text(context, 'action_${action.name}$suffix')
+    .replaceAll('{amount}', _money.format(property.outstanding))
+    .replaceAll(
+      '{date}',
+      property.leaseEnd == null ? '—' : _day.format(property.leaseEnd!),
+    )
+    .replaceAll(
+      '{fields}',
+      property.missingFields
+          .where((field) => field != 'billing_start')
+          .map((field) => RentalWorkspaceStrings.missingField(context, field))
+          .join(', '),
+    );
+
+String _actionCta(
+  BuildContext context,
+  YorksRentalAction action,
+) => RentalWorkspaceStrings.text(
+  context,
+  'action_${action == YorksRentalAction.expiredLease ? 'lease' : action.name}_cta',
+);
+
 class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({required this.property, required this.onOpen});
+  const _AttentionRow({
+    required this.property,
+    required this.action,
+    required this.onOpen,
+  });
+  final YorksRentalAction action;
   final YorksV1RentalProperty property;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final message = property.outstanding > 0
-        ? '${_money.format(property.outstanding)} outstanding'
-        : property.expiringSoon
-        ? 'Lease expires ${_day.format(property.leaseEnd!)}'
-        : 'Vacant property';
-    return InkWell(
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.warning,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${property.unitCode} · ${property.propertyName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.titleSmall,
-                  ),
-                  Text(message, style: AppTypography.bodySmall),
-                ],
+    final actions = rentalActions(property);
+    return Semantics(
+      button: true,
+      child: InkWell(
+        key: ValueKey('rental-attention-${property.id}'),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  color: AppColors.warning,
+                  size: 20,
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${property.unitCode} · ${property.propertyName}',
+                      style: AppTypography.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _actionText(context, property, action, ''),
+                      style: AppTypography.labelLarge,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _actionText(context, property, action, '_help'),
+                      style: AppTypography.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _actionCta(context, action),
+                      style: AppTypography.labelLarge.copyWith(
+                        color: AppColors.blue,
+                      ),
+                    ),
+                    if (actions.length > 1)
+                      Text(
+                        RentalWorkspaceStrings.text(
+                          context,
+                          'additionalActions',
+                        ).replaceAll('{count}', '${actions.length - 1}'),
+                        style: AppTypography.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            ],
+          ),
         ),
       ),
     );
@@ -963,7 +1294,9 @@ class _PropertyRegisterState extends State<_PropertyRegister> {
         _RentalFilter.overdue =>
           property.outstanding > 0 && !property.isArchived,
         _RentalFilter.expiring => property.expiringSoon && !property.isArchived,
-        _RentalFilter.vacant => !property.isOccupied && !property.isArchived,
+        _RentalFilter.vacant =>
+          property.occupancy == YorksV1RentalOccupancy.vacant &&
+              !property.isArchived,
         _RentalFilter.archived => property.isArchived,
       };
     }).toList();
@@ -1112,27 +1445,44 @@ class _RegisterRow extends StatelessWidget {
             cell(header ? 'TENANT' : _optional(p?.tenantName), 15),
             cell(header ? 'CONTRACT' : _optional(p?.contractNumber), 12),
             cell(
-              header ? 'MONTHLY RENT' : _money.format(p?.monthlyRent ?? 0),
+              header ? 'RENT' : (p == null ? '—' : _rentText(context, p)),
               13,
               style: header ? null : AppTypography.labelLarge,
             ),
             cell(
               header
                   ? 'CURRENT PERIOD'
-                  : (p!.isOccupied
+                  : (p!.billingSetupPending
+                        ? RentalWorkspaceStrings.text(
+                            context,
+                            'unconfirmedShort',
+                          )
+                        : p.isOccupied
                         ? (p.currentDue <= p.currentPaid
                               ? 'Paid'
                               : 'Due / Partial')
-                        : 'Vacant'),
+                        : _occupancyText(context, p)),
               12,
+              style: !header && p!.billingSetupPending
+                  ? AppTypography.bodyMedium.copyWith(color: AppColors.warning)
+                  : null,
             ),
             cell(
-              header ? 'OUTSTANDING' : _money.format(p!.outstanding),
+              header
+                  ? 'OUTSTANDING'
+                  : (p!.billingSetupPending
+                        ? RentalWorkspaceStrings.text(
+                            context,
+                            'unconfirmedShort',
+                          )
+                        : _money.format(p.outstanding)),
               13,
               style: header
                   ? null
                   : AppTypography.labelLarge.copyWith(
-                      color: p!.outstanding > 0
+                      color: p!.billingSetupPending
+                          ? AppColors.warning
+                          : p.outstanding > 0
                           ? AppColors.error
                           : AppColors.success,
                     ),
@@ -1154,7 +1504,7 @@ class _RegisterRow extends StatelessWidget {
                         ? 'Expiring'
                         : p.isOccupied
                         ? 'Active'
-                        : 'Vacant'),
+                        : _occupancyText(context, p)),
               10,
               child: header
                   ? null
@@ -1165,7 +1515,7 @@ class _RegisterRow extends StatelessWidget {
                           ? 'Expiring'
                           : p.isOccupied
                           ? 'Active'
-                          : 'Vacant',
+                          : _occupancyText(context, p),
                       tone: p.isArchived
                           ? AppColors.muted
                           : p.expiringSoon
@@ -1216,7 +1566,7 @@ class _PropertyMobileCard extends StatelessWidget {
                 ),
               ),
               _RentalStatusChip(
-                label: property.isOccupied ? 'Occupied' : 'Vacant',
+                label: _occupancyText(context, property),
                 tone: property.isOccupied ? AppColors.success : AppColors.muted,
               ),
             ],
@@ -1229,14 +1579,16 @@ class _PropertyMobileCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(
-                child: _MiniFact('Rent', _money.format(property.monthlyRent)),
-              ),
+              Expanded(child: _MiniFact('Rent', _rentText(context, property))),
               Expanded(
                 child: _MiniFact(
                   'Outstanding',
-                  _money.format(property.outstanding),
-                  color: property.outstanding > 0
+                  (property.billingSetupPending
+                      ? RentalWorkspaceStrings.text(context, 'unconfirmedShort')
+                      : _money.format(property.outstanding)),
+                  color: property.billingSetupPending
+                      ? AppColors.warning
+                      : property.outstanding > 0
                       ? AppColors.error
                       : AppColors.success,
                 ),
@@ -1433,7 +1785,9 @@ class _ExpiryRow extends StatelessWidget {
   final VoidCallback onOpen;
   @override
   Widget build(BuildContext context) {
-    final days = property.leaseEnd!.difference(DateTime.now()).inDays;
+    final days =
+        property.daysToLeaseEnd ??
+        property.leaseEnd!.difference(DateTime.now()).inDays;
     return InkWell(
       onTap: onOpen,
       child: Container(
@@ -1488,8 +1842,13 @@ class _RentalStatusChip extends StatelessWidget {
 }
 
 class YorksV1RentalPropertyScreen extends ConsumerStatefulWidget {
-  const YorksV1RentalPropertyScreen({super.key, required this.propertyId});
+  const YorksV1RentalPropertyScreen({
+    super.key,
+    required this.propertyId,
+    this.initialAction,
+  });
   final String propertyId;
+  final String? initialAction;
   @override
   ConsumerState<YorksV1RentalPropertyScreen> createState() =>
       _YorksV1RentalPropertyScreenState();
@@ -1498,98 +1857,122 @@ class YorksV1RentalPropertyScreen extends ConsumerStatefulWidget {
 class _YorksV1RentalPropertyScreenState
     extends ConsumerState<YorksV1RentalPropertyScreen> {
   _PropertySection _section = _PropertySection.overview;
+  final _sectionAnchor = GlobalKey();
+
+  void _showSection(_PropertySection section) {
+    setState(() => _section = section);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _sectionAnchor.currentContext;
+      if (mounted && target != null) {
+        Scrollable.ensureVisible(target, alignment: 0);
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectInitialAction();
+  }
+
+  @override
+  void didUpdateWidget(covariant YorksV1RentalPropertyScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.propertyId != widget.propertyId ||
+        oldWidget.initialAction != widget.initialAction) {
+      _selectInitialAction();
+    }
+  }
+
+  void _selectInitialAction() {
+    _section = switch (YorksRentalAction.fromName(widget.initialAction)) {
+      YorksRentalAction.rent => _PropertySection.schedule,
+      YorksRentalAction.cheque => _PropertySection.cheques,
+      _ => _PropertySection.overview,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(yorksV1RentalCommandProvider);
     final detail = ref.watch(yorksV1RentalPropertyProvider(widget.propertyId));
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.workspaceChrome,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          onPressed: _back,
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        title: const Text('Rental Property'),
-      ),
       body: detail.when(
+        skipLoadingOnRefresh: false,
+        skipLoadingOnReload: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _RentalFailure(
           onRetry: () =>
               ref.invalidate(yorksV1RentalPropertyProvider(widget.propertyId)),
         ),
-        data: (data) => _PropertyDetailBody(
-          detail: data,
-          section: _section,
-          onSection: (value) => setState(() => _section = value),
-          onBack: _back,
-          onEdit: () => _edit(context, data),
-          onArchive: data.property.isArchived
-              ? null
-              : () => _archive(context, data),
-          onPayment: () => _recordPayment(context, data),
-          onCheque: () => _addCheque(context, data),
-          onTransitionCheque: (cheque, status) =>
-              _transition(context, data, cheque, status),
+        data: (data) => AbsorbPointer(
+          absorbing: ref.watch(yorksV1RentalCommandProvider).isLoading,
+          child: _PropertyDetailBody(
+            detail: data,
+            focusedAction: YorksRentalAction.fromName(widget.initialAction),
+            sectionAnchor: _sectionAnchor,
+            section: _section,
+            onSection: _showSection,
+            onEdit: () => _edit(context, data),
+            onReview: (action) => _edit(context, data, action),
+            onArchive: data.property.isArchived
+                ? null
+                : () => _archive(context, data),
+            onPayment: () => _recordPayment(context, data),
+            onCheque: () => _addCheque(context, data),
+            onTransitionCheque: (cheque, status) =>
+                _transition(context, data, cheque, status),
+          ),
         ),
       ),
     );
   }
 
-  void _back() =>
-      context.canPop() ? context.pop() : context.go(RoutePaths.rentals);
-
   Future<void> _edit(
     BuildContext context,
-    YorksV1RentalPropertyDetail detail,
-  ) async {
-    final input = await showDialog<YorksV1RentalPropertyInput>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PropertyEditorDialog(detail: detail),
-    );
-    if (input == null || !context.mounted) return;
-    final result = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .saveProperty(input, expectedVersion: detail.property.recordVersion);
-    if (context.mounted) {
-      _showResult(
-        context,
-        result != null,
-        result == null
-            ? 'Property changes were not saved.'
-            : 'Property details updated.',
-      );
-    }
+    YorksV1RentalPropertyDetail detail, [
+    YorksRentalAction? action,
+  ]) async {
+    await _editRentalProperty(context, ref, detail: detail, action: action);
   }
 
   Future<void> _recordPayment(
     BuildContext context,
     YorksV1RentalPropertyDetail detail,
   ) async {
-    final payment = await showDialog<_PaymentInput>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _PaymentDialog(detail: detail),
-    );
-    if (payment == null || !context.mounted) return;
-    final ok = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .recordPayment(
-          propertyId: detail.property.id,
-          periodId: payment.period.id,
-          amount: payment.amount,
-          paymentDate: payment.date,
-          paymentMethod: payment.method,
-          reference: payment.reference,
-          note: payment.note,
-        );
-    if (context.mounted) {
+    if (!detail.periods.any((period) => period.balance > 0)) {
       _showResult(
         context,
-        ok,
-        ok ? 'Rent payment recorded.' : 'Payment was not recorded.',
+        false,
+        RentalWorkspaceStrings.text(context, 'balancePending'),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PaymentDialog(
+        detail: detail,
+        onSave: (payment) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .recordPayment(
+              propertyId: detail.property.id,
+              periodId: payment.period.id,
+              amount: payment.amount,
+              paymentDate: payment.date,
+              paymentMethod: payment.method,
+              reference: payment.reference,
+              note: payment.note,
+            ),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
+    );
+    if (context.mounted && ok == true) {
+      _showResult(
+        context,
+        true,
+        RentalWorkspaceStrings.text(context, 'paymentRecorded'),
       );
     }
   }
@@ -1606,24 +1989,26 @@ class _YorksV1RentalPropertyScreenState
       );
       return;
     }
-    final input = await showDialog<_ChequeInput>(
+    final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ChequeDialog(detail: detail),
+      builder: (_) => _ChequeDialog(
+        detail: detail,
+        onSave: (input) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .saveCheque(
+              propertyId: detail.property.id,
+              payload: input.payload,
+              expectedVersion: null,
+            ),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
     );
-    if (input == null || !context.mounted) return;
-    final ok = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .saveCheque(
-          propertyId: detail.property.id,
-          payload: input.payload,
-          expectedVersion: null,
-        );
-    if (context.mounted) {
+    if (context.mounted && ok == true) {
       _showResult(
         context,
-        ok,
-        ok ? 'Cheque recorded.' : 'Cheque was not recorded.',
+        true,
+        RentalWorkspaceStrings.text(context, 'chequeRecorded'),
       );
     }
   }
@@ -1634,6 +2019,40 @@ class _YorksV1RentalPropertyScreenState
     YorksV1RentalCheque cheque,
     YorksV1RentalChequeStatus status,
   ) async {
+    if (detail.property.isArchived ||
+        ref.read(yorksV1RentalCommandProvider).isLoading) {
+      return;
+    }
+    if ({
+      YorksV1RentalChequeStatus.returned,
+      YorksV1RentalChequeStatus.cancelled,
+    }.contains(status)) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _ChequeReasonDialog(
+          cheque: cheque,
+          status: status,
+          onConfirm: (reason) => ref
+              .read(yorksV1RentalCommandProvider.notifier)
+              .transitionCheque(
+                propertyId: detail.property.id,
+                cheque: cheque,
+                nextStatus: status,
+                reason: reason,
+              ),
+          saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+        ),
+      );
+      if (context.mounted && confirmed == true) {
+        _showResult(
+          context,
+          true,
+          RentalWorkspaceStrings.text(context, 'chequeUpdated'),
+        );
+      }
+      return;
+    }
     final ok = await ref
         .read(yorksV1RentalCommandProvider.notifier)
         .transitionCheque(
@@ -1645,7 +2064,10 @@ class _YorksV1RentalPropertyScreenState
       _showResult(
         context,
         ok,
-        ok ? 'Cheque status updated.' : 'Cheque status was not updated.',
+        RentalWorkspaceStrings.text(
+          context,
+          ok ? 'chequeUpdated' : 'chequeNotUpdated',
+        ),
       );
     }
   }
@@ -1654,24 +2076,24 @@ class _YorksV1RentalPropertyScreenState
     BuildContext context,
     YorksV1RentalPropertyDetail detail,
   ) async {
-    final reason = await showDialog<String>(
+    final archived = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ArchivePropertyDialog(property: detail.property),
+      builder: (_) => _ArchivePropertyDialog(
+        property: detail.property,
+        onConfirm: (reason) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .archiveProperty(property: detail.property, reason: reason),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
     );
-    if (reason == null || !context.mounted) return;
-    final archived = await ref
-        .read(yorksV1RentalCommandProvider.notifier)
-        .archiveProperty(property: detail.property, reason: reason);
-    if (!context.mounted) return;
+    if (!context.mounted || archived != true) return;
     _showResult(
       context,
-      archived,
-      archived
-          ? 'Rental property archived.'
-          : 'The property could not be archived while obligations remain.',
+      true,
+      RentalWorkspaceStrings.text(context, 'propertyArchived'),
     );
-    if (archived) context.go(RoutePaths.rentals);
+    context.go(RoutePaths.rentals);
   }
 }
 
@@ -1689,18 +2111,22 @@ class _PropertyDetailBody extends StatelessWidget {
     required this.detail,
     required this.section,
     required this.onSection,
-    required this.onBack,
     required this.onEdit,
+    required this.onReview,
     required this.onArchive,
     required this.onPayment,
     required this.onCheque,
     required this.onTransitionCheque,
+    required this.sectionAnchor,
+    this.focusedAction,
   });
   final YorksV1RentalPropertyDetail detail;
+  final YorksRentalAction? focusedAction;
+  final GlobalKey sectionAnchor;
   final _PropertySection section;
   final ValueChanged<_PropertySection> onSection;
-  final VoidCallback onBack;
   final VoidCallback onEdit;
+  final ValueChanged<YorksRentalAction> onReview;
   final VoidCallback? onArchive;
   final VoidCallback onPayment;
   final VoidCallback onCheque;
@@ -1718,6 +2144,7 @@ class _PropertyDetailBody extends StatelessWidget {
               ? const EdgeInsets.fromLTRB(14, 18, 14, 112)
               : const EdgeInsets.fromLTRB(24, 22, 24, 44),
           children: [
+            const _RentalPendingActionsPanel(),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1747,7 +2174,7 @@ class _PropertyDetailBody extends StatelessWidget {
                         p.propertyName,
                         style: compact
                             ? AppTypography.headlineMedium
-                            : AppTypography.displaySmall,
+                            : AppTypography.headlineMedium,
                       ),
                       const SizedBox(height: 5),
                       Wrap(
@@ -1756,11 +2183,14 @@ class _PropertyDetailBody extends StatelessWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
-                            '${p.propertyType} · ${p.location}',
+                            [
+                              _termOption(p.propertyType),
+                              p.location,
+                            ].where((part) => part.isNotEmpty).join(' · '),
                             style: AppTypography.bodyMedium,
                           ),
                           _RentalStatusChip(
-                            label: p.isOccupied ? 'Occupied' : 'Vacant',
+                            label: _occupancyText(context, p),
                             tone: p.isOccupied
                                 ? AppColors.success
                                 : AppColors.muted,
@@ -1775,20 +2205,17 @@ class _PropertyDetailBody extends StatelessWidget {
                     spacing: 10,
                     children: [
                       SecondaryButton(
-                        label: 'Rent register',
-                        icon: Icons.arrow_back_rounded,
-                        isExpanded: false,
-                        onPressed: onBack,
-                      ),
-                      SecondaryButton(
-                        label: 'Edit property',
+                        label: RentalWorkspaceStrings.text(context, 'edit'),
                         icon: Icons.edit_outlined,
                         isExpanded: false,
                         onPressed: onEdit,
                       ),
                       if (onArchive != null)
                         SecondaryButton(
-                          label: 'Archive',
+                          label: RentalWorkspaceStrings.text(
+                            context,
+                            'archive',
+                          ),
                           icon: Icons.archive_outlined,
                           isExpanded: false,
                           onPressed: onArchive,
@@ -1803,7 +2230,7 @@ class _PropertyDetailBody extends StatelessWidget {
                 children: [
                   Expanded(
                     child: SecondaryButton(
-                      label: 'Edit property',
+                      label: RentalWorkspaceStrings.text(context, 'edit'),
                       icon: Icons.edit_outlined,
                       onPressed: onEdit,
                     ),
@@ -1812,7 +2239,7 @@ class _PropertyDetailBody extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: SecondaryButton(
-                        label: 'Archive',
+                        label: RentalWorkspaceStrings.text(context, 'archive'),
                         icon: Icons.archive_outlined,
                         onPressed: onArchive,
                       ),
@@ -1822,7 +2249,28 @@ class _PropertyDetailBody extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 18),
-            _PropertySectionRail(selected: section, onSelected: onSection),
+            _PropertyActionPanel(
+              property: p,
+              focusedAction: focusedAction,
+              onAction: (action) {
+                switch (action) {
+                  case YorksRentalAction.rent:
+                    onSection(_PropertySection.schedule);
+                  case YorksRentalAction.cheque:
+                    onSection(_PropertySection.cheques);
+                  default:
+                    onReview(action);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            KeyedSubtree(
+              key: sectionAnchor,
+              child: _PropertySectionRail(
+                selected: section,
+                onSelected: onSection,
+              ),
+            ),
             const SizedBox(height: 16),
             if (section == _PropertySection.overview)
               _PropertyOverview(detail: detail)
@@ -1856,14 +2304,43 @@ class _PropertySectionRail extends StatelessWidget {
   final ValueChanged<_PropertySection> onSelected;
   @override
   Widget build(BuildContext context) {
-    const labels = {
-      _PropertySection.overview: 'Overview',
-      _PropertySection.schedule: 'Rent Schedule',
-      _PropertySection.payments: 'Payments',
-      _PropertySection.cheques: 'CDC / PDC',
-      _PropertySection.documents: 'Documents',
-      _PropertySection.activity: 'Activity',
+    final labels = {
+      _PropertySection.overview: RentalWorkspaceStrings.text(
+        context,
+        'overview',
+      ),
+      _PropertySection.schedule: RentalWorkspaceStrings.text(
+        context,
+        'schedule',
+      ),
+      _PropertySection.payments: RentalWorkspaceStrings.text(
+        context,
+        'payments',
+      ),
+      _PropertySection.cheques: RentalWorkspaceStrings.text(context, 'cheques'),
+      _PropertySection.documents: RentalWorkspaceStrings.text(
+        context,
+        'documents',
+      ),
+      _PropertySection.activity: RentalWorkspaceStrings.text(
+        context,
+        'activity',
+      ),
     };
+    if (MediaQuery.sizeOf(context).width < _compactAt) {
+      return DropdownButtonFormField<_PropertySection>(
+        key: ValueKey(selected),
+        initialValue: selected,
+        isExpanded: true,
+        items: [
+          for (final entry in labels.entries)
+            DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+        ],
+        onChanged: (value) {
+          if (value != null) onSelected(value);
+        },
+      );
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -1873,12 +2350,83 @@ class _PropertySectionRail extends StatelessWidget {
               padding: const EdgeInsets.only(right: 6),
               child: _RailButton(
                 label: entry.value,
-                icon: Icons.circle,
+                icon: switch (entry.key) {
+                  _PropertySection.overview => Icons.home_outlined,
+                  _PropertySection.schedule => Icons.calendar_month_outlined,
+                  _PropertySection.payments => Icons.receipt_long_outlined,
+                  _PropertySection.cheques => Icons.account_balance_outlined,
+                  _PropertySection.documents => Icons.folder_outlined,
+                  _PropertySection.activity => Icons.history_rounded,
+                },
                 selected: entry.key == selected,
                 onTap: () => onSelected(entry.key),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _PropertyActionPanel extends StatelessWidget {
+  const _PropertyActionPanel({
+    required this.property,
+    required this.onAction,
+    this.focusedAction,
+  });
+  final YorksV1RentalProperty property;
+  final YorksRentalAction? focusedAction;
+  final ValueChanged<YorksRentalAction> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = rentalActions(property);
+    if (focusedAction != null && actions.remove(focusedAction)) {
+      actions.insert(0, focusedAction!);
+    }
+    if (actions.isEmpty && focusedAction == null) {
+      return const SizedBox.shrink();
+    }
+    return _Panel(
+      title: RentalWorkspaceStrings.text(context, 'actionTitle'),
+      subtitle: RentalWorkspaceStrings.text(context, 'actionHelp'),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (focusedAction != null && !actions.contains(focusedAction))
+              Text(RentalWorkspaceStrings.text(context, 'actionResolved')),
+            for (final action in actions)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _actionText(context, property, action, ''),
+                      style: AppTypography.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _actionText(context, property, action, '_help'),
+                      style: AppTypography.bodyMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      key: ValueKey('rental-action-${action.name}'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                      ),
+                      onPressed: () => onAction(action),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: Text(_actionCta(context, action)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1890,24 +2438,34 @@ class _PropertyOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = detail.property;
+    String trackedAmount(double amount) => p.billingSetupPending
+        ? RentalWorkspaceStrings.text(context, 'unconfirmedShort')
+        : _money.format(amount);
     final stats = [
       _KpiData(
-        'Monthly rent',
-        _money.format(p.monthlyRent),
+        RentalWorkspaceStrings.text(
+          context,
+          p.isAnnual ? 'annualRent' : 'monthlyRent',
+        ),
+        p.rentAmount == null ? '—' : _money.format(p.rentAmount),
         Icons.payments_outlined,
         AppColors.navy,
       ),
       _KpiData(
         'Current period paid',
-        _money.format(p.currentPaid),
+        trackedAmount(p.currentPaid),
         Icons.check_circle_outline,
-        AppColors.success,
+        p.billingSetupPending ? AppColors.warning : AppColors.success,
       ),
       _KpiData(
         'Total outstanding',
-        _money.format(p.outstanding),
+        trackedAmount(p.outstanding),
         Icons.warning_amber_rounded,
-        p.outstanding > 0 ? AppColors.error : AppColors.success,
+        p.billingSetupPending
+            ? AppColors.warning
+            : p.outstanding > 0
+            ? AppColors.error
+            : AppColors.success,
       ),
       _KpiData(
         'Security deposit',
@@ -1918,6 +2476,32 @@ class _PropertyOverview extends StatelessWidget {
     ];
     return Column(
       children: [
+        if (p.billingSetupPending) ...[
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, 'balancePending'),
+            tone: AppColors.warning,
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (p.sourceMetadata['original_values'] is Map) ...[
+          Material(
+            type: MaterialType.transparency,
+            child: ExpansionTile(
+              title: Text(
+                RentalWorkspaceStrings.text(context, 'importedSource'),
+              ),
+              children: [
+                for (final entry
+                    in (p.sourceMetadata['original_values'] as Map).entries)
+                  ListTile(
+                    title: Text(entry.key.toString()),
+                    subtitle: Text(entry.value?.toString() ?? '—'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth >= 900
@@ -1942,20 +2526,30 @@ class _PropertyOverview extends StatelessWidget {
             final current = _InfoPanel(
               title: 'Current Rent Position',
               rows: [
-                ('Tenant', p.isOccupied ? _optional(p.tenantName) : 'Vacant'),
+                (
+                  'Tenant',
+                  p.tenantName?.trim().isNotEmpty == true
+                      ? _optional(p.tenantName)
+                      : _occupancyText(context, p),
+                ),
                 (
                   'Current period',
                   detail.periods.isEmpty
                       ? '—'
                       : _month.format(detail.periods.first.periodMonth),
                 ),
-                ('Amount due', _money.format(p.currentDue)),
-                ('Amount paid', _money.format(p.currentPaid)),
+                ('Amount due', trackedAmount(p.currentDue)),
+                ('Amount paid', trackedAmount(p.currentPaid)),
                 (
                   'Balance',
-                  _money.format(math.max(0, p.currentDue - p.currentPaid)),
+                  trackedAmount(math.max(0, p.currentDue - p.currentPaid)),
                 ),
-                ('Payment method', _optional(p.defaultPaymentMethod)),
+                (
+                  'Payment method',
+                  p.defaultPaymentMethod == null
+                      ? '—'
+                      : _termOption(p.defaultPaymentMethod!),
+                ),
               ],
             );
             final lease = _InfoPanel(
@@ -2126,7 +2720,7 @@ class _PropertyPayments extends StatelessWidget {
   );
 }
 
-class _PropertyCheques extends StatelessWidget {
+class _PropertyCheques extends ConsumerWidget {
   const _PropertyCheques({
     required this.detail,
     required this.onAdd,
@@ -2137,7 +2731,7 @@ class _PropertyCheques extends StatelessWidget {
   final void Function(YorksV1RentalCheque, YorksV1RentalChequeStatus)
   onTransition;
   @override
-  Widget build(BuildContext context) => _Panel(
+  Widget build(BuildContext context, WidgetRef ref) => _Panel(
     title: 'Cheque Register',
     subtitle:
         'Current-dated and post-dated cheques, due dates, deposit and clearance status.',
@@ -2145,7 +2739,12 @@ class _PropertyCheques extends StatelessWidget {
       label: 'Add cheque',
       icon: Icons.add_rounded,
       isExpanded: false,
-      onPressed: detail.property.leaseId == null ? null : onAdd,
+      onPressed:
+          detail.property.leaseId == null ||
+              detail.property.isArchived ||
+              ref.watch(yorksV1RentalCommandProvider).isLoading
+          ? null
+          : onAdd,
     ),
     child: detail.cheques.isEmpty
         ? const _EmptyPanel(message: 'No cheques recorded')
@@ -2154,6 +2753,7 @@ class _PropertyCheques extends StatelessWidget {
               for (final cheque in detail.cheques)
                 _PropertyChequeRow(
                   cheque: cheque,
+                  readOnly: detail.property.isArchived,
                   onTransition: (status) => onTransition(cheque, status),
                 ),
             ],
@@ -2161,53 +2761,131 @@ class _PropertyCheques extends StatelessWidget {
   );
 }
 
-class _PropertyChequeRow extends StatelessWidget {
-  const _PropertyChequeRow({required this.cheque, required this.onTransition});
+class _PropertyChequeRow extends ConsumerWidget {
+  const _PropertyChequeRow({
+    required this.cheque,
+    required this.onTransition,
+    this.readOnly = false,
+  });
   final YorksV1RentalCheque cheque;
   final ValueChanged<YorksV1RentalChequeStatus> onTransition;
+  final bool readOnly;
   @override
-  Widget build(BuildContext context) {
-    final next = switch (cheque.status) {
-      YorksV1RentalChequeStatus.scheduled => YorksV1RentalChequeStatus.received,
-      YorksV1RentalChequeStatus.received => YorksV1RentalChequeStatus.deposited,
-      YorksV1RentalChequeStatus.deposited => YorksV1RentalChequeStatus.cleared,
-      _ => null,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final busy = ref.watch(yorksV1RentalCommandProvider).isLoading;
+    final actions = switch (cheque.status) {
+      YorksV1RentalChequeStatus.scheduled => [
+        YorksV1RentalChequeStatus.received,
+        YorksV1RentalChequeStatus.cancelled,
+      ],
+      YorksV1RentalChequeStatus.received => [
+        YorksV1RentalChequeStatus.deposited,
+        YorksV1RentalChequeStatus.returned,
+        YorksV1RentalChequeStatus.cancelled,
+      ],
+      YorksV1RentalChequeStatus.deposited => [
+        YorksV1RentalChequeStatus.cleared,
+        YorksV1RentalChequeStatus.returned,
+      ],
+      YorksV1RentalChequeStatus.returned => [
+        YorksV1RentalChequeStatus.received,
+        YorksV1RentalChequeStatus.cancelled,
+      ],
+      _ => <YorksV1RentalChequeStatus>[],
     };
+    final status = _RentalStatusChip(
+      label: RentalWorkspaceStrings.text(
+        context,
+        'chequeStatus_${cheque.status.name}',
+      ),
+      tone: cheque.status == YorksV1RentalChequeStatus.returned
+          ? AppColors.error
+          : cheque.status == YorksV1RentalChequeStatus.cleared
+          ? AppColors.success
+          : AppColors.warning,
+    );
+    final menu = actions.isEmpty || readOnly
+        ? const SizedBox.shrink()
+        : PopupMenuButton<YorksV1RentalChequeStatus>(
+            tooltip: RentalWorkspaceStrings.text(context, 'chequeActions'),
+            enabled: !busy,
+            onSelected: onTransition,
+            itemBuilder: (_) => [
+              for (final action in actions)
+                PopupMenuItem(
+                  value: action,
+                  child: Text(
+                    RentalWorkspaceStrings.text(
+                      context,
+                      'chequeAction_${action.name}',
+                    ),
+                  ),
+                ),
+            ],
+          );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.line)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(cheque.chequeNumber, style: AppTypography.titleSmall),
-          ),
-          Expanded(child: Text(cheque.chequeType)),
-          Expanded(child: Text(cheque.bankName)),
-          Expanded(child: Text(_day.format(cheque.chequeDate))),
-          Expanded(
-            child: Text(
-              _money.format(cheque.amount),
-              style: AppTypography.labelLarge,
-            ),
-          ),
-          _RentalStatusChip(
-            label: _title(cheque.status.name),
-            tone: cheque.status == YorksV1RentalChequeStatus.returned
-                ? AppColors.error
-                : cheque.status == YorksV1RentalChequeStatus.cleared
-                ? AppColors.success
-                : AppColors.warning,
-          ),
-          if (next != null) ...[
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () => onTransition(next),
-              child: Text('Mark ${_title(next.name)}'),
-            ),
-          ],
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < _compactAt) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        cheque.chequeNumber,
+                        style: AppTypography.titleSmall,
+                      ),
+                    ),
+                    status,
+                    menu,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${cheque.chequeType} · ${cheque.bankName}',
+                  style: AppTypography.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: Text(_day.format(cheque.chequeDate))),
+                    Text(
+                      _money.format(cheque.amount),
+                      style: AppTypography.labelLarge,
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(
+                child: Text(
+                  cheque.chequeNumber,
+                  style: AppTypography.titleSmall,
+                ),
+              ),
+              Expanded(child: Text(cheque.chequeType)),
+              Expanded(child: Text(cheque.bankName)),
+              Expanded(child: Text(_day.format(cheque.chequeDate))),
+              Expanded(
+                child: Text(
+                  _money.format(cheque.amount),
+                  style: AppTypography.labelLarge,
+                ),
+              ),
+              status,
+              menu,
+            ],
+          );
+        },
       ),
     );
   }
@@ -2255,6 +2933,15 @@ class _LeaseDocumentsState extends ConsumerState<_LeaseDocuments> {
       if (!mounted) return;
       _refresh();
       _showResult(context, true, 'Lease document stored securely.');
+    } on YorksV1CommittedViewUnavailable {
+      if (mounted) {
+        _refresh();
+        _showResult(
+          context,
+          true,
+          YorksV1DocumentStrings.uploadConfirmedRefreshPending.primary,
+        );
+      }
     } catch (_) {
       if (mounted) {
         _showResult(
@@ -2317,7 +3004,7 @@ class _LeaseDocumentsState extends ConsumerState<_LeaseDocuments> {
               p.leaseStart == null ? '—' : _day.format(p.leaseStart!),
             ),
             ('Lease End', p.leaseEnd == null ? '—' : _day.format(p.leaseEnd!)),
-            ('Monthly Rent', _money.format(p.monthlyRent)),
+            ('Monthly Rent', _rentText(context, p)),
             ('Due Day', '${p.monthlyDueDay}'),
             ('Grace Period', '${p.gracePeriodDays} days'),
             ('Renewal Notice', '${p.renewalNoticeDays} days'),
@@ -2557,6 +3244,10 @@ class _RentalImportPreviewDialogState
     final rows = _issuesOnly && preview.issues.isNotEmpty
         ? preview.rows.where((row) => row.issues.isNotEmpty).toList()
         : preview.rows;
+    final rowIssues = preview.rows.expand((row) => row.issues).toSet();
+    final workbookIssues = preview.issues
+        .where((issue) => !rowIssues.contains(issue))
+        .toList();
     return PopScope(
       canPop: !_busy,
       child: Dialog(
@@ -2567,6 +3258,7 @@ class _RentalImportPreviewDialogState
           child: Column(
             children: [
               _DialogHeader(
+                canClose: !_busy,
                 title: 'Preview Rental Import',
                 subtitle:
                     '${preview.fileName} · Nothing changes until Confirm Import',
@@ -2579,6 +3271,10 @@ class _RentalImportPreviewDialogState
                     return ListView(
                       padding: EdgeInsets.all(compact ? 14 : 22),
                       children: [
+                        if (workbookIssues.isNotEmpty) ...[
+                          _RentalWorkbookIssues(issues: workbookIssues),
+                          const SizedBox(height: 16),
+                        ],
                         _RentalImportSummary(preview: preview),
                         const SizedBox(height: 16),
                         const _RentalTrustBanner(
@@ -2641,8 +3337,10 @@ class _RentalImportPreviewDialogState
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: AppColors.line)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
                     SecondaryButton(
                       label: 'Choose another file',
@@ -2651,7 +3349,6 @@ class _RentalImportPreviewDialogState
                           ? null
                           : () => Navigator.pop(context, false),
                     ),
-                    const SizedBox(width: 10),
                     PrimaryButton(
                       label: _busy
                           ? 'Importing…'
@@ -2687,6 +3384,44 @@ class _RentalImportPreviewDialogState
           'The server did not confirm the import. Nothing is shown as saved; this preview remains available for a safe retry.';
     });
   }
+}
+
+class _RentalWorkbookIssues extends StatelessWidget {
+  const _RentalWorkbookIssues({required this.issues});
+
+  final List<YorksV1RentalImportIssue> issues;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(15),
+    decoration: BoxDecoration(
+      color: AppColors.errorContainer,
+      border: Border.all(color: AppColors.error.withValues(alpha: .3)),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          RentalWorkspaceStrings.text(context, 'workbookIssues'),
+          style: AppTypography.titleSmall.copyWith(color: AppColors.error),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          RentalWorkspaceStrings.text(context, 'importFormatHelp'),
+          style: AppTypography.bodySmall,
+        ),
+        for (final issue in issues)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              '${issue.sheet} · ${issue.rowNumber}: ${issue.message}',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 class _RentalImportSummary extends StatelessWidget {
@@ -2971,9 +3706,143 @@ class _RentalImportRowCard extends StatelessWidget {
   );
 }
 
+class _ChequeReasonDialog extends StatefulWidget {
+  const _ChequeReasonDialog({
+    required this.cheque,
+    required this.status,
+    required this.onConfirm,
+    required this.saveError,
+  });
+  final YorksV1RentalCheque cheque;
+  final YorksV1RentalChequeStatus status;
+  final Future<bool> Function(String) onConfirm;
+  final Object? Function() saveError;
+  @override
+  State<_ChequeReasonDialog> createState() => _ChequeReasonDialogState();
+}
+
+class _ChequeReasonDialogState extends State<_ChequeReasonDialog> {
+  final _form = GlobalKey<FormState>();
+  final _reason = TextEditingController();
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_busy,
+    child: AlertDialog(
+      scrollable: true,
+      title: Text(
+        RentalWorkspaceStrings.text(
+          context,
+          'chequeAction_${widget.status.name}',
+        ),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Form(
+          key: _form,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.cheque.chequeNumber, style: AppTypography.titleSmall),
+              const SizedBox(height: 10),
+              Text(RentalWorkspaceStrings.text(context, 'chequeReasonHelp')),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _reason,
+                minLines: 3,
+                maxLines: 4,
+                enabled: !_busy && !_unconfirmed,
+                decoration: InputDecoration(
+                  labelText: RentalWorkspaceStrings.text(
+                    context,
+                    'chequeReason',
+                  ),
+                ),
+                validator: (value) => value?.trim().isNotEmpty == true
+                    ? null
+                    : RentalWorkspaceStrings.text(
+                        context,
+                        'chequeReasonRequired',
+                      ),
+              ),
+              if (_errorKey != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  RentalWorkspaceStrings.text(context, _errorKey!),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context),
+          child: Text(RentalWorkspaceStrings.text(context, 'cancelAction')),
+        ),
+        TextButton(
+          onPressed: _busy ? null : _save,
+          child: Text(
+            RentalWorkspaceStrings.text(
+              context,
+              _busy
+                  ? 'saving'
+                  : _unconfirmed
+                  ? 'retryChequeStatus'
+                  : 'chequeAction_${widget.status.name}',
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  Future<void> _save() async {
+    if (_busy || !_form.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    final confirmed = await widget.onConfirm(_reason.text.trim());
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final failure = widget.saveError();
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'chequeUnconfirmed' : 'chequeNotUpdated';
+    });
+  }
+}
+
 class _ArchivePropertyDialog extends StatefulWidget {
-  const _ArchivePropertyDialog({required this.property});
+  const _ArchivePropertyDialog({
+    required this.property,
+    required this.onConfirm,
+    required this.saveError,
+  });
   final YorksV1RentalProperty property;
+  final Future<bool> Function(String) onConfirm;
+  final Object? Function() saveError;
 
   @override
   State<_ArchivePropertyDialog> createState() => _ArchivePropertyDialogState();
@@ -2981,6 +3850,9 @@ class _ArchivePropertyDialog extends StatefulWidget {
 
 class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
   final _reason = TextEditingController();
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
 
   @override
   void dispose() {
@@ -2992,6 +3864,7 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
   Widget build(BuildContext context) => _SimpleDialog(
     title: 'Archive Rental Property',
     subtitle: '${widget.property.unitCode} · ${widget.property.propertyName}',
+    busy: _busy,
     body: Column(
       children: [
         const _RentalTrustBanner(
@@ -3003,6 +3876,7 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
         const SizedBox(height: 16),
         TextFormField(
           controller: _reason,
+          enabled: !_busy && !_unconfirmed,
           minLines: 3,
           maxLines: 4,
           decoration: const InputDecoration(
@@ -3012,28 +3886,341 @@ class _ArchivePropertyDialogState extends State<_ArchivePropertyDialog> {
           ),
           onChanged: (_) => setState(() {}),
         ),
+        if (_errorKey != null) ...[
+          const SizedBox(height: 12),
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, _errorKey!),
+            tone: AppColors.warning,
+          ),
+        ],
       ],
     ),
-    primaryLabel: 'Archive property',
-    onPrimary: _reason.text.trim().length < 8
-        ? () => _showResult(
-            context,
-            false,
-            'Enter a clear archive reason of at least 8 characters.',
-          )
-        : () => Navigator.pop(context, _reason.text.trim()),
+    primaryLabel: RentalWorkspaceStrings.text(
+      context,
+      _busy
+          ? 'saving'
+          : _unconfirmed
+          ? 'confirmArchive'
+          : 'archiveProperty',
+    ),
+    onPrimary: _busy ? null : _save,
   );
+
+  Future<void> _save() async {
+    if (_busy) return;
+    if (_reason.text.trim().length < 8) {
+      _showResult(
+        context,
+        false,
+        RentalWorkspaceStrings.text(context, 'archiveReasonRequired'),
+      );
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    var confirmed = false;
+    Object? failure;
+    try {
+      confirmed = await widget.onConfirm(_reason.text.trim());
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'archiveUnconfirmed' : 'archiveRejected';
+    });
+  }
+}
+
+typedef _SavedFollowUp = ({
+  YorksV1RentalPropertyDetail detail,
+  YorksRentalAction action,
+});
+
+Future<String?> _editRentalProperty(
+  BuildContext context,
+  WidgetRef ref, {
+  YorksV1RentalPropertyDetail? detail,
+  YorksRentalAction? action,
+}) async {
+  String? savedId;
+  while (true) {
+    if (!context.mounted) return savedId;
+    final editing = detail;
+    final receipt = await showDialog<YorksRentalSaveReceipt>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PropertyEditorDialog(
+        detail: editing,
+        initialAction: action,
+        onSave: (input, key) => ref
+            .read(yorksV1RentalCommandProvider.notifier)
+            .saveProperty(
+              input,
+              expectedVersion: editing?.property.recordVersion,
+              idempotencyKey: key,
+            ),
+        saveError: () => ref.read(yorksV1RentalCommandProvider).error,
+      ),
+    );
+    if (receipt == null) return savedId;
+    savedId = receipt.propertyId;
+    if (!context.mounted) return savedId;
+    final next = await showDialog<_SavedFollowUp>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PropertySaveConfirmation(receipt: receipt),
+    );
+    if (next == null) return savedId;
+    // The next editor uses the refreshed version, never the pre-save version.
+    detail = next.detail;
+    action = next.action;
+  }
+}
+
+class _PropertySaveConfirmation extends ConsumerWidget {
+  const _PropertySaveConfirmation({required this.receipt});
+
+  final YorksRentalSaveReceipt receipt;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    String copy(String key) => RentalWorkspaceStrings.text(context, key);
+    final provider = yorksV1RentalPropertyProvider(receipt.propertyId);
+    final latest = ref.watch(provider);
+    final detail = latest.hasValue && !latest.isLoading && !latest.hasError
+        ? latest.requireValue
+        : null;
+    final missing =
+        detail?.property.missingFields
+            .where((field) => field != 'billing_start')
+            .toSet()
+            .toList() ??
+        <String>[];
+    final billing =
+        detail?.property.billingSetupPending == true ||
+        detail?.property.missingFields.contains('billing_start') == true;
+    final canContinue = detail != null && !detail.property.isArchived;
+    final updated = detail == null ? <String>[] : receipt.updatedFields(detail);
+    final cleared = detail == null ? <String>[] : receipt.clearedFields(detail);
+
+    Widget fieldList(List<String> fields, {bool updated = false}) => Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final field in fields)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.line),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              updated
+                  ? '${RentalWorkspaceStrings.savedField(context, field)}${cleared.contains(field) ? ' · ${copy('saveSummaryCleared')}' : ''}'
+                  : RentalWorkspaceStrings.missingField(context, field),
+              style: AppTypography.bodySmall,
+            ),
+          ),
+      ],
+    );
+
+    return Dialog(
+      key: const ValueKey('rental-save-confirmation'),
+      insetPadding: const EdgeInsets.all(18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 740),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Semantics(
+                liveRegion: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: AppColors.success,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            copy(
+                              receipt.created ? 'saveSummaryCreated' : 'saved',
+                            ),
+                            style: AppTypography.titleLarge,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${receipt.input.unitCode} · ${receipt.input.propertyName}',
+                            style: AppTypography.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (detail != null) ...[
+                      Text(
+                        copy(
+                          receipt.created
+                              ? 'saveSummaryRecorded'
+                              : 'saveSummaryUpdated',
+                        ),
+                        style: AppTypography.titleMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      if (!receipt.matchesVersion(detail))
+                        Text(copy('saveSummaryNewer'))
+                      else if (updated.isEmpty)
+                        Text(copy('saveSummaryNoChanges'))
+                      else
+                        fieldList(updated, updated: true),
+                      const SizedBox(height: 22),
+                    ],
+                    Semantics(
+                      liveRegion: true,
+                      child: latest.when(
+                        skipLoadingOnRefresh: false,
+                        skipLoadingOnReload: false,
+                        loading: () => Text(copy('saveSummaryLoading')),
+                        error: (_, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(copy('saveSummaryReadFailed')),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: () => ref.invalidate(provider),
+                              icon: const Icon(Icons.refresh),
+                              label: Text(copy('saveSummaryRefresh')),
+                            ),
+                          ],
+                        ),
+                        data: (_) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (missing.isNotEmpty) ...[
+                              Text(
+                                '${copy('saveSummaryMissing')} (${missing.length})',
+                                style: AppTypography.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(copy('saveSummaryLater')),
+                              const SizedBox(height: 12),
+                              fieldList(missing),
+                            ] else if (!billing)
+                              Text(copy('saveSummaryComplete')),
+                            if (billing) ...[
+                              const SizedBox(height: 16),
+                              Text(copy('saveSummaryBilling')),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final buttons = <Widget>[
+                    if (canContinue && (missing.isNotEmpty || billing))
+                      OutlinedButton(
+                        onPressed: () =>
+                            Navigator.of(context).pop<_SavedFollowUp>((
+                              detail: detail,
+                              action: missing.isNotEmpty
+                                  ? YorksRentalAction.details
+                                  : YorksRentalAction.billing,
+                            )),
+                        child: Text(copy('saveSummaryContinue')),
+                      ),
+                    FilledButton(
+                      autofocus: true,
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(copy('saveSummaryDone')),
+                    ),
+                  ];
+                  return constraints.maxWidth < 440
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 8,
+                          children: buttons,
+                        )
+                      : Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: buttons,
+                        );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PropertyEditorDialog extends StatefulWidget {
-  const _PropertyEditorDialog({this.detail});
+  const _PropertyEditorDialog({
+    this.detail,
+    this.initialAction,
+    required this.onSave,
+    required this.saveError,
+  });
+  final Future<String?> Function(YorksV1RentalPropertyInput, String) onSave;
+  final Object? Function() saveError;
   final YorksV1RentalPropertyDetail? detail;
+  final YorksRentalAction? initialAction;
   @override
   State<_PropertyEditorDialog> createState() => _PropertyEditorDialogState();
 }
 
 class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
   final _form = GlobalKey<FormState>();
+  bool _saving = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
+  String? _payloadFingerprint;
+  String? _commandKey;
+  YorksV1RentalPropertyInput? _pendingInput;
   late final Map<String, TextEditingController> c;
   late YorksV1RentalOccupancy occupancy;
   String propertyType = 'Shop';
@@ -3044,6 +4231,64 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
   DateTime? signedDate;
   DateTime? leaseStart;
   DateTime? leaseEnd;
+  DateTime? billingStart;
+  final _fieldKeys = <String, GlobalKey>{};
+  final _fieldFocus = <String, FocusNode>{};
+  final _sections = <String, ExpansibleController>{
+    'tenant': ExpansibleController(),
+    'contract': ExpansibleController(),
+    'terms': ExpansibleController(),
+  };
+  late final Map<String, String> _reviewFields;
+  String? _reviewTarget;
+
+  static const _missingTargets = {
+    'location': 'location',
+    'contact_number': 'contact',
+    'contract_number': 'contract',
+    'tenant_name': 'tenant',
+    'lease_start': 'leaseStart',
+    'lease_end': 'leaseEnd',
+    'rent_amount': 'rent',
+    'property_type': 'propertyType',
+    'occupancy': 'occupancy',
+    'source_unit_number': 'unit',
+    'source_property_type': 'propertyType',
+  };
+
+  void _revealField(String field) {
+    if (!mounted) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _reviewTarget = field);
+    final section = switch (field) {
+      'contact' || 'tenant' => 'tenant',
+      'contract' || 'leaseStart' || 'leaseEnd' => 'contract',
+      'rent' || 'billingStart' => 'terms',
+      _ => null,
+    };
+    if (section != null) _sections[section]!.expand();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _fieldKeys[field]?.currentContext;
+      if (mounted && target != null) {
+        _fieldFocus[field]?.requestFocus();
+        Scrollable.ensureVisible(target, alignment: .15);
+      }
+    });
+  }
+
+  Widget _reviewField(String field, Widget child) {
+    if (_reviewFields.isEmpty) return child;
+    return _ReviewField(
+      key: _fieldKeys.putIfAbsent(field, GlobalKey.new),
+      selected: _reviewTarget == field,
+      focusNode: _fieldFocus.putIfAbsent(
+        field,
+        () => FocusNode(skipTraversal: true),
+      ),
+      wide: child is _Field && child.wide,
+      child: child,
+    );
+  }
 
   @override
   void initState() {
@@ -3051,20 +4296,42 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
     final p = widget.detail?.property;
     occupancy = p?.occupancy ?? YorksV1RentalOccupancy.vacant;
     propertyType = p?.propertyType.isNotEmpty == true
-        ? p!.propertyType
+        ? _termOption(p!.propertyType)
         : 'Shop';
     contractType = p?.contractType?.isNotEmpty == true
-        ? p!.contractType!
+        ? _termOption(p!.contractType!)
         : 'Tenancy Contract';
     contractStatus = p?.contractStatus?.isNotEmpty == true
-        ? p!.contractStatus!
+        ? _termOption(p!.contractStatus!)
         : 'Draft';
     paymentMethod = p?.defaultPaymentMethod?.isNotEmpty == true
-        ? p!.defaultPaymentMethod!
-        : 'PDC';
+        ? _termOption(p!.defaultPaymentMethod!)
+        : 'Bank Transfer';
+    frequency = _termOption(p?.paymentFrequency ?? 'monthly');
+    billingStart = p?.billingStart;
     signedDate = _from(p, 'signed_date');
     leaseStart = p?.leaseStart;
     leaseEnd = p?.leaseEnd;
+    _reviewFields = switch (widget.initialAction) {
+      YorksRentalAction.billing => {'billingStart': 'billing_start'},
+      YorksRentalAction.lease || YorksRentalAction.expiredLease => {
+        'leaseEnd': 'lease_end',
+        'leaseStart': 'lease_start',
+        'contract': 'contract_number',
+      },
+      YorksRentalAction.details => {
+        for (final missing in p?.missingFields ?? <String>[])
+          if (_missingTargets.containsKey(missing))
+            _missingTargets[missing]!: missing,
+      },
+      _ => {},
+    };
+    _reviewTarget = _reviewFields.keys.firstOrNull;
+    if (_reviewTarget != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _revealField(_reviewTarget!),
+      );
+    }
     c = {
       'unit': TextEditingController(text: p?.unitCode ?? ''),
       'name': TextEditingController(text: p?.propertyName ?? ''),
@@ -3076,7 +4343,14 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
       'contact': TextEditingController(text: p?.contactNumber ?? ''),
       'email': TextEditingController(text: p?.email ?? ''),
       'contract': TextEditingController(text: p?.contractNumber ?? ''),
-      'rent': TextEditingController(text: '${p?.monthlyRent ?? 0}'),
+      'rent': TextEditingController(
+        text: p != null && !p.isAnnual && p.hasRentAmount
+            ? p.monthlyRent.toString()
+            : '',
+      ),
+      'annualRent': TextEditingController(
+        text: p?.annualRent?.toString() ?? '',
+      ),
       'deposit': TextEditingController(text: '${p?.securityDeposit ?? 0}'),
       'due': TextEditingController(text: '${p?.monthlyDueDay ?? 1}'),
       'grace': TextEditingController(text: '${p?.gracePeriodDays ?? 5}'),
@@ -3100,6 +4374,12 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
 
   @override
   void dispose() {
+    for (final node in _fieldFocus.values) {
+      node.dispose();
+    }
+    for (final controller in _sections.values) {
+      controller.dispose();
+    }
     for (final controller in c.values) {
       controller.dispose();
     }
@@ -3107,261 +4387,496 @@ class _PropertyEditorDialogState extends State<_PropertyEditorDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => Dialog(
-    insetPadding: const EdgeInsets.all(18),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1280, maxHeight: 850),
-      child: Column(
-        children: [
-          _DialogHeader(
-            title: widget.detail == null
-                ? 'Add Rental Property'
-                : 'Edit Rental Property',
-            subtitle:
-                'Property, tenant, contract and payment terms are controlled in one record.',
-          ),
-          Expanded(
-            child: Form(
-              key: _form,
-              child: ListView(
-                padding: const EdgeInsets.all(22),
-                children: [
-                  _FormSection(
-                    title: 'Property',
-                    children: [
-                      _Field(
-                        label: 'Unit Code',
-                        controller: c['unit']!,
-                        required: true,
-                      ),
-                      _Field(
-                        label: 'Property Name',
-                        controller: c['name']!,
-                        required: true,
-                      ),
-                      _DropField(
-                        label: 'Property Type',
-                        value: propertyType,
-                        values: const [
-                          'Shop',
-                          'Warehouse',
-                          'Office',
-                          'Villa',
-                          'Labour Camp',
-                          'Other',
-                        ],
-                        onChanged: (v) => setState(() => propertyType = v),
-                      ),
-                      _Field(
-                        label: 'Property / Municipality No.',
-                        controller: c['municipality']!,
-                      ),
-                      _Field(
-                        label: 'Location',
-                        controller: c['location']!,
-                        required: true,
-                        wide: true,
-                      ),
-                      _DropField(
-                        label: 'Occupancy',
-                        value: occupancy == YorksV1RentalOccupancy.occupied
-                            ? 'Occupied'
-                            : 'Vacant',
-                        values: const ['Occupied', 'Vacant'],
-                        onChanged: (v) => setState(
-                          () => occupancy = v == 'Occupied'
-                              ? YorksV1RentalOccupancy.occupied
-                              : YorksV1RentalOccupancy.vacant,
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: Dialog(
+      insetPadding: const EdgeInsets.all(18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 850),
+        child: Column(
+          children: [
+            _DialogHeader(
+              canClose: !_saving,
+              title: widget.detail == null
+                  ? 'Add Rental Property'
+                  : 'Edit Rental Property',
+              subtitle:
+                  'Property, tenant, contract and payment terms are controlled in one record.',
+            ),
+            if (_reviewFields.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+                child: DropdownButtonFormField<String>(
+                  key: ValueKey('rental-review-target-$_reviewTarget'),
+                  initialValue: _reviewTarget,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: RentalWorkspaceStrings.text(
+                      context,
+                      'reviewField',
+                    ),
+                  ),
+                  items: [
+                    for (final entry in _reviewFields.entries)
+                      DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(
+                          entry.value == 'billing_start'
+                              ? RentalWorkspaceStrings.text(
+                                  context,
+                                  'billingStart',
+                                )
+                              : RentalWorkspaceStrings.missingField(
+                                  context,
+                                  entry.value,
+                                ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _FormSection(
-                    title: 'Tenant',
-                    children: [
-                      _Field(
-                        label: 'Tenant / Company Name',
-                        controller: c['tenant']!,
-                        required: occupancy == YorksV1RentalOccupancy.occupied,
-                      ),
-                      _Field(
-                        label: 'Trade Licence No.',
-                        controller: c['trade']!,
-                      ),
-                      _Field(
-                        label: 'Contact Number',
-                        controller: c['contact']!,
-                      ),
-                      _Field(label: 'Email', controller: c['email']!),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _FormSection(
-                    title: 'Tenancy Contract',
-                    children: [
-                      _Field(
-                        label: 'Contract No.',
-                        controller: c['contract']!,
-                        required: occupancy == YorksV1RentalOccupancy.occupied,
-                      ),
-                      _DropField(
-                        label: 'Contract Type',
-                        value: contractType,
-                        values: const ['Tenancy Contract', 'Lease', 'Other'],
-                        onChanged: (v) => setState(() => contractType = v),
-                      ),
-                      _DropField(
-                        label: 'Contract Status',
-                        value: contractStatus,
-                        values: const [
-                          'Draft',
-                          'Active',
-                          'Expired',
-                          'Terminated',
+                  ],
+                  onChanged: _saving || _unconfirmed
+                      ? null
+                      : (value) {
+                          if (value != null) _revealField(value);
+                        },
+                ),
+              ),
+            Expanded(
+              child: ExcludeFocus(
+                excluding: _saving || _unconfirmed,
+                child: AbsorbPointer(
+                  absorbing: _saving || _unconfirmed,
+                  child: Form(
+                    key: _form,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _FormSection(
+                            title: 'Property',
+                            children: [
+                              _reviewField(
+                                'unit',
+                                _Field(
+                                  label: 'Unit Code',
+                                  controller: c['unit']!,
+                                  required: true,
+                                ),
+                              ),
+                              _Field(
+                                label: 'Property Name',
+                                controller: c['name']!,
+                                required: true,
+                              ),
+                              _reviewField(
+                                'propertyType',
+                                _DropField(
+                                  label: 'Property Type',
+                                  value: propertyType,
+                                  values: const [
+                                    'Shop',
+                                    'Warehouse',
+                                    'Store',
+                                    'Office',
+                                    'Office (Store)',
+                                    'Villa',
+                                    'Labour Camp',
+                                    'Other',
+                                  ],
+                                  onChanged: (v) =>
+                                      setState(() => propertyType = v),
+                                ),
+                              ),
+                              _Field(
+                                label: 'Property / Municipality No.',
+                                controller: c['municipality']!,
+                              ),
+                              _reviewField(
+                                'location',
+                                _Field(
+                                  label: 'Location',
+                                  controller: c['location']!,
+                                  wide: true,
+                                ),
+                              ),
+                              _reviewField(
+                                'occupancy',
+                                _DropField(
+                                  label: 'Occupancy',
+                                  value: switch (occupancy) {
+                                    YorksV1RentalOccupancy.occupied =>
+                                      'Occupied',
+                                    YorksV1RentalOccupancy.vacant => 'Vacant',
+                                    YorksV1RentalOccupancy.unknown => 'Unknown',
+                                  },
+                                  values: const [
+                                    'Occupied',
+                                    'Vacant',
+                                    'Unknown',
+                                  ],
+                                  onChanged: (v) => setState(
+                                    () => occupancy = v == 'Occupied'
+                                        ? YorksV1RentalOccupancy.occupied
+                                        : v == 'Vacant'
+                                        ? YorksV1RentalOccupancy.vacant
+                                        : YorksV1RentalOccupancy.unknown,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _FormSection(
+                            title: 'Tenant',
+                            controller: _sections['tenant'],
+                            collapsible: true,
+                            initiallyExpanded:
+                                occupancy == YorksV1RentalOccupancy.occupied ||
+                                widget.detail?.property.leaseId != null,
+                            key: ValueKey('Tenant-${occupancy.name}'),
+                            children: [
+                              _reviewField(
+                                'tenant',
+                                _Field(
+                                  label: 'Tenant / Company Name',
+                                  controller: c['tenant']!,
+                                ),
+                              ),
+                              _Field(
+                                label: 'Trade Licence No.',
+                                controller: c['trade']!,
+                              ),
+                              _reviewField(
+                                'contact',
+                                _Field(
+                                  label: 'Contact Number',
+                                  controller: c['contact']!,
+                                ),
+                              ),
+                              _Field(label: 'Email', controller: c['email']!),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _FormSection(
+                            title: 'Tenancy Contract',
+                            controller: _sections['contract'],
+                            collapsible: true,
+                            initiallyExpanded:
+                                occupancy == YorksV1RentalOccupancy.occupied ||
+                                widget.detail?.property.leaseId != null,
+                            key: ValueKey('Tenancy Contract-${occupancy.name}'),
+                            children: [
+                              _reviewField(
+                                'contract',
+                                _Field(
+                                  label: 'Contract No.',
+                                  controller: c['contract']!,
+                                ),
+                              ),
+                              _DropField(
+                                label: 'Contract Type',
+                                value: contractType,
+                                values: const [
+                                  'Tenancy Contract',
+                                  'Lease',
+                                  'Licence',
+                                  'Other',
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => contractType = v),
+                              ),
+                              _DropField(
+                                label: 'Contract Status',
+                                value: contractStatus,
+                                values: const [
+                                  'Draft',
+                                  'Active',
+                                  'Notice Due',
+                                  'Expired',
+                                  'Renewed',
+                                  'Terminated',
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => contractStatus = v),
+                              ),
+                              _DateField(
+                                label: 'Signed Date',
+                                value: signedDate,
+                                onChanged: (v) =>
+                                    setState(() => signedDate = v),
+                              ),
+                              _reviewField(
+                                'leaseStart',
+                                _DateField(
+                                  label: 'Lease Start',
+                                  value: leaseStart,
+                                  onChanged: (v) =>
+                                      setState(() => leaseStart = v),
+                                ),
+                              ),
+                              _reviewField(
+                                'leaseEnd',
+                                _DateField(
+                                  label: 'Lease End',
+                                  value: leaseEnd,
+                                  onChanged: (v) =>
+                                      setState(() => leaseEnd = v),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          _FormSection(
+                            title: 'Rent & Payment Terms',
+                            controller: _sections['terms'],
+                            collapsible: true,
+                            initiallyExpanded:
+                                occupancy == YorksV1RentalOccupancy.occupied ||
+                                widget.detail?.property.leaseId != null,
+                            key: ValueKey(
+                              'Rent & Payment Terms-${occupancy.name}',
+                            ),
+                            children: [
+                              _reviewField(
+                                'rent',
+                                _Field(
+                                  label: RentalWorkspaceStrings.text(
+                                    context,
+                                    frequency == 'Annual'
+                                        ? 'annualRent'
+                                        : 'monthlyRent',
+                                  ),
+                                  controller:
+                                      c[frequency == 'Annual'
+                                          ? 'annualRent'
+                                          : 'rent']!,
+                                  number: true,
+                                ),
+                              ),
+                              _Field(
+                                label: 'Security Deposit (AED)',
+                                controller: c['deposit']!,
+                                number: true,
+                              ),
+                              _Field(
+                                label: 'Monthly Due Day',
+                                controller: c['due']!,
+                                number: true,
+                              ),
+                              _Field(
+                                label: 'Grace Period (days)',
+                                controller: c['grace']!,
+                                number: true,
+                              ),
+                              _DropField(
+                                label: 'Default Payment Method',
+                                value: paymentMethod,
+                                values: const [
+                                  'PDC',
+                                  'CDC',
+                                  'Bank Transfer',
+                                  'Cash',
+                                  'Other',
+                                ],
+                                onChanged: (v) =>
+                                    setState(() => paymentMethod = v),
+                              ),
+                              _DropField(
+                                label: 'Payment Frequency',
+                                value: frequency,
+                                values: const ['Monthly', 'Annual'],
+                                onChanged: (v) => setState(() => frequency = v),
+                              ),
+                              _Field(
+                                label: 'No. of Contract Cheques',
+                                controller: c['cheques']!,
+                                number: true,
+                              ),
+                              _reviewField(
+                                'billingStart',
+                                _DateField(
+                                  label: RentalWorkspaceStrings.text(
+                                    context,
+                                    'billingStart',
+                                  ),
+                                  value: billingStart,
+                                  onChanged: (value) =>
+                                      setState(() => billingStart = value),
+                                ),
+                              ),
+                              _Notice(
+                                text: RentalWorkspaceStrings.text(
+                                  context,
+                                  'billingStartHelp',
+                                ),
+                              ),
+                              _Field(
+                                label: 'Annual Escalation (%)',
+                                controller: c['escalation']!,
+                                number: true,
+                              ),
+                              _Field(
+                                label: 'Renewal Notice (days)',
+                                controller: c['renewal']!,
+                                number: true,
+                              ),
+                              _Field(
+                                label: 'Contract / Lease Notes',
+                                controller: c['notes']!,
+                                wide: true,
+                                lines: 3,
+                              ),
+                            ],
+                          ),
                         ],
-                        onChanged: (v) => setState(() => contractStatus = v),
                       ),
-                      _DateField(
-                        label: 'Signed Date',
-                        value: signedDate,
-                        onChanged: (v) => setState(() => signedDate = v),
-                      ),
-                      _DateField(
-                        label: 'Lease Start',
-                        value: leaseStart,
-                        onChanged: (v) => setState(() => leaseStart = v),
-                      ),
-                      _DateField(
-                        label: 'Lease End',
-                        value: leaseEnd,
-                        onChanged: (v) => setState(() => leaseEnd = v),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 14),
-                  _FormSection(
-                    title: 'Rent & Payment Terms',
-                    children: [
-                      _Field(
-                        label: 'Monthly Rent (AED)',
-                        controller: c['rent']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Security Deposit (AED)',
-                        controller: c['deposit']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Monthly Due Day',
-                        controller: c['due']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Grace Period (days)',
-                        controller: c['grace']!,
-                        number: true,
-                      ),
-                      _DropField(
-                        label: 'Default Payment Method',
-                        value: paymentMethod,
-                        values: const [
-                          'PDC',
-                          'CDC',
-                          'Bank Transfer',
-                          'Cash',
-                          'Cheque',
-                          'Other',
-                        ],
-                        onChanged: (v) => setState(() => paymentMethod = v),
-                      ),
-                      _DropField(
-                        label: 'Payment Frequency',
-                        value: frequency,
-                        values: const ['Monthly'],
-                        onChanged: (v) => setState(() => frequency = v),
-                      ),
-                      _Field(
-                        label: 'No. of Contract Cheques',
-                        controller: c['cheques']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Annual Escalation (%)',
-                        controller: c['escalation']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Renewal Notice (days)',
-                        controller: c['renewal']!,
-                        number: true,
-                      ),
-                      _Field(
-                        label: 'Contract / Lease Notes',
-                        controller: c['notes']!,
-                        wide: true,
-                        lines: 3,
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          _DialogFooter(
-            primaryLabel: widget.detail == null
-                ? 'Create property'
-                : 'Save property',
-            onPrimary: _save,
-          ),
-        ],
+            if (_errorKey != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 8,
+                ),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    RentalWorkspaceStrings.text(context, _errorKey!),
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+              ),
+            _DialogFooter(
+              primaryLabel: RentalWorkspaceStrings.text(
+                context,
+                _saving
+                    ? 'saving'
+                    : _unconfirmed
+                    ? 'retrySave'
+                    : widget.detail == null
+                    ? 'create'
+                    : 'save',
+              ),
+              onPrimary: _saving ? null : _save,
+              canCancel: !_saving,
+            ),
+          ],
+        ),
       ),
     ),
   );
 
-  void _save() {
-    if (!_form.currentState!.validate()) return;
+  Future<void> _save() async {
+    if (_saving) return;
+    if (!_unconfirmed && !_form.currentState!.validate()) return;
+    if (!_unconfirmed &&
+        ['due', 'grace', 'cheques', 'renewal'].any(
+          (key) =>
+              c[key]!.text.trim().isNotEmpty &&
+              int.tryParse(c[key]!.text.trim()) == null,
+        )) {
+      setState(() => _errorKey = 'invalidNumber');
+      return;
+    }
     if (leaseStart != null &&
         leaseEnd != null &&
-        !leaseEnd!.isAfter(leaseStart!)) {
+        leaseEnd!.isBefore(leaseStart!)) {
       _showResult(context, false, 'Lease end must be after lease start.');
       return;
     }
-    Navigator.of(context).pop(
-      YorksV1RentalPropertyInput(
-        propertyId: widget.detail?.property.id,
-        leaseId: widget.detail?.property.leaseId,
-        unitCode: c['unit']!.text.trim(),
-        propertyName: c['name']!.text.trim(),
-        propertyType: propertyType,
-        municipalityNumber: c['municipality']!.text.trim(),
-        location: c['location']!.text.trim(),
-        description: c['description']!.text.trim(),
-        occupancy: occupancy,
-        tenantName: c['tenant']!.text.trim(),
-        tradeLicenceNumber: c['trade']!.text.trim(),
-        contactNumber: c['contact']!.text.trim(),
-        email: c['email']!.text.trim(),
-        contractNumber: c['contract']!.text.trim(),
-        contractType: contractType,
-        contractStatus: contractStatus,
-        signedDate: signedDate,
-        leaseStart: leaseStart,
-        leaseEnd: leaseEnd,
-        monthlyRent: double.tryParse(c['rent']!.text) ?? 0,
-        securityDeposit: double.tryParse(c['deposit']!.text) ?? 0,
-        monthlyDueDay: int.tryParse(c['due']!.text) ?? 1,
-        gracePeriodDays: int.tryParse(c['grace']!.text) ?? 0,
-        defaultPaymentMethod: paymentMethod,
-        paymentFrequency: frequency,
-        contractCheques: int.tryParse(c['cheques']!.text) ?? 0,
-        annualEscalationPercent: double.tryParse(c['escalation']!.text) ?? 0,
-        renewalNoticeDays: int.tryParse(c['renewal']!.text) ?? 90,
-        notes: c['notes']!.text.trim(),
-      ),
-    );
+    final input = _unconfirmed
+        ? _pendingInput!
+        : YorksV1RentalPropertyInput(
+            propertyId: widget.detail?.property.id,
+            leaseId: widget.detail?.property.leaseId,
+            unitCode: c['unit']!.text.trim(),
+            propertyName: c['name']!.text.trim(),
+            propertyType: propertyType,
+            municipalityNumber: c['municipality']!.text.trim(),
+            location: c['location']!.text.trim(),
+            description: c['description']!.text.trim(),
+            occupancy: occupancy,
+            tenantName: c['tenant']!.text.trim(),
+            tradeLicenceNumber: c['trade']!.text.trim(),
+            contactNumber: c['contact']!.text.trim(),
+            email: c['email']!.text.trim(),
+            contractNumber: c['contract']!.text.trim(),
+            contractType: contractType,
+            contractStatus: contractStatus,
+            signedDate: signedDate,
+            leaseStart: leaseStart,
+            leaseEnd: leaseEnd,
+            monthlyRent: frequency == 'Monthly'
+                ? double.tryParse(c['rent']!.text)
+                : null,
+            annualRent: frequency == 'Annual'
+                ? double.tryParse(c['annualRent']!.text)
+                : null,
+            billingStart: billingStart,
+            sourceMetadata: widget.detail?.property.sourceMetadata,
+            securityDeposit: double.tryParse(c['deposit']!.text) ?? 0,
+            monthlyDueDay: int.tryParse(c['due']!.text) ?? 1,
+            gracePeriodDays: int.tryParse(c['grace']!.text) ?? 0,
+            defaultPaymentMethod: paymentMethod,
+            paymentFrequency: frequency,
+            contractCheques: int.tryParse(c['cheques']!.text) ?? 0,
+            annualEscalationPercent:
+                double.tryParse(c['escalation']!.text) ?? 0,
+            renewalNoticeDays: int.tryParse(c['renewal']!.text) ?? 90,
+            notes: c['notes']!.text.trim(),
+          );
+    final fingerprint = jsonEncode(input.toRpcPayload());
+    if (_payloadFingerprint != fingerprint) {
+      _payloadFingerprint = fingerprint;
+      _commandKey = const Uuid().v4();
+    }
+    _pendingInput = input;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _saving = true;
+      _errorKey = null;
+    });
+    String? savedId;
+    Object? failure;
+    try {
+      savedId = await widget.onSave(input, _commandKey!);
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (savedId != null) {
+      Navigator.of(context).pop(
+        YorksRentalSaveReceipt(
+          propertyId: savedId,
+          input: input,
+          before: widget.detail,
+        ),
+      );
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed
+          ? 'unconfirmed'
+          : code == YorksV1DomainErrorCode.conflict
+          ? 'conflict'
+          : 'saveFailed';
+    });
   }
 }
 
@@ -3383,13 +4898,23 @@ class _PaymentInput {
 }
 
 class _PaymentDialog extends StatefulWidget {
-  const _PaymentDialog({required this.detail});
+  const _PaymentDialog({
+    required this.detail,
+    required this.onSave,
+    required this.saveError,
+  });
   final YorksV1RentalPropertyDetail detail;
+  final Future<bool> Function(_PaymentInput) onSave;
+  final Object? Function() saveError;
   @override
   State<_PaymentDialog> createState() => _PaymentDialogState();
 }
 
 class _PaymentDialogState extends State<_PaymentDialog> {
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
+  _PaymentInput? _pendingInput;
   final amount = TextEditingController();
   final reference = TextEditingController();
   final note = TextEditingController();
@@ -3419,96 +4944,156 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     title: 'Record Rent Payment',
     subtitle:
         '${widget.detail.property.unitCode} · ${widget.detail.property.propertyName}',
+    busy: _busy,
     body: Column(
       children: [
-        _Notice(
-          text:
-              'Outstanding balance ${_money.format(period.balance)}. Partial and full receipts are supported.',
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<YorksV1RentalPeriod>(
-          initialValue: period,
-          decoration: const InputDecoration(labelText: 'Rent Period'),
-          items: [
-            for (final p in widget.detail.periods.where((p) => p.balance > 0))
-              DropdownMenuItem(
-                value: p,
-                child: Text(
-                  '${_month.format(p.periodMonth)} · ${_money.format(p.balance)}',
+        if (_errorKey != null) ...[
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, _errorKey!),
+            tone: AppColors.warning,
+          ),
+          const SizedBox(height: 12),
+        ],
+        AbsorbPointer(
+          absorbing: _busy || _unconfirmed,
+          child: ExcludeFocus(
+            excluding: _busy || _unconfirmed,
+            child: Column(
+              children: [
+                _Notice(
+                  text:
+                      'Outstanding balance ${_money.format(period.balance)}. Partial and full receipts are supported.',
                 ),
-              ),
-          ],
-          onChanged: (p) {
-            if (p != null) {
-              setState(() {
-                period = p;
-                amount.text = p.balance.toStringAsFixed(2);
-              });
-            }
-          },
+                const SizedBox(height: 16),
+                DropdownButtonFormField<YorksV1RentalPeriod>(
+                  initialValue: period,
+                  decoration: const InputDecoration(labelText: 'Rent Period'),
+                  items: [
+                    for (final p in widget.detail.periods.where(
+                      (p) => p.balance > 0,
+                    ))
+                      DropdownMenuItem(
+                        value: p,
+                        child: Text(
+                          '${_month.format(p.periodMonth)} · ${_money.format(p.balance)}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (p) {
+                    if (p != null) {
+                      setState(() {
+                        period = p;
+                        amount.text = p.balance.toStringAsFixed(2);
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _TextInput(
+                  label: 'Amount Received (AED)',
+                  controller: amount,
+                  number: true,
+                ),
+                const SizedBox(height: 12),
+                _DateInput(
+                  label: 'Payment Date',
+                  value: date,
+                  onChanged: (v) => setState(() => date = v),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: method,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Method',
+                  ),
+                  items: [
+                    for (final v in const [
+                      'PDC',
+                      'CDC',
+                      'Bank Transfer',
+                      'Cash',
+                      'Other',
+                    ])
+                      DropdownMenuItem(value: v, child: Text(v)),
+                  ],
+                  onChanged: (v) => setState(() => method = v ?? method),
+                ),
+                const SizedBox(height: 12),
+                _TextInput(
+                  label: 'Receipt / Bank / Cheque Reference',
+                  controller: reference,
+                ),
+                const SizedBox(height: 12),
+                _TextInput(label: 'Payment Note', controller: note, lines: 3),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        _TextInput(
-          label: 'Amount Received (AED)',
-          controller: amount,
-          number: true,
-        ),
-        const SizedBox(height: 12),
-        _DateInput(
-          label: 'Payment Date',
-          value: date,
-          onChanged: (v) => setState(() => date = v),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: method,
-          decoration: const InputDecoration(labelText: 'Payment Method'),
-          items: [
-            for (final v in const [
-              'PDC',
-              'CDC',
-              'Bank Transfer',
-              'Cash',
-              'Cheque',
-              'Other',
-            ])
-              DropdownMenuItem(value: v, child: Text(v)),
-          ],
-          onChanged: (v) => setState(() => method = v ?? method),
-        ),
-        const SizedBox(height: 12),
-        _TextInput(
-          label: 'Receipt / Bank / Cheque Reference',
-          controller: reference,
-        ),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Payment Note', controller: note, lines: 3),
       ],
     ),
-    primaryLabel: 'Record payment',
-    onPrimary: () {
-      final value = double.tryParse(amount.text);
-      if (value == null || value <= 0 || value > period.balance) {
-        _showResult(
-          context,
-          false,
-          'Enter an amount within the outstanding balance.',
-        );
-        return;
-      }
-      Navigator.pop(
-        context,
-        _PaymentInput(
-          period,
-          value,
-          date,
-          method,
-          reference.text.trim(),
-          note.text.trim(),
-        ),
-      );
-    },
+    primaryLabel: RentalWorkspaceStrings.text(
+      context,
+      _busy
+          ? 'saving'
+          : _unconfirmed
+          ? 'confirmPayment'
+          : 'recordPayment',
+    ),
+    onPrimary: _busy ? null : _save,
   );
+
+  Future<void> _save() async {
+    if (_busy) return;
+    final value = double.tryParse(amount.text);
+    if (!_unconfirmed &&
+        (value == null ||
+            !value.isFinite ||
+            value <= 0 ||
+            value > period.balance)) {
+      _showResult(
+        context,
+        false,
+        'Enter an amount within the outstanding balance.',
+      );
+      return;
+    }
+    _pendingInput ??= _PaymentInput(
+      period,
+      value!,
+      date,
+      method,
+      reference.text.trim(),
+      note.text.trim(),
+    );
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    bool confirmed = false;
+    Object? failure;
+    try {
+      confirmed = await widget.onSave(_pendingInput!);
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'paymentUnconfirmed' : 'paymentRejected';
+      if (!_unconfirmed) _pendingInput = null;
+    });
+  }
 }
 
 class _ChequeInput {
@@ -3517,13 +5102,23 @@ class _ChequeInput {
 }
 
 class _ChequeDialog extends StatefulWidget {
-  const _ChequeDialog({required this.detail});
+  const _ChequeDialog({
+    required this.detail,
+    required this.onSave,
+    required this.saveError,
+  });
   final YorksV1RentalPropertyDetail detail;
+  final Future<bool> Function(_ChequeInput) onSave;
+  final Object? Function() saveError;
   @override
   State<_ChequeDialog> createState() => _ChequeDialogState();
 }
 
 class _ChequeDialogState extends State<_ChequeDialog> {
+  bool _busy = false;
+  bool _unconfirmed = false;
+  String? _errorKey;
+  _ChequeInput? _pendingInput;
   final number = TextEditingController();
   final bank = TextEditingController();
   final amount = TextEditingController();
@@ -3544,67 +5139,132 @@ class _ChequeDialogState extends State<_ChequeDialog> {
     title: 'Add CDC / PDC Cheque',
     subtitle:
         '${widget.detail.property.unitCode} · ${widget.detail.property.propertyName}',
+    busy: _busy,
     body: Column(
       children: [
-        _TextInput(label: 'Cheque No.', controller: number),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: type,
-          decoration: const InputDecoration(labelText: 'Type'),
-          items: const [
-            DropdownMenuItem(value: 'PDC', child: Text('PDC')),
-            DropdownMenuItem(value: 'CDC', child: Text('CDC')),
-          ],
-          onChanged: (v) => setState(() => type = v ?? type),
+        if (_errorKey != null) ...[
+          _Notice(
+            text: RentalWorkspaceStrings.text(context, _errorKey!),
+            tone: AppColors.warning,
+          ),
+          const SizedBox(height: 12),
+        ],
+        AbsorbPointer(
+          absorbing: _busy || _unconfirmed,
+          child: ExcludeFocus(
+            excluding: _busy || _unconfirmed,
+            child: Column(
+              children: [
+                _TextInput(label: 'Cheque No.', controller: number),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: type,
+                  decoration: const InputDecoration(labelText: 'Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'PDC', child: Text('PDC')),
+                    DropdownMenuItem(value: 'CDC', child: Text('CDC')),
+                  ],
+                  onChanged: (v) => setState(() => type = v ?? type),
+                ),
+                const SizedBox(height: 12),
+                _TextInput(label: 'Bank', controller: bank),
+                const SizedBox(height: 12),
+                _DateInput(
+                  label: 'Cheque Date',
+                  value: date,
+                  onChanged: (v) => setState(() => date = v),
+                ),
+                const SizedBox(height: 12),
+                _TextInput(
+                  label: 'Amount (AED)',
+                  controller: amount,
+                  number: true,
+                ),
+                const SizedBox(height: 12),
+                _TextInput(label: 'Note', controller: note, lines: 2),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Bank', controller: bank),
-        const SizedBox(height: 12),
-        _DateInput(
-          label: 'Cheque Date',
-          value: date,
-          onChanged: (v) => setState(() => date = v),
-        ),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Amount (AED)', controller: amount, number: true),
-        const SizedBox(height: 12),
-        _TextInput(label: 'Note', controller: note, lines: 2),
       ],
     ),
-    primaryLabel: 'Add cheque',
-    onPrimary: () {
-      final value = double.tryParse(amount.text);
-      if (number.text.trim().isEmpty ||
-          bank.text.trim().isEmpty ||
-          value == null ||
-          value <= 0) {
-        _showResult(
-          context,
-          false,
-          'Cheque number, bank and a positive amount are required.',
-        );
-        return;
-      }
-      Navigator.pop(
-        context,
-        _ChequeInput({
-          'property_id': widget.detail.property.id,
-          'lease_id': widget.detail.property.leaseId,
-          'cheque_number': number.text.trim(),
-          'cheque_type': type,
-          'bank_name': bank.text.trim(),
-          'cheque_date': date.toIso8601String().split('T').first,
-          'amount': value,
-          'status': 'scheduled',
-          'note': note.text.trim(),
-        }),
-      );
-    },
+    primaryLabel: RentalWorkspaceStrings.text(
+      context,
+      _busy
+          ? 'saving'
+          : _unconfirmed
+          ? 'confirmCheque'
+          : 'addCheque',
+    ),
+    onPrimary: _busy ? null : _save,
   );
+
+  Future<void> _save() async {
+    if (_busy) return;
+    final value = double.tryParse(amount.text);
+    if (!_unconfirmed &&
+        (number.text.trim().isEmpty ||
+            bank.text.trim().isEmpty ||
+            value == null ||
+            !value.isFinite ||
+            value <= 0)) {
+      _showResult(
+        context,
+        false,
+        RentalWorkspaceStrings.text(context, 'chequeRequired'),
+      );
+      return;
+    }
+    _pendingInput ??= _ChequeInput({
+      'property_id': widget.detail.property.id,
+      'lease_id': widget.detail.property.leaseId,
+      'cheque_number': number.text.trim(),
+      'cheque_type': type,
+      'bank_name': bank.text.trim(),
+      'cheque_date': date.toIso8601String().split('T').first,
+      'amount': value!,
+      'status': 'scheduled',
+      'note': note.text.trim(),
+    });
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _errorKey = null;
+    });
+    var confirmed = false;
+    Object? failure;
+    try {
+      confirmed = await widget.onSave(_pendingInput!);
+      failure = widget.saveError();
+    } catch (error) {
+      failure = error;
+    }
+    if (!mounted) return;
+    if (confirmed) {
+      Navigator.pop(context, true);
+      return;
+    }
+    final code = failure is YorksV1DomainException ? failure.code : null;
+    setState(() {
+      _busy = false;
+      _unconfirmed =
+          _unconfirmed ||
+          code == null ||
+          code == YorksV1DomainErrorCode.backendUnavailable ||
+          code == YorksV1DomainErrorCode.unexpectedResponse;
+      _errorKey = _unconfirmed ? 'chequeSaveUnconfirmed' : 'chequeSaveRejected';
+      if (!_unconfirmed) _pendingInput = null;
+    });
+  }
 }
 
 class _DialogHeader extends StatelessWidget {
-  const _DialogHeader({required this.title, required this.subtitle});
+  const _DialogHeader({
+    required this.title,
+    required this.subtitle,
+    this.canClose = true,
+  });
+  final bool canClose;
   final String title;
   final String subtitle;
   @override
@@ -3624,7 +5284,7 @@ class _DialogHeader extends StatelessWidget {
         ),
         IconButton(
           tooltip: 'Close',
-          onPressed: () => Navigator.pop(context),
+          onPressed: canClose ? () => Navigator.pop(context) : null,
           icon: const Icon(Icons.close_rounded),
         ),
       ],
@@ -3633,9 +5293,14 @@ class _DialogHeader extends StatelessWidget {
 }
 
 class _DialogFooter extends StatelessWidget {
-  const _DialogFooter({required this.primaryLabel, required this.onPrimary});
+  const _DialogFooter({
+    required this.primaryLabel,
+    required this.onPrimary,
+    this.canCancel = true,
+  });
+  final bool canCancel;
   final String primaryLabel;
-  final VoidCallback onPrimary;
+  final VoidCallback? onPrimary;
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
@@ -3648,7 +5313,7 @@ class _DialogFooter extends StatelessWidget {
         SecondaryButton(
           label: 'Cancel',
           isExpanded: false,
-          onPressed: () => Navigator.pop(context),
+          onPressed: canCancel ? () => Navigator.pop(context) : null,
         ),
         const SizedBox(width: 10),
         PrimaryButton(
@@ -3668,73 +5333,143 @@ class _SimpleDialog extends StatelessWidget {
     required this.body,
     required this.primaryLabel,
     required this.onPrimary,
+    this.busy = false,
   });
   final String title;
   final String subtitle;
   final Widget body;
   final String primaryLabel;
-  final VoidCallback onPrimary;
+  final VoidCallback? onPrimary;
+  final bool busy;
   @override
-  Widget build(BuildContext context) => Dialog(
-    insetPadding: const EdgeInsets.all(18),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 620, maxHeight: 820),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _DialogHeader(title: title, subtitle: subtitle),
-          const Divider(height: 1),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(22),
-              child: body,
+  Widget build(BuildContext context) => PopScope(
+    canPop: !busy,
+    child: Dialog(
+      insetPadding: const EdgeInsets.all(18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 820),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DialogHeader(title: title, subtitle: subtitle, canClose: !busy),
+            const Divider(height: 1),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(22),
+                child: body,
+              ),
             ),
-          ),
-          _DialogFooter(primaryLabel: primaryLabel, onPrimary: onPrimary),
-        ],
+            _DialogFooter(
+              primaryLabel: primaryLabel,
+              onPrimary: onPrimary,
+              canCancel: !busy,
+            ),
+          ],
+        ),
       ),
     ),
   );
 }
 
 class _FormSection extends StatelessWidget {
-  const _FormSection({required this.title, required this.children});
+  const _FormSection({
+    super.key,
+    required this.title,
+    required this.children,
+    this.collapsible = false,
+    this.initiallyExpanded = true,
+    this.controller,
+  });
+  final ExpansibleController? controller;
+  final bool collapsible;
+  final bool initiallyExpanded;
   final String title;
   final List<Widget> children;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      border: Border.all(color: AppColors.line),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: AppTypography.titleMedium),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth >= 760
-                ? (constraints.maxWidth - 14) / 2
-                : constraints.maxWidth;
-            return Wrap(
-              spacing: 14,
-              runSpacing: 12,
-              children: [
-                for (final child in children)
-                  SizedBox(
-                    width: child is _Field && child.wide
-                        ? constraints.maxWidth
-                        : width,
-                    child: child,
-                  ),
-              ],
-            );
-          },
+  Widget build(BuildContext context) {
+    final content = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.line),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!collapsible) ...[
+            Text(title, style: AppTypography.titleMedium),
+            const SizedBox(height: 12),
+          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth >= 560
+                  ? (constraints.maxWidth - 14) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 14,
+                runSpacing: 12,
+                children: [
+                  for (final child in children)
+                    SizedBox(
+                      width:
+                          (child is _Field && child.wide) ||
+                              (child is _ReviewField && child.wide)
+                          ? constraints.maxWidth
+                          : width,
+                      child: child,
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+    if (!collapsible) return content;
+    return Material(
+      color: AppColors.surfaceContainerLowest,
+      child: ExpansionTile(
+        controller: controller,
+        expansionAnimationStyle: controller == null
+            ? null
+            : AnimationStyle.noAnimation,
+        title: Text(title, style: AppTypography.titleMedium),
+        initiallyExpanded: initiallyExpanded,
+        maintainState: true,
+        children: [content],
+      ),
+    );
+  }
+}
+
+class _ReviewField extends StatelessWidget {
+  const _ReviewField({
+    super.key,
+    required this.selected,
+    required this.focusNode,
+    required this.wide,
+    required this.child,
+  });
+  final bool selected;
+  final FocusNode focusNode;
+  final bool wide;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Focus(
+    focusNode: focusNode,
+    child: Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.blue.withValues(alpha: .06) : null,
+        border: Border.all(
+          color: selected ? AppColors.blue : Colors.transparent,
+          width: 2,
         ),
-      ],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: child,
     ),
   );
 }
@@ -3785,10 +5520,24 @@ class _TextInput extends StatelessWidget {
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : null,
-    decoration: InputDecoration(labelText: label),
-    validator: required
-        ? (v) => v == null || v.trim().isEmpty ? '$label is required' : null
-        : null,
+    decoration: InputDecoration(
+      labelText: label,
+      constraints: MediaQuery.sizeOf(context).width < 600
+          ? const BoxConstraints(minHeight: 48)
+          : null,
+    ),
+    validator: (value) {
+      if (required && (value == null || value.trim().isEmpty)) {
+        return '$label is required';
+      }
+      if (number && value != null && value.trim().isNotEmpty) {
+        final parsed = double.tryParse(value.trim());
+        if (parsed == null || !parsed.isFinite || parsed < 0) {
+          return RentalWorkspaceStrings.text(context, 'invalidNumber');
+        }
+      }
+      return null;
+    },
   );
 }
 
@@ -3806,10 +5555,23 @@ class _DropField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<String>(
     initialValue: values.contains(value) ? value : values.first,
-    decoration: InputDecoration(labelText: label),
+    decoration: InputDecoration(
+      labelText: label,
+      constraints: MediaQuery.sizeOf(context).width < 600
+          ? const BoxConstraints(minHeight: 48)
+          : null,
+    ),
     items: [
       for (final option in values)
-        DropdownMenuItem(value: option, child: Text(option)),
+        DropdownMenuItem(
+          value: option,
+          child: Text(switch (option) {
+            'Annual' => RentalWorkspaceStrings.text(context, 'annualOption'),
+            'Monthly' => RentalWorkspaceStrings.text(context, 'monthlyOption'),
+            'Unknown' => RentalWorkspaceStrings.text(context, 'unknown'),
+            _ => option,
+          }),
+        ),
     ],
     onChanged: (v) {
       if (v != null) onChanged(v);
@@ -3840,7 +5602,13 @@ class _DateField extends StatelessWidget {
     child: InputDecorator(
       decoration: InputDecoration(
         labelText: label,
-        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+        suffixIcon: value == null
+            ? const Icon(Icons.calendar_today_outlined, size: 18)
+            : IconButton(
+                tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () => onChanged(null),
+              ),
       ),
       child: Text(value == null ? 'Select date' : _day.format(value!)),
     ),
@@ -3878,21 +5646,24 @@ class _DateInput extends StatelessWidget {
 }
 
 class _Notice extends StatelessWidget {
-  const _Notice({required this.text});
+  const _Notice({required this.text, this.tone});
   final String text;
+  final Color? tone;
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: AppColors.successContainer,
-      border: Border.all(color: AppColors.success.withValues(alpha: .25)),
+      color: tone?.withValues(alpha: .08) ?? AppColors.successContainer,
+      border: Border.all(
+        color: (tone ?? AppColors.success).withValues(alpha: .25),
+      ),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
       text,
       style: AppTypography.bodyMedium.copyWith(
-        color: AppColors.onSuccessContainer,
+        color: tone == null ? AppColors.onSuccessContainer : AppColors.ink,
       ),
     ),
   );
@@ -3999,5 +5770,6 @@ Color _periodTone(YorksV1RentalPeriodStatus status) => switch (status) {
 extension on YorksV1RentalProperty {
   bool get expiringSoon =>
       leaseEnd != null &&
-      leaseEnd!.difference(DateTime.now()).inDays <= renewalNoticeDays;
+      (daysToLeaseEnd ?? leaseEnd!.difference(DateTime.now()).inDays) <=
+          renewalNoticeDays;
 }

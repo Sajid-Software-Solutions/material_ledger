@@ -213,9 +213,7 @@ bool _isDispatchWorkflowRequest(YorksV1MaterialRequest request) =>
       _ => false,
     };
 
-bool _isReady(YorksV1MaterialRequest request) =>
-    request.state == YorksV1MaterialRequestState.approved ||
-    request.state == YorksV1MaterialRequestState.partiallyDispatched;
+bool _isReady(YorksV1MaterialRequest request) => request.dispatchReady;
 
 bool _needsReceiptReview(YorksV1MaterialRequest request) =>
     request.state == YorksV1MaterialRequestState.dispatched ||

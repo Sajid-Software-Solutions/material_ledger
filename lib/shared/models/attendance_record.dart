@@ -13,11 +13,8 @@ enum AttendanceStatus {
   final String ur;
   final String hi;
 
-  static AttendanceStatus fromName(String n) =>
-      AttendanceStatus.values.firstWhere(
-        (s) => s.name == n,
-        orElse: () => present,
-      );
+  static AttendanceStatus fromName(String n) => AttendanceStatus.values
+      .firstWhere((s) => s.name == n, orElse: () => present);
 }
 
 /// One attendance entry for an employee on a date.
@@ -56,7 +53,9 @@ class AttendanceRecord {
         id: json['id'] as String,
         employeeId: json['employeeId'] as String,
         date: DateTime.parse(json['date'] as String),
-        status: AttendanceStatus.fromName(json['status'] as String? ?? 'present'),
+        status: AttendanceStatus.fromName(
+          json['status'] as String? ?? 'present',
+        ),
         note: json['note'] as String?,
         recordedBy: json['recordedBy'] as String? ?? 'system',
       );
