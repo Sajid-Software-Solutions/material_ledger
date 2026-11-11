@@ -55,7 +55,10 @@ SickLeaveTierSplit splitSickLeaveTiers({
   }
 
   final full = daysInTier(0, kSickFullPayDays);
-  final half = daysInTier(kSickFullPayDays, kSickFullPayDays + kSickHalfPayDays);
+  final half = daysInTier(
+    kSickFullPayDays,
+    kSickFullPayDays + kSickHalfPayDays,
+  );
   final unpaid =
       daysInTier(kSickFullPayDays + kSickHalfPayDays, kSickAnnualCap) + overCap;
 

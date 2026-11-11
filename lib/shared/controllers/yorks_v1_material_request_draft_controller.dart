@@ -1775,9 +1775,13 @@ class YorksV1MaterialRequestDraftController
           YorksV1DomainErrorCode.invalidTransition,
         );
       }
-      if (requireServerConfirmation &&
-          state.draft.hasRecoverableContent &&
-          state.draft.updatedAt.isAfter(displayed.updatedAt)) {
+      // The recovery list can show an account copy of a draft that this
+      // device already saved to the server. That saved request is not part of
+      // the recovery copy being removed: the server keeps it, and so does
+      // this device. Only unsaved device input can be lost here.
+      final deviceKeepsSavedRequest =
+          requireServerConfirmation && state.draft.serverRecordVersion > 0;
+      if (requireServerConfirmation && _hasNewerUnsavedDeviceInput(displayed)) {
         throw const YorksV1DomainException(YorksV1DomainErrorCode.conflict);
       }
       _discardInFlight = true;
@@ -1792,11 +1796,10 @@ class YorksV1MaterialRequestDraftController
         await _privateSyncDrain;
       }
       _recoveryGeneration++;
-      if (requireServerConfirmation &&
-          state.draft.hasRecoverableContent &&
-          state.draft.updatedAt.isAfter(displayed.updatedAt)) {
+      if (requireServerConfirmation && _hasNewerUnsavedDeviceInput(displayed)) {
         throw const YorksV1DomainException(YorksV1DomainErrorCode.conflict);
       }
+      final deviceDraft = state.draft;
       await _persistQueue;
       if (_inactive) {
         throw const YorksV1DomainException(
@@ -1812,7 +1815,7 @@ class YorksV1MaterialRequestDraftController
       }
       if (requireServerConfirmation) {
         state = YorksV1MaterialRequestDraftState(
-          draft: displayed,
+          draft: deviceKeepsSavedRequest ? deviceDraft : displayed,
           status: YorksV1MaterialRequestDraftSyncStatus.deleting,
         );
         if (repository != null) {
@@ -1859,15 +1862,17 @@ class YorksV1MaterialRequestDraftController
           }
         }
       }
-      await _mutateStore(
-        (all) => all
-            .where(
-              (draft) =>
-                  draft.id != _draftId ||
-                  draft.ownerAuthUserId != _ownerAuthUserId,
-            )
-            .toList(growable: false),
-      );
+      if (!deviceKeepsSavedRequest) {
+        await _mutateStore(
+          (all) => all
+              .where(
+                (draft) =>
+                    draft.id != _draftId ||
+                    draft.ownerAuthUserId != _ownerAuthUserId,
+              )
+              .toList(growable: false),
+        );
+      }
       if (_inactive) {
         throw const YorksV1DomainException(
           YorksV1DomainErrorCode.unauthenticated,
@@ -1885,7 +1890,19 @@ class YorksV1MaterialRequestDraftController
           /* Confirmed workflow outcome remains authoritative. */
         }
       }
-      if (requireServerConfirmation) {
+      if (requireServerConfirmation && deviceKeepsSavedRequest) {
+        // Only the account recovery copy was removed. The saved request and
+        // its editor on this device stay usable.
+        state = YorksV1MaterialRequestDraftState(
+          draft: deviceDraft,
+          status: YorksV1MaterialRequestDraftSyncStatus.saved,
+        );
+        _analytics.capture(
+          AnalyticsEvent.materialRequestDraftDeleted,
+          properties: const {AnalyticsProperty.success: true},
+        );
+        operation?.complete();
+      } else if (requireServerConfirmation) {
         state = YorksV1MaterialRequestDraftState(
           draft: displayed,
           status: YorksV1MaterialRequestDraftSyncStatus.deleted,
@@ -1923,6 +1940,14 @@ class YorksV1MaterialRequestDraftController
       releaseRetention?.call();
     }
   }
+
+  /// Whether this device holds unsaved input newer than the recovery copy the
+  /// user chose to delete. A copy already saved to the server is not unsaved
+  /// input: deleting the recovery copy never touches it.
+  bool _hasNewerUnsavedDeviceInput(YorksV1MaterialRequestDraft displayed) =>
+      state.draft.serverRecordVersion == 0 &&
+      state.draft.hasRecoverableContent &&
+      state.draft.updatedAt.isAfter(displayed.updatedAt);
 
   /// Retire a stale device copy only after the trusted owner RPC confirms it.
   Future<void> _clearRetiredRecovery() async {

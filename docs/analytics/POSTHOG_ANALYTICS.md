@@ -164,6 +164,7 @@ All events below are centrally defined in `analytics_event.dart`.
 | `repeated action detected` | Unclear/slow feedback signal | Same meaningful action three times in two seconds | action, taps, duration, loading state | Analytics service |
 | `action produced no feedback` | Dead-action signal | Explicit feedback contract expires | action, screen, wait, loading state | Analytics service; critical actions only |
 | `operation completed` | Performance/success basis | Timed operation finishes once | operation, duration, success, cached, result count | Analytics operation handle |
+| `operation blocked` | Requests the app refused to send | Timed operation stopped before any request because the device was offline or nobody was signed in | operation, category (`offline` or `authentication`), network state, duration | Analytics service; never counted in `operation completed` or `reliability error occurred`, so failure rates measure only requests that reached the network |
 | `command outcome changed` | Command truth separate from transport health | A reviewed command phase or reconciliation outcome changes | `operation`, `command_fingerprint`, `command_phase`, categorical `outcome`/`phase`, normalized error category where present | No raw key, entity/reference ID or payload; exact server receipt remains authoritative |
 | `feature flag evaluated` | Experiment exposure basis | Non-security flag resolves | flag, variant | Analytics service |
 | `reliability error occurred` | Reliability rollup | Timed operation fails | operation, category, retryable, duration | Analytics service; no raw exception |
@@ -342,6 +343,8 @@ There is no `order recorded` stage: Yorks V1 deliberately has no PO/RFQ suite.
    `project_list_load`, `project_create`, `project_update`,
    `material_request_load`, `material_request_submit`, `document_upload`,
    `procurement_workspace_load`, `arrangement_begin`, `arrangement_save`,
+   `worker_records_load`, `worker_record_save`, `worker_record_photo_set`,
+   `worker_records_import`,
    `inventory_load`, `inventory_search`, `inventory_adjust`,
    `inventory_import`, `dispatch_materials`, and `receipt_review`.
 2. Failure rate formula as above, breakdown by `operation`.

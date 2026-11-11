@@ -315,6 +315,75 @@ void main() {
     },
   );
 
+  group('recovery copy of a draft this device already saved', () {
+    late _Store savedStore;
+    late YorksV1MaterialRequestDraftController savedController;
+    // The account recovery copy the list shows: unsaved, older.
+    final accountCopy = _draft().copyWith(privateSyncVersion: 3);
+
+    YorksV1MaterialRequestDraftController build(
+      YorksV1MaterialRequestDraft deviceCopy,
+    ) {
+      savedStore = _Store([deviceCopy, _draft(id: 'other')]);
+      return savedController = YorksV1MaterialRequestDraftController(
+        ownerAuthUserId: 'owner',
+        draftId: 'draft',
+        store: savedStore,
+        repository: repository,
+        analytics: analytics,
+        privateSyncDebounce: Duration.zero,
+      );
+    }
+
+    tearDown(() => savedController.dispose());
+
+    test('deletes only the account copy and keeps the saved draft', () async {
+      // Saved to the server after the account copy was taken, so newer.
+      final saved = _draft().copyWith(
+        serverRecordVersion: 1,
+        title: 'Saved title',
+        updatedAt: DateTime.utc(2027),
+      );
+      final controller = build(saved);
+      await controller.discardLocal(
+        requireServerConfirmation: true,
+        expectedDraft: accountCopy,
+      );
+      expect(repository.deletes, [3]);
+      expect(savedStore.readAll().map((d) => d.id), ['draft', 'other']);
+      expect(savedStore.readAll().first.title, 'Saved title');
+      expect(controller.currentDraft.serverRecordVersion, 1);
+      expect(
+        controller.state.status,
+        YorksV1MaterialRequestDraftSyncStatus.saved,
+      );
+      expect(analytics.events.last, AnalyticsEvent.materialRequestDraftDeleted);
+    });
+
+    test('newer unsaved device input still blocks deletion', () async {
+      final unsaved = _draft().copyWith(
+        title: 'Typed after the copy',
+        updatedAt: DateTime.utc(2027),
+      );
+      final controller = build(unsaved);
+      await expectLater(
+        controller.discardLocal(
+          requireServerConfirmation: true,
+          expectedDraft: accountCopy,
+        ),
+        throwsA(
+          isA<YorksV1DomainException>().having(
+            (e) => e.code,
+            'code',
+            YorksV1DomainErrorCode.conflict,
+          ),
+        ),
+      );
+      expect(repository.deletes, isEmpty);
+      expect(savedStore.readAll().length, 2);
+    });
+  });
+
   test('newer account copy is preserved for review', () async {
     repository.remote = _record(
       _draft().copyWith(updatedAt: DateTime.utc(2027)),

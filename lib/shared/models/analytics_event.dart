@@ -109,6 +109,10 @@ enum AnalyticsEvent {
   uiRepeatedActionDetected('repeated action detected'),
   uiActionNoFeedback('action produced no feedback'),
   operationCompleted('operation completed'),
+  // A request the app refused to send because the device was offline or no
+  // user was signed in. It is not an app/server failure, so it is kept out of
+  // `operation completed` success rates and reliability errors.
+  operationBlocked('operation blocked'),
   commandOutcomeChanged('command outcome changed'),
   featureFlagInteracted('feature flag evaluated'),
   reliabilityError('reliability error occurred');

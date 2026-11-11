@@ -20,10 +20,11 @@ final appVersionProvider = Provider<AppVersionInfo>((ref) {
 /// Remote app config that drives the gates. Local default today; the controller
 /// is where a Firebase Remote Config / Firestore listener will push updates.
 /// Exposes debug setters so the gates can be exercised without a backend.
-final appConfigProvider =
-    StateNotifierProvider<AppConfigController, AppConfig>((ref) {
-      return AppConfigController();
-    });
+final appConfigProvider = StateNotifierProvider<AppConfigController, AppConfig>(
+  (ref) {
+    return AppConfigController();
+  },
+);
 
 class AppConfigController extends StateNotifier<AppConfig> {
   AppConfigController() : super(const AppConfig());

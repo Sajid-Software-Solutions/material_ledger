@@ -189,16 +189,20 @@ final syncStatusProvider = Provider<SyncState>((ref) {
 });
 
 /// Number of operations still waiting to commit.
-final pendingSyncCountProvider = Provider<int>((ref) => ref
-    .watch(outboxProvider)
-    .where((o) => o.status == SyncOpStatus.pending)
-    .length);
+final pendingSyncCountProvider = Provider<int>(
+  (ref) => ref
+      .watch(outboxProvider)
+      .where((o) => o.status == SyncOpStatus.pending)
+      .length,
+);
 
 /// Dead-lettered ops needing user attention (Retry).
-final failedSyncProvider = Provider<List<MutationOp>>((ref) => ref
-    .watch(outboxProvider)
-    .where((o) => o.status == SyncOpStatus.failed)
-    .toList());
+final failedSyncProvider = Provider<List<MutationOp>>(
+  (ref) => ref
+      .watch(outboxProvider)
+      .where((o) => o.status == SyncOpStatus.failed)
+      .toList(),
+);
 
 /// Whether a specific record (by client doc id) still has a queued/failed op —
 /// drives the per-record "pending sync" indicator.
