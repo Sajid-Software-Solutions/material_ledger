@@ -431,6 +431,11 @@ class _PendingOperationCardState extends ConsumerState<_PendingOperationCard> {
                       _fileStatus(file).active(language),
                       style: AppTypography.bodySmall,
                     ),
+                    if (file.status == YorksV1ProjectSetupFileStatus.uploading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                        child: LinearProgressIndicator(),
+                      ),
                     if (canUpload &&
                         file.status != YorksV1ProjectSetupFileStatus.ready &&
                         file.status != YorksV1ProjectSetupFileStatus.removed)
@@ -513,7 +518,8 @@ TranslatableString _fileStatus(
   YorksV1ProjectSetupFileStatus.selected => YorksV1ProjectStrings.fileSelected,
   YorksV1ProjectSetupFileStatus.needsReselect =>
     YorksV1ProjectStrings.fileReselect,
-  YorksV1ProjectSetupFileStatus.uploading => YorksV1ProjectStrings.fileChecking,
+  YorksV1ProjectSetupFileStatus.uploading =>
+    YorksV1ProjectStrings.fileUploading,
   YorksV1ProjectSetupFileStatus.ready => YorksV1ProjectStrings.fileReady,
   YorksV1ProjectSetupFileStatus.failed => YorksV1ProjectStrings.fileFailed,
   YorksV1ProjectSetupFileStatus.outcomeUncertain =>

@@ -563,6 +563,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // One Accounts entry; Supplier Bills is never a sidebar item.
       expect(find.text(YorksV1ShellStrings.accounts.primary), findsOneWidget);
       expect(
         find.text(YorksV1ShellStrings.supplierBills.primary),

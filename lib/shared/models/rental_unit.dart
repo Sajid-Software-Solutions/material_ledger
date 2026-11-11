@@ -83,8 +83,7 @@ class RentalUnit {
 
   /// Net (pre-VAT) portion of [monthlyRentAED], back-calculated from the
   /// VAT-inclusive total: net = gross ÷ (1 + rate).
-  double get netRentAED =>
-      monthlyRentAED / (1 + vatRatePercent / 100);
+  double get netRentAED => monthlyRentAED / (1 + vatRatePercent / 100);
 
   /// VAT portion of [monthlyRentAED].
   double get vatAmountAED => monthlyRentAED - netRentAED;

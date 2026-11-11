@@ -96,19 +96,9 @@ final class _YorksWorkforceReportsPanelState
             _header(context),
             const SizedBox(height: AppSpacing.lg),
             _statusBanner(context, state),
-            if (widget.compact) ...[
-              const SizedBox(height: AppSpacing.md),
-              _notice(
-                context,
-                Icons.visibility_outlined,
-                _t('reports_read_only_mobile'),
-                AppColors.primary,
-              ),
-            ] else ...[
-              const SizedBox(height: AppSpacing.lg),
-              _controls(context, state, request, reason, controller),
-            ],
-            if (reason != null && !widget.compact) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _controls(context, state, request, reason, controller),
+            if (reason != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
                 reason,
@@ -218,7 +208,7 @@ final class _YorksWorkforceReportsPanelState
         ),
       if (_kind.requiresApprovedSnapshot && _availableSnapshots.isNotEmpty)
         SizedBox(
-          width: 280,
+          width: widget.compact ? double.infinity : 280,
           child: DropdownButtonFormField<String>(
             key: ValueKey('workforce-report-snapshot-$_effectiveSnapshotId'),
             initialValue: _effectiveSnapshotId,
@@ -308,46 +298,39 @@ final class _YorksWorkforceReportsPanelState
         const SizedBox(height: AppSpacing.md),
         _previewTable(context, artifact),
         const SizedBox(height: AppSpacing.md),
-        if (!widget.compact)
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              OutlinedButton.icon(
-                onPressed: prepared
-                    ? () => _previewPdf(context, state, controller)
-                    : null,
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                label: Text(_t('reports_preview')),
-              ),
-              OutlinedButton.icon(
-                onPressed: prepared ? controller.saveExcel : null,
-                icon: const Icon(Icons.table_view_outlined),
-                label: Text(_t('reports_download_excel')),
-              ),
-              OutlinedButton.icon(
-                onPressed: prepared ? controller.savePdf : null,
-                icon: const Icon(Icons.download_outlined),
-                label: Text(_t('reports_download_pdf')),
-              ),
-              OutlinedButton.icon(
-                onPressed: prepared ? controller.printPdf : null,
-                icon: const Icon(Icons.print_outlined),
-                label: Text(_t('reports_print')),
-              ),
-              OutlinedButton.icon(
-                onPressed: prepared ? controller.sharePdf : null,
-                icon: const Icon(Icons.ios_share_outlined),
-                label: Text(_t('reports_share')),
-              ),
-            ],
-          )
-        else if (prepared)
-          OutlinedButton.icon(
-            onPressed: () => _previewPdf(context, state, controller),
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            label: Text(_t('reports_preview')),
-          ),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            OutlinedButton.icon(
+              onPressed: prepared
+                  ? () => _previewPdf(context, state, controller)
+                  : null,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(_t('reports_preview')),
+            ),
+            OutlinedButton.icon(
+              onPressed: prepared ? controller.saveExcel : null,
+              icon: const Icon(Icons.table_view_outlined),
+              label: Text(_t('reports_download_excel')),
+            ),
+            OutlinedButton.icon(
+              onPressed: prepared ? controller.savePdf : null,
+              icon: const Icon(Icons.download_outlined),
+              label: Text(_t('reports_download_pdf')),
+            ),
+            OutlinedButton.icon(
+              onPressed: prepared ? controller.printPdf : null,
+              icon: const Icon(Icons.print_outlined),
+              label: Text(_t('reports_print')),
+            ),
+            OutlinedButton.icon(
+              onPressed: prepared ? controller.sharePdf : null,
+              icon: const Icon(Icons.ios_share_outlined),
+              label: Text(_t('reports_share')),
+            ),
+          ],
+        ),
       ],
     );
   }

@@ -32,6 +32,9 @@ final yorksV1TeamChatRepositoryProvider = Provider<YorksV1TeamChatRepository?>((
   );
 });
 
+/// What a change to another `v1_chat_members` row requires.
+enum YorksV1ChatMemberChange { refreshAll, refreshOpenThread, ignore }
+
 class YorksV1TeamChatState {
   const YorksV1TeamChatState({
     this.conversations = const [],
@@ -173,6 +176,7 @@ class YorksV1TeamChatController extends StateNotifier<YorksV1TeamChatState>
   final _realtimeReadiness = AuthorizedRefreshReadiness();
   late final _listRefreshQueue = AuthorizedRefreshQueue(_loadConversations);
   late final _refreshQueue = AuthorizedRefreshQueue(_loadRefresh);
+  late final _threadRefreshQueue = AuthorizedRefreshQueue(_loadSelectedThread);
   bool _observingLifecycle = false;
   bool _leftForeground = false;
   String _activeSearchQuery = '';
@@ -217,6 +221,41 @@ class YorksV1TeamChatController extends StateNotifier<YorksV1TeamChatState>
   }
 
   Future<void> refreshConversations() => _listRefreshQueue.request();
+
+  Future<void> _loadSelectedThread() async {
+    final selected = state.selectedConversationId;
+    if (_disposed || selected == null) return;
+    await _refreshThread(selected, markRead: false);
+  }
+
+  /// Decides what a change to a `v1_chat_members` row needs.
+  ///
+  /// Every member of a conversation can see every member row, and marking a
+  /// conversation delivered or read updates the reader's row. Reloading the
+  /// whole list for each of those made one message cost about N² list loads
+  /// in an N-person group. Only this user's own membership changes the list;
+  /// another member's delivery or read cursor only changes the open thread's
+  /// ticks.
+  @visibleForTesting
+  static YorksV1ChatMemberChange classifyMemberChange({
+    required Map<String, dynamic> newRecord,
+    required Map<String, dynamic> oldRecord,
+    required String authUserId,
+    required String? selectedConversationId,
+  }) {
+    final record = newRecord.isNotEmpty ? newRecord : oldRecord;
+    final memberId = record['auth_user_id']?.toString();
+    final conversationId = record['conversation_id']?.toString();
+    // Missing fields mean the change cannot be attributed: stay safe.
+    if (memberId == null || conversationId == null) {
+      return YorksV1ChatMemberChange.refreshAll;
+    }
+    if (memberId == authUserId) return YorksV1ChatMemberChange.refreshAll;
+    if (conversationId == selectedConversationId) {
+      return YorksV1ChatMemberChange.refreshOpenThread;
+    }
+    return YorksV1ChatMemberChange.ignore;
+  }
 
   Future<void> _loadConversations() async {
     if (_disposed || _repository == null) return;
@@ -601,6 +640,22 @@ class YorksV1TeamChatController extends StateNotifier<YorksV1TeamChatState>
       });
       final joined = Completer<bool>();
       void signal(PostgresChangePayload _) => unawaited(refresh());
+      void memberSignal(PostgresChangePayload payload) {
+        switch (classifyMemberChange(
+          newRecord: payload.newRecord,
+          oldRecord: payload.oldRecord,
+          authUserId: authUserId,
+          selectedConversationId: state.selectedConversationId,
+        )) {
+          case YorksV1ChatMemberChange.refreshAll:
+            unawaited(refresh());
+          case YorksV1ChatMemberChange.refreshOpenThread:
+            unawaited(_threadRefreshQueue.request());
+          case YorksV1ChatMemberChange.ignore:
+            break;
+        }
+      }
+
       _channel = client
           .channel('yorks-v1-team-chat:$authUserId')
           .onPostgresChanges(
@@ -619,7 +674,7 @@ class YorksV1TeamChatController extends StateNotifier<YorksV1TeamChatState>
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'v1_chat_members',
-            callback: signal,
+            callback: memberSignal,
           )
           .subscribe((status, _) {
             if (_disposed) return;
@@ -678,6 +733,7 @@ class YorksV1TeamChatController extends StateNotifier<YorksV1TeamChatState>
     _disposed = true;
     _listRefreshQueue.dispose();
     _refreshQueue.dispose();
+    _threadRefreshQueue.dispose();
     if (_observingLifecycle) {
       WidgetsBinding.instance.removeObserver(this);
       _observingLifecycle = false;

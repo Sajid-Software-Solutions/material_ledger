@@ -124,6 +124,7 @@ class YorksRoleOverviewNavigation {
     this.openRentals,
     this.openAudit,
     this.retryAudit,
+    this.retry,
   });
 
   final void Function(YorksV1MaterialRequestSummary request) openRequest;
@@ -144,6 +145,9 @@ class YorksRoleOverviewNavigation {
   final VoidCallback? openRentals;
   final VoidCallback? openAudit;
   final VoidCallback? retryAudit;
+
+  /// Reloads every projection on the Overview (the Refresh action).
+  final VoidCallback? retry;
 }
 
 /// Builds the Overview for the signed-in role.
@@ -593,7 +597,7 @@ class _Builder {
         _loadOf(input.myWork),
         if (extra.isNotEmpty || input.drafts != null) _loadOf(input.drafts),
       ]),
-      onRetry: nav.openRequests,
+      onRetry: nav.retry ?? nav.openRequests,
     );
   }
 
@@ -658,7 +662,7 @@ class _Builder {
       linkLabel: exceptionTotal > 6 ? t(_S.viewAll) : null,
       onLink: nav.openRequests,
       load: _loadOf(input.exceptions),
-      onRetry: nav.openRequests,
+      onRetry: nav.retry ?? nav.openRequests,
     );
   }
 
@@ -1026,6 +1030,7 @@ class _Builder {
         _loadOf(input.myWork),
         _loadOf(input.exceptions),
       ]),
+      onRetry: nav.retry,
     );
   }
 

@@ -1,4 +1,6 @@
 import 'yorks_v1_domain_error.dart';
+import 'yorks_v1_quantity.dart';
+import 'yorks_v1_material_request.dart';
 
 /// The only source options in Yorks V1. Supplier text is intentionally a
 /// lightweight external source; RFQ, quotation and PO flows are deferred.
@@ -31,6 +33,47 @@ enum YorksV1ArrangementDecision {
     }
     return null;
   }
+}
+
+/// Infers fulfilment only from a complete, valid quantity. Incomplete typing,
+/// negatives and quantities over the approved need have no fulfilment status.
+YorksV1ArrangementDecision? yorksV1ArrangementDecisionForQuantity({
+  required String requestedQuantity,
+  required String arrangedQuantity,
+}) {
+  final requested = YorksV1DecimalQuantity.tryParse(requestedQuantity);
+  final arranged = YorksV1DecimalQuantity.tryParse(arrangedQuantity);
+  if (requested == null ||
+      !requested.isPositive ||
+      arranged == null ||
+      arranged.isNegative ||
+      arranged.compareTo(requested) > 0) {
+    return null;
+  }
+  if (arranged.isZero) return YorksV1ArrangementDecision.unavailable;
+  return arranged == requested
+      ? YorksV1ArrangementDecision.full
+      : YorksV1ArrangementDecision.partial;
+}
+
+/// Only one exact operational match may be selected automatically. Stock is
+/// not identity: an out-of-stock match remains a real warehouse item.
+YorksV1InventoryItem? yorksV1ArrangementInventoryMatch(
+  YorksV1ArrangementLine line,
+  List<YorksV1InventoryItem> inventory,
+) {
+  String normalized(String? value) =>
+      (value ?? '').trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  final matches = inventory
+      .where(
+        (item) =>
+            normalized(item.unit) == normalized(line.unit) &&
+            normalized(item.description) == normalized(line.description) &&
+            (normalized(line.brandOrigin).isEmpty ||
+                normalized(item.brandOrigin) == normalized(line.brandOrigin)),
+      )
+      .toList();
+  return matches.length == 1 ? matches.single : null;
 }
 
 enum YorksV1ArrangementStatus {
@@ -74,12 +117,14 @@ class YorksV1InventoryItem {
     required this.recordVersion,
     this.itemCode,
     this.brandOrigin,
+    this.locationBin,
   });
 
   final String id;
   final String? itemCode;
   final String description;
   final String? brandOrigin;
+  final String? locationBin;
   final String unit;
   final String onHandQuantity;
   final String reservedQuantity;
@@ -92,6 +137,7 @@ class YorksV1InventoryItem {
       itemCode: _trimToNull(json['item_code']),
       description: _requiredString(json, 'item_description'),
       brandOrigin: _trimToNull(json['brand_origin']),
+      locationBin: _trimToNull(json['location_bin']),
       unit: _requiredString(json, 'unit'),
       onHandQuantity: _string(json['on_hand_qty']),
       reservedQuantity: _string(json['reserved_qty']),
@@ -322,10 +368,14 @@ class YorksV1ArrangementWorkspace {
     this.procurementClarificationRevision = 0,
     this.approvedProcurementClarificationRevision = 0,
     this.requestNumber,
+    this.timing = YorksV1MaterialRequestTiming.normal,
+    this.scheduledDate,
   }) : arrangements = List.unmodifiable(arrangements);
 
   final String requestId;
   final String? requestNumber;
+  final YorksV1MaterialRequestTiming timing;
+  final DateTime? scheduledDate;
   final String requestState;
   final int requestRecordVersion;
   final bool canBegin;
@@ -364,6 +414,10 @@ class YorksV1ArrangementWorkspace {
     return YorksV1ArrangementWorkspace(
       requestId: _requiredString(json, 'request_id'),
       requestNumber: _trimToNull(json['request_number']),
+      timing:
+          YorksV1MaterialRequestTiming.fromWireValue(json['timing']) ??
+          YorksV1MaterialRequestTiming.normal,
+      scheduledDate: _nullableDate(json['scheduled_date']),
       requestState: _requiredString(json, 'request_state'),
       requestRecordVersion: _positiveInt(json['request_record_version']),
       canBegin: json['can_begin'] == true,
@@ -429,7 +483,7 @@ class YorksV1ArrangementLineInput {
     'decision': decision.wireValue,
     'arranged_qty': arrangedQuantity.trim(),
     'reason': _trimToNull(reason),
-    'unit_cost': _trimToNull(unitCost),
+    if (_trimToNull(unitCost) != null) 'unit_cost': _trimToNull(unitCost),
   };
 }
 

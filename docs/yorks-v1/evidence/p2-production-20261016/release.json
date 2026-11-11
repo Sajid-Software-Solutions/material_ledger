@@ -1,0 +1,54 @@
+{
+  "source": "f5aa76f464962ce6646ba32c66498894ab5684d8",
+  "deployment": "dpl_8jq9UDFU1QCwgFnwmVbacRzb3Mg9",
+  "url": "https://yorks-r35.vercel.app",
+  "immutable": "https://yorks-r35-pwhm71bae-sajid-alis-projects-0ec775a2.vercel.app",
+  "main_sha256": "aa4f1a7b017ba190f076b081824e081f3d3d74783449385745a041ff6357aa6f",
+  "main_bytes": 10054803,
+  "main_gzip_bytes": 2897314,
+  "checks": {
+    "candidate": 28,
+    "canonical": 28
+  },
+  "production_migrations": [
+    {
+      "version": "20261015204237",
+      "name": "renew_expired_document_upload_intents"
+    },
+    {
+      "version": "20261015204240",
+      "name": "material_workflow_receipt_first_view_hydration"
+    }
+  ],
+  "function_hashes": {
+    "v1_get_material_workflow_command_outcome": "e6c26ebc11cd6bcf74af5ceab377dc9b",
+    "v1_get_material_workflow_command_view": "6ae64ab4ce0f04e5e5e89c5f2ff09ca0",
+    "v1_resume_document_upload": "3651d44ad7fe2ec7556612d52f8907b8"
+  },
+  "security_advisors": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 180,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    },
+    {
+      "name": "anon_security_definer_function_executable",
+      "level": "WARN",
+      "count": 2,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "count": 353,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+    },
+    {
+      "name": "auth_leaked_password_protection",
+      "level": "WARN",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+    }
+  ]
+}

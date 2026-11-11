@@ -15,6 +15,7 @@ import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
+import '../../../../shared/models/yorks_v1_command_outcome.dart';
 import '../../../../shared/models/yorks_v1_project.dart';
 import '../../../../shared/models/yorks_v1_project_portfolio.dart';
 import '../../../../shared/models/yorks_v1_project_creation_draft.dart';
@@ -1394,6 +1395,8 @@ class _YorksV1LegacyProjectCreateFlowScreenState
                 idempotencyKey: const Uuid().v4(),
               ),
             );
+      } on YorksV1CommittedViewUnavailable {
+        // Optional list refresh cannot make a confirmed attachment fail.
       } catch (_) {
         failed++;
       }

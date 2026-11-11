@@ -117,6 +117,40 @@ void main() {
     }
   });
 
+  test(
+    'preparation completion is informational and opens its request in every language',
+    () {
+      for (final language in AppLanguage.values) {
+        final notification = YorksV1NotificationRecord.fromRpcJson({
+          'notification_id': '21000000-0000-4000-8000-000000000009',
+          'event_code': 'arrangement_preparation_completed',
+          'entity_type': 'procurement_arrangement',
+          'entity_id': '25000000-0000-4000-8000-000000000009',
+          'request_id': requestId,
+          'project_id': '23000000-0000-4000-8000-000000000001',
+          'created_at': '2026-10-09T12:00:00Z',
+        }).toAppNotification(language);
+        expect(notification.type, NotificationType.info, reason: language.code);
+        expect(notification.route, '/yorks/material-requests/$requestId');
+        expect(
+          notification.title,
+          isNot(
+            record(
+              eventCode: 'future_server_event',
+            ).toAppNotification(language).title,
+          ),
+        );
+        expect(notification.body.trim(), isNotEmpty, reason: language.code);
+      }
+      expect(
+        record(
+          eventCode: 'arrangement_preparation_completed',
+        ).toAppNotification(AppLanguage.english).title,
+        'Materials prepared',
+      );
+    },
+  );
+
   test('unknown server event remains safe and routes to its request', () {
     final notification = record(
       eventCode: 'future_server_event',

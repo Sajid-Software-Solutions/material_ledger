@@ -1,3 +1,6 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ledger/shared/models/yorks_v1_inventory_register_query.dart';
+import 'package:material_ledger/shared/models/yorks_v1_inventory_history.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -37,6 +40,180 @@ void main() {
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final size in [const Size(360, 800), const Size(1366, 768)]) {
+    testWidgets('Arabic inventory remains readable at $size', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString('selected_language', 'ar');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1CurrentRoleProvider.overrideWithValue(
+              YorksV1Role.procurement,
+            ),
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1LogisticsRepositoryProvider.overrideWithValue(
+              const _GoldenInventoryRepository(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const YorksV1InventoryScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(YorksV1InventoryScreen),
+        matchesGoldenFile(
+          'goldens/r38_3/warehouse_items_arabic_${size.width.toInt()}.png',
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      if (size.width > 1000) {
+        final name = find.text('WH-DCT-001 · GI duct sheet 24 gauge');
+        final before = tester.getTopLeft(name);
+        final scroll = find
+            .byWidgetPredicate(
+              (w) =>
+                  w is SingleChildScrollView &&
+                  w.scrollDirection == Axis.horizontal,
+            )
+            .last;
+        await tester.drag(scroll, const Offset(200, 0));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<SingleChildScrollView>(scroll).controller!.offset,
+          greaterThan(0),
+        );
+        expect(tester.getTopLeft(name).dx, closeTo(before.dx, 1));
+      }
+    });
+  }
+
+  testWidgets(
+    'stock pages preserve search and exports include the complete match set',
+    (tester) async {
+      tester.view.physicalSize = const Size(1366, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final preferences = await SharedPreferences.getInstance();
+      final repo = _PagedInventoryRepository();
+      final files = _RecordingInventoryWorkbookFileService();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1CurrentRoleProvider.overrideWithValue(
+              YorksV1Role.procurement,
+            ),
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1LogisticsRepositoryProvider.overrideWithValue(repo),
+            yorksV1InventoryWorkbookFileServiceProvider.overrideWithValue(
+              files,
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const YorksV1InventoryScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(repo.fullReads, 0);
+      expect(find.text('1–50 / 120'), findsOneWidget);
+      await tester.tap(find.text('Export stock'));
+      await tester.pumpAndSettle();
+      expect(files.lastItemCount, 120);
+      await tester.ensureVisible(find.text('Next').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Next').last);
+      await tester.pumpAndSettle();
+      expect(find.text('51–100 / 120'), findsOneWidget);
+      final search = find.byType(TextField).first;
+      await tester.ensureVisible(search);
+      await tester.enterText(search, 'Page item 119');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.offset, 0);
+      expect(repo.queries.last.search, 'Page item 119');
+      expect(
+        tester.widget<TextField>(search).controller!.text,
+        'Page item 119',
+      );
+      expect(find.text('1–1 / 1'), findsOneWidget);
+      expect(repo.fullReads, 0);
+      await tester.pump(const Duration(seconds: 6));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final owner in ['owner-a', 'owner-b']) {
+    testWidgets('reloaded stock recovery is scoped to $owner', (tester) async {
+      final preferences = await SharedPreferences.getInstance();
+      const key = 'yorks.inventory.pending.v1.owner-a.procurement';
+      final input = YorksV1InventoryAdjustmentInput(
+        quantityDelta: '-1',
+        reason: 'Witness',
+        idempotencyKey: 'original',
+        inventoryItemId: _workspace.items.first.id,
+        expectedVersion: 1,
+        action: 'correction',
+      );
+      await preferences.setString(key, jsonEncode(input.toRecoveryJson()));
+      final repo = _RetryStockRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            yorksV1AuthUserIdProvider.overrideWithValue(owner),
+            yorksV1CurrentRoleProvider.overrideWithValue(
+              YorksV1Role.procurement,
+            ),
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1LogisticsRepositoryProvider.overrideWithValue(repo),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const YorksV1InventoryScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (owner == 'owner-a') {
+        expect(find.text('Retry save'), findsOneWidget);
+        await tester.tap(find.text('Retry save'));
+        await tester.pumpAndSettle();
+        expect(preferences.containsKey(key), isTrue);
+        await tester.tap(find.text('Retry save'));
+        await tester.pumpAndSettle();
+        expect(
+          repo.inputs.map((input) => input.idempotencyKey),
+          everyElement('original'),
+        );
+        expect(preferences.containsKey(key), isFalse);
+        expect(find.text('Warehouse Inventory'), findsOneWidget);
+      } else {
+        expect(find.text('Retry save'), findsNothing);
+        expect(repo.inputs, isEmpty);
+        expect(preferences.containsKey(key), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final evidence in <({String name, Size size})>[
     (name: 'smart_inventory_desktop.png', size: const Size(1366, 768)),
@@ -75,7 +252,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -145,13 +322,23 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Suppliers'), findsWidgets);
+      if (evidence.size.width <= 720) {
+        await tester.tap(
+          find.byKey(const ValueKey('inventory-section-selector')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Suppliers'), findsWidgets);
+        await tester.tap(find.text('Overview').last);
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.text('Suppliers'), findsWidgets);
+      }
       expect(find.text('Import Inventory'), findsWidgets);
       expect(tester.takeException(), isNull);
       await expectLater(
@@ -191,7 +378,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -241,7 +428,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -331,7 +518,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -410,7 +597,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -419,7 +606,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Create inventory item'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
       await tester.pumpAndSettle();
 
       expect(find.text('Ton'), findsOneWidget);
@@ -462,12 +649,12 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Items').first);
+      await _selectSection(tester, 'Items');
       await tester.pumpAndSettle();
       final item = find.textContaining('GI duct sheet 24 gauge').first;
       if (evidence.size.width < 500) {
@@ -517,14 +704,14 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Items').first);
+      await _selectSection(tester, 'Items');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Manage categories').first);
+      await _openCategories(tester);
       await tester.pumpAndSettle();
 
       expect(find.text('Warehouse Categories'), findsOneWidget);
@@ -560,14 +747,14 @@ void main() {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
-          home: const YorksV1InventoryScreen(),
+          home: const YorksV1InventoryScreen(initialTab: 'overview'),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Items').first);
+    await _selectSection(tester, 'Items');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Manage categories').first);
+    await _openCategories(tester);
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byWidgetPredicate(
@@ -649,16 +836,12 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      final tab = find.text(evidence.tab).first;
-      if (evidence.size.width < 500 && evidence.tab == 'Reservations') {
-        await tester.ensureVisible(tab);
-      }
-      await tester.tap(tab);
+      await _selectSection(tester, evidence.tab);
       await tester.pumpAndSettle();
 
       expect(find.text(evidence.surface), findsOneWidget);
@@ -667,6 +850,27 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/r38_3/warehouse_${evidence.name}.png'),
       );
+      if (evidence.name == 'items_desktop') {
+        final name = find.text('WH-DCT-001 · GI duct sheet 24 gauge');
+        expect(name, findsOneWidget);
+        final before = tester.getTopLeft(name);
+        final horizontal = find.byWidgetPredicate(
+          (w) =>
+              w is SingleChildScrollView &&
+              w.scrollDirection == Axis.horizontal,
+        );
+        await tester.drag(horizontal.last, const Offset(-200, 0));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<SingleChildScrollView>(horizontal.last)
+              .controller!
+              .offset,
+          greaterThan(0),
+        );
+        expect(tester.getTopLeft(name).dx, closeTo(before.dx, 1));
+        expect(tester.takeException(), isNull);
+      }
     });
   }
 
@@ -708,12 +912,14 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Import Inventory').first);
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Import Inventory').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Select Excel or CSV file'));
       await tester.pumpAndSettle();
@@ -764,12 +970,14 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Import Inventory').first);
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Import Inventory').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Select Excel or CSV file'));
       await tester.pumpAndSettle();
@@ -811,12 +1019,12 @@ void main() {
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
-          home: const YorksV1InventoryScreen(),
+          home: const YorksV1InventoryScreen(initialTab: 'overview'),
         ),
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Items').first);
+    await _selectSection(tester, 'Items');
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Yorks');
     await tester.pumpAndSettle();
@@ -854,7 +1062,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light,
-            home: const YorksV1InventoryScreen(),
+            home: const YorksV1InventoryScreen(initialTab: 'overview'),
           ),
         ),
       );
@@ -879,6 +1087,104 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
     },
   );
+  for (final correction in [false, true]) {
+    testWidgets(
+      'stock retry retains confirmed command; signed correction=$correction',
+      (tester) async {
+        tester.view.physicalSize = const Size(1440, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+        final repository = _RetryStockRepository();
+        final preferences = await SharedPreferences.getInstance();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              yorksV1CurrentRoleProvider.overrideWithValue(
+                YorksV1Role.procurement,
+              ),
+              sharedPreferencesProvider.overrideWithValue(preferences),
+              yorksV1ConfigurationUnitCodesProvider.overrideWith(
+                (ref) async => const ['Nos'],
+              ),
+              yorksV1LogisticsRepositoryProvider.overrideWithValue(repository),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light,
+              home: const YorksV1InventoryScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('GI duct sheet 24 gauge').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Receive / Adjust'));
+        await tester.pumpAndSettle();
+        if (correction) {
+          await tester.tap(find.text('Correction'));
+          await tester.pumpAndSettle();
+        }
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Stock quantity'),
+          correction ? '-1' : '1',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Reason'),
+          'Verified count',
+        );
+        await tester.tap(
+          find
+              .widgetWithText(
+                FilledButton,
+                correction ? 'Correction' : 'Add stock',
+              )
+              .last,
+        );
+        await tester.pumpAndSettle();
+        expect(repository.inputs, hasLength(1));
+        expect(repository.inputs.single.quantityDelta, correction ? '-1' : '1');
+        expect(
+          find.textContaining('The result is not confirmed.'),
+          findsWidgets,
+        );
+        await tester.tap(find.text('Retry save'));
+        await tester.pumpAndSettle();
+        expect(repository.inputs, hasLength(2));
+        expect(
+          repository.inputs[0].idempotencyKey,
+          repository.inputs[1].idempotencyKey,
+        );
+        expect(find.text('Retry save'), findsNothing);
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+}
+
+Future<void> _openCategories(WidgetTester tester) async {
+  final menu = find.byTooltip('Manage categories');
+  if (menu.evaluate().isNotEmpty) {
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.text('Manage categories').last);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _selectSection(WidgetTester tester, String label) async {
+  final selector = find.byKey(const ValueKey('inventory-section-selector'));
+  if (selector.evaluate().isNotEmpty) {
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label).last);
+  } else {
+    await tester.tap(find.text(label).first);
+  }
+  await tester.pumpAndSettle();
 }
 
 Directory _flutterCacheDirectory() {
@@ -892,7 +1198,18 @@ Directory _flutterCacheDirectory() {
   throw StateError('Could not locate the Flutter cache from the test runner');
 }
 
-class _GoldenInventoryRepository implements YorksV1LogisticsRepository {
+class _GoldenInventoryRepository
+    implements YorksV1LogisticsRepository, YorksV1InventoryHistoryRepository {
+  @override
+  Future<YorksV1InventoryHistoryPage> getInventoryHistory(
+    YorksV1InventoryHistoryQuery query,
+  ) async => YorksV1InventoryHistoryPage(
+    items: _workspace.recentMovements
+        .where((m) => query.itemId == null || m.inventoryItemId == query.itemId)
+        .toList(),
+    hasMore: false,
+  );
+
   const _GoldenInventoryRepository();
 
   @override
@@ -1038,6 +1355,7 @@ class _RecordingInventoryWorkbookFileService
     implements YorksV1InventoryWorkbookFileService {
   int templateDownloads = 0;
   int registerExports = 0;
+  int? lastItemCount;
 
   @override
   Future<YorksV1InventorySelectedWorkbook?> selectWorkbook() async => null;
@@ -1054,6 +1372,7 @@ class _RecordingInventoryWorkbookFileService
     required String suggestedName,
   }) async {
     registerExports += 1;
+    lastItemCount = workspace.items.length;
     expect(workspace.items, isNotEmpty);
     expect(suggestedName, endsWith('.xlsx'));
     return true;
@@ -1204,3 +1523,56 @@ YorksV1InventoryCategory _category(
   createdByDisplayName: 'Yorks standard',
   createdAt: DateTime.utc(2026, 8, 9),
 );
+
+class _RetryStockRepository extends _GoldenInventoryRepository {
+  final inputs = <YorksV1InventoryAdjustmentInput>[];
+  @override
+  Future<YorksV1LogisticsInventoryItem> adjustInventory(
+    YorksV1InventoryAdjustmentInput input,
+  ) async {
+    inputs.add(input);
+    if (inputs.length == 1) throw StateError('Lost response');
+    return _workspace.items.first;
+  }
+}
+
+class _PagedInventoryRepository extends _GoldenInventoryRepository
+    implements YorksV1InventoryRegisterRepository {
+  int fullReads = 0;
+  final queries = <YorksV1InventoryRegisterQuery>[];
+  final all = List.generate(
+    120,
+    (i) => YorksV1LogisticsInventoryItem(
+      id: 'page-$i',
+      description: 'Page item ${i.toString().padLeft(3, '0')}',
+      unit: 'Nos',
+      isActive: true,
+      onHandQuantity: '10',
+      reservedQuantity: '0',
+      availableQuantity: '10',
+      recordVersion: 1,
+    ),
+  );
+  @override
+  Future<YorksV1InventoryWorkspace> getInventory({String? search}) async {
+    fullReads++;
+    return YorksV1InventoryWorkspace(items: all);
+  }
+
+  @override
+  Future<YorksV1InventoryWorkspace> getInventoryPage(
+    YorksV1InventoryRegisterQuery query,
+  ) async {
+    queries.add(query);
+    final matches = all
+        .where((item) => item.description.contains(query.search))
+        .toList();
+    return YorksV1InventoryWorkspace(
+      items: matches.skip(query.offset).take(query.limit).toList(),
+      totalMatches: matches.length,
+      pageOffset: query.offset,
+      hasMore: query.offset + query.limit < matches.length,
+      availableUnits: const ['Nos'],
+    );
+  }
+}
