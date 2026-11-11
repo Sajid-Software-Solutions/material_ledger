@@ -11,6 +11,7 @@ import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/models/yorks_v1_worker_record.dart';
 import '../../../../shared/models/yorks_v1_worker_record_strings.dart';
 import '../../../../shared/providers/yorks_v1_worker_record_provider.dart';
+import 'yorks_v1_worker_import_dialog.dart';
 import 'yorks_v1_worker_record_form.dart';
 
 typedef _S = YorksV1WorkerRecordStrings;
@@ -79,17 +80,30 @@ class _YorksV1WorkerRecordsTabState
           ),
           if (widget.canManage) ...[
             const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: SizedBox(
-                height: AppSpacing.minTapTarget,
-                child: FilledButton.icon(
-                  key: const ValueKey('worker-records-add'),
-                  onPressed: () => _edit(null),
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: Text(_S.addWorker.active(language)),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                SizedBox(
+                  height: AppSpacing.minTapTarget,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('worker-records-import'),
+                    onPressed: _import,
+                    icon: const Icon(Icons.upload_file_rounded),
+                    label: Text(_S.importFromExcel.active(language)),
+                  ),
                 ),
-              ),
+                SizedBox(
+                  height: AppSpacing.minTapTarget,
+                  child: FilledButton.icon(
+                    key: const ValueKey('worker-records-add'),
+                    onPressed: () => _edit(null),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: Text(_S.addWorker.active(language)),
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: AppSpacing.md),
@@ -176,6 +190,27 @@ class _YorksV1WorkerRecordsTabState
       ),
     );
     if (edit == true && mounted) await _edit(record);
+  }
+
+  Future<void> _import() async {
+    final result = await YorksV1WorkerImportDialog.show(
+      context,
+      language: widget.language,
+    );
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await ref.read(yorksV1WorkerRecordsControllerProvider.notifier).refresh();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          _S.importDone
+              .active(widget.language)
+              .replaceAll('{created}', '${result.createdCount}')
+              .replaceAll('{updated}', '${result.updatedCount}'),
+        ),
+      ),
+    );
   }
 
   Future<void> _edit(YorksV1WorkerRecord? record) async {

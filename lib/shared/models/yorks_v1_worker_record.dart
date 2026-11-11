@@ -371,3 +371,106 @@ class YorksV1SaveWorkerRecordInput {
   String get signature =>
       '$workerId|$expectedVersion|${toRpcPayload().values.join('|')}';
 }
+
+enum YorksV1WorkerImportAction {
+  create('create'),
+  update('update'),
+  unchanged('unchanged'),
+  error('error');
+
+  const YorksV1WorkerImportAction(this.wireValue);
+
+  final String wireValue;
+
+  static YorksV1WorkerImportAction fromWireValue(Object? value) =>
+      values.firstWhere(
+        (action) => action.wireValue == value,
+        orElse: () =>
+            throw const FormatException('Import action is not recognized.'),
+      );
+}
+
+/// The server's verdict on one sheet row. [raw] is sent back unchanged with
+/// the import so the server can refuse it if the data changed meanwhile.
+class YorksV1WorkerImportRowResult {
+  const YorksV1WorkerImportRowResult({
+    required this.action,
+    required this.errors,
+    required this.changedFields,
+    required this.raw,
+  });
+
+  final YorksV1WorkerImportAction action;
+  final List<String> errors;
+  final List<String> changedFields;
+  final Map<String, dynamic> raw;
+
+  factory YorksV1WorkerImportRowResult.fromRpcJson(Map<String, dynamic> json) {
+    List<String> strings(Object? value) => value is List
+        ? List.unmodifiable(value.whereType<String>())
+        : throw const FormatException('Import row lists are malformed.');
+    return YorksV1WorkerImportRowResult(
+      action: YorksV1WorkerImportAction.fromWireValue(json['action']),
+      errors: strings(json['errors']),
+      changedFields: strings(json['changed_fields']),
+      raw: Map.unmodifiable(json),
+    );
+  }
+}
+
+class YorksV1WorkerImportPreview {
+  const YorksV1WorkerImportPreview({
+    required this.rows,
+    required this.createCount,
+    required this.updateCount,
+    required this.unchangedCount,
+    required this.errorCount,
+  });
+
+  final List<YorksV1WorkerImportRowResult> rows;
+  final int createCount;
+  final int updateCount;
+  final int unchangedCount;
+  final int errorCount;
+
+  factory YorksV1WorkerImportPreview.fromRpcJson(Map<String, dynamic> json) {
+    final rows = json['rows'];
+    if (json['schema_version'] != 1 || rows is! List) {
+      throw const FormatException('Import preview is malformed.');
+    }
+    return YorksV1WorkerImportPreview(
+      rows: List.unmodifiable([
+        for (final row in rows)
+          if (row is Map)
+            YorksV1WorkerImportRowResult.fromRpcJson(
+              Map<String, dynamic>.from(row),
+            )
+          else
+            throw const FormatException('Import preview row is malformed.'),
+      ]),
+      createCount: _nonNegativeInt(json, 'create_count'),
+      updateCount: _nonNegativeInt(json, 'update_count'),
+      unchangedCount: _nonNegativeInt(json, 'unchanged_count'),
+      errorCount: _nonNegativeInt(json, 'error_count'),
+    );
+  }
+}
+
+class YorksV1WorkerImportResult {
+  const YorksV1WorkerImportResult({
+    required this.createdCount,
+    required this.updatedCount,
+    required this.unchangedCount,
+  });
+
+  final int createdCount;
+  final int updatedCount;
+  final int unchangedCount;
+
+  factory YorksV1WorkerImportResult.fromRpcJson(Map<String, dynamic> json) =>
+      YorksV1WorkerImportResult(
+        createdCount: _nonNegativeInt(json, 'created_count'),
+        updatedCount: _nonNegativeInt(json, 'updated_count'),
+        unchangedCount: _nonNegativeInt(json, 'unchanged_count'),
+      );
+}
