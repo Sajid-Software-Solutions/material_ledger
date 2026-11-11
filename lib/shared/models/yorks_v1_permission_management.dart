@@ -194,6 +194,8 @@ abstract final class YorksV1CapabilityKeys {
   static const workforceWorkersManage = 'workforce.workers.manage';
   static const workforceTeamsManage = 'workforce.teams.manage';
   static const workforceConfigurationManage = 'workforce.configuration.manage';
+  static const workerRecordsView = 'worker_records.view';
+  static const workerRecordsManage = 'worker_records.manage';
 
   static const workforce = <String>{
     workforceView,
@@ -327,6 +329,8 @@ abstract final class YorksV1CapabilityKeys {
     accountsEdit,
     accountsApprove,
     accountsExport,
+    workerRecordsView,
+    workerRecordsManage,
     ...r39Accounts,
     ...workforce,
   };

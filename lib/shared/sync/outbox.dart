@@ -9,16 +9,19 @@ const _kOutboxKey = 'sync_outbox_v1';
 /// The durable, ordered queue of pending mutations. Persisted through the same
 /// repository layer as everything else, so it survives app restarts. The UI
 /// watches this to show pending / queued / failed counts.
-final outboxProvider =
-    StateNotifierProvider<OutboxNotifier, List<MutationOp>>((ref) {
-      return OutboxNotifier(
-        ref.watch(storageProvider).collection<MutationOp>(
+final outboxProvider = StateNotifierProvider<OutboxNotifier, List<MutationOp>>((
+  ref,
+) {
+  return OutboxNotifier(
+    ref
+        .watch(storageProvider)
+        .collection<MutationOp>(
           _kOutboxKey,
           toJson: (o) => o.toJson(),
           fromJson: MutationOp.fromJson,
         ),
-      );
-    });
+  );
+});
 
 class OutboxNotifier extends StateNotifier<List<MutationOp>> {
   OutboxNotifier(this._store) : super(_store.readAll());

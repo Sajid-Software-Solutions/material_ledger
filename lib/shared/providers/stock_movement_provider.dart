@@ -13,15 +13,17 @@ const _uuid = Uuid();
 /// edited or deleted (a correction is a new, opposite entry).
 final stockMovementsProvider =
     StateNotifierProvider<StockMovementsNotifier, List<StockMovement>>((ref) {
-  return StockMovementsNotifier(
-    ref,
-    ref.watch(storageProvider).collection<StockMovement>(
-          _kStockMovementsKey,
-          toJson: (m) => m.toJson(),
-          fromJson: StockMovement.fromJson,
-        ),
-  );
-});
+      return StockMovementsNotifier(
+        ref,
+        ref
+            .watch(storageProvider)
+            .collection<StockMovement>(
+              _kStockMovementsKey,
+              toJson: (m) => m.toJson(),
+              fromJson: StockMovement.fromJson,
+            ),
+      );
+    });
 
 class StockMovementsNotifier extends StateNotifier<List<StockMovement>> {
   StockMovementsNotifier(this._ref, this._store) : super(_store.readAll());
