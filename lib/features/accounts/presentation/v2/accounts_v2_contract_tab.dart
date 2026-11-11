@@ -13,6 +13,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../application/v2/accounts_unsaved_drafts.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/accounts_master_file_parser.dart';
 import '../../domain/v2/commercial_setup_models.dart';
@@ -20,6 +21,7 @@ import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_safety.dart';
 import 'accounts_v2_summary_tab.dart'
     show accountsV2SetupCheckDetail, accountsV2SetupCheckTitle;
 import 'accounts_v2_variations_card.dart';
@@ -106,6 +108,7 @@ class AccountsV2ContractTab extends StatefulWidget {
     this.stageOptions = const [],
     this.materialSources,
     this.onSaveMaterialLinks,
+    this.drafts,
   });
 
   final YorksAccountsCommercialSetupRead setup;
@@ -114,8 +117,13 @@ class AccountsV2ContractTab extends StatefulWidget {
   /// Whether the actor may configure commercials (configure_project_commercials).
   final bool canEdit;
 
-  /// Saves the edited setup; returns null on success or an error message.
-  final Future<String?> Function(YorksAccountsCommercialSetup setup)? onSave;
+  /// Saves the edited setup against the profile version the edits started
+  /// from; returns null on success or an error message.
+  final Future<String?> Function(
+    YorksAccountsCommercialSetup setup,
+    int? expectedProfileVersion,
+  )?
+  onSave;
 
   /// Saves the editable contract references; null on success or an error.
   final YorksSaveReferencesAction? onSaveReferences;
@@ -148,6 +156,9 @@ class AccountsV2ContractTab extends StatefulWidget {
 
   /// Saves the links; null when the actor may not change them.
   final YorksSaveMaterialLinksAction? onSaveMaterialLinks;
+
+  /// Keeps unsaved edits while the person is on another tab; null keeps none.
+  final YorksAccountsUnsavedDrafts? drafts;
 
   @override
   State<AccountsV2ContractTab> createState() => AccountsV2ContractTabState();

@@ -193,7 +193,7 @@ Widget _contract({
     setup: _setup(installItems: installItems),
     language: en,
     canEdit: true,
-    onSave: (_) async => null,
+    onSave: (_, _) async => null,
     materialSources: sources,
     onSaveMaterialLinks: onSave,
   ),

@@ -180,7 +180,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(_base()),
             language: en,
             canEdit: true,
-            onSave: (_) async => null,
+            onSave: (_, _) async => null,
             buildingOptions: _options,
             stageOptions: _stageOptions,
           ),
@@ -205,7 +205,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(_base()),
             language: en,
             canEdit: true,
-            onSave: (m) async {
+            onSave: (m, _) async {
               saved = m;
               return null;
             },
@@ -293,7 +293,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(itemsSetup()),
             language: en,
             canEdit: true,
-            onSave: (m) async {
+            onSave: (m, _) async {
               saved = m;
               return null;
             },
@@ -325,7 +325,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(itemsSetup()),
             language: en,
             canEdit: true,
-            onSave: (_) async => null,
+            onSave: (_, _) async => null,
           ),
         ),
       );
@@ -353,7 +353,7 @@ void main() {
             ),
             language: en,
             canEdit: true,
-            onSave: (_) async => null,
+            onSave: (_, _) async => null,
           ),
         ),
       );
@@ -369,7 +369,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(itemsSetup()),
             language: en,
             canEdit: true,
-            onSave: (_) async => null,
+            onSave: (_, _) async => null,
           ),
         ),
       );
@@ -397,7 +397,7 @@ void main() {
             setup: YorksAccountsCommercialSetupRead.fromJson(_withContract()),
             language: en,
             canEdit: true,
-            onSave: (_) async => null,
+            onSave: (_, _) async => null,
             buildingOptions: options,
             onImportMasterFile: () async {
               if (throws != null) throw throws;
@@ -603,7 +603,7 @@ void main() {
       canEdit: true,
       buildingOptions: buildingChoices,
       stageOptions: _stageOptions,
-      onSave: (_) async {
+      onSave: (_, _) async {
         onSaved();
         return null;
       },
@@ -707,7 +707,7 @@ void main() {
       language: en,
       canEdit: true,
       canManageInvoices: true,
-      onSave: (_) async => null,
+      onSave: (_, _) async => null,
       onSaveReferences:
           ({
             String? clientTrn,

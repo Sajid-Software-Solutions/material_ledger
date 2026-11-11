@@ -785,6 +785,13 @@ void main() {
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
       expect(find.text(t('v2_err_has_facts')), findsOneWidget);
+      // The refusal is shown in the dialog, which stays open with the reason
+      // still typed, so it can be corrected or cancelled without retyping.
+      expect(
+        find.byKey(const ValueKey('accounts-v2-dialog-error')),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextField, 'Wrong client'), findsOneWidget);
     });
 
     testWidgets('the drawer lays out at 360px', (tester) async {

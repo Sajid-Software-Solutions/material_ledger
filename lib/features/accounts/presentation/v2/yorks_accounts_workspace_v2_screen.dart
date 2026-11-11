@@ -32,6 +32,7 @@ import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart
 import '../../application/accounts_controller.dart'
     show YorksAccountsViewStatus;
 import '../../application/accounts_records_providers.dart';
+import '../../application/v2/accounts_unsaved_drafts.dart';
 import '../../application/v2/accounts_workspace_v2_controllers.dart';
 import '../../domain/accounts_models.dart'
     show YorksAccountsPhysicalBuilding, YorksAccountsStageTemplate;
@@ -45,6 +46,7 @@ import 'accounts_v2_contract_tab.dart';
 import 'accounts_v2_history_tab.dart';
 import 'accounts_v2_invoices_tab.dart';
 import 'accounts_v2_pdc_register_card.dart';
+import 'accounts_v2_safety.dart';
 import 'accounts_v2_summary_tab.dart';
 import 'accounts_v2_supplier_tab.dart';
 import 'kit/accounts_v2_kit.dart';
@@ -163,6 +165,26 @@ class _YorksAccountsWorkspaceV2ScreenState
 
   void _select(YorksAccountsWorkspaceV2Tab tab) {
     if (tab == _tab) return;
+    // Leaving a tab with unsaved edits keeps them (the tab hands them to the
+    // drafts store as it closes); say so, so nobody thinks they were lost.
+    final drafts = ref.read(
+      yorksAccountsUnsavedDraftsProvider(widget.projectId),
+    );
+    final keptKey = switch (_tab) {
+      YorksAccountsWorkspaceV2Tab.contract
+          when drafts.has(YorksAccountsDraftSection.contract) =>
+        'v2u_kept_contract',
+      YorksAccountsWorkspaceV2Tab.claims
+          when drafts.has(YorksAccountsDraftSection.claimsPrefix) =>
+        'v2u_kept_claims',
+      _ => null,
+    };
+    if (keptKey != null) {
+      showAccountsV2Message(
+        context,
+        accountsV2Text(ref.read(languageProvider), keptKey),
+      );
+    }
     setState(() => _tab = tab);
     _refreshTab(tab);
     _rememberTab(tab);
@@ -301,12 +323,21 @@ class _YorksAccountsWorkspaceV2ScreenState
             .where((i) => i.dueState == YorksAccountsDueState.overdue)
             .length ??
         0;
+    final drafts = ref.watch(
+      yorksAccountsUnsavedDraftsProvider(widget.projectId),
+    );
     return LayoutBuilder(
       builder: (context, constraints) => AccountsV2Viewport(
         width: AccountsV2Viewport.fromWorkspace(constraints.maxWidth),
         child: Builder(
-          builder: (context) =>
-              _page(context, language, badges, setupToFix, overdueInvoices),
+          builder: (context) => _page(
+            context,
+            language,
+            badges,
+            setupToFix,
+            overdueInvoices,
+            drafts,
+          ),
         ),
       ),
     );
@@ -318,7 +349,9 @@ class _YorksAccountsWorkspaceV2ScreenState
     YorksAccountsWorkspaceBadges badges,
     int setupToFix,
     int overdueInvoices,
+    YorksAccountsUnsavedDrafts drafts,
   ) {
+    final unsaved = (accountsV2Text(language, 'v2u_badge'), true);
     final phone = AccountsV2Breakpoints.isPhone(context);
     return ColoredBox(
       color: AccountsV2Colors.bg,
@@ -333,9 +366,13 @@ class _YorksAccountsWorkspaceV2ScreenState
               selected: _tab,
               language: language,
               badges: {
-                if (setupToFix > 0)
+                if (drafts.has(YorksAccountsDraftSection.contract))
+                  YorksAccountsWorkspaceV2Tab.contract: unsaved
+                else if (setupToFix > 0)
                   YorksAccountsWorkspaceV2Tab.contract: ('$setupToFix', true),
-                if (badges.claimsDraft)
+                if (drafts.has(YorksAccountsDraftSection.claimsPrefix))
+                  YorksAccountsWorkspaceV2Tab.claims: unsaved
+                else if (badges.claimsDraft)
                   YorksAccountsWorkspaceV2Tab.claims: (
                     accountsV2Text(language, 'v2_badge_draft'),
                     false,
@@ -775,6 +812,7 @@ class _ContractBody extends ConsumerWidget {
         AccountsV2ContractTab(
           key: tabKey,
           setup: data,
+          drafts: ref.read(yorksAccountsUnsavedDraftsProvider(projectId)),
           language: language,
           canEdit: data.canConfigure,
           buildingOptions: [
@@ -849,10 +887,10 @@ class _ContractBody extends ConsumerWidget {
                 status: status,
                 expectedVersion: expectedVersion,
               ),
-          onSave: (form) async {
+          onSave: (form, expectedProfileVersion) async {
             final error = await controller.saveSetup(
               setup: form,
-              expectedProfileVersion: data.profileVersion,
+              expectedProfileVersion: expectedProfileVersion,
             );
             if (error == null) await materialController.refresh();
             return error;
@@ -969,6 +1007,7 @@ class _ClaimsBody extends ConsumerWidget {
         AccountsV2ClaimsTab(
           workbench: data,
           language: language,
+          drafts: ref.read(yorksAccountsUnsavedDraftsProvider(projectId)),
           canRecordProgress: canConfirm && data.canPrepareClaim,
           onUploadEvidence: () async {
             final selected = await ref

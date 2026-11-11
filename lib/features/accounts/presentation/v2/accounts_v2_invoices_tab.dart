@@ -19,6 +19,7 @@ import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_receivables_models.dart';
 import '../../domain/accounts_records_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_safety.dart';
 import 'kit/accounts_v2_kit.dart';
 import 'kit/accounts_v2_report_buttons.dart';
 
@@ -725,6 +726,15 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
   YorksAccountsClientInvoiceSummary get inv => widget.view.inv;
   String? _detailProjectId;
 
+  /// After a dialog's command succeeded (the dialog showed any refusal itself
+  /// and stayed open): closes the drawer, so the refreshed tracker is shown.
+  void _done(Object? result, String doneKey) {
+    if (result == null || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    Navigator.of(context).pop();
+    messenger?.showSnackBar(SnackBar(content: Text(_t(doneKey))));
+  }
+
   /// Closes the drawer on success, so the refreshed tracker is what's shown. A
   /// refusal stays over the drawer.
   Future<void> _finish(String? error, String doneKey) async {
@@ -823,10 +833,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         projectId: _detailProjectId ?? '',
         invoice: inv,
         language: widget.language,
+        onSubmit: widget.onCertify,
       ),
     );
-    if (input == null) return;
-    await _finish(await widget.onCertify!(input), 'v2_cert_saved');
+    _done(input, 'v2_cert_saved');
   }
 
   Future<void> _editCertification(
@@ -841,13 +851,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         expectedVersion: d.invoice.recordVersion,
         certification: c,
         language: widget.language,
+        onSubmit: widget.onCorrectCertification,
       ),
     );
-    if (input == null) return;
-    await _finish(
-      await widget.onCorrectCertification!(input),
-      'v2_cert_edit_done',
-    );
+    _done(input, 'v2_cert_edit_done');
   }
 
   Future<void> _pay() async {
@@ -857,10 +864,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         projectId: _detailProjectId ?? '',
         invoice: inv,
         language: widget.language,
+        onSubmit: widget.onPay,
       ),
     );
-    if (input == null) return;
-    await _finish(await widget.onPay!(input), 'v2_pay_saved');
+    _done(input, 'v2_pay_saved');
   }
 
   Future<void> _cheque() async {
@@ -870,10 +877,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         projectId: _detailProjectId ?? '',
         invoice: inv,
         language: widget.language,
+        onSubmit: widget.onCreatePdc,
       ),
     );
-    if (input == null) return;
-    await _finish(await widget.onCreatePdc!(input), 'v2_pdc_saved');
+    _done(input, 'v2_pdc_saved');
   }
 
   Future<void> _print() async {
@@ -885,36 +892,34 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
   Future<void> _revise(YorksAccountsInvoiceDetailProjection d) async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => _ReviseDialog(language: widget.language),
-    );
-    if (reason == null) return;
-    await _finish(
-      await widget.onRevise!(
-        invoiceId: inv.invoiceId,
-        expectedVersion: d.invoice.recordVersion,
-        reason: reason,
+      builder: (_) => _ReviseDialog(
+        language: widget.language,
+        onSubmit: (reason) => widget.onRevise!(
+          invoiceId: inv.invoiceId,
+          expectedVersion: d.invoice.recordVersion,
+          reason: reason,
+        ),
       ),
-      'v2_inv_revised',
     );
+    _done(reason, 'v2_inv_revised');
   }
 
   Future<void> _cancel(YorksAccountsInvoiceDetailProjection d) async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => _CancelInvoiceDialog(language: widget.language),
-    );
-    if (reason == null) return;
-    await _finish(
-      await widget.onCancelInvoice!(
-        YorksAccountsEntityActionInput(
-          projectId: d.projectId,
-          entityId: inv.invoiceId,
-          expectedVersion: d.invoice.recordVersion,
-          reason: reason,
+      builder: (_) => _CancelInvoiceDialog(
+        language: widget.language,
+        onSubmit: (reason) => widget.onCancelInvoice!(
+          YorksAccountsEntityActionInput(
+            projectId: d.projectId,
+            entityId: inv.invoiceId,
+            expectedVersion: d.invoice.recordVersion,
+            reason: reason,
+          ),
         ),
       ),
-      'v2_inv_cancel_done',
     );
+    _done(reason, 'v2_inv_cancel_done');
   }
 
   Future<void> _editPayment(
@@ -929,10 +934,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         expectedVersion: d.invoice.recordVersion,
         payment: p,
         language: widget.language,
+        onSubmit: widget.onCorrectPayment,
       ),
     );
-    if (input == null) return;
-    await _finish(await widget.onCorrectPayment!(input), 'v2_pay_edit_done');
+    _done(input, 'v2_pay_edit_done');
   }
 
   Future<void> _reverse(
@@ -947,10 +952,10 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
         expectedVersion: d.invoice.recordVersion,
         payment: p,
         language: widget.language,
+        onSubmit: widget.onReversePayment,
       ),
     );
-    if (input == null) return;
-    await _finish(await widget.onReversePayment!(input), 'v2_pay_reversed');
+    _done(input, 'v2_pay_reversed');
   }
 
   @override
@@ -1479,7 +1484,11 @@ class _CertifyDialog extends StatefulWidget {
     required this.projectId,
     required this.invoice,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsCertificationInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsClientInvoiceSummary invoice;
@@ -1489,7 +1498,11 @@ class _CertifyDialog extends StatefulWidget {
   State<_CertifyDialog> createState() => _CertifyDialogState();
 }
 
-class _CertifyDialogState extends State<_CertifyDialog> {
+class _CertifyDialogState extends State<_CertifyDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _amount;
   late final TextEditingController _date;
   final _reference = TextEditingController();
@@ -1537,7 +1550,7 @@ class _CertifyDialogState extends State<_CertifyDialog> {
     final valid =
         input != null &&
         input.isValidAgainstClaimed(widget.invoice.claimedExVat);
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_cert_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1569,16 +1582,10 @@ class _CertifyDialogState extends State<_CertifyDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -1588,7 +1595,11 @@ class _PayDialog extends StatefulWidget {
     required this.projectId,
     required this.invoice,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPaymentInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsClientInvoiceSummary invoice;
@@ -1598,7 +1609,10 @@ class _PayDialog extends StatefulWidget {
   State<_PayDialog> createState() => _PayDialogState();
 }
 
-class _PayDialogState extends State<_PayDialog> {
+class _PayDialogState extends State<_PayDialog> with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _amount;
   late final TextEditingController _date;
   final _reference = TextEditingController();
@@ -1646,7 +1660,7 @@ class _PayDialogState extends State<_PayDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pay_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1697,16 +1711,10 @@ class _PayDialogState extends State<_PayDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -1750,7 +1758,11 @@ class _ReversalDialog extends StatefulWidget {
     required this.expectedVersion,
     required this.payment,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPaymentReversalInput>? onSubmit;
 
   final String projectId;
   final String invoiceId;
@@ -1762,7 +1774,11 @@ class _ReversalDialog extends StatefulWidget {
   State<_ReversalDialog> createState() => _ReversalDialogState();
 }
 
-class _ReversalDialogState extends State<_ReversalDialog> {
+class _ReversalDialogState extends State<_ReversalDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _date;
   final _reference = TextEditingController();
   final _reason = TextEditingController();
@@ -1805,7 +1821,7 @@ class _ReversalDialogState extends State<_ReversalDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pay_reverse_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1865,16 +1881,10 @@ class _ReversalDialogState extends State<_ReversalDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -1888,7 +1898,11 @@ class _EditPaymentDialog extends StatefulWidget {
     required this.expectedVersion,
     required this.payment,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPaymentCorrectionInput>? onSubmit;
 
   final String projectId;
   final String invoiceId;
@@ -1900,7 +1914,11 @@ class _EditPaymentDialog extends StatefulWidget {
   State<_EditPaymentDialog> createState() => _EditPaymentDialogState();
 }
 
-class _EditPaymentDialogState extends State<_EditPaymentDialog> {
+class _EditPaymentDialogState extends State<_EditPaymentDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _amount;
   late final TextEditingController _date;
   late final TextEditingController _reference;
@@ -1951,7 +1969,7 @@ class _EditPaymentDialogState extends State<_EditPaymentDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pay_edit_title')),
       content: SingleChildScrollView(
         child: Column(
@@ -2019,16 +2037,10 @@ class _EditPaymentDialogState extends State<_EditPaymentDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -2040,7 +2052,12 @@ class _EditCertificationDialog extends StatefulWidget {
     required this.expectedVersion,
     required this.certification,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsCertificationCorrectionInput>?
+  onSubmit;
 
   final String projectId;
   final String invoiceId;
@@ -2053,7 +2070,11 @@ class _EditCertificationDialog extends StatefulWidget {
       _EditCertificationDialogState();
 }
 
-class _EditCertificationDialogState extends State<_EditCertificationDialog> {
+class _EditCertificationDialogState extends State<_EditCertificationDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _amount;
   late final TextEditingController _date;
   late final TextEditingController _reference;
@@ -2104,7 +2125,7 @@ class _EditCertificationDialogState extends State<_EditCertificationDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_cert_edit_title')),
       content: SingleChildScrollView(
         child: Column(
@@ -2144,22 +2165,19 @@ class _EditCertificationDialogState extends State<_EditCertificationDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
 
 class _CancelInvoiceDialog extends StatefulWidget {
-  const _CancelInvoiceDialog({required this.language});
+  const _CancelInvoiceDialog({required this.language, this.onSubmit});
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<String>? onSubmit;
 
   final AppLanguage language;
 
@@ -2167,7 +2185,11 @@ class _CancelInvoiceDialog extends StatefulWidget {
   State<_CancelInvoiceDialog> createState() => _CancelInvoiceDialogState();
 }
 
-class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog> {
+class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   final _reason = TextEditingController();
 
   String _t(String key) => accountsV2Text(widget.language, key);
@@ -2181,7 +2203,7 @@ class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog> {
   @override
   Widget build(BuildContext context) {
     final reason = _reason.text.trim();
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_inv_cancel')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2199,18 +2221,12 @@ class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: reason.isEmpty
-              ? null
-              : () => Navigator.of(context).pop(reason),
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: reason.isEmpty
+            ? null
+            : () => submit(reason, widget.onSubmit),
+      ),
     );
   }
 }
@@ -2222,7 +2238,11 @@ class _ChequeDialog extends StatefulWidget {
     required this.projectId,
     required this.invoice,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPdcCreateInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsClientInvoiceSummary invoice;
@@ -2232,7 +2252,11 @@ class _ChequeDialog extends StatefulWidget {
   State<_ChequeDialog> createState() => _ChequeDialogState();
 }
 
-class _ChequeDialogState extends State<_ChequeDialog> {
+class _ChequeDialogState extends State<_ChequeDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   final _number = TextEditingController();
   late final TextEditingController _date;
   late final TextEditingController _amount;
@@ -2278,7 +2302,7 @@ class _ChequeDialogState extends State<_ChequeDialog> {
   @override
   Widget build(BuildContext context) {
     final input = _build();
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pdc_add_title')),
       content: SingleChildScrollView(
         child: Column(
@@ -2318,18 +2342,10 @@ class _ChequeDialogState extends State<_ChequeDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: input == null
-              ? null
-              : () => Navigator.of(context).pop(input),
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: input == null ? null : () => submit(input, widget.onSubmit),
+      ),
     );
   }
 }
@@ -2338,7 +2354,10 @@ class _ChequeDialogState extends State<_ChequeDialog> {
 
 /// Captures the required reason for revising an issued invoice (R.n).
 class _ReviseDialog extends StatefulWidget {
-  const _ReviseDialog({required this.language});
+  const _ReviseDialog({required this.language, this.onSubmit});
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<String>? onSubmit;
 
   final AppLanguage language;
 
@@ -2346,7 +2365,11 @@ class _ReviseDialog extends StatefulWidget {
   State<_ReviseDialog> createState() => _ReviseDialogState();
 }
 
-class _ReviseDialogState extends State<_ReviseDialog> {
+class _ReviseDialogState extends State<_ReviseDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   final _reason = TextEditingController();
 
   String _t(String key) => accountsV2Text(widget.language, key);
@@ -2360,7 +2383,7 @@ class _ReviseDialogState extends State<_ReviseDialog> {
   @override
   Widget build(BuildContext context) {
     final valid = _reason.text.trim().isNotEmpty;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_inv_revise_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2384,18 +2407,12 @@ class _ReviseDialogState extends State<_ReviseDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid
-              ? () => Navigator.of(context).pop(_reason.text.trim())
-              : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid
+            ? () => submit(_reason.text.trim(), widget.onSubmit)
+            : null,
+      ),
     );
   }
 }

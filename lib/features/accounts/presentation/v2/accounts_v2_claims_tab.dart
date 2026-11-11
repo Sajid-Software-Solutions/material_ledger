@@ -14,12 +14,14 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../../../shared/models/app_language.dart';
+import '../../application/v2/accounts_unsaved_drafts.dart';
 import '../../domain/accounts_decimal.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
 import '../../domain/v2/material_sources_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_safety.dart';
 import 'kit/accounts_v2_kit.dart';
 
 /// Reopens a checked claim to draft; returns null on success or an error.
@@ -84,6 +86,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onOpenInvoice,
     this.focusBuildingId,
     this.focusStageKey,
+    this.drafts,
   });
 
   final YorksAccountsWorkbench workbench;
@@ -129,6 +132,9 @@ class AccountsV2ClaimsTab extends StatefulWidget {
   /// A building and stage to open first (from the Overview).
   final String? focusBuildingId;
   final String? focusStageKey;
+
+  /// Keeps unsaved progress per claim while the person looks elsewhere.
+  final YorksAccountsUnsavedDrafts? drafts;
 
   @override
   State<AccountsV2ClaimsTab> createState() => _AccountsV2ClaimsTabState();
@@ -206,6 +212,26 @@ YorksAccountsDecimal? _parseInput(String text) {
   return YorksAccountsDecimal.tryParse(t);
 }
 
+/// Unsaved progress on one claim, kept while the person is on another claim or
+/// tab, and the state an Undo returns to.
+final class _ClaimDraft {
+  const _ClaimDraft({
+    required this.pct,
+    required this.qty,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.note,
+    required this.evidence,
+  });
+
+  final Map<String, String> pct;
+  final Map<String, String> qty;
+  final String periodStart;
+  final String periodEnd;
+  final String note;
+  final Set<String> evidence;
+}
+
 class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   final Set<String> _openBuildings = {};
   final Set<String> _openStages = {};
@@ -227,7 +253,6 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   final Set<String> _evidence = {};
   bool _saving = false;
   bool _uploading = false;
-  bool _busy = false;
   String? _error;
 
   late List<_Stage> _stages;
@@ -251,6 +276,16 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   void initState() {
     super.initState();
     _rebuild(resetEdits: true);
+    // A new claim left unsaved on another tab opens again as a new claim.
+    if (_canStart &&
+        widget.drafts?.kept<_ClaimDraft>(
+              YorksAccountsDraftSection.claim(null),
+            ) !=
+            null) {
+      _newClaim = true;
+      _rebuild(resetEdits: true);
+    }
+    _takeKeptDraft();
     final b = widget.focusBuildingId;
     final s = widget.focusStageKey;
     if (b != null) {
@@ -280,11 +315,16 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           oldWidget.workbench.openClaimId == widget.workbench.openClaimId;
       // Unsaved typing survives a background refresh of the same claim.
       _rebuild(resetEdits: !(_dirty && sameClaim));
+      // Another claim opened: bring back what was left unsaved on it.
+      if (!sameClaim) _takeKeptDraft();
     }
   }
 
   @override
   void dispose() {
+    _keepDraft();
+    final reported = _reportedSection;
+    if (reported != null) widget.drafts?.setEditing(reported, false);
     for (final c in [..._pct.values, ..._qty.values, _note]) {
       c.dispose();
     }
@@ -441,6 +481,90 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
 
   void _changed() {
     if (mounted) setState(() => _error = null);
+  }
+
+  // ─── Kept drafts and undo ─────────────────────────────────────────────────
+
+  /// The drafts-store key for the claim in view (`claims:new` before saving).
+  String get _section => YorksAccountsDraftSection.claim(
+    _newClaim ? null : widget.workbench.openClaimId,
+  );
+
+  _ClaimDraft _captureDraft() => _ClaimDraft(
+    pct: {for (final e in _pct.entries) e.key: e.value.text},
+    qty: {for (final e in _qty.entries) e.key: e.value.text},
+    periodStart: _periodStart,
+    periodEnd: _periodEnd,
+    note: _note.text,
+    evidence: {..._evidence},
+  );
+
+  void _restoreDraft(_ClaimDraft d) {
+    for (final e in d.pct.entries) {
+      final c = _pct[e.key];
+      if (c != null && c.text != e.value) c.text = e.value;
+    }
+    for (final e in d.qty.entries) {
+      final c = _qty[e.key];
+      if (c != null && c.text != e.value) c.text = e.value;
+    }
+    _periodStart = d.periodStart;
+    _periodEnd = d.periodEnd;
+    _note.text = d.note;
+    _evidence
+      ..clear()
+      ..addAll(d.evidence);
+    _error = null;
+  }
+
+  /// The section last reported as being edited, so a claim that changes
+  /// (saved, switched) stops showing as unsaved.
+  String? _reportedSection;
+
+  void _reportEditing(bool dirty) {
+    final drafts = widget.drafts;
+    if (drafts == null) return;
+    final section = _section;
+    final previous = _reportedSection;
+    if (previous != null && previous != section) {
+      drafts.setEditing(previous, false);
+    }
+    _reportedSection = section;
+    drafts.setEditing(section, dirty);
+  }
+
+  /// Hands unsaved progress to the drafts store (or forgets a clean claim).
+  void _keepDraft() {
+    final drafts = widget.drafts;
+    if (drafts == null) return;
+    if (_dirty) {
+      drafts.keep(_section, _captureDraft());
+    } else {
+      drafts.drop(_section);
+    }
+  }
+
+  /// Restores progress kept for the claim now in view.
+  void _takeKeptDraft() {
+    final drafts = widget.drafts;
+    final kept = drafts?.kept<_ClaimDraft>(_section);
+    if (drafts == null || kept == null) return;
+    if (_canEdit) _restoreDraft(kept);
+    drafts.drop(_section);
+  }
+
+  /// Makes a one-click change to many fields and offers to take it back.
+  void _undoable(String messageKey, VoidCallback change) {
+    final before = _captureDraft();
+    setState(change);
+    showAccountsV2Undo(
+      context,
+      language: widget.language,
+      message: _t(messageKey),
+      onUndo: () {
+        if (mounted) setState(() => _restoreDraft(before));
+      },
+    );
   }
 
   // ─── Edits ────────────────────────────────────────────────────────────────
@@ -639,7 +763,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     );
   }
 
-  void _copyLumpToAll(_CellView from) {
+  void _copyLumpToAll(_CellView from) =>
+      _undoable('v2u_copied_all', () => _copyLumpToAllNow(from));
+
+  void _copyLumpToAllNow(_CellView from) {
     final text = _pct[from.cell.progressEntryId]!.text;
     for (final v in _views.values) {
       if (v.cell.stageKey == from.cell.stageKey &&
@@ -650,7 +777,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     }
   }
 
-  void _copyItemsToAll(_CellView from) {
+  void _copyItemsToAll(_CellView from) =>
+      _undoable('v2u_copied_all', () => _copyItemsToAllNow(from));
+
+  void _copyItemsToAllNow(_CellView from) {
     final byKey = {
       for (final i in from.items)
         i.item.itemKey: _qty[i.item.stageItemId]!.text,
@@ -664,11 +794,11 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     }
   }
 
-  void _clearItems(_CellView v) {
+  void _clearItems(_CellView v) => _undoable('v2u_cleared', () {
     for (final i in v.items) {
       _set(_qty[i.item.stageItemId]!, '');
     }
-  }
+  });
 
   void _useSuggestion(_CellView v) {
     final suggested = v.cell.suggestedPercent;
@@ -681,16 +811,36 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     setState(() => _evidence.addAll(v.cell.suggestedEvidenceDocumentIds));
   }
 
-  void _discard() => setState(() {
-    // Leaving a new claim rebuilds the rows for the claim in view, so its
-    // figures replace the new claim's (top-ups, available amounts).
-    if (_newClaim) {
-      _newClaim = false;
-      _rebuild(resetEdits: true);
-    } else {
-      _resetEdits();
-    }
-  });
+  void _discard() {
+    final before = _captureDraft();
+    final wasNew = _newClaim;
+    setState(() {
+      // Leaving a new claim rebuilds the rows for the claim in view, so its
+      // figures replace the new claim's (top-ups, available amounts).
+      if (_newClaim) {
+        _newClaim = false;
+        _rebuild(resetEdits: true);
+      } else {
+        _resetEdits();
+      }
+    });
+    widget.drafts?.drop(_section);
+    showAccountsV2Undo(
+      context,
+      language: widget.language,
+      message: _t('v2u_discarded'),
+      onUndo: () {
+        if (!mounted) return;
+        setState(() {
+          if (wasNew && !_newClaim) {
+            _newClaim = true;
+            _rebuild(resetEdits: true);
+          }
+          _restoreDraft(before);
+        });
+      },
+    );
+  }
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -714,6 +864,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     setState(() {
       _saving = false;
       if (error == null) {
+        widget.drafts?.drop(_section);
         _newClaim = false;
         _rebuild(resetEdits: true);
       } else {
@@ -741,96 +892,99 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
 
   // ─── Claim commands ───────────────────────────────────────────────────────
 
-  Future<void> _run(Future<String?> Function() command, String okKey) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    setState(() => _busy = true);
-    final error = await command();
-    if (!mounted) return;
-    setState(() => _busy = false);
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t(okKey)
-              : accountsV2ErrorText(widget.language, error),
-        ),
-      ),
-    );
-  }
-
   String? get _claimId => _claim?['claim_id'] as String?;
   int get _claimVersion => (_claim?['record_version'] as num?)?.toInt() ?? 1;
 
-  Future<String?> _askReason(String title, String label) => showDialog<String>(
-    context: context,
-    builder: (_) =>
-        _ReasonDialog(title: title, label: label, language: widget.language),
-  );
+  /// Asks for a reason and runs [command] with it while the dialog stays open:
+  /// a refusal shows in the dialog, a success closes it with a message.
+  Future<void> _withReason(
+    String title,
+    String label,
+    String okKey,
+    Future<String?> Function(String reason) command,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final done = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReasonDialog(
+        title: title,
+        label: label,
+        language: widget.language,
+        onSubmit: command,
+      ),
+    );
+    if (done == null || !mounted) return;
+    messenger?.showSnackBar(SnackBar(content: Text(_t(okKey))));
+  }
 
   Future<void> _markChecked() async {
-    final reason = await _askReason(
+    final id = _claimId;
+    if (id == null) return;
+    final version = _claimVersion;
+    await _withReason(
       _t('v2_claim_mark_checked'),
       _t('v2_claim_mark_reason'),
-    );
-    if (reason == null || _claimId == null) return;
-    await _run(
-      () => widget.onMarkChecked!(
-        claimId: _claimId!,
-        expectedVersion: _claimVersion,
+      'v2_claim_checked_done',
+      (reason) => widget.onMarkChecked!(
+        claimId: id,
+        expectedVersion: version,
         reason: reason,
       ),
-      'v2_claim_checked_done',
     );
   }
 
   Future<void> _reopen() async {
-    final reason = await _askReason(
+    final id = _claimId;
+    if (id == null) return;
+    final version = _claimVersion;
+    await _withReason(
       _t('v2_claim_back_to_draft'),
       _t('v2_claim_reopen_reason'),
-    );
-    if (reason == null || _claimId == null) return;
-    await _run(
-      () => widget.onReopen!(
-        claimId: _claimId!,
-        expectedVersion: _claimVersion,
+      'v2_claim_reopened',
+      (reason) => widget.onReopen!(
+        claimId: id,
+        expectedVersion: version,
         reason: reason,
       ),
-      'v2_claim_reopened',
     );
   }
 
   Future<void> _deleteDraft() async {
-    final reason = await _askReason(
+    final id = _claimId;
+    if (id == null) return;
+    final version = _claimVersion;
+    await _withReason(
       _t('v2p_delete_draft'),
       _t('v2p_delete_reason'),
-    );
-    if (reason == null || _claimId == null) return;
-    await _run(
-      () => widget.onCancelClaim!(
-        claimId: _claimId!,
-        expectedVersion: _claimVersion,
+      'v2p_deleted',
+      (reason) => widget.onCancelClaim!(
+        claimId: id,
+        expectedVersion: version,
         reason: reason,
       ),
-      'v2p_deleted',
     );
   }
 
   Future<void> _issue() async {
+    final id = _claimId;
+    if (id == null) return;
+    final version = _claimVersion;
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final result = await showDialog<_IssueResult>(
       context: context,
-      builder: (_) => _IssueDialog(language: widget.language),
-    );
-    if (result == null || _claimId == null) return;
-    await _run(
-      () => widget.onIssue!(
-        claimId: _claimId!,
-        expectedClaimVersion: _claimVersion,
-        invoiceDate: result.invoiceDate,
-        submissionDate: result.submissionDate,
-        invoiceReference: result.reference,
+      builder: (_) => _IssueDialog(
+        language: widget.language,
+        onSubmit: (r) => widget.onIssue!(
+          claimId: id,
+          expectedClaimVersion: version,
+          invoiceDate: r.invoiceDate,
+          submissionDate: r.submissionDate,
+          invoiceReference: r.reference,
+        ),
       ),
-      'v2_claim_issued',
     );
+    if (result == null || !mounted) return;
+    messenger?.showSnackBar(SnackBar(content: Text(_t('v2_claim_issued'))));
   }
 
   Future<void> _preview() async {
@@ -979,11 +1133,11 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     _set(_qty[i.item.stageItemId]!, _plain(rest));
   }
 
-  void _useAllDelivered(_CellView v) {
+  void _useAllDelivered(_CellView v) => _undoable('v2u_filled', () {
     for (final i in v.items) {
       if (_deliveryWaiting(v, i)) _useDelivered(v, i);
     }
-  }
+  });
 
   // ─── Filters ──────────────────────────────────────────────────────────────
 
@@ -1060,6 +1214,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     }
 
     final dirty = _dirty;
+    _reportEditing(dirty);
     return AccountsV2Stack(
       children: [
         if (_status == 'invoiced') _invoicedNote(),
@@ -1089,6 +1244,12 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   void _selectClaim(String value) {
     if (value == '__new') return;
     if (value == _claimId && !_newClaim) return;
+    // Unsaved progress on the claim being left is kept for when it's opened
+    // again, never thrown away.
+    if (_dirty && widget.drafts != null) {
+      _keepDraft();
+      showAccountsV2Message(context, _t('v2u_kept_claim_switch'));
+    }
     setState(() {
       _newClaim = false;
       _resetEdits();
@@ -1241,7 +1402,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         AccountsV2Button(
           label: _t('v2p_preview_invoice'),
           icon: 'doc',
-          onPressed: hasAmount && !_busy ? _preview : null,
+          onPressed: hasAmount ? _preview : null,
         ),
       if (widget.onIssue != null)
         AccountsV2Button(
@@ -1251,7 +1412,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           icon: 'receipt',
           kind: AccountsV2ButtonKind.primary,
           tooltip: checked ? null : _t('v2p_issue_needs_check'),
-          onPressed: hasAmount && checked && !_busy ? _issue : null,
+          onPressed: hasAmount && checked ? _issue : null,
         ),
     ];
   }
@@ -2241,14 +2402,14 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
                         icon: 'check',
                         size: AccountsV2ButtonSize.small,
                         block: true,
-                        onPressed: hasAmount && !_busy ? _markChecked : null,
+                        onPressed: hasAmount ? _markChecked : null,
                       )
                     : AccountsV2Button(
                         label: _t('v2p_back_to_draft'),
                         icon: 'undo',
                         size: AccountsV2ButtonSize.small,
                         block: true,
-                        onPressed: _busy ? null : _reopen,
+                        onPressed: _reopen,
                       ),
               ),
             if ((canMark || canReopen) &&
@@ -2262,7 +2423,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
                   icon: 'doc',
                   size: AccountsV2ButtonSize.small,
                   block: true,
-                  onPressed: hasAmount && !_busy ? _preview : null,
+                  onPressed: hasAmount ? _preview : null,
                 ),
               ),
           ],
@@ -2276,7 +2437,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             kind: AccountsV2ButtonKind.primary,
             block: true,
             tooltip: checked ? null : _t('v2p_issue_needs_check'),
-            onPressed: hasAmount && checked && !_busy ? _issue : null,
+            onPressed: hasAmount && checked ? _issue : null,
           ),
         if (gross <= _eps)
           Text(
@@ -2298,7 +2459,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             kind: AccountsV2ButtonKind.ghostDanger,
             size: AccountsV2ButtonSize.small,
             block: true,
-            onPressed: _busy ? null : _deleteDraft,
+            onPressed: _deleteDraft,
           ),
       ],
     ];
@@ -3263,7 +3424,11 @@ class _ReasonDialog extends StatefulWidget {
     required this.title,
     required this.label,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<String>? onSubmit;
 
   final String title;
   final String label;
@@ -3273,7 +3438,11 @@ class _ReasonDialog extends StatefulWidget {
   State<_ReasonDialog> createState() => _ReasonDialogState();
 }
 
-class _ReasonDialogState extends State<_ReasonDialog> {
+class _ReasonDialogState extends State<_ReasonDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   final _controller = TextEditingController();
 
   String _t(String key) => accountsV2Text(widget.language, key);
@@ -3287,7 +3456,7 @@ class _ReasonDialogState extends State<_ReasonDialog> {
   @override
   Widget build(BuildContext context) {
     final valid = _controller.text.trim().isNotEmpty;
-    return AlertDialog(
+    return submitDialog(
       title: Text(widget.title),
       content: TextField(
         controller: _controller,
@@ -3300,18 +3469,12 @@ class _ReasonDialogState extends State<_ReasonDialog> {
           border: const OutlineInputBorder(),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid
-              ? () => Navigator.of(context).pop(_controller.text.trim())
-              : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid
+            ? () => submit(_controller.text.trim(), widget.onSubmit)
+            : null,
+      ),
     );
   }
 }
@@ -3329,7 +3492,10 @@ class _IssueResult {
 }
 
 class _IssueDialog extends StatefulWidget {
-  const _IssueDialog({required this.language});
+  const _IssueDialog({required this.language, this.onSubmit});
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<_IssueResult>? onSubmit;
 
   final AppLanguage language;
 
@@ -3337,7 +3503,11 @@ class _IssueDialog extends StatefulWidget {
   State<_IssueDialog> createState() => _IssueDialogState();
 }
 
-class _IssueDialogState extends State<_IssueDialog> {
+class _IssueDialogState extends State<_IssueDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _invoiceDate;
   late final TextEditingController _submissionDate;
   final _reference = TextEditingController();
@@ -3367,7 +3537,7 @@ class _IssueDialogState extends State<_IssueDialog> {
     final valid =
         _datePattern.hasMatch(_invoiceDate.text.trim()) &&
         _datePattern.hasMatch(_submissionDate.text.trim());
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_claim_issue')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -3395,27 +3565,22 @@ class _IssueDialogState extends State<_IssueDialog> {
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid
-              ? () {
-                  final ref = _reference.text.trim();
-                  Navigator.of(context).pop(
-                    _IssueResult(
-                      invoiceDate: _invoiceDate.text.trim(),
-                      submissionDate: _submissionDate.text.trim(),
-                      reference: ref.isEmpty ? null : ref,
-                    ),
-                  );
-                }
-              : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid
+            ? () {
+                final ref = _reference.text.trim();
+                submit(
+                  _IssueResult(
+                    invoiceDate: _invoiceDate.text.trim(),
+                    submissionDate: _submissionDate.text.trim(),
+                    reference: ref.isEmpty ? null : ref,
+                  ),
+                  widget.onSubmit,
+                );
+              }
+            : null,
+      ),
     );
   }
 }

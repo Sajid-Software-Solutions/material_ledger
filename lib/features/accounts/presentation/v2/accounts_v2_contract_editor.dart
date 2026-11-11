@@ -96,6 +96,81 @@ final class _BuildingDraft {
   void dispose() => share.dispose();
 }
 
+typedef _ItemForm = ({
+  String key,
+  String label,
+  String quantity,
+  String unit,
+  String weight,
+});
+
+final class _StageForm {
+  const _StageForm({
+    required this.key,
+    required this.label,
+    required this.percent,
+    required this.byItems,
+    required this.items,
+  });
+
+  final String key;
+  final String label;
+  final String percent;
+  final bool byItems;
+  final List<_ItemForm> items;
+
+  String get signature =>
+      '$key=$label=$percent=$byItems=${items.map((i) => '${i.key}:${i.label}:'
+          '${i.quantity}:${i.unit}:${i.weight}').join(',')}';
+}
+
+/// Everything typed in the Contract form, as plain values.
+final class _ContractForm {
+  const _ContractForm({
+    required this.fields,
+    required this.billTo,
+    required this.buildings,
+    required this.stages,
+  });
+
+  /// In the order of [_ContractWorkspaceState._fields].
+  final List<String> fields;
+  final String? billTo;
+  final List<({String scopeId, String name, String share})> buildings;
+  final List<_StageForm> stages;
+
+  String get buildingsSignature =>
+      buildings.map((b) => '${b.scopeId}=${b.share}').join(';');
+  String get stagesSignature => stages.map((s) => s.signature).join('|');
+}
+
+/// An unsaved Contract form with what it was started from: kept while the
+/// person is on another tab, and the state an Undo returns to.
+final class _ContractDraft {
+  const _ContractDraft({
+    required this.form,
+    required this.base,
+    required this.initial,
+    required this.baseProfileVersion,
+    required this.baseInvoiceVersion,
+    required this.prefilled,
+    required this.skipPrefill,
+    required this.nextKey,
+  });
+
+  final _ContractForm form;
+
+  /// The saved values the edits started from (for keeping them on top of a
+  /// newer version someone else saved).
+  final _ContractForm? base;
+  final String initial;
+  final int? baseProfileVersion;
+  final int? baseInvoiceVersion;
+  final bool prefilled;
+  final bool skipPrefill;
+  final int nextKey;
+}
+
 /// The whole Contract tab as the prototype lays it out, edited in place: the
 /// contract details form, buildings, billing stages, item breakdowns and
 /// variations beside a live setup check. Nothing is saved until the person
@@ -151,6 +226,16 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
   /// Discard keeps the fields empty rather than filling them again.
   bool _skipPrefill = false;
 
+  /// The saved values and versions the current edits started from. Save sends
+  /// these versions, so edits made before someone else's save are refused by
+  /// the server instead of quietly replacing that save.
+  _ContractForm? _base;
+  int? _baseProfileVersion;
+  int? _baseInvoiceVersion;
+
+  /// A short explanation above the save buttons (kept edits, an update).
+  String? _notice;
+
   AccountsV2ContractTab get tab => widget.tab;
   YorksAccountsCommercialSetupRead get setup => tab.setup;
   String _t(String key) => accountsV2Text(tab.language, key);
@@ -181,6 +266,15 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       c.addListener(_changed);
     }
     _load();
+    // Edits left on this tab earlier come back as they were.
+    final kept = tab.drafts?.kept<_ContractDraft>(
+      YorksAccountsDraftSection.contract,
+    );
+    if (kept != null) {
+      _restoreDraft(kept);
+      _notice = _t('v2u_restored');
+      tab.drafts?.drop(YorksAccountsDraftSection.contract);
+    }
   }
 
   @override
@@ -193,6 +287,15 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
 
   @override
   void dispose() {
+    final drafts = tab.drafts;
+    if (drafts != null) {
+      if (_dirty) {
+        drafts.keep(YorksAccountsDraftSection.contract, _captureDraft());
+      } else {
+        drafts.drop(YorksAccountsDraftSection.contract);
+      }
+      drafts.setEditing(YorksAccountsDraftSection.contract, false);
+    }
     for (final c in _fields) {
       c.dispose();
     }
@@ -285,9 +388,227 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       _applyTemplate();
     }
     _initial = _snapshot();
+    _base = _capture();
+    _baseProfileVersion = s.profileVersion;
+    _baseInvoiceVersion = s.invoiceSettings?.recordVersion;
     _error = null;
+    _notice = null;
     _showProblems = false;
     _prefilled = !_skipPrefill && _prefillFromProject();
+  }
+
+  // ─── Drafts, undo and newer versions ───────────────────────────────────────
+
+  _ContractForm _capture() => _ContractForm(
+    fields: [for (final c in _fields) c.text],
+    billTo: _billTo,
+    buildings: [
+      for (final b in _buildings)
+        (scopeId: b.scopeId, name: b.name, share: b.share.text),
+    ],
+    stages: [
+      for (final st in _stages)
+        _StageForm(
+          key: st.key,
+          label: st.label.text,
+          percent: st.percent.text,
+          byItems: st.byItems,
+          items: [
+            for (final it in st.items)
+              (
+                key: it.key,
+                label: it.label.text,
+                quantity: it.quantity.text,
+                unit: it.unit.text,
+                weight: it.weight.text,
+              ),
+          ],
+        ),
+    ],
+  );
+
+  /// Puts [form] in the fields, rebuilding the building and stage rows.
+  void _apply(_ContractForm form) {
+    for (final (i, c) in _fields.indexed) {
+      if (i < form.fields.length && c.text != form.fields[i]) {
+        c.text = form.fields[i];
+      }
+    }
+    _billTo = form.billTo;
+    for (final b in _buildings) {
+      b.dispose();
+    }
+    _buildings
+      ..clear()
+      ..addAll([
+        for (final b in form.buildings)
+          _BuildingDraft(
+            scopeId: b.scopeId,
+            name: b.name,
+            share: b.share,
+            onChanged: _changed,
+          ),
+      ]);
+    for (final st in _stages) {
+      st.dispose();
+    }
+    _stages
+      ..clear()
+      ..addAll([
+        for (final st in form.stages)
+          _StageDraft(
+            key: st.key,
+            label: st.label,
+            percent: st.percent,
+            byItems: st.byItems,
+            items: [
+              for (final it in st.items)
+                _ItemRowDraft(
+                  key: it.key,
+                  label: it.label,
+                  quantity: it.quantity,
+                  unit: it.unit,
+                  weight: it.weight,
+                  onChanged: _changed,
+                ),
+            ],
+            onChanged: _changed,
+          ),
+      ]);
+  }
+
+  _ContractDraft _captureDraft() => _ContractDraft(
+    form: _capture(),
+    base: _base,
+    initial: _initial,
+    baseProfileVersion: _baseProfileVersion,
+    baseInvoiceVersion: _baseInvoiceVersion,
+    prefilled: _prefilled,
+    skipPrefill: _skipPrefill,
+    nextKey: _nextKey,
+  );
+
+  void _restoreDraft(_ContractDraft d) {
+    _apply(d.form);
+    _base = d.base;
+    _initial = d.initial;
+    _baseProfileVersion = d.baseProfileVersion;
+    _baseInvoiceVersion = d.baseInvoiceVersion;
+    _prefilled = d.prefilled;
+    _skipPrefill = d.skipPrefill;
+    _nextKey = d.nextKey;
+    _error = null;
+    _notice = null;
+  }
+
+  /// Makes a one-click change and offers to take it back.
+  void _undoable(String messageKey, VoidCallback change) {
+    final before = _captureDraft();
+    setState(change);
+    _offerUndo(_t(messageKey), before);
+  }
+
+  void _offerUndo(String message, _ContractDraft before) {
+    showAccountsV2Undo(
+      context,
+      language: tab.language,
+      message: message,
+      onUndo: () {
+        if (mounted) setState(() => _restoreDraft(before));
+      },
+    );
+  }
+
+  /// Someone else saved after these edits began: Save would be refused, so the
+  /// bar offers to move the edits onto the newer version or take that version.
+  bool get _stale {
+    if (_saving || !_dirty) return false;
+    final profileMoved = setup.profileVersion != _baseProfileVersion;
+    final invoiceMoved =
+        setup.invoiceSettings?.recordVersion != _baseInvoiceVersion;
+    return ((_setupDirty || _referencesDirty) && profileMoved) ||
+        (_invoiceDirty && invoiceMoved);
+  }
+
+  static const _setupFields = {0, 1, 2, 3};
+  static const _referenceFields = {4, 5, 7, 8, 9};
+
+  String _partOfField(int index) => _setupFields.contains(index)
+      ? 'v2c_part_details'
+      : _referenceFields.contains(index)
+      ? 'v2c_part_references'
+      : 'v2c_part_invoice';
+
+  /// Loads the newer saved version and puts back every field this person
+  /// changed. Fields both people changed keep this person's value and are
+  /// named, so they can be checked before saving.
+  void _keepMineOnLatest() {
+    final before = _captureDraft();
+    final mine = before.form;
+    final base = before.base ?? mine;
+    setState(() {
+      _skipPrefill = true;
+      _load();
+      final theirs = _capture();
+      final overlaps = <String>{};
+      bool changed(String m, String b) => m != b;
+      final fields = [...theirs.fields];
+      for (var i = 0; i < fields.length && i < mine.fields.length; i++) {
+        if (!changed(mine.fields[i], base.fields[i])) continue;
+        if (theirs.fields[i] != base.fields[i] &&
+            theirs.fields[i] != mine.fields[i]) {
+          overlaps.add(_partOfField(i));
+        }
+        fields[i] = mine.fields[i];
+      }
+      var billTo = theirs.billTo;
+      if (mine.billTo != base.billTo) {
+        if (theirs.billTo != base.billTo && theirs.billTo != mine.billTo) {
+          overlaps.add('v2c_part_invoice');
+        }
+        billTo = mine.billTo;
+      }
+      var buildings = theirs.buildings;
+      if (mine.buildingsSignature != base.buildingsSignature) {
+        if (theirs.buildingsSignature != base.buildingsSignature &&
+            theirs.buildingsSignature != mine.buildingsSignature) {
+          overlaps.add('v2c_part_buildings');
+        }
+        buildings = mine.buildings;
+      }
+      var stages = theirs.stages;
+      if (mine.stagesSignature != base.stagesSignature) {
+        if (theirs.stagesSignature != base.stagesSignature &&
+            theirs.stagesSignature != mine.stagesSignature) {
+          overlaps.add('v2c_part_stages');
+        }
+        stages = mine.stages;
+      }
+      _apply(
+        _ContractForm(
+          fields: fields,
+          billTo: billTo,
+          buildings: buildings,
+          stages: stages,
+        ),
+      );
+      _notice = overlaps.isEmpty
+          ? _t('v2c_merged')
+          : _t(
+              'v2c_merged_overlap',
+            ).replaceAll('{parts}', overlaps.map(_t).join(', '));
+    });
+    _offerUndo(_t('v2c_merged'), before);
+  }
+
+  /// Replaces these edits with the newer saved version (Undo brings them back).
+  void _takeTheirs() {
+    final before = _captureDraft();
+    setState(() {
+      _skipPrefill = true;
+      _load();
+    });
+    _offerUndo(_t('v2c_theirs_loaded'), before);
   }
 
   /// Starts empty fields from what was entered when the project was created:
@@ -636,10 +957,21 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       _saving = true;
       _error = null;
     });
+    // Up to three server commands, one per part. Each that succeeds is kept as
+    // saved, so a later refusal names exactly what was and wasn't saved.
+    final saved = <String>[];
     String? error;
+    String? failedPart;
     if (setupDirty) {
-      error = await tab.onSave!(_model());
-      if (error == null) await _settle();
+      error = await tab.onSave!(_model(), _baseProfileVersion);
+      if (error == null) {
+        await _settle();
+        saved.add('v2c_part_setup');
+        _markSaved(0);
+        _baseProfileVersion = widget.tab.setup.profileVersion;
+      } else {
+        failedPart = 'v2c_part_setup';
+      }
     }
     if (error == null && referencesDirty && mounted) {
       error = await tab.onSaveReferences!(
@@ -648,9 +980,16 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         workOrderDate: _isoDate(_woDate.text),
         contractNumber: _contractNumber.text.trim(),
         retentionPercent: _retention.text.trim(),
-        expectedProfileVersion: widget.tab.setup.profileVersion,
+        expectedProfileVersion: _baseProfileVersion,
       );
-      if (error == null) await _settle();
+      if (error == null) {
+        await _settle();
+        saved.add('v2c_part_references');
+        _markSaved(1);
+        _baseProfileVersion = widget.tab.setup.profileVersion;
+      } else {
+        failedPart = 'v2c_part_references';
+      }
     }
     if (error == null && invoiceDirty && mounted) {
       final settings = widget.tab.setup.invoiceSettings;
@@ -661,17 +1000,33 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         scopeLine: scope.isEmpty ? null : scope,
         attentionName: contact.isEmpty ? null : contact,
         billToPartyId: _billTo ?? settings?.billToPartyId,
-        expectedVersion: settings?.recordVersion,
+        expectedVersion: _baseInvoiceVersion,
       );
-      if (error == null) await _settle();
+      if (error == null) {
+        await _settle();
+        saved.add('v2c_part_invoice');
+        _markSaved(2);
+        _baseInvoiceVersion = widget.tab.setup.invoiceSettings?.recordVersion;
+      } else {
+        failedPart = 'v2c_part_invoice';
+      }
     }
     if (!mounted) return;
     setState(() {
       _saving = false;
       if (error == null) {
         _load();
+      } else if (_stale) {
+        // Someone else saved meanwhile: the bar explains and offers the way on.
+        _error = null;
       } else {
-        _error = accountsV2ErrorText(tab.language, error);
+        final reason = accountsV2ErrorText(tab.language, error);
+        _error = saved.isEmpty || failedPart == null
+            ? reason
+            : _t('v2c_partial_saved')
+                  .replaceAll('{saved}', saved.map(_t).join(', '))
+                  .replaceAll('{failed}', _t(failedPart))
+                  .replaceAll('{reason}', reason);
       }
     });
     if (error == null) {
@@ -679,19 +1034,51 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     }
   }
 
-  void _discard() => setState(() {
-    _skipPrefill = true;
-    _load();
-  });
+  /// Counts one part (0 setup, 1 references, 2 invoice) as saved: it no
+  /// longer makes the form unsaved, and newer saved values start from it.
+  void _markSaved(int part) {
+    final parts = _initialParts;
+    if (parts.length != 3) return;
+    final now = [_setupSnapshot, _referencesSnapshot, _invoiceSnapshot];
+    parts[part] = now[part];
+    _initial = parts.join('§');
+    final base = _base;
+    if (base == null) return;
+    final current = _capture();
+    final fields = [...base.fields];
+    for (var i = 0; i < fields.length && i < current.fields.length; i++) {
+      final inPart = switch (part) {
+        0 => _setupFields.contains(i),
+        1 => _referenceFields.contains(i),
+        _ => !_setupFields.contains(i) && !_referenceFields.contains(i),
+      };
+      if (inPart) fields[i] = current.fields[i];
+    }
+    _base = _ContractForm(
+      fields: fields,
+      billTo: part == 2 ? current.billTo : base.billTo,
+      buildings: part == 0 ? current.buildings : base.buildings,
+      stages: part == 0 ? current.stages : base.stages,
+    );
+  }
+
+  void _discard() {
+    final before = _captureDraft();
+    setState(() {
+      _skipPrefill = true;
+      _load();
+    });
+    _offerUndo(_t('v2u_discarded'), before);
+  }
 
   // ─── Building, stage and item edits ────────────────────────────────────────
 
-  void _splitEqually() {
+  void _splitEqually() => _undoable('v2u_split_equal', () {
     final shares = _evenShares(_buildings.length);
     for (final (i, b) in _buildings.indexed) {
       b.share.text = shares[i];
     }
-  }
+  });
 
   List<YorksContractBuildingOption> get _unusedBuildings => [
     for (final o in widget.buildingChoices)
@@ -711,12 +1098,11 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     });
   }
 
-  void _removeBuilding(_BuildingDraft b) {
-    setState(() {
-      _buildings.remove(b);
-      b.dispose();
-    });
-  }
+  void _removeBuilding(_BuildingDraft b) =>
+      _undoable('v2u_removed_building', () {
+        _buildings.remove(b);
+        b.dispose();
+      });
 
   void _addStage() {
     var n = _nextKey++;
@@ -737,12 +1123,10 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     });
   }
 
-  void _removeStage(_StageDraft st) {
-    setState(() {
-      _stages.remove(st);
-      st.dispose();
-    });
-  }
+  void _removeStage(_StageDraft st) => _undoable('v2u_removed_stage', () {
+    _stages.remove(st);
+    st.dispose();
+  });
 
   void _addItem(_StageDraft st) {
     var n = st.items.length + 1;
@@ -763,17 +1147,16 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
     });
   }
 
-  void _removeItem(_StageDraft st, _ItemRowDraft it) {
-    setState(() {
-      st.items.remove(it);
-      it.dispose();
-    });
-  }
+  void _removeItem(_StageDraft st, _ItemRowDraft it) =>
+      _undoable('v2u_removed_item', () {
+        st.items.remove(it);
+        it.dispose();
+      });
 
   /// Copies another item stage's list into [target], keeping the item names,
   /// quantities and units; weights stay as they are on rows already present.
   void _copyItems(_StageDraft from, _StageDraft target) {
-    setState(() {
+    _undoable('v2u_items_copied', () {
       for (final it in target.items) {
         it.dispose();
       }
@@ -797,6 +1180,9 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
 
   @override
   Widget build(BuildContext context) {
+    // The tab bar marks Contract while it has unsaved edits (reported after the
+    // frame, so no other widget rebuilds mid-build).
+    tab.drafts?.setEditing(YorksAccountsDraftSection.contract, _dirty);
     final editable = widget.canEditSetup;
     final main = AccountsV2Stack(
       children: [
@@ -843,19 +1229,45 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
             tone: AccountsV2NoteTone.warn,
             child: Text(_t('v2_items_vary_note')),
           ),
-        if (_dirty || _error != null) _saveBar(),
+        if (_stale) _staleBar() else if (_dirty || _error != null) _saveBar(),
         _kpis(),
         AccountsV2Split(main: main, side: side),
       ],
     );
   }
 
+  Widget _staleBar() => AccountsV2Note(
+    key: const ValueKey('accounts-v2-contract-stale-bar'),
+    tone: AccountsV2NoteTone.bad,
+    trailing: Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        AccountsV2Button(
+          label: _t('v2c_stale_theirs'),
+          size: AccountsV2ButtonSize.small,
+          onPressed: _takeTheirs,
+        ),
+        AccountsV2Button(
+          key: const ValueKey('accounts-v2-contract-keep-mine'),
+          label: _t('v2c_stale_merge'),
+          kind: AccountsV2ButtonKind.primary,
+          size: AccountsV2ButtonSize.small,
+          onPressed: _keepMineOnLatest,
+        ),
+      ],
+    ),
+    child: Text(_t('v2c_stale')),
+  );
+
   Widget _saveBar() {
     final blockers = _blockers;
     final failing = _error != null || (_showProblems && blockers.isNotEmpty);
     final intro =
         _error ??
-        (_prefilled ? '${_t('v2c_prefilled')} ' : '') + _t('v2c_unsaved');
+        (_notice != null ? '$_notice ' : '') +
+            (_prefilled ? '${_t('v2c_prefilled')} ' : '') +
+            _t('v2c_unsaved');
     return AccountsV2Note(
       key: const ValueKey('accounts-v2-contract-save-bar'),
       tone: failing ? AccountsV2NoteTone.bad : AccountsV2NoteTone.warn,
