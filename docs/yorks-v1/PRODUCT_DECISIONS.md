@@ -2156,6 +2156,32 @@ team, inside User Management.
   bundle is applied by hand on staging, then production, before the flag is
   enabled. See [`WORKER_RECORDS.md`](WORKER_RECORDS.md).
 
+## 34. R39 Accounts — Project Engineer full commercial access (owner decision, 11 November 2026)
+
+A Project Engineer holds **every** Accounts capability on a project where they
+hold dated Project Engineer membership: commercial values, billing progress,
+client claims and invoices, certification, receipts, PDCs, supplier bills,
+supplier bill approval and payment, supplier costs and exports. This extends
+section 29.
+
+- **Supersedes, for Project Engineers only:** FR-019's "not record payment
+  facts" (`R39_ACCOUNTS_FOUNDATION.md`) and the section 28 T04 rule that only
+  Accountant/Admin approve and pay supplier bills. One Project Engineer may now
+  confirm progress, prepare the claim, issue the invoice, record certification
+  and payment, and approve and pay a supplier bill matched on a receipt they
+  confirmed. Separation of duties rests on the audit trail; a same-person
+  check is not part of this decision.
+- Membership still decides scope. Without dated membership a Project Engineer
+  has no Accounts access to that project.
+- Per-user denials and every state, version and amount check still apply. The
+  admin-only exception paths stay admin-only: approving an unmatched supplier
+  bill, and reopening a claim another person created.
+- The organization-wide portfolio export keeps its existing roles.
+- Site Engineer, Procurement, Senior Mechanical Engineer, Project Manager,
+  Workshop In-Charge and Document Controller are unchanged.
+- Migration `20261111120000_accounts_project_engineer_full_access.sql`; by-hand
+  release bundle and rollback under `supabase/release/`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

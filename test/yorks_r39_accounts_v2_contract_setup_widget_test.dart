@@ -333,8 +333,12 @@ void main() {
       // Weight 25 → 20 leaves the stage 5% short for each building.
       await tester.enterText(_cell('25'), '20');
       await tester.pumpAndSettle();
-      expect(_button(tester, t('v2c_save_changes')).onPressed, isNull);
       expect(find.textContaining(t('v2c_to_fix')), findsWidgets);
+      // Save explains instead of silently greying out.
+      expect(
+        find.byKey(const ValueKey('accounts-v2-contract-blockers')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('lists that differ between buildings stay protected', (
@@ -577,6 +581,106 @@ void main() {
       await tester.pumpAndSettle();
       final field = _field(t('v2c_invoice_prefix'));
       expect(tester.widget<TextField>(field).enabled, isFalse);
+    });
+  });
+
+  group('save explains what is missing', () {
+    Map<String, dynamic> newProject({bool buildings = true}) => {
+      ..._base(),
+      'project_reference': 'YRA-321',
+      'project_name': 'Test Project',
+      'job_contract_reference': 'N-19957.5',
+      if (!buildings) 'buildings': const [],
+    };
+
+    Widget tab(
+      Map<String, dynamic> json, {
+      List<YorksContractBuildingOption> buildingChoices = _options,
+      required void Function() onSaved,
+    }) => AccountsV2ContractTab(
+      setup: YorksAccountsCommercialSetupRead.fromJson(json),
+      language: en,
+      canEdit: true,
+      buildingOptions: buildingChoices,
+      stageOptions: _stageOptions,
+      onSave: (_) async {
+        onSaved();
+        return null;
+      },
+      onSaveReferences:
+          ({
+            String? clientTrn,
+            String? workOrderNumber,
+            String? workOrderDate,
+            String? contractNumber,
+            String? retentionPercent,
+            int? expectedProfileVersion,
+          }) async {
+            onSaved();
+            return null;
+          },
+    );
+
+    testWidgets('Save stays pressable and lists every reason', (tester) async {
+      _surface(tester);
+      var saves = 0;
+      await tester.pumpWidget(
+        _wrap(
+          tab(newProject(), buildingChoices: const [], onSaved: () => saves++),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(_field(t('v2c_contract_value')), '1000');
+      await tester.enterText(_field(t('v2c_vat_pct')), 'five');
+      await tester.pumpAndSettle();
+
+      expect(_button(tester, t('v2c_save_changes')).onPressed, isNotNull);
+      expect(find.text(t('v2c_block_vat')), findsOneWidget);
+      expect(
+        find.text(t('v2c_block_project_has_no_buildings')),
+        findsNWidgets(2),
+        reason: 'in the save bar and in the Buildings card',
+      );
+
+      await _tapButton(tester, t('v2c_save_changes'));
+      expect(saves, 0, reason: 'nothing is sent while something is wrong');
+      final vat = tester.widget<AccountsV2TextField>(
+        find.widgetWithText(AccountsV2TextField, t('v2c_vat_pct')),
+      );
+      expect(vat.error, isTrue, reason: 'the field involved is outlined');
+
+      await tester.enterText(_field(t('v2c_vat_pct')), '5');
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2c_block_vat')), findsNothing);
+    });
+
+    testWidgets('a reference-only change saves although setup is incomplete', (
+      tester,
+    ) async {
+      _surface(tester);
+      var saves = 0;
+      await tester.pumpWidget(
+        _wrap(
+          tab(newProject(), buildingChoices: const [], onSaved: () => saves++),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Only the contract number was filled in from the project.
+      expect(
+        find.byKey(const ValueKey('accounts-v2-contract-blockers')),
+        findsNothing,
+      );
+      await _tapButton(tester, t('v2c_save_changes'));
+      expect(saves, 1);
+    });
+
+    testWidgets('an invalid work order date is named', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(_wrap(tab(newProject(), onSaved: () {})));
+      await tester.pumpAndSettle();
+      await tester.enterText(_field(t('v2c_wo_date')), '31/02');
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2c_block_wo_date')), findsOneWidget);
     });
   });
 

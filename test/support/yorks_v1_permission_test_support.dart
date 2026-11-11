@@ -69,8 +69,13 @@ YorksV1CurrentPermissionSnapshotState yorksV1TrustedFeaturePermissionState({
       for (final (index, capability) in capabilities.indexed)
         {
           'capability_key': capability,
-          'module_key': capability.split('.').first,
-          'action_key': capability.split('.').skip(1).join('.'),
+          // R39 Accounts keys carry no module prefix (view_project_accounts).
+          'module_key': capability.contains('.')
+              ? capability.split('.').first
+              : 'accounts',
+          'action_key': capability.contains('.')
+              ? capability.split('.').skip(1).join('.')
+              : capability,
           'label': capability,
           'description': capability,
           'risk_level': 'high',

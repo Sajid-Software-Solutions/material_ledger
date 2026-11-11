@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_projects_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/models/yorks_v1_document.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request.dart';
+import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project_portfolio.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project_strings.dart';
@@ -331,6 +333,77 @@ void main() {
       expect(documentLoads, 0);
     },
   );
+
+  testWidgets('Accounts reopens after visiting another project tab', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(
+      initialLocation: '/yorks/projects/project-1/accounts/overview',
+      routes: [
+        GoRoute(
+          path: '/yorks/projects/:projectId/accounts/overview',
+          builder: (context, state) => const Scaffold(
+            body: YorksV1ProjectWorkspaceScreen(
+              projectId: 'project-1',
+              initialTab: YorksV1ProjectWorkspaceTab.accounts,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          yorksV1FeatureFlagsProvider.overrideWithValue(_accountsEnabledFlags),
+          yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+            (ref) => YorksV1TestPermissionController(
+              yorksV1TrustedFeaturePermissionState(
+                capabilities: {
+                  ...yorksV1EnforcedFeatureActionCapabilities,
+                  YorksV1CapabilityKeys.viewProjectAccounts,
+                },
+              ),
+            ),
+          ),
+          yorksV1CurrentRoleProvider.overrideWithValue(YorksV1Role.admin),
+          yorksV1AuthUserIdProvider.overrideWithValue('auth-user'),
+          yorksV1ProjectPortfolioProvider.overrideWith(
+            (ref) async => [_portfolioItem],
+          ),
+          yorksV1DocumentWorkspaceProvider('project-1').overrideWith(
+            (ref) async => const YorksV1DocumentWorkspace(
+              projectId: 'project-1',
+              documents: [],
+              auditEntries: [],
+            ),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Finder accountsEmbed() => find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_ProjectAccountsEmbed',
+    );
+    expect(accountsEmbed(), findsOneWidget);
+
+    await tester.tap(find.text(YorksV1ProjectStrings.documents.primary).first);
+    await tester.pumpAndSettle();
+    expect(accountsEmbed(), findsNothing);
+
+    // The address still points at Accounts; the tab must open anyway.
+    await tester.tap(find.text(YorksV1ProjectStrings.accounts.primary).first);
+    await tester.pumpAndSettle();
+    expect(accountsEmbed(), findsOneWidget);
+  });
 
   testWidgets('R35 portfolio is responsive and procurement is view only', (
     tester,
