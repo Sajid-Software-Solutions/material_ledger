@@ -5,6 +5,10 @@
 -- confirm_billing_progress, prepare_client_claim, export_accounts_registers
 -- and configure_project_commercials on member projects.
 --
+-- The organization-wide engineering roles keep their 9 November 2026 claim
+-- rights (PRODUCT_DECISIONS.md section 35, migrations 20261109100000 and
+-- 20261111130000); this rollback touches only Project Engineer.
+--
 -- Actor-role CHECK constraints stay widened on purpose: records a Project
 -- Engineer created meanwhile must stay valid. Without the capability and the
 -- command role checks, no new such record can be written. No data is changed.
@@ -52,11 +56,15 @@ begin
   if v_exact_role = 'procurement' then
     return p_capability_key in ('manage_supplier_bills', 'view_supplier_costs');
   end if;
-  if v_exact_role in ('senior_mechanical_engineer', 'project_manager') then
+  if v_exact_role in (
+    'senior_mechanical_engineer', 'project_manager',
+    'workshop_in_charge', 'document_controller'
+  ) then
     return p_capability_key in (
       'view_project_accounts', 'view_project_commercial_values',
       'export_accounts_registers', 'review_commercial_progress',
-      'configure_project_commercials'
+      'configure_project_commercials',
+      'confirm_billing_progress', 'prepare_client_claim'
     );
   end if;
   if v_exact_role not in ('project_engineer', 'site_engineer') then

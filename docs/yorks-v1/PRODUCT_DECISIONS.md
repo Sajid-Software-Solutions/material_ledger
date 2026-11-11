@@ -2182,6 +2182,47 @@ section 29.
 - Migration `20261111120000_accounts_project_engineer_full_access.sql`; by-hand
   release bundle and rollback under `supabase/release/`.
 
+## 35. R39 Accounts — owner decisions of 9 November 2026
+
+From the project engineer's review of YRA-322 in production.
+
+**Who may record progress and prepare a claim.** Admin and the
+organization-wide engineering roles (Senior Mechanical Engineer, Project
+Manager, Workshop In-Charge, Document Controller) hold the Project Engineer's
+claim rights by default on every project: view project accounts, see
+commercial values, confirm billing progress and prepare a client claim.
+Previously only a Project Engineer with project membership could, which left
+YRA-322 without "New claim" for the Owner. Site Engineer, Procurement and
+Accountant are unchanged. Workshop In-Charge and Document Controller therefore
+now see contract values. Section 34's later migration redefined the Accounts
+scope function without these rights; migration
+`20261111130000_accounts_scope_keep_global_claim_rights.sql` keeps both
+decisions (a Project Engineer member holds every Accounts key, and the four
+global engineering roles keep the claim rights above).
+
+**A stage finished before a contract correction stays finished.** Progress is
+the confirmed percent, not money: YRA-322's Cooling Load Design is 100% done
+although it was billed at the earlier contract value (429,800 per building
+against 452,136.70 now). The next claim carries the difference (AED 89,346.80
+for Design across the four buildings, and the same for delivered material) as a
+contract-correction top-up, shown as such, and later work is billed at the
+corrected values.
+
+**The invoice's per-building pages follow the workbook.** After the Main
+Summary, the invoice prints the Material sheet (delivered material summary) for
+every building, then the Installation sheet for every building: each item with
+total quantity, unit, weight (% of contract) and contract amount, then quantity,
+% and amount till the previous month, this month and to date, this month's
+cells highlighted, a total per building and for all buildings. Money billed
+before a contract correction that the items at today's values do not explain
+shows as a "contract value correction" row, so each sheet adds up to the
+invoice. Invoices issued before this get the same pages from their own claim's
+history; their stored snapshots are not rewritten.
+
+**The signatory is Yorks Air-Conditioning & Refrigeration LLC - SPC.**
+YRA32201 had been frozen with "WLL"; its stored company name is corrected to
+the LLC - SPC name YRA32202R.1 carries, with an audit event.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

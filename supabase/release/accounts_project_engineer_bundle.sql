@@ -1,5 +1,7 @@
 -- Release bundle: R39 Accounts — Project Engineer full commercial access
 -- Applies migration 20261111120000 in one transaction, then checks itself.
+-- Its scope function is the 20261111130000 definition, which also keeps the
+-- organization-wide engineering roles' 9 November claim rights.
 -- Apply by hand (staging, then production):
 --   npx supabase@latest db query --remote=<ref> --yes -f supabase/release/accounts_project_engineer_bundle.sql
 -- Rollback: supabase/release/accounts_project_engineer_rollback.sql
@@ -49,11 +51,15 @@ begin
   if v_exact_role = 'procurement' then
     return p_capability_key in ('manage_supplier_bills', 'view_supplier_costs');
   end if;
-  if v_exact_role in ('senior_mechanical_engineer', 'project_manager') then
+  if v_exact_role in (
+    'senior_mechanical_engineer', 'project_manager',
+    'workshop_in_charge', 'document_controller'
+  ) then
     return p_capability_key in (
       'view_project_accounts', 'view_project_commercial_values',
       'export_accounts_registers', 'review_commercial_progress',
-      'configure_project_commercials'
+      'configure_project_commercials',
+      'confirm_billing_progress', 'prepare_client_claim'
     );
   end if;
   if v_exact_role not in ('project_engineer', 'site_engineer') then

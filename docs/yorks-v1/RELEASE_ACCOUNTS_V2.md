@@ -15,7 +15,13 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   Supplier bills · History. PR #54 merged the first version; PR #55 adds the
   later features and fixes, and the bundle grows from 12 to 30 migrations. The
   8 November release adds a 31st (Excel rounding, the signed invoice layout and
-  History dates).
+  History dates). The 9 November release adds a 32nd (claim rights for Admin
+  and the organization-wide engineering roles) and a 33rd (the invoice's
+  per-building Material and Installation sheets); see `PRODUCT_DECISIONS.md`
+  §35. A 34th (`20261111130000`) keeps those claim rights in the Accounts
+  scope function after the 11 November Project Engineer full-access migration
+  (§34) redefined it; `accounts_project_engineer_bundle.sql` and its rollback
+  carry the same definition, so either bundle can be re-applied in any order.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.
@@ -36,7 +42,7 @@ of the live schema. Because of that:
   is separate.
 
 **Apply `supabase/release/accounts_v2_bundle.sql` by hand instead.** It holds all
-31 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
+33 V2 migrations in dependency order, inside one `BEGIN/COMMIT`, so a failure
 rolls the whole script back.
 
 A database may already have some of the V2 migrations, for example the first 12.
@@ -254,6 +260,20 @@ are lost, the audit events stay.
   percent-mode stages only.
 - **Phone layout.** The per-item contract table scrolls sideways, and KPI tiles
   are tall.
+
+## Gates (local, 9 November 2026, claim rights and the invoice item sheets)
+
+| Check | Result |
+|---|---|
+| `flutter analyze` | Clean |
+| `flutter test` | 2,721 pass, 4 skipped, **2 fail** (the same R38.4 rental register goldens) |
+| `supabase db reset` + `supabase test db` | 143 files, 4,052 tests pass |
+| Web build with startup budget | Passes |
+
+Applied by hand on 9 November 2026: staging, then production (files 32 and 33
+only, after checking that the live definitions of the three replaced functions
+matched the repository). Production web `dpl_6TH2qa1CTRLoAYQg5jsBeteCz992`;
+rollback target `dpl_2SSWkyuWKzb8ZT9SGPrfeUHPhgLJ`.
 
 ## Gates (local, 8 November 2026, with Excel rounding, the signed invoice layout and History dates)
 

@@ -6922,6 +6922,16 @@ abstract final class YorksV1AccountsStrings {
       'ur': "یکمشت مرحلہ — اس ماہ مکمل ہونے والا مرحلے کا % درج کریں",
       'hi': "एकमुश्त चरण — इस महीने पूरा हुआ चरण का % दर्ज करें",
     },
+    'v2p_topup_note': {
+      'en':
+          "Includes {amount} for work already billed at the earlier contract value; the contract correction makes it worth more.",
+      'ar':
+          "يشمل {amount} عن أعمال سبق إصدار فاتورة بها بقيمة العقد السابقة؛ تصحيح قيمة العقد يرفع قيمتها.",
+      'ur':
+          "اس میں {amount} شامل ہے اس کام کے لیے جس کا بل پہلے کی معاہدہ قیمت پر بن چکا ہے؛ معاہدے کی تصحیح سے اس کی قیمت بڑھ گئی ہے۔",
+      'hi':
+          "इसमें {amount} शामिल है उस काम के लिए जिसका बिल पहले के अनुबंध मूल्य पर बन चुका है; अनुबंध सुधार से उसका मूल्य बढ़ गया है।",
+    },
     'v2p_copy_all': {
       'en': "Copy to all buildings",
       'ar': "نسخ إلى كل المباني",
