@@ -244,7 +244,13 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_transfer_workforce_worker_assignment(p_payload jsonb, p_expected_current_assignment_id uuid, p_expected_current_version bigint, p_idempotency_key uuid)'),
   ('v1_validate_workforce_monthly_period(p_payload jsonb, p_expected_period_version bigint, p_idempotency_key uuid)'),
   ('v1_verify_workforce_monthly_period(p_payload jsonb, p_expected_period_version bigint, p_idempotency_key uuid)'),
-  ('v1_withdraw_workforce_timesheet_allocations(p_attendance_day_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)');
+  ('v1_withdraw_workforce_timesheet_allocations(p_attendance_day_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
+  -- Worker Records (PRODUCT_DECISIONS.md section 33) reads the worker master
+  -- under its own worker_records.* capabilities; reviewed separately.
+  ('v1_list_worker_records(p_search text, p_company text, p_status text, p_limit integer, p_offset integer)'),
+  ('v1_save_worker_record(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_set_worker_photo(p_worker_id uuid, p_object_path text, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_worker_photo_writable(p_bucket_id text, p_object_path text)');
 
 select set_eq(
   'select proname || ''('' || arguments || '')''

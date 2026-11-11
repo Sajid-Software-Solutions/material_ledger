@@ -19,7 +19,15 @@ reference data, not payroll.
 | `worker_records.manage` | Create and edit a record, set a photo (import: slice 3) | Admin, Accountant |
 
 Admin may grant either capability to one person in User Access; that is how
-PR staff receive it. Neither capability depends on `workforce.view`, and no
+PR staff receive it.
+
+Accountant is otherwise an Accounts-only role (R39). The migration widens
+that rule by exactly these two keys through
+`v1_accountant_may_hold_capability`, replacing only that test inside
+`v1_permission_candidate_raw`, `v1_permission_legacy_raw` and
+`v1_permission_guard_assignment`. The replacement refuses to run unless each
+live definition contains the expected text exactly once, so later changes to
+those functions are preserved. Neither capability depends on `workforce.view`, and no
 `users.*` capability is involved, so a holder gains no attendance access and
 cannot see or change login accounts.
 
@@ -98,8 +106,9 @@ shows an error with the last confirmed rows, never an empty register.
 
 ## Data preservation and rollback
 
-Additive only: two capabilities, two tables, one sequence, the functions
-above with their internal helpers, one bucket and two storage policies. No existing row, function, policy or grant is changed.
+Additive except for the Accountant rule above: two capabilities, two tables,
+one sequence, the functions above with their internal helpers, one bucket and
+two storage policies. No existing row, policy or grant is changed.
 To roll back, turn the flag off and set `is_assignable = false` on both
 catalogue rows. Keep every record, revision and stored photo.
 

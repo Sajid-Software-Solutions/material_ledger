@@ -12,9 +12,12 @@
 -- `workforce.view`, so a holder gains no attendance or timesheet access, and
 -- no `users.*` capability is touched.
 --
--- Data preservation: additive only. No existing table, row, function, policy
--- or grant is changed. Rollback: set both catalogue rows to
--- is_assignable = false and deny the client route; retain every record,
+-- Data preservation: additive. No existing table, row, policy or grant is
+-- changed. One rule in three existing permission functions is widened by
+-- exactly the two worker_records keys for Accountant (see below); nothing
+-- else in them changes. Rollback: set both catalogue rows to
+-- is_assignable = false and deny the client route; to restore the original
+-- Accountant rule, run the same replacement in reverse. Retain every record,
 -- revision and stored photo.
 
 begin;
@@ -78,6 +81,81 @@ cross join unnest(array[
   'worker_records.view', 'worker_records.manage'
 ]::text[]) capability_key
 on conflict (role_name, capability_key) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Accountant boundary: one narrow, explicit exception
+-- ---------------------------------------------------------------------------
+--
+-- The R39 Accounts contract makes Accountant an Accounts-only role: the
+-- resolver and the assignment guard refuse every non-Accounts capability for
+-- it. The owner's 10 November 2026 decision gives Accounting the worker
+-- records, so exactly the two `worker_records.*` keys are added to what an
+-- Accountant may hold. Every other non-Accounts capability (projects, BOQ,
+-- material requests, dispatch, receipts, inventory, returns, team management,
+-- users, permissions) stays refused. The frozen R39 Accounts key list in
+-- `v1_accounts_is_capability_key` is unchanged.
+
+create or replace function public.v1_accountant_may_hold_capability(
+  p_capability_key text
+)
+returns boolean
+language sql
+immutable
+strict
+set search_path = ''
+as $$
+  select public.v1_accounts_is_capability_key(p_capability_key)
+    or p_capability_key in ('worker_records.view', 'worker_records.manage');
+$$;
+
+revoke all on function public.v1_accountant_may_hold_capability(text)
+  from public, anon, authenticated;
+
+-- Replace only the Accountant test inside the three live definitions, and
+-- refuse to proceed unless each contains exactly the expected text once. This
+-- keeps every other line of those security functions byte-for-byte as
+-- deployed, including changes made by later migrations.
+do $accountant_boundary$
+declare
+  v_target record;
+  v_definition text;
+  v_old text;
+  v_new text;
+begin
+  for v_target in
+    select *
+    from (values
+      ('public.v1_permission_candidate_raw(uuid,text,uuid)',
+       'not public.v1_accounts_is_capability_key(p_capability_key)',
+       'not public.v1_accountant_may_hold_capability(p_capability_key)'),
+      ('public.v1_permission_legacy_raw(uuid,text,uuid)',
+       'not public.v1_accounts_is_capability_key(p_capability_key)',
+       'not public.v1_accountant_may_hold_capability(p_capability_key)'),
+      ('public.v1_permission_guard_assignment()',
+       'not public.v1_accounts_is_capability_key(new.capability_key)',
+       'not public.v1_accountant_may_hold_capability(new.capability_key)')
+    ) target(signature, old_text, new_text)
+  loop
+    v_definition := pg_catalog.pg_get_functiondef(
+      v_target.signature::regprocedure
+    );
+    v_old := v_target.old_text;
+    v_new := v_target.new_text;
+    -- Already applied on a previous run: nothing to do.
+    if position(v_new in v_definition) > 0
+      and position(v_old in v_definition) = 0 then
+      continue;
+    end if;
+    if (char_length(v_definition)
+        - char_length(replace(v_definition, v_old, '')))
+      / char_length(v_old) <> 1 then
+      raise exception 'V1_WORKER_RECORDS_ACCOUNTANT_BOUNDARY_DRIFT: %',
+        v_target.signature using errcode = '55000';
+    end if;
+    execute replace(v_definition, v_old, v_new);
+  end loop;
+end;
+$accountant_boundary$;
 
 -- ---------------------------------------------------------------------------
 -- Protected relations

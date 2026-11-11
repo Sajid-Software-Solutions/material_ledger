@@ -2133,6 +2133,13 @@ team, inside User Management.
     person in User Access. No tenth role is added.
   - Every other role, including Senior Mechanical Engineer, has neither by
     default.
+  - **Narrow exception to the R39 Accountant boundary.** R39 makes
+    Accountant an Accounts-only role, enforced by the permission resolver
+    and the assignment guard. This decision adds exactly the two
+    `worker_records.*` keys to what an Accountant may hold
+    (`v1_accountant_may_hold_capability`). Every other non-Accounts
+    capability stays refused for Accountant, and the frozen R39 Accounts key
+    list is unchanged.
 - **User Management.** A holder sees a **Workers** tab. A holder without
   `users.view` (Accountant, PR) sees only that register: no login account,
   role, password, project access or audit surface. No `users.*` or
