@@ -4,7 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Network reachability, abstracted so the sync engine and UI don't depend on a
+/// Device network-interface availability, abstracted so sync and UI do not depend on a
 /// concrete plugin (and so tests can drive online/offline deterministically).
 ///
 /// The production implementation wraps `connectivity_plus` (+ an optional
@@ -53,7 +53,8 @@ class DefaultConnectivity implements ConnectivityService {
   void dispose() => _controller.close();
 }
 
-/// Production connectivity backed by `connectivity_plus`. [isOnline] is kept in
+/// Device interface signal from `connectivity_plus`, not backend reachability
+/// or proof that a particular command committed. [isOnline] is kept in
 /// sync synchronously from the plugin's change stream (seeded by an initial
 /// check) so the rest of the app stays synchronous.
 class PlusConnectivity implements ConnectivityService {
@@ -104,10 +105,9 @@ final connectivityProvider = Provider<ConnectivityService>((ref) {
 });
 
 /// Reactive online/offline flag for the UI and engine.
-final isOnlineProvider =
-    StateNotifierProvider<_OnlineNotifier, bool>((ref) {
-      return _OnlineNotifier(ref.watch(connectivityProvider));
-    });
+final isOnlineProvider = StateNotifierProvider<_OnlineNotifier, bool>((ref) {
+  return _OnlineNotifier(ref.watch(connectivityProvider));
+});
 
 class _OnlineNotifier extends StateNotifier<bool> {
   _OnlineNotifier(this._service) : super(_service.isOnline) {

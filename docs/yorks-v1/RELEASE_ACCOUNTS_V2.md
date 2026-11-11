@@ -18,7 +18,7 @@ the flag is on. See [What the bundle changes](#what-the-bundle-changes).
   History dates). The 9 November release adds a 32nd (claim rights for Admin
   and the organization-wide engineering roles) and a 33rd (the invoice's
   per-building Material and Installation sheets); see `PRODUCT_DECISIONS.md`
-  §31.
+  §34.
 - The embed swaps to V2 only when `flags.accountsWorkspaceV2` is true, which is
   `YORKS_V1_ACCOUNTS && YORKS_V1_ACCOUNTS_WORKSPACE_V2`. So V2 needs **both**
   flags true in the build.

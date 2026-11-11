@@ -1,9 +1,14 @@
 enum YorksV1RentalOccupancy {
   occupied,
-  vacant;
+  vacant,
+  unknown;
 
   static YorksV1RentalOccupancy fromWire(Object? value) =>
-      value?.toString() == 'occupied' ? occupied : vacant;
+      switch (value?.toString()) {
+        'occupied' => occupied,
+        'vacant' => vacant,
+        _ => unknown,
+      };
 
   String get wireValue => name;
 }
@@ -68,6 +73,12 @@ List<Map<String, dynamic>> _list(Object? value) => value is List
       ]
     : const [];
 
+String _rentalWire(String value) => value
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+    .replaceAll(RegExp(r'^_|_$'), '');
+
 class YorksV1RentalSummary {
   const YorksV1RentalSummary({
     required this.totalProperties,
@@ -78,6 +89,7 @@ class YorksV1RentalSummary {
     required this.securityDeposits,
     required this.expiringWithin90,
     required this.chequeAttention,
+    this.annualRentRoll = 0,
   });
 
   factory YorksV1RentalSummary.fromJson(Map<String, dynamic> json) {
@@ -90,6 +102,7 @@ class YorksV1RentalSummary {
       securityDeposits: _number(json['security_deposits']),
       expiringWithin90: _integer(json['expiring_within_90']),
       chequeAttention: _integer(json['cheque_attention']),
+      annualRentRoll: _number(json['annual_rent_roll']),
     );
   }
 
@@ -101,6 +114,7 @@ class YorksV1RentalSummary {
   final double securityDeposits;
   final int expiringWithin90;
   final int chequeAttention;
+  final double annualRentRoll;
 
   double get occupancyPercent => totalProperties == 0
       ? 0
@@ -142,6 +156,15 @@ class YorksV1RentalProperty {
     this.currentDue = 0,
     this.nextChequeDate,
     this.nextChequeNumber,
+    this.annualRent,
+    this.paymentFrequency = 'monthly',
+    this.billingStart,
+    this.billingSetupPending = false,
+    this.missingFields = const [],
+    this.sourceMetadata = const {},
+    this.daysToLeaseEnd,
+    this.chequeAttention = false,
+    this.hasRentAmount = true,
   });
 
   factory YorksV1RentalProperty.fromJson(Map<String, dynamic> json) {
@@ -179,6 +202,28 @@ class YorksV1RentalProperty {
       currentDue: _number(json['current_due']),
       nextChequeDate: _date(json['next_cheque_date']),
       nextChequeNumber: json['next_cheque_number']?.toString(),
+      annualRent: json['annual_rent'] == null
+          ? null
+          : _number(json['annual_rent']),
+      paymentFrequency:
+          (json['rent_frequency'] ?? json['payment_frequency'])?.toString() ??
+          'monthly',
+      billingStart: _date(json['billing_start']),
+      billingSetupPending: json['billing_setup_pending'] == true,
+      missingFields: (json['missing_fields'] is List)
+          ? (json['missing_fields'] as List)
+                .map((item) => item.toString())
+                .toList()
+          : const [],
+      sourceMetadata: _map(json['source_metadata']),
+      daysToLeaseEnd: json['days_to_lease_end'] == null
+          ? null
+          : _integer(json['days_to_lease_end']),
+      chequeAttention: json['cheque_attention'] == true,
+      hasRentAmount:
+          (json['rent_frequency'] ?? json['payment_frequency']) == 'annual'
+          ? json['annual_rent'] != null
+          : json['monthly_rent'] != null,
     );
   }
 
@@ -215,6 +260,20 @@ class YorksV1RentalProperty {
   final double currentDue;
   final DateTime? nextChequeDate;
   final String? nextChequeNumber;
+  final double? annualRent;
+  final String paymentFrequency;
+  final DateTime? billingStart;
+  final bool billingSetupPending;
+  final List<String> missingFields;
+  final Map<String, dynamic> sourceMetadata;
+  final int? daysToLeaseEnd;
+  final bool chequeAttention;
+  final bool hasRentAmount;
+
+  bool get isAnnual => paymentFrequency == 'annual';
+  double? get rentAmount =>
+      hasRentAmount ? (isAnnual ? annualRent : monthlyRent) : null;
+  bool get needsCompletion => missingFields.isNotEmpty;
 
   bool get isOccupied => occupancy == YorksV1RentalOccupancy.occupied;
 }
@@ -498,6 +557,9 @@ class YorksV1RentalPropertyInput {
     this.leaseStart,
     this.leaseEnd,
     this.notes,
+    this.annualRent,
+    this.billingStart,
+    this.sourceMetadata,
   });
 
   final String? propertyId;
@@ -519,7 +581,10 @@ class YorksV1RentalPropertyInput {
   final DateTime? signedDate;
   final DateTime? leaseStart;
   final DateTime? leaseEnd;
-  final double monthlyRent;
+  final double? monthlyRent;
+  final double? annualRent;
+  final DateTime? billingStart;
+  final Map<String, dynamic>? sourceMetadata;
   final double securityDeposit;
   final int monthlyDueDay;
   final int gracePeriodDays;
@@ -535,27 +600,31 @@ class YorksV1RentalPropertyInput {
     if (leaseId != null) 'lease_id': leaseId,
     'unit_code': unitCode,
     'property_name': propertyName,
-    'property_type': propertyType,
+    'property_type': _rentalWire(propertyType),
     'municipality_number': municipalityNumber,
     'location': location,
     'description': description,
     'occupied': occupancy == YorksV1RentalOccupancy.occupied,
+    'occupancy_state': occupancy.wireValue,
     'tenant_name': tenantName,
     'trade_licence_number': tradeLicenceNumber,
     'contact_number': contactNumber,
     'email': email,
     'contract_number': contractNumber,
-    'contract_type': contractType,
-    'contract_status': contractStatus,
+    'contract_type': _rentalWire(contractType),
+    'contract_status': _rentalWire(contractStatus),
     'signed_date': signedDate?.toIso8601String().split('T').first,
     'lease_start': leaseStart?.toIso8601String().split('T').first,
     'lease_end': leaseEnd?.toIso8601String().split('T').first,
     'monthly_rent': monthlyRent,
+    'annual_rent': annualRent,
+    'billing_start': billingStart?.toIso8601String().split('T').first,
+    if (sourceMetadata != null) 'source_metadata': sourceMetadata,
     'security_deposit': securityDeposit,
     'monthly_due_day': monthlyDueDay,
     'grace_period_days': gracePeriodDays,
-    'default_payment_method': defaultPaymentMethod,
-    'payment_frequency': paymentFrequency,
+    'default_payment_method': _rentalWire(defaultPaymentMethod),
+    'payment_frequency': _rentalWire(paymentFrequency),
     'contract_cheque_count': contractCheques,
     'annual_escalation_percent': annualEscalationPercent,
     'renewal_notice_days': renewalNoticeDays,

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -309,7 +311,10 @@ class GuardedAnalyticsService implements AnalyticsService {
       service: this,
       operation: operation,
       startedAt: _now(),
-      properties: Map.unmodifiable(properties),
+      properties: Map.unmodifiable({
+        AnalyticsProperty.screenName: ?_currentScreen,
+        ...properties,
+      }),
     );
   }
 
@@ -509,7 +514,11 @@ class GuardedAnalyticsService implements AnalyticsService {
     for (final entry in values.entries) {
       final value = entry.value;
       if (value == null) continue;
-      final normalized = _safeValue(value);
+      final normalized = entry.key == AnalyticsProperty.commandFingerprint
+          ? (value is String && RegExp(r'^[0-9a-f]{32}$').hasMatch(value)
+                ? value
+                : null)
+          : _safeValue(value);
       if (normalized != null) safe[entry.key.wireName] = normalized;
     }
     safe[AnalyticsProperty.schemaVersion.wireName] = analyticsSchemaVersion;
@@ -526,7 +535,8 @@ class GuardedAnalyticsService implements AnalyticsService {
     if (_identifiedRole != null) {
       safe[AnalyticsProperty.role.wireName] = _identifiedRole!;
     }
-    if (_currentScreen != null) {
+    if (_currentScreen != null &&
+        !safe.containsKey(AnalyticsProperty.screenName.wireName)) {
       safe[AnalyticsProperty.screenName.wireName] = _currentScreen!.wireName;
     }
     return Map.unmodifiable(safe);
@@ -618,6 +628,23 @@ class _GuardedAnalyticsOperation implements AnalyticsOperation {
     _finished = true;
     final category = analyticsErrorCategory(error);
     final durationMs = _service._now().difference(startedAt).inMilliseconds;
+    if (analyticsOperationWasBlocked(error)) {
+      _service.capture(
+        AnalyticsEvent.operationBlocked,
+        properties: {
+          ...this.properties,
+          ...properties,
+          AnalyticsProperty.operation: operation,
+          AnalyticsProperty.durationMs: durationMs,
+          AnalyticsProperty.errorCategory: category,
+          AnalyticsProperty.networkState:
+              category == AnalyticsErrorCategory.offline
+              ? 'offline'
+              : 'unknown',
+        },
+      );
+      return;
+    }
     final failureProperties = <AnalyticsProperty, Object?>{
       ...this.properties,
       ...properties,
@@ -705,6 +732,18 @@ class _ValidationFailureState {
       );
 }
 
+/// True when the app refused to send a request at all: the device reported no
+/// network, or no user was signed in (for example a tab left open after its
+/// session expired). These are expected client states, not failures of the
+/// operation, and they never carry a server response.
+bool analyticsOperationWasBlocked(Object error) =>
+    error is YorksV1DomainException &&
+    error.serverCode == null &&
+    error.serverMessage == null &&
+    error.cause == null &&
+    (error.code == YorksV1DomainErrorCode.offline ||
+        error.code == YorksV1DomainErrorCode.unauthenticated);
+
 AnalyticsErrorCategory analyticsErrorCategory(Object error) {
   if (error is YorksV1DomainException) {
     if (error.code == YorksV1DomainErrorCode.backendUnavailable &&
@@ -749,3 +788,7 @@ bool _analyticsErrorIsRetryable(AnalyticsErrorCategory category) =>
       AnalyticsErrorCategory.database => true,
       _ => false,
     };
+
+/// Opaque correlation only; never send raw command keys or business payloads.
+String analyticsCommandFingerprint(String command, String key) =>
+    sha256.convert(utf8.encode('$command|$key')).toString().substring(0, 32);

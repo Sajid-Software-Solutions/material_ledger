@@ -658,5 +658,20 @@
       "hi": "आपको सौंपा गया रिकॉर्ड बदल गया है।"
     },
     "type": "info"
+  },
+  "arrangement_preparation_completed": {
+    "title": {
+      "en": "Materials prepared",
+      "ar": "تم تجهيز المواد",
+      "ur": "مٹیریل تیار ہے",
+      "hi": "सामग्री तैयार है"
+    },
+    "body": {
+      "en": "Procurement completed preparation. Open the request to see the quantities.",
+      "ar": "أكملت المشتريات التجهيز. افتح الطلب للاطلاع على الكميات.",
+      "ur": "پروکیورمنٹ نے تیاری مکمل کر لی ہے۔ مقداریں دیکھنے کے لیے درخواست کھولیں۔",
+      "hi": "खरीद टीम ने तैयारी पूरी कर ली है। मात्राएँ देखने के लिए अनुरोध खोलें।"
+    },
+    "type": "info"
   }
 }

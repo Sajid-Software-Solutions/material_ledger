@@ -31,6 +31,12 @@
        display-sized rendition so it does not compete with the engine after
        the first Flutter frame has been scheduled. The document/native PNG
        remains separate and is loaded only by document workflows. -->
+  <!-- Fonts download in parallel with main.dart.js instead of after it. They
+       match the engine's same-origin fetch, so the preloaded copy is reused. -->
+  <link rel="preload" href="assets/assets/fonts/NotoSans-Regular.ttf" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/assets/fonts/NotoSans-Bold.ttf" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/fonts/MaterialIcons-Regular.otf" as="fetch" crossorigin="anonymous">
+  <link rel="preload" href="assets/assets/fonts/NotoSansArabic-Regular.ttf" as="fetch" crossorigin="anonymous">
   <link rel="preload" href="assets/assets/branding/yorks_emblem_web.png" as="image" type="image/png" fetchpriority="high">
 
   <!-- Favicon -->

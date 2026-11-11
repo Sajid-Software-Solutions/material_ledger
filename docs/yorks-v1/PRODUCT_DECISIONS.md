@@ -671,9 +671,14 @@ Sequences start at `001`, are never reused and use:
 - `{PROJECT_REF}-DSP{NNN}`
 - `{PROJECT_REF}-RTN{NNN}`
 
-The Delivery Order reference is entered by an authorized user, normalized and
-globally unique. Historical references are never renumbered; collisions are
-reported and retained through a migration alias/exception.
+Owner-approved Procurement simplification (October 2026) supersedes manual
+entry as the default: a new Delivery Order receives `{PROJECT_REF}-DO{NNN}`
+from the server under a project lock. Existing/historical references remain
+unchanged; an existing document's blank-reference revision reuses its identity.
+The allocator skips existing references, and retries reuse the original result.
+Authorized explicit references remain supported for compatibility. The optional
+supplier delivery reference belongs to the dispatch and is separate from the
+Yorks Delivery Order number.
 
 ## 16. Deletion, correction and audit
 
@@ -2044,7 +2049,114 @@ and its sample supplier bills are not recorded. After the invoices, the
 contract value is AED 18,085,468.00 (it had been entered as AED 1,808,546.80 on
 20 October 2026); issued invoices keep their amounts.
 
-## 31. R39 Accounts — owner decisions of 9 November 2026
+## 31. Operational Analytics retired (owner decision, 9 November 2026)
+
+The Analytics screen (`/yorks/analytics`) is retired. It repeated what the
+role-based Overview now shows each role (projects, requests, exceptions, stock,
+rentals and recent activity) and waited on one heavy projection
+(`v1_get_operational_analytics_foundation`, 20-second timeout), so the owner saw
+a spinner rather than decisions.
+
+- `YorksV1FeatureFlags.analytics` is always false. No build can reach the route,
+  sidebar entry, search target or profile link, whatever
+  `YORKS_V1_ANALYTICS` says.
+- Nothing is deleted on the server: the protected projection, its capability
+  and every source record stay as they are. Retiring is reversible by restoring
+  the getter.
+- A future owner view should be a card on the Admin Overview backed by a
+  focused projection, not a separate screen.
+
+### 32. Workforce worker creation in assigned teams — 8 October 2026
+
+The owner approved staff adding workers only to their assigned teams. The new
+Workers entry supports listing and creating workers within current dated team
+responsibility or current team supervision, together with effective Workforce
+view and attendance-maintain capabilities. A project-level or organization-level
+responsibility alone does not grant this team-specific action. Existing Admin
+worker administration remains separate. No company-wide worker-management,
+Auth account, payroll or commercial capability is granted.
+
+Name, designation, employer, worker type and joining date remain explicit core
+data; worker number is optional and generated when blank. Other administrative
+fields stay optional and collapsed in the existing administration form. Creation
+atomically creates the worker and current team assignment, with audit and
+idempotent retry. It grants no editing or deletion of existing workers.
+
+The additive implementation is gated by `YORKS_WORKFORCE_TEAM_WORKERS`, default
+off. Apply its migration before enabling a staging artifact. See section 21 of
+[the implementation plan](WORKFORCE_MOBILE_ATTENDANCE_IMPLEMENTATION_PLAN.md).
+
+### 33. Consolidated workspace navigation — 8 October 2026
+
+The owner requested a smaller global menu. Project Accounts is the single
+Accounts entry, opening its overview. Portfolio, billing, claims, receipts/PDC,
+supplier bills, due schedule, documents, reports and Accounts audit remain
+internal sections. Workforce administration moves inside the Workforce
+workspace alongside overview, attendance and timesheets. The mobile More menu
+uses the same consolidation; Accountant bottom navigation no longer duplicates
+individual Accounts sections.
+
+Desktop uses an internal horizontal section bar; phones use a full-width
+section dropdown. Existing deep links and capability filtering remain intact,
+and authorized detailed destinations remain searchable. This presentation change
+does not grant permissions or change backend routes/data. Users with no Accounts
+or Workforce access continue to receive no corresponding destination.
+
+Local verification: 2,556 Flutter tests passed with four retained skips; analyzer
+clean. Focused navigation and 1366px/360px golden checks passed after the final
+layout adjustment. CI web/startup-budget and ephemeral-signed APK builds are
+verification artifacts only. This navigation update was deployed with owner authorization on 8 October 2026; see [release evidence](NAVIGATION_PRODUCTION_UPDATE_20261008.md).
+
+
+## 33. Worker Records in User Management (owner decision, 10 November 2026)
+
+The owner asked for the workforce sheet (name, company, trade licence number,
+passport number, basic salary, housing, others, total salary) and a photo of
+each worker to be kept in the app, managed and seen by Accounting and the PR
+team, inside User Management.
+
+- **Scope.** Worker Records adds a protected employment record beside each
+  existing Workforce worker. It is stored reference data only. Payroll
+  calculation, payslips, WPS or bank files, salary history reports and
+  document scans remain out of scope, and the general deferral of payroll in
+  section 1 is unchanged. The attendance prototype in
+  `designs/workforce-attendance-prototype.html` is not part of this work.
+- **Workforce stays pay-free.** No Workforce attendance, timesheet, monthly,
+  report or worker projection gains a pay, passport or licence field. This
+  narrows, and does not reopen, the section 24 Workforce contract.
+- **Access.** Two enforced, assignable, organization-scoped capabilities in
+  their own `worker_records` module: `worker_records.view` and
+  `worker_records.manage`. They are not part of the twelve-key `workforce.*`
+  family and do not depend on `workforce.view`.
+  - Admin holds both and may delegate them. Accountant holds both.
+  - PR staff have no role of their own: Admin grants the capability per
+    person in User Access. No tenth role is added.
+  - Every other role, including Senior Mechanical Engineer, has neither by
+    default.
+  - **Narrow exception to the R39 Accountant boundary.** R39 makes
+    Accountant an Accounts-only role, enforced by the permission resolver
+    and the assignment guard. This decision adds exactly the two
+    `worker_records.*` keys to what an Accountant may hold
+    (`v1_accountant_may_hold_capability`). Every other non-Accounts
+    capability stays refused for Accountant, and the frozen R39 Accounts key
+    list is unchanged.
+- **User Management.** A holder sees a **Workers** tab. A holder without
+  `users.view` (Accountant, PR) sees only that register: no login account,
+  role, password, project access or audit surface. No `users.*` or
+  `permissions.*` authority changes. Accountant remains outside technical
+  project membership and team management.
+- **Data rules.** Salary and passport values live only in protected relations
+  with no client grants; all reads and writes go through trusted functions
+  that recheck the capability. An amount that was not entered is reported as
+  not entered, never as zero. A passport number belongs to one worker.
+  Records are never hard-deleted; each change appends a protected revision,
+  and the general audit trail records which fields changed, not their values.
+  Photos sit in a private bucket authorized by capability, not by path.
+- **Rollout.** Flag `YORKS_V1_WORKER_RECORDS`, default off. The database
+  bundle is applied by hand on staging, then production, before the flag is
+  enabled. See [`WORKER_RECORDS.md`](WORKER_RECORDS.md).
+
+## 34. R39 Accounts — owner decisions of 9 November 2026
 
 From the project engineer's review of YRA-322 in production.
 
@@ -2080,3 +2192,60 @@ history; their stored snapshots are not rewritten.
 **The signatory is Yorks Air-Conditioning & Refrigeration LLC - SPC.**
 YRA32201 had been frozen with "WLL"; its stored company name is corrected to
 the LLC - SPC name YRA32202R.1 carries, with an audit event.
+
+## Procurement preparation refinement — October 2026
+
+The owner's later usability direction simplifies Project MR arrangement:
+
+- Full, Partial and Cannot Provide Now are derived from valid provided quantity.
+  Blank, incomplete, negative and over-request values are not decisions. Reasons
+  for shortages remain required at final submission.
+- Owner refinement on 9 October 2026: new editable lines prefill Arranged with
+  the requested quantity. Procurement adjusts shortages or zero supply; the
+  status continues to be derived. This is a proposal in the editor, never an
+  invented committed quantity or stock reservation. Explicit saved/recovered
+  values, including blank, zero and incomplete input, take precedence.
+- A unique exact catalogue match may preselect Warehouse; unmatched custom items
+  default to External supplier. Explicit selections and saved inputs are retained.
+  Warehouse results expose shelf/bin when present. The selected item's shelf/bin
+  is a separate visible line beside availability, with an explicit not-set state
+  when Inventory has no location recorded. Do not infer or invent a location.
+- Scheduled requests support a separate server-confirmed shared preparation
+  update. It records ready quantities and expected availability without reserving
+  stock, changing workflow ownership or submitting an arrangement. Private draft
+  recovery stays private. Shared updates are versioned, authorized and audited.
+- Shared readiness is an observation at its timestamp. Final arrangement still
+  rechecks current stock and every workflow invariant. Completing a Scheduled
+  arrangement requires positive external quantities to be confirmed available;
+  Normal/Urgent retain their current adoption policy. Partial completion retains
+  existing reasons and outstanding-quantity behavior.
+- Final readiness notifies the authorized current project team and requester
+  through the existing notification outbox, once. Interim updates do not generate
+  notification spam. Existing discussion and audit remain available.
+
+## Rental source intake and completion — 20 October 2026
+
+The owner explicitly authorized importing the current `Yorks Properties.xlsx`
+into live Rental Properties with incomplete details. Location, contact,
+contract number and other descriptive lease fields are optional and editable
+later. Current facts and completion recommendations remain distinct from the
+immutable imported source. The supplied tracker format is accepted directly,
+and the downloaded template aligns with its eleven columns plus optional
+completion/monthly fields.
+
+Annual rent remains an annual amount. Monthly is a separate supported option;
+changing frequency never implicitly converts the amount. Missing rent is not
+zero. Because the source contains no payment history, imported records start
+with billing setup pending and no inferred historic debt. An explicit first
+rent date establishes the generated schedule. Security-cheque source values
+remain source evidence and never become deposits, actual cheques or receipts.
+
+Type-plus-unit codes are approved, with missing identity flagged for later
+correction. Missing details appear in the rental workspace and a protected
+daily completion digest. Current lease, cheque and confirmed-schedule rent
+milestones reuse the existing notification inbox/outbox with active-Admin
+authorization, safe routes, bounded deduplication and preferences. Asia/Dubai is
+the explicit rental business timezone. Initial evaluation sends completion
+digests externally and retains other initial milestones in the inbox without
+an OS alert burst or later replay. See
+[the rental audit and release record](RENTAL_TRUST_AUDIT_2026-10-20.md).

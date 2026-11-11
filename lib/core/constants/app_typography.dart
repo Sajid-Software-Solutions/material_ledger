@@ -7,109 +7,148 @@ import 'app_colors.dart';
 /// The bundled Noto Sans family is deliberately neutral, browser-dense and
 /// deterministic offline. Arabic keeps its dedicated family and line height.
 abstract final class AppTypography {
-  static TextStyle _inter({
-    required double size,
-    required FontWeight weight,
-    required double height,
-    double letterSpacing = 0,
-    Color color = AppColors.onSurface,
-  }) => TextStyle(
+  // Constants, not getters: a getter that builds a TextStyle is inlined by
+  // the web compiler at every one of the ~2,900 call sites, which added
+  // about 180 KB to the startup bundle. A const is a single shared object.
+  static const TextStyle displayLarge = TextStyle(
     fontFamily: 'NexusSans',
-    fontFamilyFallback: const ['NotoSansArabic'],
-    fontSize: size,
-    fontWeight: weight,
-    height: height,
-    letterSpacing: letterSpacing,
-    color: color,
-  );
-
-  static TextStyle get displayLarge => _inter(
-    size: 40,
-    weight: FontWeight.w700,
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 40,
+    fontWeight: FontWeight.w700,
     height: 1.08,
     letterSpacing: -1.2,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get displayMedium => _inter(
-    size: 36,
-    weight: FontWeight.w700,
+  static const TextStyle displayMedium = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 36,
+    fontWeight: FontWeight.w700,
     height: 1.08,
     letterSpacing: -1,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get displaySmall => _inter(
-    size: 32,
-    weight: FontWeight.w700,
+  static const TextStyle displaySmall = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 32,
+    fontWeight: FontWeight.w700,
     height: 1.08,
     letterSpacing: -1.12,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get headlineLarge => displaySmall;
+  static const TextStyle headlineLarge = displaySmall;
 
-  static TextStyle get headlineMedium => _inter(
-    size: 24,
-    weight: FontWeight.w700,
+  static const TextStyle headlineMedium = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
     height: 1.18,
     letterSpacing: -0.48,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get headlineSmall => _inter(
-    size: 21,
-    weight: FontWeight.w700,
+  static const TextStyle headlineSmall = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 21,
+    fontWeight: FontWeight.w700,
     height: 1.2,
     letterSpacing: -0.42,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get titleLarge => headlineSmall;
+  static const TextStyle titleLarge = headlineSmall;
 
-  static TextStyle get titleMedium => _inter(
-    size: 16,
-    weight: FontWeight.w700,
+  static const TextStyle titleMedium = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
     height: 1.3,
     letterSpacing: -0.1,
+    color: AppColors.onSurface,
   );
 
-  static TextStyle get titleSmall =>
-      _inter(size: 14, weight: FontWeight.w700, height: 1.35);
+  static const TextStyle titleSmall = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    height: 1.35,
+    letterSpacing: 0,
+    color: AppColors.onSurface,
+  );
 
-  static TextStyle get bodyLarge =>
-      _inter(size: 16, weight: FontWeight.w400, height: 1.5);
-
-  static TextStyle get bodyMedium => _inter(
-    size: 13,
-    weight: FontWeight.w400,
+  static const TextStyle bodyLarge = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
     height: 1.5,
+    letterSpacing: 0,
+    color: AppColors.onSurface,
+  );
+
+  static const TextStyle bodyMedium = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+    letterSpacing: 0,
     color: AppColors.inkSecondary,
   );
 
-  static TextStyle get bodySmall => _inter(
-    size: 12,
-    weight: FontWeight.w400,
+  static const TextStyle bodySmall = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
     height: 1.45,
+    letterSpacing: 0,
     color: AppColors.muted,
   );
 
-  static TextStyle get labelLarge =>
-      _inter(size: 12, weight: FontWeight.w700, height: 1.3);
-
-  static TextStyle get labelMedium => _inter(
-    size: 10.5,
-    weight: FontWeight.w700,
+  static const TextStyle labelLarge = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 12,
+    fontWeight: FontWeight.w700,
     height: 1.3,
+    letterSpacing: 0,
+    color: AppColors.onSurface,
+  );
+
+  static const TextStyle labelMedium = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 10.5,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+    letterSpacing: 0,
     color: AppColors.muted,
   );
 
-  static TextStyle get labelSmall => _inter(
-    size: 10,
-    weight: FontWeight.w600,
+  static const TextStyle labelSmall = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
     height: 1.35,
     letterSpacing: 0.2,
     color: AppColors.muted,
   );
 
-  static TextStyle get eyebrow => _inter(
-    size: 10,
-    weight: FontWeight.w800,
+  static const TextStyle eyebrow = TextStyle(
+    fontFamily: 'NexusSans',
+    fontFamilyFallback: ['NotoSansArabic'],
+    fontSize: 10,
+    fontWeight: FontWeight.w800,
     height: 1.2,
     letterSpacing: 1,
     color: AppColors.blue,
@@ -123,7 +162,7 @@ abstract final class AppTypography {
     color: AppColors.onSurfaceVariant,
   );
 
-  static TextTheme get textTheme => TextTheme(
+  static const TextTheme textTheme = TextTheme(
     displayLarge: displayLarge,
     displayMedium: displayMedium,
     displaySmall: displaySmall,

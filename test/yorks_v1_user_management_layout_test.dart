@@ -111,8 +111,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('User Access'), findsOneWidget);
-      expect(find.text('User Directory'), findsOneWidget);
+      expect(find.text('User Management'), findsOneWidget);
+      expect(find.text('Total accounts'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('user-management-search')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
 

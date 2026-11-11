@@ -91,7 +91,9 @@ class MutationOp {
     createdAt: createdAt,
     isTransactional: isTransactional ?? this.isTransactional,
     attempts: attempts ?? this.attempts,
-    nextAttemptAt: clearNextAttempt ? null : (nextAttemptAt ?? this.nextAttemptAt),
+    nextAttemptAt: clearNextAttempt
+        ? null
+        : (nextAttemptAt ?? this.nextAttemptAt),
     status: status ?? this.status,
     lastError: lastError ?? this.lastError,
   );

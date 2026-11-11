@@ -40,7 +40,9 @@ operator_project_setup_flag="${YORKS_V1_PROJECT_SETUP:-}"
 operator_accounts_flag="${YORKS_V1_ACCOUNTS:-}"
 operator_accounts_workspace_v2_flag="${YORKS_V1_ACCOUNTS_WORKSPACE_V2:-}"
 operator_company_material_requests_flag="${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-}"
+operator_role_overview_v2_flag="${YORKS_V1_ROLE_OVERVIEW_V2:-}"
 operator_workforce_flag="${YORKS_V1_WORKFORCE:-}"
+operator_worker_records_flag="${YORKS_V1_WORKER_RECORDS:-}"
 operator_analytics_flag="${YORKS_V1_ANALYTICS:-}"
 operator_posthog_enabled="${POSTHOG_ENABLED:-}"
 operator_posthog_project_token="${POSTHOG_PROJECT_TOKEN:-}"
@@ -71,7 +73,11 @@ accounts_flag="${operator_accounts_flag:-${YORKS_V1_ACCOUNTS:-false}}"
 # opts in (YORKS_V1_ACCOUNTS_WORKSPACE_V2=true). It also requires YORKS_V1_ACCOUNTS.
 accounts_workspace_v2_flag="${operator_accounts_workspace_v2_flag:-${YORKS_V1_ACCOUNTS_WORKSPACE_V2:-false}}"
 company_material_requests_flag="${operator_company_material_requests_flag:-${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-false}}"
+# The role-based Overview is a default-off UI rollout (YORKS_V1_ROLE_OVERVIEW_V2=true).
+role_overview_v2_flag="${operator_role_overview_v2_flag:-${YORKS_V1_ROLE_OVERVIEW_V2:-false}}"
 workforce_flag="${operator_workforce_flag:-${YORKS_V1_WORKFORCE:-false}}"
+# Worker Records (employment record in User Management) is default-off.
+worker_records_flag="${operator_worker_records_flag:-${YORKS_V1_WORKER_RECORDS:-false}}"
 analytics_flag="${operator_analytics_flag:-${YORKS_V1_ANALYTICS:-false}}"
 posthog_enabled="${operator_posthog_enabled:-${POSTHOG_ENABLED:-false}}"
 posthog_project_token="${operator_posthog_project_token:-${POSTHOG_PROJECT_TOKEN:-}}"
@@ -159,10 +165,24 @@ case "$company_material_requests_flag" in
     exit 64
     ;;
 esac
+case "$role_overview_v2_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_ROLE_OVERVIEW_V2 must be true or false." >&2
+    exit 64
+    ;;
+esac
 case "$workforce_flag" in
   true|false) ;;
   *)
     echo "YORKS_V1_WORKFORCE must be true or false." >&2
+    exit 64
+    ;;
+esac
+case "$worker_records_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_WORKER_RECORDS must be true or false." >&2
     exit 64
     ;;
 esac
@@ -280,7 +300,9 @@ r35_defines=(
   "--dart-define=YORKS_V1_ACCOUNTS=${accounts_flag}"
   "--dart-define=YORKS_V1_ACCOUNTS_WORKSPACE_V2=${accounts_workspace_v2_flag}"
   "--dart-define=YORKS_V1_COMPANY_MATERIAL_REQUESTS=${company_material_requests_flag}"
+  "--dart-define=YORKS_V1_ROLE_OVERVIEW_V2=${role_overview_v2_flag}"
   "--dart-define=YORKS_V1_WORKFORCE=${workforce_flag}"
+  "--dart-define=YORKS_V1_WORKER_RECORDS=${worker_records_flag}"
   "--dart-define=YORKS_V1_ANALYTICS=${analytics_flag}"
   "--dart-define=POSTHOG_ENABLED=${posthog_enabled}"
   "--dart-define=POSTHOG_PROJECT_TOKEN=${posthog_project_token}"
@@ -297,8 +319,10 @@ r35_defines=(
 # exposing backend configuration, telemetry tokens or public-notification credentials.
 echo "Yorks Accounts rollout: ${accounts_flag}" >&2
 echo "Yorks Company Material Requests rollout: ${company_material_requests_flag}" >&2
+echo "Yorks Role Overview V2 rollout: ${role_overview_v2_flag}" >&2
 echo "Yorks Workforce rollout: ${workforce_flag}" >&2
-echo "Yorks Analytics rollout: ${analytics_flag}" >&2
+echo "Yorks Worker Records rollout: ${worker_records_flag}" >&2
+echo "Yorks Analytics rollout: retired (requested ${analytics_flag})" >&2
 echo "Yorks PostHog telemetry: ${posthog_enabled}" >&2
 
 # The VAPID public key is not a secret, but it is environment-specific. It is

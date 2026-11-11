@@ -1,3 +1,4 @@
+import 'workforce_team_workers_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/yorks_v1_permission_management.dart';
@@ -347,4 +348,22 @@ final yorksWorkforceReportControllerProvider =
         controller.purgeProtectedState(unavailable: !epoch.featureEnabled);
       }
       return controller;
+    });
+
+final yorksWorkforceTeamWorkersProvider =
+    StateNotifierProvider.autoDispose<
+      WorkforceTeamWorkersController,
+      AsyncValue<Map<String, dynamic>>
+    >((ref) {
+      final epoch = ref.watch(yorksWorkforceAuthorityEpochProvider);
+      final repository =
+          ref.watch(yorksWorkforceRepositoryProvider)
+              as YorksWorkforceTeamWorkerRepository;
+      return WorkforceTeamWorkersController(
+        repository,
+        YorksV1CriticalCommandKeyStore(
+          preferences: ref.watch(sharedPreferencesProvider),
+          actorAuthUserId: epoch.actorAuthUserId ?? 'inactive',
+        ),
+      );
     });

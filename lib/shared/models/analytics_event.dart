@@ -5,6 +5,7 @@ const int analyticsSchemaVersion = 2;
 /// The complete Yorks product-analytics event allowlist. New events must be
 /// reviewed here and documented before a call site can emit them.
 enum AnalyticsEvent {
+  analyticsInteraction('analytics interaction'),
   calculatorCreationStarted('calculator creation started'),
   calculatorCreated('calculator created'),
   calculatorOpened('calculator opened'),
@@ -78,6 +79,10 @@ enum AnalyticsEvent {
   approvalActionStarted('approval started'),
   approvalActionCompleted('approval completed'),
   procurementRequestOpened('procurement request opened'),
+  procurementProgressSaved('procurement progress saved'),
+  procurementProgressFailed('procurement progress failed'),
+  procurementProgressRestored('procurement progress restored'),
+  procurementCommandReconciled('procurement command reconciled'),
   arrangementStarted('procurement started'),
   arrangementSaveAttempted('procurement action started'),
   arrangementSaveCompleted('procurement action completed'),
@@ -104,6 +109,11 @@ enum AnalyticsEvent {
   uiRepeatedActionDetected('repeated action detected'),
   uiActionNoFeedback('action produced no feedback'),
   operationCompleted('operation completed'),
+  // A request the app refused to send because the device was offline or no
+  // user was signed in. It is not an app/server failure, so it is kept out of
+  // `operation completed` success rates and reliability errors.
+  operationBlocked('operation blocked'),
+  commandOutcomeChanged('command outcome changed'),
   featureFlagInteracted('feature flag evaluated'),
   reliabilityError('reliability error occurred');
 
@@ -126,6 +136,8 @@ enum AnalyticsProperty {
   entryPoint,
   networkState,
   operation,
+  commandFingerprint,
+  commandPhase,
   actionType,
   objectType,
   workflow,

@@ -116,10 +116,10 @@ abstract final class YorksV1AccountsStrings {
           'वर्गीकरण और संशोधन संदर्भ सहित प्रोजेक्टों में मौजूदा नियंत्रित कमर्शियल साक्ष्य खोजें।',
     },
     'office_activity_title': {
-      'en': 'Accounts Audit Trail',
-      'ar': 'سجل تدقيق الحسابات',
-      'ur': 'اکاؤنٹس آڈٹ ٹریل',
-      'hi': 'अकाउंट्स ऑडिट ट्रेल',
+      'en': 'Accounts Activity',
+      'ar': 'نشاط الحسابات',
+      'ur': 'اکاؤنٹس سرگرمی',
+      'hi': 'अकाउंट्स गतिविधि',
     },
     'office_activity_body': {
       'en':

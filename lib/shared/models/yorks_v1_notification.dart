@@ -96,6 +96,21 @@ class YorksV1NotificationRecord {
         entityType == 'chat_message' &&
         resolvedRequestId.isNotEmpty;
     final module = notificationModuleEvents[eventCode];
+    final isRentalEvent = module != null && eventCode.startsWith('rental_');
+    final expectedRentalRoute = isRentalEvent
+        ? (eventCode == 'rental_completeness_review'
+              ? (entityType == 'rental_portfolio' ? RoutePaths.rentals : '')
+              : entityType == 'rental_property' &&
+                    RegExp(
+                      r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+                      caseSensitive: false,
+                    ).hasMatch(entityId)
+              ? RoutePaths.rentalUnitPath(entityId)
+              : '')
+        : null;
+    final rentalRoute = isRentalEvent
+        ? (moduleRoute == expectedRentalRoute ? expectedRentalRoute : '')
+        : null;
     final moduleDestination = module == null
         ? null
         : eventCode.startsWith('accounts_')
@@ -104,6 +119,7 @@ class YorksV1NotificationRecord {
               : '/yorks/projects/$resolvedProjectId/accounts/${module['destination'] == 'invoices' ? 'client-invoices' : module['destination']}')
         : '/yorks/workforce/${module['destination']}';
     final resolvedRoute =
+        rentalRoute ??
         moduleRoute ??
         moduleDestination ??
         (isMaterialRequestCommentMention
@@ -461,6 +477,20 @@ const _eventCopy = <String, YorksV1NotificationCopy>{
     urduBody: 'ایک ساتھی نے گفتگو میں آپ کا ذکر کیا۔',
     hindiTitle: 'टीम चैट में आपका उल्लेख हुआ',
     hindiBody: 'एक साथी ने बातचीत में आपका उल्लेख किया।',
+  ),
+  'arrangement_preparation_completed': YorksV1NotificationCopy(
+    type: NotificationType.info,
+    englishTitle: 'Materials prepared',
+    englishBody:
+        'Procurement completed preparation. Open the request to see the quantities.',
+    arabicTitle: 'تم تجهيز المواد',
+    arabicBody: 'أكملت المشتريات التجهيز. افتح الطلب للاطلاع على الكميات.',
+    urduTitle: 'مٹیریل تیار ہے',
+    urduBody:
+        'پروکیورمنٹ نے تیاری مکمل کر لی ہے۔ مقداریں دیکھنے کے لیے درخواست کھولیں۔',
+    hindiTitle: 'सामग्री तैयार है',
+    hindiBody:
+        'खरीद टीम ने तैयारी पूरी कर ली है। मात्राएँ देखने के लिए अनुरोध खोलें।',
   ),
   'arrangement_ready_for_dispatch': YorksV1NotificationCopy(
     type: NotificationType.request,

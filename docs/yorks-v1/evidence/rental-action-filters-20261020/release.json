@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-20",
+  "implementationCommit": "adb3576f3d6a9c19645b5567155dcb982c3b4466",
+  "canonicalUrl": "https://yorks-r35.vercel.app",
+  "deploymentId": "dpl_B96grAdqY4GbnnG72eJj1c8xBDLv",
+  "immutableUrl": "https://yorks-r35-dme6y29x6-sajid-alis-projects-0ec775a2.vercel.app",
+  "readyState": "READY",
+  "canonicalDeploymentIdentityVerified": true,
+  "rollbackDeploymentId": "dpl_JCnBZWcMEKVy633C1gFNyCqXzry6",
+  "checks": {
+    "analyzer": "passed",
+    "format": "passed",
+    "flutterTestsPassed": 2882,
+    "flutterTestsSkipped": 4,
+    "routerJourneyScenarios": 14,
+    "databaseAssertionsPassed": 4876,
+    "databaseTestFiles": 143,
+    "ciWebBuild": "passed",
+    "ciApkBuild": "passed; ephemeral CI signing only",
+    "productionWebBuild": "passed",
+    "stagedRouteAssetChecksPassed": 34,
+    "canonicalRouteAssetChecksPassed": 34
+  },
+  "liveBrowserCheck": {
+    "browser": "Chrome on macOS",
+    "verified": [
+      "Missing details filter and count",
+      "Selected issue opens first in property detail",
+      "Complete details starts at Site location",
+      "Go to field reveals and highlights Contact number",
+      "Cancel without saving",
+      "Workspace Back preserves Missing details filter"
+    ],
+    "productionDataMutations": 0
+  },
+  "limitations": [
+    "Mobile and Arabic verified through automated journey and visual checks, not a physical device",
+    "No new notification delivery acceptance claimed"
+  ],
+  "databaseChanges": false
+}

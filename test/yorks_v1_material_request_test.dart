@@ -2497,7 +2497,10 @@ void main() {
     test(
       'lost response reconciles original frozen intent, approve=$approve',
       () async {
-        final repository = _RecoveryRequestRepository();
+        final repository = _RecoveryRequestRepository()
+          ..lookupFailure = const YorksV1DomainException(
+            YorksV1DomainErrorCode.backendUnavailable,
+          );
         final store = _MemoryStore<YorksV1MaterialRequestDraft>();
         final controller = await _recoveryController(repository, store);
         expect(
@@ -2534,15 +2537,36 @@ void main() {
           reopened.state.status,
           YorksV1MaterialRequestDraftSyncStatus.outcomeUnknown,
         );
+        repository.lookupFailure = null;
         final result = await reopened.reconcileSubmission();
         expect(result?.id, _draftId);
-        expect(repository.checkedModes, [approve]);
+        expect(repository.checkedModes, [approve, approve, approve]);
         expect(repository.writeCount, 1);
         expect(repository.commitCount, 1);
         expect(store.readAll(), isEmpty);
       },
     );
   }
+
+  test(
+    'lost submission response automatically confirms original command without another write',
+    () async {
+      final repository = _RecoveryRequestRepository();
+      final store = _MemoryStore<YorksV1MaterialRequestDraft>();
+      final controller = await _recoveryController(repository, store);
+      addTearDown(controller.dispose);
+      final result = await controller.submit();
+      expect(result?.id, _draftId);
+      expect(
+        controller.state.status,
+        YorksV1MaterialRequestDraftSyncStatus.submitted,
+      );
+      expect(repository.writeCount, 1);
+      expect(repository.commitCount, 1);
+      expect(repository.checkedModes, [false]);
+      expect(store.readAll(), isEmpty);
+    },
+  );
 
   test(
     'unconfirmed read permits only explicit retry of unchanged intent',
@@ -2628,8 +2652,10 @@ void main() {
         ..lookupDelay = blocker.future;
       final store = _MemoryStore<YorksV1MaterialRequestDraft>();
       final controller = await _recoveryController(repository, store);
-      await controller.submit();
-      final check = controller.reconcileSubmission();
+      final check = controller.submit();
+      while (repository.checkedModes.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
       expect(await controller.reconcileSubmission(), isNull);
       controller.dispose();
       blocker.complete();
@@ -2653,8 +2679,10 @@ void main() {
         isCurrentOwner: () => currentOwner,
       );
       addTearDown(controller.dispose);
-      await controller.submit();
-      final check = controller.reconcileSubmission();
+      final check = controller.submit();
+      while (repository.checkedModes.isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
       currentOwner = false;
       blocker.complete();
       expect(await check, isNull);

@@ -10,6 +10,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'features/projects/presentation/overview/yorks_v1_role_overview_deferred.dart';
 import 'app/app.dart';
 import 'core/constants/app_colors.dart';
 import 'core/widgets/brand_logo.dart';
@@ -300,6 +301,11 @@ Future<Widget> _initializeRuntime(
     );
     _StartupTimeline.mark('supabase_ready');
     final client = Supabase.instance.client;
+    // A signed-in user lands on the Overview: fetch its code now, in parallel
+    // with session and permission verification, instead of after them.
+    if (r35Flags.roleOverviewV2 && client.auth.currentSession != null) {
+      prefetchYorksV1RoleOverview();
+    }
     overrides.add(supabaseClientProvider.overrideWithValue(client));
     overrides.add(
       syncBackendProvider.overrideWithValue(SupabaseSyncBackend(client)),
