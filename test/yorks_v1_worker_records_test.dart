@@ -22,8 +22,8 @@ import 'support/yorks_v1_permission_test_support.dart';
 
 Map<String, dynamic> _row(
   int n, {
-  String name = 'MD RAJA MD MAINUDDIN',
-  String company = 'Al Badawi Central AC Maint. LLC-SPC',
+  String name = 'AHMED TEST ONE',
+  String company = 'Example Cooling Services LLC',
   bool hasRecord = true,
   String basic = '700.00',
   String housing = '500.00',
@@ -40,8 +40,8 @@ Map<String, dynamic> _row(
   'joining_date': '2026-01-01',
   'worker_version': 1,
   'has_record': hasRecord,
-  'trade_license_no': hasRecord ? 'CN-106632$n' : null,
-  'passport_no': hasRecord ? 'AW90932$n' : null,
+  'trade_license_no': hasRecord ? 'CN-TEST-0$n' : null,
+  'passport_no': hasRecord ? 'TP100000$n' : null,
   'basic_salary': hasRecord ? basic : null,
   'housing_allowance': hasRecord ? housing : null,
   'other_allowance': hasRecord ? other : null,
@@ -67,8 +67,8 @@ Map<String, dynamic> _page(List<Map<String, dynamic>> items, {int? total}) => {
     'total_salary': '4000.00',
   },
   'companies': [
-    'Al Badawi Central AC Maint. LLC-SPC',
-    'Yorks Airconditioning & Refrigeration WLL-Dubai Branch',
+    'Example Cooling Services LLC',
+    'Example Contracting WLL - Dubai Branch',
   ],
   'items': items,
 };
@@ -77,16 +77,16 @@ final _sheet = [
   _row(1),
   _row(
     2,
-    name: 'MD TALIB REZA',
-    company: 'Yorks Airconditioning & Refrigeration WLL-Dubai Branch',
+    name: 'CHAND TEST THREE',
+    company: 'Example Contracting WLL - Dubai Branch',
     basic: '950.00',
     other: '150.00',
     total: '1600.00',
   ),
   _row(
     3,
-    name: 'PARWEZ ALAM',
-    company: 'Yorks Airconditioning & Refrigeration WLL-Dubai Branch',
+    name: 'DANISH TEST FOUR',
+    company: 'Example Contracting WLL - Dubai Branch',
   ),
   _row(4, name: 'NEW JOINER WITHOUT RECORD', hasRecord: false),
 ];
@@ -411,7 +411,7 @@ void main() {
           width,
           YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
         );
-        expect(find.textContaining('MD TALIB REZA'), findsOneWidget);
+        expect(find.textContaining('CHAND TEST THREE'), findsOneWidget);
         expect(find.text('4 workers'), findsOneWidget);
         expect(find.text('3 with a record'), findsOneWidget);
         expect(
@@ -438,7 +438,7 @@ void main() {
         1366,
         YorksV1WorkerRecordPage.fromRpcJson(_page(_sheet)),
       );
-      await tester.tap(find.text('MD TALIB REZA'));
+      await tester.tap(find.text('CHAND TEST THREE'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('worker-record-dialog')),
