@@ -652,6 +652,133 @@ select is(
   0, 'Its workers leave the crew'
 );
 
+-- Release workers one by one --------------------------------------------------
+
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select set_config('crq.rel', (
+  public.v1_wf_submit_request(jsonb_build_object(
+      'crew_kind', 'project',
+      'project_id', '7c010000-0000-4000-8000-000000000001',
+      'needed_from', current_setting('crq.from'),
+      'lines', jsonb_build_array(
+        jsonb_build_object('worker_id', '7c020000-0000-4000-8000-000000000006'),
+        jsonb_build_object('worker_id', '7c020000-0000-4000-8000-000000000007'))),
+    null, '7c030000-0000-4000-8000-000000000070') ->> 'id'
+), true);
+reset role;
+select set_config('crq.rel_lines', (
+  select jsonb_agg(line.id order by line.line_number)::text
+  from public.v1_workforce_crew_request_lines line
+  where line.request_id = current_setting('crq.rel')::uuid and line.is_current
+), true);
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
+select is(
+  public.v1_wf_fulfil_request(current_setting('crq.rel')::uuid,
+    jsonb_build_object(
+      'approve', true,
+      'new_crew', jsonb_build_object('name', 'Release test crew',
+        'shift_start_minute', 390, 'shift_finish_minute', 1020),
+      'lines', jsonb_build_array(
+        jsonb_build_object(
+          'line_id', current_setting('crq.rel_lines')::jsonb ->> 0,
+          'worker_ids', jsonb_build_array(
+            '7c020000-0000-4000-8000-000000000006')),
+        jsonb_build_object(
+          'line_id', current_setting('crq.rel_lines')::jsonb ->> 1,
+          'worker_ids', jsonb_build_array(
+            '7c020000-0000-4000-8000-000000000007')))),
+    1, '7c030000-0000-4000-8000-000000000071') ->> 'state',
+  'fulfilled', 'Two named workers are on site'
+);
+
+select pg_temp.act('10000000-0000-4000-8000-000000000003', 'procurement');
+select throws_ok(
+  format($$select public.v1_wf_release_request_worker(%L::uuid,
+      '7c020000-0000-4000-8000-000000000006', null, 2,
+      '7c030000-0000-4000-8000-000000000072')$$, current_setting('crq.rel')),
+  '42501', null, 'Procurement cannot release a worker'
+);
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select throws_ok(
+  format($$select public.v1_wf_release_request_worker(%L::uuid,
+      '7c020000-0000-4000-8000-000000000006', null, 1,
+      '7c030000-0000-4000-8000-000000000073')$$, current_setting('crq.rel')),
+  '40001', null, 'A stale version cannot release a worker'
+);
+select is(
+  public.v1_wf_release_request_worker(current_setting('crq.rel')::uuid,
+    '7c020000-0000-4000-8000-000000000006', 'Fitting done', 2,
+    '7c030000-0000-4000-8000-000000000074') ->> 'state',
+  'fulfilled', 'The requester releases one worker; the request stays open'
+);
+select is(
+  public.v1_wf_release_request_worker(current_setting('crq.rel')::uuid,
+    '7c020000-0000-4000-8000-000000000006', 'Fitting done', 2,
+    '7c030000-0000-4000-8000-000000000074') ->> 'record_version',
+  '3', 'A retry does not release twice'
+);
+select ok(
+  (select bool_and(
+      case when person ->> 'worker_id' = '7c020000-0000-4000-8000-000000000006'
+        then person ->> 'released_at' is not null
+        else person ->> 'released_at' is null end)
+   from jsonb_array_elements(
+     public.v1_wf_get_request(current_setting('crq.rel')::uuid) -> 'lines'
+   ) line, jsonb_array_elements(line -> 'assigned') person),
+  'The request shows who has left the crew'
+);
+select throws_ok(
+  format($$select public.v1_wf_release_request_worker(%L::uuid,
+      '7c020000-0000-4000-8000-000000000006', null, 3,
+      '7c030000-0000-4000-8000-000000000075')$$, current_setting('crq.rel')),
+  '22023', 'V1_WORKFORCE_REQUEST_WORKER_NOT_ON_SITE',
+  'A worker already released cannot be released again'
+);
+select throws_ok(
+  format($$select public.v1_wf_release_request_worker(%L::uuid,
+      '7c020000-0000-4000-8000-000000000001', null, 3,
+      '7c030000-0000-4000-8000-000000000076')$$, current_setting('crq.rel')),
+  '22023', 'V1_WORKFORCE_REQUEST_WORKER_NOT_ON_SITE',
+  'A worker who is not on this request cannot be released through it'
+);
+reset role;
+select ok(
+  not exists (
+    select 1 from public.v1_workforce_crew_members member
+    where member.worker_id = '7c020000-0000-4000-8000-000000000006'
+      and member.removed_at is null
+  ) and exists (
+    select 1 from public.v1_workforce_crew_members member
+    where member.worker_id = '7c020000-0000-4000-8000-000000000007'
+      and member.removed_at is null
+  ),
+  'Only the released worker left the crew'
+);
+
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
+select is(
+  public.v1_wf_release_request_worker(current_setting('crq.rel')::uuid,
+    '7c020000-0000-4000-8000-000000000007', null, 3,
+    '7c030000-0000-4000-8000-000000000077') ->> 'state',
+  'completed', 'Releasing the last worker on site finishes the request'
+);
+reset role;
+select ok(
+  (select count(*) = 2 from public.v1_workforce_crew_request_events event
+   where event.request_id = current_setting('crq.rel')::uuid
+     and event.event_type = 'worker_released')
+  and exists (
+    select 1 from public.v1_workforce_crew_request_events event
+    where event.request_id = current_setting('crq.rel')::uuid
+      and event.event_type = 'completed'
+      and (event.detail ->> 'last_worker')::boolean
+  ),
+  'Each release and the finish are in the history'
+);
+
 -- Boundary ------------------------------------------------------------------
 
 select ok(
@@ -664,7 +791,10 @@ select ok(
   and not has_function_privilege('anon',
     'public.v1_wf_list_requests()', 'execute')
   and not has_function_privilege('anon',
-    'public.v1_wf_finish_request(uuid,text,bigint,uuid)', 'execute'),
+    'public.v1_wf_finish_request(uuid,text,bigint,uuid)', 'execute')
+  and not has_function_privilege('anon',
+    'public.v1_wf_release_request_worker(uuid,uuid,text,bigint,uuid)',
+    'execute'),
   'Requests are reachable only through their functions'
 );
 

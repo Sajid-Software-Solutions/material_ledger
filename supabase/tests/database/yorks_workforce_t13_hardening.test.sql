@@ -300,6 +300,7 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_fulfil_request(p_request_id uuid, p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_finish_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_list_requests()'),
+  ('v1_wf_release_request_worker(p_request_id uuid, p_worker_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_request_options()'),
   ('v1_wf_submit_request(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)');
 
