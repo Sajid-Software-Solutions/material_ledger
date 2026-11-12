@@ -16,12 +16,21 @@ select is(
   (select array_agg(relname order by relname) from t13_workforce_tables),
   array[
     'v1_workforce_attendance_days',
+    'v1_workforce_attendance_events',
     'v1_workforce_calendar_dates',
     'v1_workforce_calendar_weekdays',
     'v1_workforce_calendars',
+    'v1_workforce_crew_members',
+    'v1_workforce_crew_profiles',
+    'v1_workforce_day_changes',
+    'v1_workforce_day_questions',
+    'v1_workforce_day_rows',
+    'v1_workforce_day_sheets',
     'v1_workforce_document_upload_metadata',
     'v1_workforce_document_version_metadata',
     'v1_workforce_internal_locations',
+    'v1_workforce_month_confirmations',
+    'v1_workforce_month_reminders',
     'v1_workforce_monthly_approval_revisions',
     'v1_workforce_monthly_approved_snapshots',
     'v1_workforce_monthly_correction_contexts',
@@ -37,6 +46,7 @@ select is(
     'v1_workforce_monthly_validation_runs',
     'v1_workforce_notification_deliveries',
     'v1_workforce_notification_digests',
+    'v1_workforce_public_holidays',
     'v1_workforce_report_artifact_snapshots',
     'v1_workforce_report_artifacts',
     'v1_workforce_responsibility_assignments',
@@ -51,7 +61,7 @@ select is(
     'v1_workforce_worker_assignments',
     'v1_workforce_workers'
   ]::name[],
-  'T13 freezes the exact accepted T01-T12 Workforce relation inventory'
+  'T13 freezes the exact accepted Workforce relation inventory, including attendance V2'
 );
 
 select ok(
@@ -100,8 +110,12 @@ select is(
         and pg_catalog.pg_get_triggerdef(trigger.oid) ilike '%before delete%'
     )
   ),
-  array['v1_workforce_monthly_correction_contexts']::name[],
-  'Only the transaction-scoped correction context is exempt from retained-row hard-delete guards'
+  array[
+    'v1_workforce_day_rows',
+    'v1_workforce_monthly_correction_contexts',
+    'v1_workforce_public_holidays'
+  ]::name[],
+  'Only the correction context, day-only rows and public holidays are exempt from retained-row hard-delete guards'
 );
 
 select is(
@@ -251,7 +265,23 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_list_worker_records(p_search text, p_company text, p_status text, p_limit integer, p_offset integer)'),
   ('v1_save_worker_record(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_set_worker_photo(p_worker_id uuid, p_object_path text, p_expected_version bigint, p_idempotency_key uuid)'),
-  ('v1_worker_photo_writable(p_bucket_id text, p_object_path text)');
+  ('v1_worker_photo_writable(p_bucket_id text, p_object_path text)'),
+  -- Attendance V2 (PRODUCT_DECISIONS.md section 37): crew days, questions
+  -- and month confirmation.
+  ('v1_wf_answer_day(p_team_id uuid, p_work_date date, p_answer text, p_idempotency_key uuid)'),
+  ('v1_wf_ask_day(p_team_id uuid, p_work_date date, p_question text, p_idempotency_key uuid)'),
+  ('v1_wf_confirm_month(p_team_id uuid, p_month date, p_idempotency_key uuid)'),
+  ('v1_wf_get_day(p_team_id uuid, p_work_date date)'),
+  ('v1_wf_get_month_sheet(p_team_id uuid, p_month date)'),
+  ('v1_wf_get_overview(p_month date)'),
+  ('v1_wf_list_crews()'),
+  ('v1_wf_list_public_holidays(p_year integer)'),
+  ('v1_wf_list_workers()'),
+  ('v1_wf_reopen_month(p_team_id uuid, p_month date, p_reason text, p_idempotency_key uuid)'),
+  ('v1_wf_save_crew(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_wf_save_day(p_team_id uuid, p_work_date date, p_rows jsonb, p_expected_version bigint, p_change_reason text, p_idempotency_key uuid)'),
+  ('v1_wf_save_public_holiday(p_holiday_date date, p_holiday_name text, p_remove boolean)'),
+  ('v1_wf_set_crew_members(p_team_id uuid, p_add_worker_ids uuid[], p_remove_worker_ids uuid[], p_idempotency_key uuid)');
 
 select set_eq(
   'select proname || ''('' || arguments || '')''
