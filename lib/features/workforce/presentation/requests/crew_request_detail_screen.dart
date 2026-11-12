@@ -215,6 +215,60 @@ class _Detail extends ConsumerWidget {
     attendanceToast(context, CRS.t(CRS.finishedToast, language));
   }
 
+  Future<void> _release(
+    BuildContext context,
+    WidgetRef ref,
+    CrewRequestAssignee person,
+  ) async {
+    final repository = ref.read(yorksAttendanceRepositoryProvider);
+    final key = YorksAttendanceRepository.newKey();
+    // The last worker out of a fully assigned request finishes it.
+    final last =
+        request.state == CrewRequestState.fulfilled && request.onSiteCount == 1;
+    final values = {'name': person.name, 'crew': person.crewName};
+    final done = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: CRS.t(CRS.releaseTitle, language, values),
+      body: CRS.t(
+        last ? CRS.releaseLastBody : CRS.releaseBody,
+        language,
+        values,
+      ),
+      summary: [
+        person.number,
+        person.designation,
+      ].where((part) => part.isNotEmpty).join(' · '),
+      confirmLabel: CRS.t(CRS.release, language),
+      fieldLabel: CRS.t(CRS.reasonOptional, language),
+      fieldOptional: true,
+      command: (text) async {
+        try {
+          await repository.releaseWorker(
+            requestId: request.id,
+            workerId: person.workerId,
+            reason: text,
+            expectedVersion: request.recordVersion,
+            idempotencyKey: key,
+          );
+          return null;
+        } catch (error) {
+          return crewRequestErrorText(error, language);
+        }
+      },
+    );
+    if (done == null || !context.mounted) return;
+    _refresh(ref);
+    ref.invalidate(yorksCrewRequestOptionsProvider);
+    ref.invalidate(yorksAttendanceCrewsProvider);
+    attendanceToast(
+      context,
+      CRS.t(last ? CRS.releasedFinishedToast : CRS.releasedToast, language, {
+        'name': person.name,
+      }),
+    );
+  }
+
   void _showInformation(BuildContext context) {
     showGeneralDialog<void>(
       context: context,
@@ -328,6 +382,7 @@ class _Detail extends ConsumerWidget {
       'name': event.actorName,
       'n': event.detail['added'] ?? event.detail['released'] ?? 0,
       'crew': event.detail['crew_name'] ?? '',
+      'worker': event.detail['worker_name'] ?? '',
     };
     final template = switch (event.type) {
       'submitted' => CRS.evSubmitted,
@@ -341,7 +396,10 @@ class _Detail extends ConsumerWidget {
       'workers_assigned' when (event.detail['added'] ?? 0) == 0 =>
         CRS.evDecisions,
       'workers_assigned' => CRS.evAssigned,
+      'completed' when event.detail['last_worker'] == true =>
+        CRS.evFinishedLast,
       'completed' => CRS.evFinished,
+      'worker_released' => CRS.evReleased,
       _ => CRS.evClosed,
     };
     final title = CRS.t(template, language, values);
@@ -629,7 +687,13 @@ class _Detail extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _PeopleCard(request: request, language: language),
+                _PeopleCard(
+                  request: request,
+                  language: language,
+                  onRelease: access.finish
+                      ? (person) => _release(context, ref, person)
+                      : null,
+                ),
                 const SizedBox(height: 12),
                 _Progress(request: request, language: language),
                 const SizedBox(height: 12),
@@ -664,10 +728,17 @@ class _Detail extends ConsumerWidget {
 }
 
 class _PeopleCard extends StatelessWidget {
-  const _PeopleCard({required this.request, required this.language});
+  const _PeopleCard({
+    required this.request,
+    required this.language,
+    this.onRelease,
+  });
 
   final CrewRequest request;
   final AppLanguage language;
+
+  /// Set when the signed-in person may release workers one by one.
+  final ValueChanged<CrewRequestAssignee>? onRelease;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -689,10 +760,17 @@ class _PeopleCard extends StatelessWidget {
                 ),
               ),
               Text(
-                CRS.t(CRS.assignedOf, language, {
-                  'a': request.assignedCount,
-                  'b': request.requestedCount,
-                }),
+                [
+                  CRS.t(CRS.assignedOf, language, {
+                    'a': request.assignedCount,
+                    'b': request.requestedCount,
+                  }),
+                  // Once someone has left, say how many are still there.
+                  if (request.onSiteCount < request.assignedCount)
+                    CRS.t(CRS.onSiteCount, language, {
+                      'n': request.onSiteCount,
+                    }),
+                ].join(' · '),
                 style: AppTypography.labelMedium.copyWith(
                   color: AppColors.inkSecondary,
                 ),
@@ -840,19 +918,14 @@ class _PeopleCard extends StatelessWidget {
                             ),
                           )
                         else
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              for (final person in line.assigned)
-                                CrPill(
-                                  icon: Icons.person_outline_rounded,
-                                  label: '${person.name} · ${person.crewName}',
-                                  color: AppColors.success,
-                                  background: AppColors.successContainer,
-                                ),
-                            ],
-                          ),
+                          for (final person in line.assigned)
+                            _Assignee(
+                              person: person,
+                              language: language,
+                              onRelease: onRelease == null || !person.onSite
+                                  ? null
+                                  : () => onRelease!(person),
+                            ),
                         if (line.decision != null &&
                             line.decision != CrewRequestLineDecision.full) ...[
                           const SizedBox(height: 6),
@@ -875,6 +948,85 @@ class _PeopleCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// One worker this request brought: on the crew, or when they left it.
+class _Assignee extends StatelessWidget {
+  const _Assignee({
+    required this.person,
+    required this.language,
+    this.onRelease,
+  });
+
+  final CrewRequestAssignee person;
+  final AppLanguage language;
+  final VoidCallback? onRelease;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSite = person.onSite;
+    return Container(
+      key: ValueKey('crew-request-assignee-${person.workerId}'),
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 4, 4, 4),
+      constraints: const BoxConstraints(minHeight: 48),
+      decoration: BoxDecoration(
+        color: onSite ? AppColors.successContainer : AppColors.neutralContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            onSite ? Icons.person_outline_rounded : Icons.logout_rounded,
+            size: 18,
+            color: onSite ? AppColors.success : AppColors.neutralText,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  person.name,
+                  style: AppTypography.labelLarge.copyWith(
+                    color: onSite ? AppColors.ink : AppColors.neutralText,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  onSite
+                      ? person.crewName
+                      : CRS.t(CRS.leftCrewAt, language, {
+                          'at': attendanceStamp(person.releasedAt),
+                        }),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onRelease != null)
+            TextButton.icon(
+              key: ValueKey('crew-request-release-${person.workerId}'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                foregroundColor: AppColors.error,
+              ),
+              onPressed: onRelease,
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: Semantics(
+                label: CRS.t(CRS.releaseWorker, language, {
+                  'name': person.name,
+                }),
+                excludeSemantics: true,
+                child: Text(CRS.t(CRS.release, language)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Progress extends StatelessWidget {

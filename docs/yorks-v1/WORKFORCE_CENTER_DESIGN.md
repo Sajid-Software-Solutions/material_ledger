@@ -184,3 +184,22 @@ Supersedes decisions 3 and 4 above; `PRODUCT_DECISIONS.md` section 40.
   an assigner, reason optional, expected version and idempotency key)
   releases this request's crew memberships and records `completed` with the
   number released. Attendance already taken is kept.
+
+## 8. Release one worker (owner, 13 November 2026)
+
+`PRODUCT_DECISIONS.md` section 41.
+
+- **Who.** The same people as Finish: the requester, or an assigner
+  (the project's approvers, PR, Admin). Procurement is refused.
+- **Where.** On the request, each worker the request brought is a row:
+  on the crew (with **Release**), or "Left the crew *time*". Once anyone
+  has left, the People header adds "*n* on site".
+- **Command.** `v1_wf_release_request_worker(request, worker, reason,
+  expected version, idempotency key)` ends that worker's crew membership,
+  records `worker_released` (worker, crew, how many remain) and audits it.
+  A retry returns the same result; a worker not on site is refused
+  (`V1_WORKFORCE_REQUEST_WORKER_NOT_ON_SITE`).
+- **Last one out.** When the request is fully assigned and the released
+  worker was the last one on site, the request becomes Finished (event
+  `completed` with `last_worker`). A partly assigned request stays open
+  for the workers still to come.

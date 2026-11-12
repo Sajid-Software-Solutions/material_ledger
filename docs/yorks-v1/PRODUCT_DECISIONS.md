@@ -2356,6 +2356,19 @@ Finished. Attendance already taken is kept. This supersedes section 38's
 3 and 4 of the design note. Design:
 [`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md) section 7.
 
+## 41. Releasing crew request workers one by one (owner decision, 13 November 2026)
+
+While a crew request's workers are on site, the people who may finish it
+(the requester, or an approver or PR who assigns) may **release one worker**
+when that person is no longer needed. The worker leaves the crew and is
+free for other crews; attendance already taken stays. Each worker on the
+request shows whether they are still on the crew or when they left it,
+however they left (released, finished, moved by another request, or a crew
+edit). Releasing the last worker still on site of a fully assigned request
+finishes it. A released worker cannot be released again, and a stale
+version is refused. Design:
+[`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md) section 8.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

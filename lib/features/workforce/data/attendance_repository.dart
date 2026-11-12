@@ -326,6 +326,24 @@ final class YorksAttendanceRepository {
     }),
   );
 
+  /// One worker is no longer needed and leaves the crew. The last one out
+  /// of a fully assigned request finishes it.
+  Future<CrewRequest> releaseWorker({
+    required String requestId,
+    required String workerId,
+    String? reason,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_release_request_worker', {
+      'p_request_id': requestId,
+      'p_worker_id': workerId,
+      'p_reason': reason,
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
   Future<CrewRequest> closeRequest({
     required String requestId,
     required String reason,
