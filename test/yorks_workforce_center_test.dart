@@ -1,8 +1,8 @@
 // Workforce Center and crew requests against a fake server: the register
 // views, raising a request by trade or by name, the Project Engineer's
 // decision with a reason, approve-and-assign in one step with the named
-// worker's warning, PR's assignment with a short line, taking attendance and
-// finishing, and phone layouts.
+// worker's warning, PR's assignment with a short line, taking attendance,
+// releasing workers one by one and finishing, and phone layouts.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -107,6 +107,21 @@ Map<String, Object?> _requestAccess({
   'resubmit': resubmit,
   'finish': finish,
 };
+
+/// Two fitters on site through this request; [released] have left the crew.
+List<Map<String, Object?>> _onSite({Set<String> released = const {}}) => [
+  for (final (id, name) in [('w0', 'Gul Zaman'), ('w1', 'Waqar Ahmed')])
+    {
+      'worker_id': id,
+      'number': 'W-${id.substring(1)}',
+      'name': name,
+      'designation': 'Duct fitter',
+      'crew_id': _crewId,
+      'crew_name': 'Sweihan site crew',
+      'assigned_at': '2026-11-12T08:00:00Z',
+      'released_at': released.contains(id) ? '2026-11-13T09:30:00Z' : null,
+    },
+];
 
 /// Rahim Shah, asked for by name, is on another project's crew.
 const _otherCrewId = '5a000000-0000-4000-8000-000000000009';
@@ -956,6 +971,97 @@ void main() {
     expect(find.byKey(const ValueKey('crew-request-finish')), findsNothing);
   });
 
+  testWidgets('workers are released one by one; the last one out finishes', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1400));
+    var current = _request(
+      state: 'fulfilled',
+      owner: 'requester',
+      access: _requestAccess(finish: true),
+      version: 5,
+      onCrew: true,
+      assigned: _onSite(),
+    );
+    final rpc = _FakeRpc({
+      'v1_wf_get_request': (_) => current,
+      'v1_wf_list_requests': (_) => _register([current]),
+      'v1_wf_request_options': (_) => _options(),
+      'v1_wf_release_request_worker': (params) {
+        final first = params['p_worker_id'] == 'w0';
+        current = _request(
+          state: first ? 'fulfilled' : 'completed',
+          owner: first ? 'requester' : 'none',
+          access: _requestAccess(finish: first),
+          version: first ? 6 : 7,
+          onCrew: true,
+          assigned: _onSite(released: first ? {'w0'} : {'w0', 'w1'}),
+        );
+        return current;
+      },
+    });
+    await _pump(tester, rpc, '/yorks/workforce/requests/$_requestId');
+
+    expect(
+      find.byKey(const ValueKey('crew-request-release-w0')),
+      findsOneWidget,
+    );
+    await _tap(tester, find.byKey(const ValueKey('crew-request-release-w0')));
+    expect(find.text('Release Gul Zaman?'), findsOneWidget);
+    expect(
+      find.text(
+        'Gul Zaman leaves Sweihan site crew and is free for other crews. Attendance already taken stays.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      rpc.calls.map((c) => c.$1),
+      isNot(contains('v1_wf_release_request_worker')),
+    );
+    await tester.tap(find.text('Release').last);
+    await tester.pumpAndSettle();
+    final first = rpc.last('v1_wf_release_request_worker');
+    expect(first['p_worker_id'], 'w0');
+    expect(first['p_expected_version'], 5);
+    expect(first['p_idempotency_key'], isNotNull);
+
+    // Gul Zaman has left; Waqar Ahmed is still on site.
+    expect(find.byKey(const ValueKey('crew-request-release-w0')), findsNothing);
+    expect(find.textContaining('Left the crew'), findsOneWidget);
+    expect(find.text('2 of 5 assigned · 1 on site'), findsOneWidget);
+
+    await _tap(tester, find.byKey(const ValueKey('crew-request-release-w1')));
+    expect(
+      find.text(
+        'Waqar Ahmed is the last worker on this request, so the request is finished too. Attendance already taken stays.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Release').last);
+    await tester.pumpAndSettle();
+    expect(rpc.last('v1_wf_release_request_worker')['p_expected_version'], 6);
+    expect(find.text('Finished'), findsWidgets);
+    expect(find.byKey(const ValueKey('crew-request-release-w1')), findsNothing);
+  });
+
+  testWidgets('someone who cannot finish the request cannot release workers', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1200));
+    final rpc = _FakeRpc({
+      'v1_wf_get_request': (_) => _request(
+        state: 'fulfilled',
+        owner: 'requester',
+        onCrew: true,
+        assigned: _onSite(),
+      ),
+    });
+    await _pump(tester, rpc, '/yorks/workforce/requests/$_requestId');
+    expect(find.text('Gul Zaman'), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-request-release-w0')), findsNothing);
+    expect(find.byKey(const ValueKey('crew-request-finish')), findsNothing);
+  });
+
   test('engineers and the Accountant reach Workforce by role', () {
     for (final role in [
       YorksV1Role.siteEngineer,
@@ -1277,6 +1383,35 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/workforce_center_phone_request_on_site.png'),
+      );
+    });
+    testWidgets('phone request, one worker released', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_get_request': (_) => _request(
+            state: 'fulfilled',
+            owner: 'requester',
+            access: _requestAccess(finish: true),
+            onCrew: true,
+            assigned: _onSite(released: {'w0'}),
+          ),
+        }),
+        '/yorks/workforce/requests/$_requestId',
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('crew-request-release-w1')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile(
+          'goldens/workforce_center_phone_request_released.png',
+        ),
       );
     });
     testWidgets('phone form, a person by name', (tester) async {

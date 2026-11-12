@@ -138,6 +138,7 @@ final class CrewRequestAssignee {
     required this.designation,
     required this.crewName,
     this.assignedAt,
+    this.releasedAt,
   });
 
   factory CrewRequestAssignee.fromJson(Map<String, dynamic> json) =>
@@ -148,6 +149,7 @@ final class CrewRequestAssignee {
         designation: _s(json['designation']),
         crewName: _s(json['crew_name']),
         assignedAt: _dt(json['assigned_at']),
+        releasedAt: _dt(json['released_at']),
       );
 
   final String workerId;
@@ -156,6 +158,11 @@ final class CrewRequestAssignee {
   final String designation;
   final String crewName;
   final DateTime? assignedAt;
+
+  /// When they left the crew: released, finished, or moved elsewhere.
+  final DateTime? releasedAt;
+
+  bool get onSite => releasedAt == null;
 }
 
 enum CrewRequestLineDecision { full, partial, cannotProvide }
@@ -380,6 +387,13 @@ final class CrewRequest {
   final List<CrewRequestEvent> events;
 
   bool get isWorkshop => crewKind == 'workshop';
+
+  /// Workers this request brought who are still on the crew.
+  int get onSiteCount => [
+    for (final line in lines)
+      for (final person in line.assigned)
+        if (person.onSite) person,
+  ].length;
 }
 
 final class CrewRequestRegister {

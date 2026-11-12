@@ -121,6 +121,9 @@ String crewRequestErrorText(Object? error, AppLanguage language) {
     if (message.contains('OVER_ASSIGNED')) {
       return CRS.t(CRS.errOverAssigned, language);
     }
+    if (message.contains('WORKER_NOT_ON_SITE')) {
+      return CRS.t(CRS.errNotOnSite, language);
+    }
     if (message.contains('REQUEST_REASON_REQUIRED')) {
       return CRS.t(CRS.errReasonMissing, language);
     }

@@ -1351,4 +1351,78 @@ abstract final class CrewRequestStrings {
     ur: '{m} دوسرے عملے سے منتقل',
     hi: '{m} दूसरे क्रू से आए',
   );
+
+  // ─── Release one by one ────────────────────────────────────────────────────
+  static const release = _T(
+    en: 'Release',
+    ar: 'إخلاء',
+    ur: 'فارغ کریں',
+    hi: 'मुक्त करें',
+  );
+  static const releaseWorker = _T(
+    en: 'Release {name}',
+    ar: 'إخلاء {name}',
+    ur: '{name} کو فارغ کریں',
+    hi: '{name} को मुक्त करें',
+  );
+  static const releaseTitle = _T(
+    en: 'Release {name}?',
+    ar: 'إخلاء {name}؟',
+    ur: '{name} کو فارغ کریں؟',
+    hi: '{name} को मुक्त करें?',
+  );
+  static const releaseBody = _T(
+    en: '{name} leaves {crew} and is free for other crews. Attendance already taken stays.',
+    ar: 'يغادر {name} {crew} ويصبح متاحًا لطواقم أخرى. يبقى الحضور المسجّل.',
+    ur: '{name} {crew} چھوڑ دے گا اور دوسرے عملوں کے لیے فارغ ہو گا۔ لی گئی حاضری محفوظ رہے گی۔',
+    hi: '{name} {crew} छोड़ देगा और दूसरे क्रू के लिए खाली होगा। ली गई हाज़िरी बनी रहेगी।',
+  );
+  static const releaseLastBody = _T(
+    en: '{name} is the last worker on this request, so the request is finished too. Attendance already taken stays.',
+    ar: '{name} آخر عامل في هذا الطلب، لذا ينتهي الطلب أيضًا. يبقى الحضور المسجّل.',
+    ur: '{name} اس درخواست کا آخری کارکن ہے، اس لیے درخواست بھی مکمل ہو جائے گی۔ لی گئی حاضری محفوظ رہے گی۔',
+    hi: '{name} इस अनुरोध का आखिरी कामगार है, इसलिए अनुरोध भी समाप्त होगा। ली गई हाज़िरी बनी रहेगी।',
+  );
+  static const releasedToast = _T(
+    en: '{name} released',
+    ar: 'تم إخلاء {name}',
+    ur: '{name} فارغ',
+    hi: '{name} मुक्त',
+  );
+  static const releasedFinishedToast = _T(
+    en: '{name} released · request finished',
+    ar: 'تم إخلاء {name} · انتهى الطلب',
+    ur: '{name} فارغ · درخواست مکمل',
+    hi: '{name} मुक्त · अनुरोध समाप्त',
+  );
+  static const leftCrewAt = _T(
+    en: 'Left the crew {at}',
+    ar: 'غادر الطاقم {at}',
+    ur: '{at} عملہ چھوڑا',
+    hi: '{at} क्रू छोड़ा',
+  );
+  static const onSiteCount = _T(
+    en: '{n} on site',
+    ar: '{n} في الموقع',
+    ur: '{n} سائٹ پر',
+    hi: '{n} साइट पर',
+  );
+  static const evReleased = _T(
+    en: '{name} released {worker}',
+    ar: 'أخلى {name} {worker}',
+    ur: '{name} نے {worker} کو فارغ کیا',
+    hi: '{name} ने {worker} को मुक्त किया',
+  );
+  static const evFinishedLast = _T(
+    en: 'Finished when the last worker was released',
+    ar: 'انتهى عند إخلاء آخر عامل',
+    ur: 'آخری کارکن فارغ ہونے پر مکمل',
+    hi: 'आखिरी कामगार मुक्त होने पर समाप्त',
+  );
+  static const errNotOnSite = _T(
+    en: 'This worker has already left the crew. Refresh to see the latest.',
+    ar: 'غادر هذا العامل الطاقم بالفعل. حدّث لرؤية الأحدث.',
+    ur: 'یہ کارکن پہلے ہی عملہ چھوڑ چکا ہے۔ تازہ ترین دیکھنے کے لیے ریفریش کریں۔',
+    hi: 'यह कामगार पहले ही क्रू छोड़ चुका है। नवीनतम देखने के लिए रीफ़्रेश करें।',
+  );
 }
