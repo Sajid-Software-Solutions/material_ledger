@@ -10,6 +10,8 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../../../shared/models/app_language.dart';
+import '../../domain/accounts_decimal.dart';
+import '../../domain/accounts_receivables_inputs.dart' show YorksAccountsDate;
 import 'accounts_v2_common.dart';
 import 'kit/accounts_v2_kit.dart';
 
@@ -127,33 +129,69 @@ mixin AccountsV2SubmitDialog<W extends StatefulWidget> on State<W> {
   }
 
   /// Cancel and the confirm button, disabled while the command runs.
+  ///
+  /// When [onConfirm] is null because something is missing, [blockedReason]
+  /// keeps the button pressable: pressing it says what to fix, in the dialog,
+  /// instead of a greyed-out button that never explains itself.
+  /// [destructive] colours the button red for an action that removes or ends
+  /// something.
   List<Widget> submitActions({
     required String confirmLabel,
     required VoidCallback? onConfirm,
     String? cancelLabel,
-  }) => [
-    TextButton(
-      onPressed: submitting ? null : () => Navigator.of(context).pop(),
-      child: Text(cancelLabel ?? accountsV2Text(submitLanguage, 'v2_cancel')),
+    String? blockedReason,
+    bool destructive = false,
+  }) {
+    final VoidCallback? press =
+        onConfirm ??
+        (blockedReason == null
+            ? null
+            : () => setState(() => submitError = blockedReason));
+    return [
+      TextButton(
+        onPressed: submitting ? null : () => Navigator.of(context).pop(),
+        child: Text(cancelLabel ?? accountsV2Text(submitLanguage, 'v2_cancel')),
+      ),
+      FilledButton(
+        key: const ValueKey('accounts-v2-dialog-confirm'),
+        style: destructive
+            ? FilledButton.styleFrom(
+                backgroundColor: AccountsV2Colors.bad,
+                foregroundColor: Colors.white,
+              )
+            : null,
+        onPressed: submitting ? null : press,
+        child: submitting
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox.square(
+                    dimension: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(accountsV2Text(submitLanguage, 'v2c_saving')),
+                ],
+              )
+            : Text(confirmLabel),
+      ),
+    ];
+  }
+
+  /// A line at the top of a dialog naming what it acts on (invoice, amount).
+  Widget submitSummary(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Container(
+      key: const ValueKey('accounts-v2-dialog-summary'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AccountsV2Colors.bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AccountsV2Colors.line),
+      ),
+      child: Text(text, style: v2Style(13, weight: FontWeight.w600)),
     ),
-    FilledButton(
-      key: const ValueKey('accounts-v2-dialog-confirm'),
-      onPressed: submitting ? null : onConfirm,
-      child: submitting
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox.square(
-                  dimension: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 8),
-                Text(accountsV2Text(submitLanguage, 'v2c_saving')),
-              ],
-            )
-          : Text(confirmLabel),
-    ),
-  ];
+  );
 
   /// The dialog itself: [content] with the refusal under it, and a dialog
   /// that can't be closed (Escape, back, a tap outside) mid-command.
@@ -163,7 +201,7 @@ mixin AccountsV2SubmitDialog<W extends StatefulWidget> on State<W> {
     required List<Widget> actions,
   }) => PopScope(
     canPop: !submitting,
-    child: AlertDialog(
+    child: AccountsV2AlertDialog(
       title: title,
       // A long refusal wraps instead of widening the dialog.
       content: ConstrainedBox(
@@ -180,4 +218,132 @@ mixin AccountsV2SubmitDialog<W extends StatefulWidget> on State<W> {
       actions: actions,
     ),
   );
+}
+
+// ─── What a blocked dialog is missing ────────────────────────────────────────
+
+/// One requirement of a dialog: whether it is met, and what to say if not.
+typedef AccountsV2Check = (bool ok, String message);
+
+/// The first unmet requirement's message, or null when all are met.
+String? accountsV2FirstBlocker(List<AccountsV2Check> checks) {
+  for (final (ok, message) in checks) {
+    if (!ok) return message;
+  }
+  return null;
+}
+
+String _named(AppLanguage language, String key, String field) =>
+    accountsV2Text(language, key).replaceAll('{field}', field);
+
+/// [field] must not be empty.
+AccountsV2Check accountsV2NeedText(
+  AppLanguage language,
+  TextEditingController controller,
+  String field,
+) => (
+  controller.text.trim().isNotEmpty,
+  _named(language, 'v2b_need_text', field),
+);
+
+/// [field] must be an amount above zero (or zero and above when [allowZero]),
+/// with at most two decimals.
+AccountsV2Check accountsV2NeedAmount(
+  AppLanguage language,
+  TextEditingController controller,
+  String field, {
+  bool allowZero = false,
+}) {
+  final value = YorksAccountsDecimal.tryParse(controller.text.trim());
+  final ok =
+      value != null &&
+      (allowZero ? !value.isNegative : value.isPositive) &&
+      value.fractionDigits <= 2;
+  return (ok, _named(language, 'v2b_need_amount', field));
+}
+
+/// [field] must be a date.
+AccountsV2Check accountsV2NeedDate(
+  AppLanguage language,
+  TextEditingController controller,
+  String field,
+) => (
+  YorksAccountsDate.tryParse(controller.text.trim()) != null,
+  _named(language, 'v2b_need_date', field),
+);
+
+// ─── One look for every Accounts dialog ──────────────────────────────────────
+
+/// An [AlertDialog] drawn like the rest of the Accounts workspace: a white
+/// card with the workspace's radius, title type, field borders and buttons,
+/// so a dialog and the side drawer read as one design.
+class AccountsV2AlertDialog extends StatelessWidget {
+  const AccountsV2AlertDialog({
+    super.key,
+    this.title,
+    this.content,
+    this.actions,
+  });
+
+  final Widget? title;
+  final Widget? content;
+  final List<Widget>? actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context);
+    final radius = BorderRadius.circular(10);
+    const pri = AccountsV2Colors.pri;
+    final buttonText = v2Style(13, weight: FontWeight.w700);
+    const minSize = Size(44, 40);
+    return Theme(
+      data: base.copyWith(
+        colorScheme: base.colorScheme.copyWith(primary: pri),
+        inputDecorationTheme: base.inputDecorationTheme.copyWith(
+          border: OutlineInputBorder(borderRadius: radius),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: radius,
+            borderSide: const BorderSide(color: AccountsV2Colors.lineS),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: radius,
+            borderSide: const BorderSide(color: pri, width: 1.6),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: pri,
+            foregroundColor: Colors.white,
+            minimumSize: minSize,
+            textStyle: buttonText,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            shape: RoundedRectangleBorder(borderRadius: radius),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: AccountsV2Colors.ink2,
+            minimumSize: minSize,
+            textStyle: buttonText,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: const BorderSide(color: AccountsV2Colors.lineS),
+            ),
+          ),
+        ),
+      ),
+      child: AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titleTextStyle: v2Style(17, weight: FontWeight.w700),
+        contentTextStyle: v2Style(13.5, color: AccountsV2Colors.ink2),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+        title: title,
+        content: content,
+        actions: actions,
+      ),
+    );
+  }
 }

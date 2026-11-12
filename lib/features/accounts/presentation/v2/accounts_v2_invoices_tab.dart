@@ -348,7 +348,7 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
         AccountsV2KpiCard(
           icon: 'receipt',
           label: _t('v2i_kpi_invoiced'),
-          value: _money(invoiced, 0),
+          value: _money(invoiced),
           caption:
               '$count ${count == 1 ? _t('v2i_invoice_one') : _t('v2i_invoice_many')}',
         ),
@@ -356,14 +356,14 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
           icon: 'shield',
           tone: AccountsV2Tone.vio,
           label: _t('v2i_kpi_certified'),
-          value: _money(certified, 0),
+          value: _money(certified),
           caption: _t('v2i_incl_vat'),
         ),
         AccountsV2KpiCard(
           icon: 'coins',
           tone: AccountsV2Tone.green,
           label: _t('v2i_kpi_received'),
-          value: _money(received, 0),
+          value: _money(received),
           caption: _t('v2i_cleared_only'),
           valueTone: AccountsV2ValueTone.ok,
         ),
@@ -371,16 +371,16 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
           icon: 'cheque',
           tone: AccountsV2Tone.vio,
           label: _t('v2i_kpi_cheques'),
-          value: _money(inHand, 0),
+          value: _money(inHand),
           caption: _t('v2i_not_cleared'),
         ),
         AccountsV2KpiCard(
           icon: 'alert',
           tone: overdue.isNotEmpty ? AccountsV2Tone.red : AccountsV2Tone.org,
           label: _t('v2i_kpi_due'),
-          value: _money(due, 0),
+          value: _money(due),
           caption: overdue.isNotEmpty
-              ? '${_money(overdueAmount, 0)} ${_t('v2i_overdue_word')}'
+              ? '${_money(overdueAmount)} ${_t('v2i_overdue_word')}'
               : '0 ${_t('v2i_overdue_word')}',
           valueTone: overdue.isNotEmpty
               ? AccountsV2ValueTone.bad
@@ -756,7 +756,7 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
     }
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => AccountsV2AlertDialog(
         content: Text(accountsV2ErrorText(widget.language, error)),
         actions: [
           TextButton(
@@ -1230,7 +1230,38 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
       );
     }
     if (buttons.isEmpty) return const SizedBox.shrink();
-    return AccountsV2Grid(columns: 2, gap: 8, children: buttons);
+    final grid = AccountsV2Grid(columns: 2, gap: 8, children: buttons);
+    final payBlocked = _payBlockedReason;
+    if (payBlocked == null) return grid;
+    // A greyed-out Record payment says why, instead of leaving people to guess.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        grid,
+        const SizedBox(height: 6),
+        Text(
+          payBlocked,
+          key: const ValueKey('accounts-v2-pay-blocked'),
+          style: v2Style(12, color: AccountsV2Colors.mut),
+        ),
+      ],
+    );
+  }
+
+  /// Why Record payment is shown but unavailable; null when it is available
+  /// or not shown at all.
+  String? get _payBlockedReason {
+    if (inv.revisionInProgress ||
+        widget.onPay == null ||
+        !widget.capabilities.recordClientPayment ||
+        _canPay) {
+      return null;
+    }
+    if (v.paid) return _t('v2b_pay_blocked_paid');
+    if (inv.status == YorksAccountsInvoiceStatus.cancelled) {
+      return _t('v2b_pay_blocked_cancelled');
+    }
+    return _t('v2b_pay_blocked_cert');
   }
 
   List<({String title, String detail, int state})> _timeline(
@@ -1613,6 +1644,14 @@ class _CertifyDialogState extends State<_CertifyDialog>
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          submitSummary(
+            _t('v2b_sum_claimed')
+                .replaceAll('{ref}', widget.invoice.invoiceReference)
+                .replaceAll(
+                  '{amount}',
+                  v2Money(v2Number(widget.invoice.claimedExVat.canonicalText)),
+                ),
+          ),
           _DialogField(
             label: _t('v2_cert_amount'),
             controller: _amount,
@@ -1641,7 +1680,34 @@ class _CertifyDialogState extends State<_CertifyDialog>
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_cert_title'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedAmount(
+            widget.language,
+            _amount,
+            _t('v2_cert_amount'),
+            allowZero: true,
+          ),
+          accountsV2NeedDate(widget.language, _date, _t('v2_cert_date')),
+          accountsV2NeedText(
+            widget.language,
+            _reference,
+            _t('v2_cert_reference'),
+          ),
+          (
+            YorksAccountsDecimal.tryParse(
+                  _amount.text.trim(),
+                )?.compareTo(widget.invoice.claimedExVat) !=
+                1,
+            _t('v2b_cert_over'),
+          ),
+          (
+            YorksAccountsDecimal.tryParse(_amount.text.trim()) ==
+                    widget.invoice.claimedExVat ||
+                _reason.text.trim().isNotEmpty,
+            _t('v2b_cert_need_reason'),
+          ),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -1723,6 +1789,14 @@ class _PayDialogState extends State<_PayDialog> with AccountsV2SubmitDialog {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          submitSummary(
+            _t('v2b_sum_due')
+                .replaceAll('{ref}', widget.invoice.invoiceReference)
+                .replaceAll(
+                  '{amount}',
+                  v2Money(v2Number(widget.invoice.stillDue.canonicalText)),
+                ),
+          ),
           _DialogField(
             label: _t('v2_pay_amount'),
             controller: _amount,
@@ -1770,7 +1844,16 @@ class _PayDialogState extends State<_PayDialog> with AccountsV2SubmitDialog {
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_pay_title'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedAmount(widget.language, _amount, _t('v2_pay_amount')),
+          accountsV2NeedDate(widget.language, _date, _t('v2_pay_date')),
+          accountsV2NeedText(
+            widget.language,
+            _reference,
+            _t('v2_pay_reference'),
+          ),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -1885,6 +1968,19 @@ class _ReversalDialogState extends State<_ReversalDialog>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          submitSummary(
+            _t('v2b_sum_payment')
+                .replaceAll(
+                  '{amount}',
+                  widget.payment.amount == null
+                      ? '—'
+                      : v2Money(v2Number(widget.payment.amount!.canonicalText)),
+                )
+                .replaceAll(
+                  '{date}',
+                  v2Date(widget.payment.paymentDate.postgresText),
+                ),
+          ),
           Text(
             widget.payment.paymentReference,
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
@@ -1940,7 +2036,16 @@ class _ReversalDialogState extends State<_ReversalDialog>
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_pay_reverse_title'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedDate(widget.language, _date, _t('v2_pay_reverse_date')),
+          accountsV2NeedText(
+            widget.language,
+            _reason,
+            _t('v2_pay_reverse_reason'),
+          ),
+        ]),
+        destructive: true,
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -2096,7 +2201,21 @@ class _EditPaymentDialogState extends State<_EditPaymentDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2c_save_changes'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedAmount(widget.language, _amount, _t('v2_pay_amount')),
+          accountsV2NeedDate(widget.language, _date, _t('v2_pay_date')),
+          accountsV2NeedText(
+            widget.language,
+            _reference,
+            _t('v2_pay_reference'),
+          ),
+          accountsV2NeedText(
+            widget.language,
+            _reason,
+            _t('v2_pay_reverse_reason'),
+          ),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -2224,7 +2343,26 @@ class _EditCertificationDialogState extends State<_EditCertificationDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2c_save_changes'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedAmount(
+            widget.language,
+            _amount,
+            _t('v2_cert_amount'),
+            allowZero: true,
+          ),
+          accountsV2NeedDate(widget.language, _date, _t('v2_cert_date')),
+          accountsV2NeedText(
+            widget.language,
+            _reference,
+            _t('v2_cert_reference'),
+          ),
+          accountsV2NeedText(
+            widget.language,
+            _reason,
+            _t('v2_pay_reverse_reason'),
+          ),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -2280,7 +2418,16 @@ class _CancelInvoiceDialogState extends State<_CancelInvoiceDialog>
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_inv_cancel'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedText(
+            widget.language,
+            _reason,
+            _t('v2_pay_reverse_reason'),
+          ),
+        ]),
+        destructive: true,
+        cancelLabel: _t('v2b_keep_invoice'),
         onConfirm: reason.isEmpty
             ? null
             : () => submit(reason, widget.onSubmit),
@@ -2401,7 +2548,20 @@ class _ChequeDialogState extends State<_ChequeDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_pdc_add_title'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedText(widget.language, _number, _t('v2_pdc_add_number')),
+          accountsV2NeedDate(
+            widget.language,
+            _date,
+            _t('v2_pdc_col_cheque_date'),
+          ),
+          accountsV2NeedAmount(
+            widget.language,
+            _amount,
+            _t('v2_pdc_col_amount'),
+          ),
+        ]),
         onConfirm: input == null ? null : () => submit(input, widget.onSubmit),
       ),
     );
@@ -2418,7 +2578,7 @@ class _ReviseDialog extends StatefulWidget {
     this.titleKey = 'v2_inv_revise_title',
     this.hintKey = 'v2_inv_revise_hint',
     this.reasonKey = 'v2_inv_revise_reason',
-    this.confirmKey = 'v2_confirm',
+    this.confirmKey = 'v2_inv_revise_title',
   });
 
   /// The copy, so the same reason dialog serves Revise and Restore.
@@ -2480,6 +2640,9 @@ class _ReviseDialogState extends State<_ReviseDialog>
       ),
       actions: submitActions(
         confirmLabel: _t(widget.confirmKey),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedText(widget.language, _reason, _t(widget.reasonKey)),
+        ]),
         onConfirm: valid
             ? () => submit(_reason.text.trim(), widget.onSubmit)
             : null,

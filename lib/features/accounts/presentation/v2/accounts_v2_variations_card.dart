@@ -13,6 +13,7 @@ import '../../../../core/widgets/status_chip.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/v2/variations_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_safety.dart';
 import 'kit/accounts_v2_kit.dart';
 
 /// Creates (variationId null) or edits a variation; null on success or an error.
@@ -226,7 +227,7 @@ class _VariationDialogState extends State<_VariationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AccountsV2AlertDialog(
       title: Text(_t('v2_variations_title')),
       content: SizedBox(
         width: 360,

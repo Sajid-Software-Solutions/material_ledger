@@ -173,16 +173,16 @@ class AccountsV2SummaryTab extends StatelessWidget {
         AccountsV2KpiCard(
           icon: 'doc',
           label: _t('v2_kpi_contract'),
-          value: v2Money(contract, digits: 0),
+          value: v2Money(contract),
           caption:
               '${_t('v2o_excl_vat')} · '
-              '${v2Money(v2Number(kpis.contractInclVat), digits: 0)} '
+              '${v2Money(v2Number(kpis.contractInclVat))} '
               '${_t('v2o_with_vat')}',
         ),
         AccountsV2KpiCard(
           icon: 'receipt',
           label: _t('v2_kpi_invoiced'),
-          value: v2Money(invoiced, digits: 0),
+          value: v2Money(invoiced),
           caption:
               '${_t('v2o_excl_vat')} · '
               '${v2Pct(contract > 0 ? invoiced / contract * 100 : 0)} '
@@ -192,27 +192,27 @@ class AccountsV2SummaryTab extends StatelessWidget {
           icon: 'coins',
           tone: AccountsV2Tone.green,
           label: _t('v2_kpi_received'),
-          value: v2Money(v2Number(kpis.received), digits: 0),
+          value: v2Money(v2Number(kpis.received)),
           caption: _t('v2o_cleared_incl_vat'),
         ),
         AccountsV2KpiCard(
           icon: 'cheque',
           tone: AccountsV2Tone.vio,
           label: _t('v2o_cheques_in_hand'),
-          value: v2Money(v2Number(kpis.chequesInHand), digits: 0),
+          value: v2Money(v2Number(kpis.chequesInHand)),
           caption: _t('v2o_counted_when_cleared'),
         ),
         AccountsV2KpiCard(
           icon: 'clock',
           tone: AccountsV2Tone.org,
           label: _t('v2o_still_due'),
-          value: v2Money(v2Number(kpis.outstanding), digits: 0),
+          value: v2Money(v2Number(kpis.outstanding)),
           valueTone: overdue.isEmpty
               ? AccountsV2ValueTone.plain
               : AccountsV2ValueTone.bad,
           caption: overdue.isEmpty
               ? _t('v2o_nothing_overdue')
-              : '${v2Money(overdueAmount, digits: 0)} ${_t('v2o_overdue')}',
+              : '${v2Money(overdueAmount)} ${_t('v2o_overdue')}',
         ),
         if (supplier != null)
           AccountsV2KpiCard(
@@ -221,13 +221,13 @@ class AccountsV2SummaryTab extends StatelessWidget {
                 ? AccountsV2Tone.red
                 : AccountsV2Tone.blue,
             label: _t('v2_kpi_supplier_unpaid'),
-            value: v2Money(v2Number(supplier.unpaid), digits: 0),
+            value: v2Money(v2Number(supplier.unpaid)),
             valueTone: supplier.overdueCount > 0
                 ? AccountsV2ValueTone.bad
                 : AccountsV2ValueTone.plain,
             caption:
                 '${supplier.overdueCount} ${_t('v2o_overdue')} · '
-                '${v2Money(v2Number(supplier.billed), digits: 0)} '
+                '${v2Money(v2Number(supplier.billed))} '
                 '${_t('v2o_billed')}',
           ),
       ],
@@ -446,10 +446,10 @@ class AccountsV2SummaryTab extends StatelessWidget {
             severity: gross > 0.004 ? _Severity.ok : _Severity.pri,
             icon: 'chart',
             title: gross > 0.004
-                ? '${_t('v2o_claim')} ${_claimLabel(claim.claimId, claim.reference)} '
+                ? '${accountsV2ClaimPhrase(language, _claimLabel(claim.claimId, claim.reference))} '
                       '${_t('v2o_has')} ${v2Money(gross)} '
                       '${_t('v2o_ready_to_invoice')}'
-                : '${_t('v2o_claim')} ${_claimLabel(claim.claimId, claim.reference)} '
+                : '${accountsV2ClaimPhrase(language, _claimLabel(claim.claimId, claim.reference))} '
                       '${_t('v2o_is_empty')}',
             detail:
                 (checked
@@ -642,15 +642,15 @@ class _Flow extends StatelessWidget {
           return '$setupToFix ${_t('v2o_items_to_complete')}';
         }
         if (d?.contractValue == null) return '';
-        return '${v2Money(v2Number(d!.contractValue), digits: 0)} · '
+        return '${v2Money(v2Number(d!.contractValue))} · '
             '${d.buildingCount ?? 0} ${_t('v2_buildings')} · '
             '${d.stageCount ?? 0} ${_t('v2_stages')}';
       case 'progress':
         if (d?.claimReference != null) {
           final gross = d!.claimGross == null
               ? ''
-              : ' · ${v2Money(v2Number(d.claimGross), digits: 0)}';
-          return '${_t('v2o_claim')} ${claimLabel(null, d.claimReference)} '
+              : ' · ${v2Money(v2Number(d.claimGross))}';
+          return '${accountsV2ClaimPhrase(language, claimLabel(null, d.claimReference))} '
               '${_t('v2_in_progress')}$gross';
         }
         return '${claimsRecorded ?? 0} ${_t('v2o_claims_recorded')}';
@@ -662,9 +662,9 @@ class _Flow extends StatelessWidget {
             '${latest == null ? '' : ' · ${_t('v2_latest')} $latest'}';
       case 'paid':
         if (d?.received == null || d?.toCome == null) return '';
-        return '${v2Money(v2Number(d!.received), digits: 0)} '
+        return '${v2Money(v2Number(d!.received))} '
             '${_t('v2_received_in')} · '
-            '${v2Money(v2Number(d.toCome), digits: 0)} ${_t('v2_to_come')}';
+            '${v2Money(v2Number(d.toCome))} ${_t('v2_to_come')}';
     }
     return '';
   }
@@ -1043,7 +1043,7 @@ class _BuildingProgressCard extends StatelessWidget {
                 AccountsV2KeyValue(
                   label: t('v2o_all_buildings'),
                   value:
-                      '${v2Money(total, digits: 0)} · '
+                      '${v2Money(total)} · '
                       '${v2Pct(contract > 0 ? total / contract * 100 : 0)}',
                   sum: true,
                 ),
@@ -1281,7 +1281,7 @@ class _PositionCard extends StatelessWidget {
                             ),
                             Text(
                               '${v2Pct(contract > 0 ? (stageValue[entry.key] ?? 0) / contract * 100 : 0, 0)} · '
-                              '${v2Money(stageValue[entry.key] ?? 0, digits: 0)}',
+                              '${v2Money(stageValue[entry.key] ?? 0)}',
                               style: v2Style(12, color: AccountsV2Colors.mut),
                             ),
                           ],
@@ -1305,7 +1305,7 @@ class _PositionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            v2Fmt(stageInvoiced[entry.key] ?? 0, 0),
+                            v2Fmt(stageInvoiced[entry.key] ?? 0),
                             style: v2Style(
                               12.5,
                               weight: FontWeight.w700,
@@ -1468,7 +1468,7 @@ class _MoneyCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                v2Money(v, digits: 0),
+                v2Money(v),
                 style: v2Style(12, weight: FontWeight.w700, tabular: true),
               ),
               Text(

@@ -674,13 +674,24 @@ void main() {
       expect(saves, 1);
     });
 
-    testWidgets('an invalid work order date is named', (tester) async {
+    testWidgets('the work order date is picked and shown like every date', (
+      tester,
+    ) async {
       _surface(tester);
       await tester.pumpWidget(_wrap(tab(newProject(), onSaved: () {})));
       await tester.pumpAndSettle();
-      await tester.enterText(_field(t('v2c_wo_date')), '31/02');
+      final field = tester.widget<TextField>(_field(t('v2c_wo_date')));
+      expect(field.readOnly, isTrue, reason: 'never typed, so never invalid');
+      await tester.tap(_field(t('v2c_wo_date')));
       await tester.pumpAndSettle();
-      expect(find.text(t('v2c_block_wo_date')), findsOneWidget);
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(_field(t('v2c_wo_date'))).controller!.text,
+        matches(RegExp(r'^\d{1,2} [A-Z][a-z]{2} \d{4}$')),
+      );
+      expect(find.text(t('v2c_block_wo_date')), findsNothing);
     });
   });
 

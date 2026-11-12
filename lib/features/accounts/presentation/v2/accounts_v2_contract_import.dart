@@ -141,7 +141,7 @@ class _MasterFileImportDialogState extends State<_MasterFileImportDialog> {
     final fileValue = draft.fileContractValue;
     final blocked = draft.hasBlockers || _unmatched.isNotEmpty;
     final ready = _build() != null;
-    return AlertDialog(
+    return AccountsV2AlertDialog(
       title: Text(_t('v2_import_preview_title')),
       content: SizedBox(
         width: 520,

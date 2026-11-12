@@ -1405,7 +1405,7 @@ class AccountsV2Table extends StatelessWidget {
     // one: below that the table scrolls sideways instead of crushing a column.
     final fixed = columns.fold<double>(0, (a, c) => a + (c.width ?? 0));
     final flexible = columns.where((c) => c.width == null).length;
-    final needed = fixed + flexible * 96;
+    final needed = fixed + flexible * 96 + (_tappable ? _chevronWidth : 0);
     final requested = phone ? (minWidth > 0 ? minWidth : 600.0) : minWidth;
     final floor = requested > needed ? requested : needed;
     return LayoutBuilder(
@@ -1447,8 +1447,15 @@ class AccountsV2Table extends StatelessWidget {
     ];
   }
 
+  /// Room for the chevron that marks a row as something to open.
+  static const double _chevronWidth = 32;
+
+  bool get _tappable => rows.any((r) => r.onTap != null);
+
   Widget _body(double width) {
-    final widths = _widths(width);
+    final tappable = _tappable;
+    final widths = _widths(width - (tappable ? _chevronWidth : 0));
+    const chevronSpace = SizedBox(width: _chevronWidth);
     Widget cellBox(int i, Widget child, {bool head = false}) => SizedBox(
       width: widths[i],
       child: Padding(
@@ -1487,6 +1494,7 @@ class AccountsV2Table extends StatelessWidget {
               ),
               head: true,
             ),
+          if (tappable) chevronSpace,
         ],
       ),
     );
@@ -1500,6 +1508,19 @@ class AccountsV2Table extends StatelessWidget {
             children: [
               for (final (i, cell) in row.cells.indexed)
                 if (i < columns.length) cellBox(i, cell),
+              if (tappable)
+                SizedBox(
+                  width: _chevronWidth,
+                  child: row.onTap == null
+                      ? null
+                      : const ExcludeSemantics(
+                          child: Icon(
+                            Icons.chevron_right,
+                            size: 20,
+                            color: AccountsV2Colors.mut2,
+                          ),
+                        ),
+                ),
             ],
           ),
         ),
@@ -1515,7 +1536,12 @@ class AccountsV2Table extends StatelessWidget {
             ),
             child: DefaultTextStyle.merge(
               style: v2Style(12.5, weight: FontWeight.w700),
-              child: Row(children: _footerCells(widths, cellBox)),
+              child: Row(
+                children: [
+                  ..._footerCells(widths, cellBox),
+                  if (tappable) chevronSpace,
+                ],
+              ),
             ),
           );
     return DefaultTextStyle.merge(

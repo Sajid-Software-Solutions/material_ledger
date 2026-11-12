@@ -180,9 +180,9 @@ void main() {
       await pump(tester, invoiced: _d('420000.00'));
       expect(find.text(t('v2i_report_actions')), findsOneWidget);
       expect(find.text(t('v2s_kpi_bills')), findsOneWidget);
-      expect(find.text('AED 210,000'), findsOneWidget);
+      expect(find.text('AED 210,000.00'), findsOneWidget);
       expect(find.text(t('v2s_kpi_paid')), findsOneWidget);
-      expect(find.text('AED 145,000'), findsOneWidget);
+      expect(find.text('AED 145,000.00'), findsOneWidget);
       // 200,000 of supplier cost against 420,000 invoiced.
       expect(find.text('48%'), findsOneWidget);
       expect(find.text('INV-5001'), findsOneWidget);

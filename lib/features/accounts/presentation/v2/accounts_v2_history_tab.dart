@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../domain/accounts_records_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_summary_tab.dart' show AccountsV2OverviewTarget;
 import 'kit/accounts_v2_kit.dart';
 
 /// The prototype's record types, read from an entry's entity and event.
@@ -117,6 +118,7 @@ class AccountsV2HistoryTab extends StatefulWidget {
     required this.language,
     this.files = const [],
     this.onAddFile,
+    this.onOpenRecord,
   });
 
   final YorksAccountsActivityProjection projection;
@@ -127,6 +129,10 @@ class AccountsV2HistoryTab extends StatefulWidget {
 
   /// Adds a file; null for someone who can't.
   final VoidCallback? onAddFile;
+
+  /// Opens the record an entry is about (its invoice, bill, claim or the
+  /// contract), as the Overview's "Needs attention" items do.
+  final ValueChanged<AccountsV2OverviewTarget>? onOpenRecord;
 
   @override
   State<AccountsV2HistoryTab> createState() => _AccountsV2HistoryTabState();
@@ -362,6 +368,48 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
     return ids is List ? ids.whereType<String>().toList() : const [];
   }
 
+  /// The record an entry opens, or null when there is nowhere to go.
+  AccountsV2OverviewTarget? _targetOf(YorksAccountsActivityEntry e) {
+    String? id(String key) {
+      for (final data in [e.afterData, e.beforeData, e.context]) {
+        final v = data?[key];
+        if (v is String && v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    final type = e.entityType;
+    if (type == 'accounts_client_invoice') {
+      return AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.invoices,
+        invoiceId: e.entityId,
+      );
+    }
+    if (type == 'accounts_supplier_bill') {
+      return AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.supplierBills,
+        billId: e.entityId,
+      );
+    }
+    return switch (_Kind.of(e)) {
+      _Kind.bill => AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.supplierBills,
+        billId: id('supplier_bill_id'),
+      ),
+      _Kind.payment || _Kind.invoice => AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.invoices,
+        invoiceId: id('invoice_id'),
+      ),
+      _Kind.claim => const AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.claims,
+      ),
+      _Kind.contract => const AccountsV2OverviewTarget(
+        YorksAccountsWorkspaceV2Tab.contract,
+      ),
+      _Kind.other => null,
+    };
+  }
+
   /// What the timeline shows. An invoice's draft step and a cheque's "added"
   /// step fold into the later step that covers them, and a claim's progress
   /// lines (one per building and stage) become one line.
@@ -461,7 +509,6 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
             icon: 'history',
             title: _t('v2h_activity'),
             subtitle: _t('v2h_activity_sub'),
-            actions: [AccountsV2Chip(_t('v2h_append_only'))],
           ),
           Padding(
             padding: phone
@@ -493,6 +540,13 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
           else
             for (final (i, item) in entries.indexed)
               _HistRow(
+                onTap: () {
+                  final open = widget.onOpenRecord;
+                  final target = _targetOf(item.entry);
+                  return open == null || target == null
+                      ? null
+                      : () => open(target);
+                }(),
                 first: i == 0,
                 kind: _Kind.of(item.entry),
                 title: _title(item.entry),
@@ -599,6 +653,7 @@ final class _Item {
 /// time it was recorded shows beneath, or the record date when that differs.
 class _HistRow extends StatelessWidget {
   const _HistRow({
+    this.onTap,
     required this.first,
     required this.kind,
     required this.title,
@@ -610,6 +665,8 @@ class _HistRow extends StatelessWidget {
     required this.files,
   });
 
+  /// Opens the record; null when the entry has nowhere to go.
+  final VoidCallback? onTap;
   final bool first;
   final _Kind kind;
   final String title;
@@ -662,7 +719,7 @@ class _HistRow extends StatelessWidget {
         if (phone) ...[const SizedBox(height: 4), whenText],
       ],
     );
-    return Container(
+    final row = Container(
       padding: phone
           ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
           : const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -687,9 +744,21 @@ class _HistRow extends StatelessWidget {
             const SizedBox(width: 12),
             SizedBox(width: 128, child: whenText),
           ],
+          if (onTap != null)
+            const Padding(
+              padding: EdgeInsets.only(left: 6, top: 9),
+              child: ExcludeSemantics(
+                child: Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AccountsV2Colors.mut2,
+                ),
+              ),
+            ),
         ],
       ),
     );
+    return onTap == null ? row : InkWell(onTap: onTap, child: row);
   }
 }
 

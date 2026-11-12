@@ -342,4 +342,50 @@ void main() {
     expect(saves, hasLength(1), reason: 'the saved part is not sent again');
     expect(referenceSaves, hasLength(2));
   });
+
+  group('error messages', () {
+    String e(String code) => accountsV2ErrorText(en, code);
+    test('an unreachable server says a retry is safe', () {
+      expect(e('backendUnavailable'), t('v2_err_offline'));
+      expect(t('v2_err_offline'), contains("won't record it twice"));
+      expect(t('v2_err_offline'), isNot(contains('Nothing was saved')));
+    });
+    test('common input refusals name what is wrong', () {
+      expect(e('R39_ACCOUNTS_INVALID_PAYMENT_AMOUNT'), t('v2b_err_amount'));
+      expect(e('R39_ACCOUNTS_REASON_REQUIRED'), t('v2b_err_reason'));
+      expect(
+        e('R39_ACCOUNTS_CERTIFICATION_DIFFERENCE_REASON_REQUIRED'),
+        t('v2b_cert_need_reason'),
+      );
+      expect(
+        e('R39_ACCOUNTS_PAYMENT_IDENTITY_REQUIRED'),
+        t('v2b_err_identity'),
+      );
+      expect(e('R39_ACCOUNTS_EVIDENCE_REQUIRED'), t('v2_err_evidence'));
+      expect(e('R39_ACCOUNTS_INVALID_CLAIM_LINE'), t('v2_err_invalid'));
+    });
+  });
+
+  test('a claim label never repeats the word', () {
+    expect(accountsV2ClaimPhrase(en, '#03'), 'Claim #03');
+    expect(accountsV2ClaimPhrase(en, 'Claim #03'), 'Claim #03');
+    expect(accountsV2ClaimPhrase(en, 'YRA322-CLM-02'), 'Claim YRA322-CLM-02');
+  });
+
+  testWidgets('a row that opens something shows a chevron', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AccountsV2Table(
+            columns: [AccountsV2Column('A'), AccountsV2Column('B')],
+            rows: [
+              AccountsV2Row([const Text('a1'), const Text('b1')], onTap: () {}),
+              AccountsV2Row([const Text('a2'), const Text('b2')]),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+  });
 }

@@ -905,8 +905,12 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     String title,
     String label,
     String okKey,
-    Future<String?> Function(String reason) command,
-  ) async {
+    Future<String?> Function(String reason) command, {
+    String confirmKey = 'v2_confirm',
+    String cancelKey = 'v2_cancel',
+    bool destructive = false,
+    String? defaultReason,
+  }) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final done = await showDialog<String>(
       context: context,
@@ -914,6 +918,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         title: title,
         label: label,
         language: widget.language,
+        confirmKey: confirmKey,
+        cancelKey: cancelKey,
+        destructive: destructive,
+        defaultReason: defaultReason,
         onSubmit: command,
       ),
     );
@@ -927,13 +935,15 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     final version = _claimVersion;
     await _withReason(
       _t('v2_claim_mark_checked'),
-      _t('v2_claim_mark_reason'),
+      _t('v2b_note_optional'),
       'v2_claim_checked_done',
       (reason) => widget.onMarkChecked!(
         claimId: id,
         expectedVersion: version,
         reason: reason,
       ),
+      confirmKey: 'v2_claim_mark_checked',
+      defaultReason: _t('v2b_checked_default'),
     );
   }
 
@@ -950,6 +960,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         expectedVersion: version,
         reason: reason,
       ),
+      confirmKey: 'v2_claim_back_to_draft',
     );
   }
 
@@ -966,6 +977,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         expectedVersion: version,
         reason: reason,
       ),
+      confirmKey: 'v2b_delete_draft',
+      cancelKey: 'v2b_keep_draft',
+      destructive: true,
     );
   }
 
@@ -1013,6 +1027,17 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     }
   }
 
+  /// "Invoice YRA32203 · AED 1,579,515.00 incl. VAT · Client" for the dialog.
+  String get _issueSummary {
+    final setup = widget.setup;
+    final party = setup?.mainContractorParty ?? setup?.clientParty;
+    return [
+      if (_invoiceNo != null) '${_t('v2b_invoice_word')} $_invoiceNo',
+      if (_values) '${v2Money(_amounts.net)} ${_t('v2b_incl_vat')}',
+      if (party?.name != null && party!.name!.trim().isNotEmpty) party.name!,
+    ].join(' · ');
+  }
+
   Future<void> _issue() async {
     final id = _claimId;
     if (id == null) return;
@@ -1022,6 +1047,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       context: context,
       builder: (_) => _IssueDialog(
         language: widget.language,
+        summary: _issueSummary,
         onSubmit: (r) => widget.onIssue!(
           claimId: id,
           expectedClaimVersion: version,
@@ -1032,7 +1058,23 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       ),
     );
     if (result == null || !mounted) return;
-    messenger?.showSnackBar(SnackBar(content: Text(_t('v2_claim_issued'))));
+    // The next step: the invoice just issued (the workbench has reloaded with
+    // it by the time the button is pressed).
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(_t('v2_claim_issued')),
+        persist: false,
+        action: widget.onOpenInvoice == null
+            ? null
+            : SnackBarAction(
+                label: _t('v2p_view_invoice'),
+                onPressed: () {
+                  final id = _invoice?['invoice_id'] as String?;
+                  if (mounted && id != null) widget.onOpenInvoice!(id);
+                },
+              ),
+      ),
+    );
   }
 
   Future<void> _preview() async {
@@ -1551,7 +1593,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           value: statusLabel,
           caption: checkedBy != null && _status != 'draft'
               ? '${_t('v2p_checked_by')} $checkedBy'
-              : '${_t('v2p_prepared_by')} ${preparedBy ?? '—'}',
+              : preparedBy == null
+              ? ''
+              : '${_t('v2p_prepared_by')} $preparedBy',
         ),
       ],
     );
@@ -1654,12 +1698,9 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
   Widget _saveCard(BuildContext context, bool dirty) {
     final needsEvidence = _hasIncrease && _evidence.isEmpty;
     final invalid = _invalidInput;
+    final periodReversed = _periodStart.compareTo(_periodEnd) > 0;
     final canSave =
-        dirty &&
-        !_saving &&
-        !invalid &&
-        !needsEvidence &&
-        _periodStart.compareTo(_periodEnd) <= 0;
+        dirty && !_saving && !invalid && !needsEvidence && !periodReversed;
     final phone = AccountsV2Breakpoints.isPhone(context);
     final docs = {for (final d in widget.evidenceDocuments) d.id: d.name};
     return AccountsV2Panel(
@@ -1670,14 +1711,17 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AccountsV2Note(
-            tone: _error != null || invalid
+            tone: _error != null || invalid || periodReversed
                 ? AccountsV2NoteTone.bad
                 : AccountsV2NoteTone.warn,
             trailing: phone ? null : _saveButtons(canSave),
+            // Whatever keeps Save unavailable is named here.
             child: Text(
               _error ??
                   (invalid
                       ? '${_t('v2p_col_total_done')}: ${_t('v2p_over_total')}'
+                      : periodReversed
+                      ? _t('v2b_period_reversed')
                       : _t('v2p_unsaved')),
             ),
           ),
@@ -1720,7 +1764,8 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
               ),
               for (final id in _evidence)
                 _EvidenceChip(
-                  label: docs[id] ?? (id.length > 8 ? id.substring(0, 8) : id),
+                  // A file whose name isn't available still reads as a file.
+                  label: docs[id] ?? _t('v2b_file_unnamed'),
                   onRemove: () => setState(() => _evidence.remove(id)),
                 ),
               _AddEvidenceButton(
@@ -1808,8 +1853,8 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             divider: false,
             actions: [
               AccountsV2Chip(
-                '${_buildings.length} ${_t('v2p_physical_buildings')} · '
-                '${_buildings.length * stageCount} ${_t('v2p_billing_stages')}',
+                '${_buildings.length} ${_t(_buildings.length == 1 ? 'v2p_physical_building' : 'v2p_physical_buildings')} · '
+                '${_buildings.length * stageCount} ${_t(_buildings.length * stageCount == 1 ? 'v2p_billing_stage' : 'v2p_billing_stages')}',
                 tone: AccountsV2ChipTone.pri,
               ),
             ],
@@ -1975,7 +2020,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
               if (_stageShare(v.cell.stageKey) > 0)
                 '${v2Pct(_stageShare(v.cell.stageKey), 0)} ${_t('v2p_of_contract')}',
               measure,
-              if (_values) v2Money(v.stageValue, digits: 0),
+              if (_values) v2Money(v.stageValue),
             ].join(' · '),
             before: before,
             now: now,
@@ -3489,6 +3534,9 @@ class _ReasonDialog extends StatefulWidget {
     required this.label,
     required this.language,
     this.confirmKey = 'v2_confirm',
+    this.cancelKey = 'v2_cancel',
+    this.destructive = false,
+    this.defaultReason,
     this.onSubmit,
   });
 
@@ -3501,6 +3549,16 @@ class _ReasonDialog extends StatefulWidget {
 
   /// The confirm button's copy (names the action where it can).
   final String confirmKey;
+
+  /// The cancel button's copy ("Keep draft" beside "Delete draft").
+  final String cancelKey;
+
+  /// Red confirm button, for an action that removes something.
+  final bool destructive;
+
+  /// Makes the note optional for a routine step: left empty, this is sent
+  /// instead (the server keeps a reason for every step in the audit trail).
+  final String? defaultReason;
 
   @override
   State<_ReasonDialog> createState() => _ReasonDialogState();
@@ -3523,7 +3581,9 @@ class _ReasonDialogState extends State<_ReasonDialog>
 
   @override
   Widget build(BuildContext context) {
-    final valid = _controller.text.trim().isNotEmpty;
+    final typed = _controller.text.trim();
+    final valid = typed.isNotEmpty || widget.defaultReason != null;
+    final reason = typed.isEmpty ? widget.defaultReason ?? '' : typed;
     return submitDialog(
       title: Text(widget.title),
       content: TextField(
@@ -3539,9 +3599,10 @@ class _ReasonDialogState extends State<_ReasonDialog>
       ),
       actions: submitActions(
         confirmLabel: _t(widget.confirmKey),
-        onConfirm: valid
-            ? () => submit(_controller.text.trim(), widget.onSubmit)
-            : null,
+        cancelLabel: _t(widget.cancelKey),
+        destructive: widget.destructive,
+        blockedReason: _t('v2b_need_text').replaceAll('{field}', widget.label),
+        onConfirm: valid ? () => submit(reason, widget.onSubmit) : null,
       ),
     );
   }
@@ -3560,7 +3621,10 @@ class _IssueResult {
 }
 
 class _IssueDialog extends StatefulWidget {
-  const _IssueDialog({required this.language, this.onSubmit});
+  const _IssueDialog({required this.language, this.onSubmit, this.summary});
+
+  /// What will be issued: number, amount and who it is billed to.
+  final String? summary;
 
   /// Runs the command while the dialog stays open; null closes with the input.
   final AccountsV2DialogCommand<_IssueResult>? onSubmit;
@@ -3609,7 +3673,15 @@ class _IssueDialogState extends State<_IssueDialog>
       title: Text(_t('v2_claim_issue')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (widget.summary != null && widget.summary!.isNotEmpty)
+            submitSummary(widget.summary!),
+          Text(
+            _t('v2b_issue_note'),
+            style: v2Style(12.5, color: AccountsV2Colors.mut),
+          ),
+          const SizedBox(height: 10),
           AccountsV2DateField(
             label: _t('v2_claim_invoice_date'),
             controller: _invoiceDate,
@@ -3634,7 +3706,21 @@ class _IssueDialogState extends State<_IssueDialog>
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_claim_issue'),
+        blockedReason: accountsV2FirstBlocker([
+          (
+            _datePattern.hasMatch(_invoiceDate.text.trim()),
+            _t(
+              'v2b_need_date',
+            ).replaceAll('{field}', _t('v2_claim_invoice_date')),
+          ),
+          (
+            _datePattern.hasMatch(_submissionDate.text.trim()),
+            _t(
+              'v2b_need_date',
+            ).replaceAll('{field}', _t('v2_claim_submission_date')),
+          ),
+        ]),
         onConfirm: valid
             ? () {
                 final ref = _reference.text.trim();
@@ -3669,7 +3755,7 @@ class _DeletedClaimsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AccountsV2AlertDialog(
       title: Text(_t('v2r_deleted_claims')),
       content: SizedBox(
         width: 460,

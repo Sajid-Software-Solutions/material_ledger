@@ -194,7 +194,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('AED 1,000,000'), findsWidgets);
+      expect(find.text('AED 1,000,000.00'), findsWidgets);
       expect(find.text(t('v2_buildings_title')), findsWidgets);
       expect(find.text('Building 01'), findsWidgets);
       expect(find.textContaining('500,000'), findsWidgets);
@@ -318,7 +318,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('AED 1,000,000'), findsWidgets);
+      expect(find.text('AED 1,000,000.00'), findsWidgets);
       expect(find.text(t('v2c_setup_check')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
