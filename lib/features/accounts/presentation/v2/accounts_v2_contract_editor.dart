@@ -1250,10 +1250,89 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
             tone: AccountsV2NoteTone.warn,
             child: Text(_t('v2_items_vary_note')),
           ),
-        if (_stale) _staleBar() else if (_dirty || _error != null) _saveBar(),
+        if (_stale)
+          _staleBar()
+        else if ((_dirty || _error != null) && _needsExplaining)
+          _saveBar(),
         _kpis(),
         AccountsV2Split(main: main, side: side),
+        // Discard and Save stay in reach at the bottom of the screen while
+        // anything is unsaved, however far down the form the person is.
+        if (!_stale && (_dirty || _error != null))
+          AccountsV2BottomBar(child: _actionBar()),
       ],
+    );
+  }
+
+  /// Whether the note above the form has something to say beyond "unsaved"
+  /// (the bottom bar already says that).
+  bool get _needsExplaining =>
+      _error != null ||
+      _notice != null ||
+      _prefilled ||
+      (_dirty && _blockers.isNotEmpty);
+
+  /// The bar at the bottom: what state the form is in, Discard and Save.
+  Widget _actionBar() {
+    final blockers = _dirty ? _blockers : const <_SaveBlocker>[];
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final status = Text(
+      _error != null
+          ? _t('v2c_bar_failed')
+          : blockers.isEmpty
+          ? _t('v2c_bar_unsaved')
+          : _t('v2c_bar_to_fix').replaceAll('{n}', '${blockers.length}'),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: v2Style(
+        13,
+        weight: FontWeight.w600,
+        color: _error != null || (_showProblems && blockers.isNotEmpty)
+            ? AccountsV2Colors.bad
+            : AccountsV2Colors.ink2,
+      ),
+    );
+    final discard = AccountsV2Button(
+      label: _t('v2c_discard'),
+      size: AccountsV2ButtonSize.small,
+      block: phone,
+      onPressed: _saving ? null : _discard,
+    );
+    final save = AccountsV2Button(
+      label: _saving ? _t('v2c_saving') : _t('v2c_save_changes'),
+      icon: 'check',
+      kind: AccountsV2ButtonKind.primary,
+      size: AccountsV2ButtonSize.small,
+      block: phone,
+      onPressed: _canSave ? _save : null,
+    );
+    return KeyedSubtree(
+      key: const ValueKey('accounts-v2-contract-save-bar'),
+      child: phone
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                status,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: discard),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: save),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: status),
+                const SizedBox(width: 12),
+                discard,
+                const SizedBox(width: 8),
+                save,
+              ],
+            ),
     );
   }
 
@@ -1290,25 +1369,8 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
             (_prefilled ? '${_t('v2c_prefilled')} ' : '') +
             _t('v2c_unsaved');
     return AccountsV2Note(
-      key: const ValueKey('accounts-v2-contract-save-bar'),
+      key: const ValueKey('accounts-v2-contract-note'),
       tone: failing ? AccountsV2NoteTone.bad : AccountsV2NoteTone.warn,
-      trailing: Wrap(
-        spacing: 8,
-        children: [
-          AccountsV2Button(
-            label: _t('v2c_discard'),
-            size: AccountsV2ButtonSize.small,
-            onPressed: _saving ? null : _discard,
-          ),
-          AccountsV2Button(
-            label: _saving ? _t('v2c_saving') : _t('v2c_save_changes'),
-            icon: 'check',
-            kind: AccountsV2ButtonKind.primary,
-            size: AccountsV2ButtonSize.small,
-            onPressed: _canSave ? _save : null,
-          ),
-        ],
-      ),
       child: blockers.isEmpty
           ? Text(intro)
           : Column(
@@ -1609,6 +1671,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
               ),
             ),
           AccountsV2Table(
+            phoneCards: true,
             columns: [
               AccountsV2Column(_t('v2c_building')),
               AccountsV2Column(_t('v2c_share_pct'), width: 120, numeric: true),
@@ -1687,6 +1750,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
                 : const [],
           ),
           AccountsV2Table(
+            phoneCards: true,
             columns: [
               AccountsV2Column(_t('v2c_stage')),
               AccountsV2Column(
@@ -1788,6 +1852,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
                 : const [],
           ),
           AccountsV2Table(
+            phoneCards: true,
             columns: [
               const AccountsV2Column('#', width: 44, center: true),
               AccountsV2Column(_t('v2c_item')),
@@ -2129,7 +2194,7 @@ class _RemoveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 30,
+    width: AccountsV2Breakpoints.isPhone(context) ? 44 : 30,
     child: AccountsV2Button(
       label: '',
       icon: 'trash',

@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/accounts/application/accounts_providers.dart';
 import 'package:material_ledger/features/accounts/application/accounts_supplier_providers.dart';
 import 'package:material_ledger/features/accounts/data/accounts_supplier_repository.dart';
@@ -19,6 +20,8 @@ import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/accounts_v2_golden_fonts.dart';
 
 const en = AppLanguage.english;
 String t(String key) => accountsV2Text(en, key);
@@ -190,8 +193,12 @@ final class _Fake implements YorksAccountsSupplierRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<void> _pump(WidgetTester tester, _Fake fake) async {
-  tester.view.physicalSize = const Size(600, 1600);
+Future<void> _pump(
+  WidgetTester tester,
+  _Fake fake, {
+  Size size = const Size(600, 1600),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -215,6 +222,8 @@ Future<void> _pump(WidgetTester tester, _Fake fake) async {
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        theme: AppTheme.light,
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Builder(
             builder: (context) => Center(
@@ -249,8 +258,8 @@ void main() {
     tester,
   ) async {
     await _pump(tester, _Fake(_bill(), payments: [_payment()]));
-    expect(find.text('AED 105,000.00'), findsOneWidget);
-    expect(find.text('AED 65,000.00'), findsOneWidget);
+    expect(find.text('105,000.00'), findsOneWidget);
+    expect(find.text('65,000.00'), findsOneWidget);
     expect(find.text(t('v2sd_docs').toUpperCase()), findsOneWidget);
     expect(find.text(t('v2sd_doc_delivery')), findsOneWidget);
     expect(find.textContaining('PO-77'), findsOneWidget);
@@ -332,11 +341,20 @@ void main() {
     expect(fake.reversed?.reason, 'Paid twice');
   });
 
-  testWidgets('fits a phone', (tester) async {
-    tester.view.physicalSize = const Size(360, 1400);
-    await _pump(tester, _Fake(_bill(), payments: [_payment()]));
-    tester.view.physicalSize = const Size(360, 1400);
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+  group('on a phone', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+
+    testWidgets('fits a phone', (tester) async {
+      await _pump(
+        tester,
+        _Fake(_bill(), payments: [_payment()]),
+        size: const Size(360, 1200),
+      );
+      expect(tester.takeException(), isNull);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/accounts_v2/phone_supplier_drawer.png'),
+      );
+    });
   });
 }

@@ -514,7 +514,12 @@ class _AccountsV2HistoryTabState extends State<AccountsV2HistoryTab> {
             padding: phone
                 ? const EdgeInsets.fromLTRB(14, 16, 14, 10)
                 : const EdgeInsets.fromLTRB(18, 18, 18, 10),
-            child: narrow
+            child: phone
+                ? AccountsV2PhoneFilters(
+                    search: filters[1],
+                    selects: [filters[0]],
+                  )
+                : narrow
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

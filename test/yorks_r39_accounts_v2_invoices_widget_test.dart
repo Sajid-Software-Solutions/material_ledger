@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
 import 'package:material_ledger/features/accounts/application/accounts_providers.dart';
 import 'package:material_ledger/features/accounts/application/accounts_receivables_providers.dart';
@@ -16,6 +17,8 @@ import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/accounts_v2_golden_fonts.dart';
 
 YorksAccountsDecimal _d(String raw) => YorksAccountsDecimal.parse(raw);
 
@@ -994,6 +997,40 @@ void main() {
       await _tap(tester, find.text('YRA322-01'));
       expect(find.text(t('v2i_invoice_total')), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('phone screenshots', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+
+    testWidgets('the invoice drawer on a phone', (tester) async {
+      tester.view.physicalSize = const Size(360, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            body: AccountsV2InvoicesTab(
+              projection: _projection(cert: true, pay: true, pdc: true),
+              language: en,
+              onOpenDetail: (id) async =>
+                  _detail(status: 'partially_paid', payments: [_paymentJson()]),
+              onPay: (_) async => null,
+              onCreatePdc: (_) async => null,
+              focusInvoiceId: 'i1',
+              today: DateTime(2026, 11, 7),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/accounts_v2/phone_invoice_drawer.png'),
+      );
     });
   });
 

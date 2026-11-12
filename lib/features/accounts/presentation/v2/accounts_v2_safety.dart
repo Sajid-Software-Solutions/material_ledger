@@ -334,6 +334,10 @@ class AccountsV2AlertDialog extends StatelessWidget {
         ),
       ),
       child: AlertDialog(
+        // Phones: nearly the full width, so fields and two buttons fit.
+        insetPadding: MediaQuery.sizeOf(context).width <= 640
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 24)
+            : null,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

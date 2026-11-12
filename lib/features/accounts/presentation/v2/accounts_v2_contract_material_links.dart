@@ -257,6 +257,7 @@ class _MaterialLinksCard extends StatelessWidget {
             )
           else
             AccountsV2Table(
+              phoneCards: true,
               columns: [
                 const AccountsV2Column('#', width: 44, center: true),
                 AccountsV2Column(_t('v2c_item')),
@@ -400,7 +401,7 @@ class _DeliveredCell extends StatelessWidget {
       );
     }
     final figure =
-        '${share ? '≈ ' : ''}'
+        '${share ? '~ ' : ''}'
         '${delivered.displayText(maximumFractionDigits: 2)} ${_t('v2o_of')} '
         '${total.displayText(maximumFractionDigits: 2)} ${item.unit}';
     final cell = AccountsV2CellStack(

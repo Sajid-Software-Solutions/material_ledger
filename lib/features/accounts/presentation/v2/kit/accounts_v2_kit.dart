@@ -500,62 +500,84 @@ class AccountsV2KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final phone = AccountsV2Breakpoints.isPhone(context);
     final small = phone ? 11.5 : 12.0;
-    return AccountsV2Panel(
-      padding: phone
-          ? const EdgeInsets.all(10)
-          : const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: (phone ? 74 : 86) - (phone ? 20 : 28),
+    // The figure is the point of the card: it shrinks to fit, never ends in
+    // "…". Phones give it the card's full width under the label.
+    final figure = Tooltip(
+      message: value,
+      waitDuration: const Duration(milliseconds: 600),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          value,
+          maxLines: 1,
+          softWrap: false,
+          style: v2Style(
+            phone ? 15.5 : 16,
+            weight: FontWeight.w700,
+            color: valueTone.color,
+            height: 1.35,
+            tabular: true,
+          ),
         ),
+      ),
+    );
+    final labelText = Text(
+      label,
+      style: v2Style(small, color: AccountsV2Colors.ink2, height: 1.35),
+    );
+    final captionText = caption.isEmpty
+        ? null
+        : Text(
+            caption,
+            style: v2Style(small, color: AccountsV2Colors.ink2, height: 1.35),
+          );
+    if (phone) {
+      return AccountsV2Panel(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                AccountsV2IconTile(
+                  icon: icon,
+                  tone: tone,
+                  size: 26,
+                  radius: 8,
+                  iconSize: 15,
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: labelText),
+              ],
+            ),
+            const SizedBox(height: 6),
+            figure,
+            ?captionText,
+          ],
+        ),
+      );
+    }
+    return AccountsV2Panel(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 86 - 28),
         child: Row(
           children: [
             AccountsV2IconTile(
               icon: icon,
               tone: tone,
-              size: phone ? 32 : 42,
-              radius: phone ? 9 : 11,
-              iconSize: phone ? 17 : 21,
+              size: 42,
+              radius: 11,
+              iconSize: 21,
             ),
-            SizedBox(width: phone ? 9 : 10),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: v2Style(
-                      small,
-                      color: AccountsV2Colors.ink2,
-                      height: 1.35,
-                    ),
-                  ),
-                  Tooltip(
-                    message: value,
-                    waitDuration: const Duration(milliseconds: 600),
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: v2Style(
-                        phone ? 14 : 16,
-                        weight: FontWeight.w700,
-                        color: valueTone.color,
-                        height: 1.4,
-                        tabular: true,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    caption,
-                    style: v2Style(
-                      small,
-                      color: AccountsV2Colors.ink2,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
+                children: [labelText, figure, ?captionText],
               ),
             ),
           ],
@@ -584,6 +606,22 @@ class AccountsV2KpiRow extends StatelessWidget {
                 1,
                 children.length,
               );
+        // Phones: two across, and an odd last card takes the whole row
+        // instead of sitting beside a gap.
+        if (phone && children.length.isOdd && children.length > 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AccountsV2Grid(
+                columns: 2,
+                gap: gap,
+                children: children.sublist(0, children.length - 1),
+              ),
+              SizedBox(height: gap),
+              children.last,
+            ],
+          );
+        }
         // Balanced rows: six tiles that cannot sit in one row become 3 + 3,
         // never 5 + 1.
         final rows = (children.length / fit).ceil();
@@ -866,7 +904,13 @@ class AccountsV2Button extends StatelessWidget {
     final danger =
         kind == AccountsV2ButtonKind.danger ||
         kind == AccountsV2ButtonKind.ghostDanger;
-    final height = small ? 30.0 : (large ? 44.0 : 36.0);
+    // Phones: every button is at least a 44px tap target.
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final height = phone ? 44.0 : (small ? 30.0 : (large ? 44.0 : 36.0));
+    final block =
+        this.block ||
+        context.dependOnInheritedWidgetOfExactType<_AccountsV2BlockButtons>() !=
+            null;
     final radius = primary ? 999.0 : (small ? 8.0 : (large ? 12.0 : 10.0));
     final hPad = primary
         ? (small ? 14.0 : (large ? 24.0 : 18.0))
@@ -1074,12 +1118,16 @@ InputDecoration _outlinedDecoration({
   required AccountsV2FieldSize size,
   Widget? prefix,
   bool error = false,
+  bool phone = false,
 }) {
-  final height = switch (size) {
-    AccountsV2FieldSize.small => 32.0,
-    AccountsV2FieldSize.medium => 36.0,
-    AccountsV2FieldSize.large => 42.0,
-  };
+  // Phones: a 44px field, so it is as easy to tap as a button.
+  final height = phone
+      ? 44.0
+      : switch (size) {
+          AccountsV2FieldSize.small => 32.0,
+          AccountsV2FieldSize.medium => 36.0,
+          AccountsV2FieldSize.large => 42.0,
+        };
   OutlineInputBorder border(Color color, [double width = 1]) =>
       OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -1232,6 +1280,7 @@ class AccountsV2TextField extends StatelessWidget {
       ),
       decoration:
           _outlinedDecoration(
+            phone: AccountsV2Breakpoints.isPhone(context),
             label: label,
             size: size,
             error: error,
@@ -1291,7 +1340,7 @@ class AccountsV2CellInput extends StatelessWidget {
           borderSide: BorderSide(color: color, width: width),
         );
     return SizedBox(
-      height: 34,
+      height: AccountsV2Breakpoints.isPhone(context) ? 44 : 34,
       child: TextField(
         controller: controller,
         focusNode: focusNode,
@@ -1346,6 +1395,7 @@ final class AccountsV2Column {
     this.flex = 1,
     this.numeric = false,
     this.center = false,
+    this.cardBadge = false,
   });
 
   final String label;
@@ -1353,6 +1403,10 @@ final class AccountsV2Column {
   final int flex;
   final bool numeric;
   final bool center;
+
+  /// On a phone card, shown beside the title (a status chip) rather than as a
+  /// labelled line.
+  final bool cardBadge;
 
   Alignment get alignment => numeric
       ? Alignment.centerRight
@@ -1382,7 +1436,18 @@ class AccountsV2Table extends StatelessWidget {
     this.boxed = false,
     this.emptyRow,
     this.footerSpans,
+    this.phoneCards = false,
+    this.cardTitle,
   });
+
+  /// A fixed title for every phone card; then the first column is shown as a
+  /// labelled line too (a single editing row has no name cell of its own).
+  final String? cardTitle;
+
+  /// On phones, each row becomes a card (first cell as its title, a badge
+  /// column beside it, every other column as a labelled line) instead of a
+  /// table that scrolls sideways.
+  final bool phoneCards;
 
   final List<AccountsV2Column> columns;
   final List<AccountsV2Row> rows;
@@ -1398,9 +1463,139 @@ class AccountsV2Table extends StatelessWidget {
   /// Shown across the whole table when there are no rows.
   final Widget? emptyRow;
 
+  Widget _cards(BuildContext context) {
+    final badge = columns.indexWhere((c) => c.cardBadge);
+    Widget card(AccountsV2Row row) {
+      final cells = row.cells;
+      final lines = <Widget>[];
+      final actions = <Widget>[];
+      final first = cardTitle == null ? 1 : 0;
+      for (var i = first; i < cells.length && i < columns.length; i++) {
+        if (i == badge) continue;
+        final label = columns[i].label;
+        if (label.isEmpty) {
+          actions.add(cells[i]);
+          continue;
+        }
+        lines.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 112,
+                  child: Text(
+                    label,
+                    style: v2Style(12, color: AccountsV2Colors.mut),
+                  ),
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: DefaultTextStyle.merge(
+                      textAlign: TextAlign.end,
+                      style: v2Style(13, tabular: true),
+                      child: cells[i],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      final body = Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: DefaultTextStyle.merge(
+                    style: v2Style(13.5, weight: FontWeight.w700),
+                    child: cardTitle != null
+                        ? Text(cardTitle!)
+                        : cells.isEmpty
+                        ? const SizedBox()
+                        : cells.first,
+                  ),
+                ),
+                if (badge > 0 && badge < cells.length) ...[
+                  const SizedBox(width: 8),
+                  cells[badge],
+                ],
+                if (row.onTap != null)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 2, top: 1),
+                    child: ExcludeSemantics(
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 22,
+                        color: AccountsV2Colors.mut2,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            ...lines,
+            if (actions.isNotEmpty)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Wrap(spacing: 6, children: actions),
+              ),
+          ],
+        ),
+      );
+      return Material(
+        key: row.key,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: AccountsV2Colors.line),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: row.onTap == null
+            ? body
+            : InkWell(onTap: row.onTap, child: body),
+      );
+    }
+
+    return Padding(
+      padding: boxed ? EdgeInsets.zero : const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, row) in rows.indexed) ...[
+            if (i > 0) const SizedBox(height: 10),
+            card(row),
+          ],
+          if (rows.isEmpty && emptyRow != null) emptyRow!,
+          if (footer != null && footer!.isNotEmpty) ...[
+            if (rows.isNotEmpty) const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AccountsV2Colors.tableHead,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: DefaultTextStyle.merge(
+                style: v2Style(13, weight: FontWeight.w700),
+                child: Wrap(spacing: 16, runSpacing: 6, children: footer!),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final phone = AccountsV2Breakpoints.isPhone(context);
+    if (phone && phoneCards) return _cards(context);
     // Never narrower than the fixed columns plus some room for each flexible
     // one: below that the table scrolls sideways instead of crushing a column.
     final fixed = columns.fold<double>(0, (a, c) => a + (c.width ?? 0));
@@ -2084,6 +2279,36 @@ class AccountsV2ReportActions extends StatelessWidget {
   final List<Widget> actions;
   final Widget? primary;
 
+  /// The reports on a phone: a sheet from the bottom, one full-width button
+  /// each, above the thumb.
+  Future<void> _openSheet(BuildContext context) => showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (sheetContext) => AccountsV2Viewport(
+      width: 360,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: v2Style(16, weight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            for (final action in actions) ...[
+              _AccountsV2BlockButtons(child: action),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final phone = AccountsV2Breakpoints.isPhone(context);
@@ -2092,17 +2317,37 @@ class AccountsV2ReportActions extends StatelessWidget {
       padding: phone
           ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
           : const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      // Phones: one short row, so the figures stay on the first screen. The
+      // primary action keeps its button; the reports open from one button.
       child: phone
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ? Row(
               children: [
-                heading,
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [...actions, ?primary],
-                ),
+                if (primary != null) ...[
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: primary,
+                    ),
+                  ),
+                  if (actions.isNotEmpty) const SizedBox(width: 10),
+                ],
+                if (actions.isNotEmpty)
+                  primary == null
+                      ? Expanded(
+                          child: AccountsV2Button(
+                            key: const ValueKey('accounts-v2-reports-menu'),
+                            label: title,
+                            icon: 'download',
+                            block: true,
+                            onPressed: () => _openSheet(context),
+                          ),
+                        )
+                      : AccountsV2Button(
+                          key: const ValueKey('accounts-v2-reports-menu'),
+                          label: title,
+                          icon: 'download',
+                          onPressed: () => _openSheet(context),
+                        ),
               ],
             )
           : Row(
@@ -2120,6 +2365,232 @@ class AccountsV2ReportActions extends StatelessWidget {
               ],
             ),
     );
+  }
+}
+
+/// Makes every [AccountsV2Button] below it fill the width (a sheet's list).
+class _AccountsV2BlockButtons extends InheritedWidget {
+  const _AccountsV2BlockButtons({required super.child});
+
+  @override
+  bool updateShouldNotify(_AccountsV2BlockButtons oldWidget) => false;
+}
+
+/// Filters on a phone, in as little height as they can take: the search (if
+/// any) across the width, then the choices side by side (two share the row,
+/// more scroll sideways), so the figures and rows stay near the top.
+class AccountsV2PhoneFilters extends StatelessWidget {
+  const AccountsV2PhoneFilters({
+    super.key,
+    required this.selects,
+    this.search,
+    this.trailing,
+  });
+
+  final List<Widget> selects;
+  final Widget? search;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = 10.0;
+    // Two per row; an odd last one takes the whole row. Nothing is hidden
+    // off to the side.
+    final choices = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < selects.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: gap),
+          i + 1 < selects.length
+              ? Row(
+                  children: [
+                    Expanded(child: selects[i]),
+                    const SizedBox(width: gap),
+                    Expanded(child: selects[i + 1]),
+                  ],
+                )
+              : selects[i],
+        ],
+      ],
+    );
+    return Padding(
+      // Room for the fields' floating labels.
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (search != null) ...[search!, const SizedBox(height: gap)],
+          if (selects.isNotEmpty) choices,
+          if (trailing != null) ...[
+            const SizedBox(height: 8),
+            Align(alignment: AlignmentDirectional.centerEnd, child: trailing),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── A bar that stays on screen ──────────────────────────────────────────────
+
+/// The bottom of the workspace, where a tab with unsaved edits keeps its
+/// Discard and Save in reach however far down the page the person is. The page
+/// scrolls above it; nothing jumps when the bar appears.
+class AccountsV2BottomBarHost extends StatefulWidget {
+  const AccountsV2BottomBarHost({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AccountsV2BottomBarHost> createState() =>
+      _AccountsV2BottomBarHostState();
+}
+
+/// The bar's slot; [alive] turns false when the host goes, so a late
+/// update from a closing tab is ignored rather than touching a disposed slot.
+class _BarSlot extends ValueNotifier<(Object, Widget)?> {
+  _BarSlot() : super(null);
+  bool alive = true;
+
+  void offer(Object token, Widget bar) {
+    if (alive) value = (token, bar);
+  }
+
+  void withdraw(Object token) {
+    if (alive && value?.$1 == token) value = null;
+  }
+}
+
+class _AccountsV2BottomBarHostState extends State<AccountsV2BottomBarHost> {
+  final _bar = _BarSlot();
+
+  @override
+  void dispose() {
+    _bar.alive = false;
+    _bar.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _AccountsV2BottomBarScope(
+      bar: _bar,
+      // Inside something that scrolls itself (no height limit) the bar
+      // follows the page instead of sticking.
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          mainAxisSize: constraints.hasBoundedHeight
+              ? MainAxisSize.max
+              : MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            constraints.hasBoundedHeight
+                ? Expanded(child: widget.child)
+                : widget.child,
+            ValueListenableBuilder<(Object, Widget)?>(
+              valueListenable: _bar,
+              builder: (context, bar, _) => AnimatedSize(
+                duration: MediaQuery.of(context).disableAnimations
+                    ? Duration.zero
+                    : const Duration(milliseconds: 160),
+                alignment: Alignment.topCenter,
+                child: bar == null
+                    ? const SizedBox(width: double.infinity)
+                    : Material(
+                        color: Colors.white,
+                        elevation: 8,
+                        shadowColor: const Color(0x33132033),
+                        child: SafeArea(
+                          top: false,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                top: BorderSide(color: AccountsV2Colors.line),
+                              ),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: AccountsV2Breakpoints.isPhone(context)
+                                  ? 14
+                                  : 18,
+                              vertical: 10,
+                            ),
+                            child: bar.$2,
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountsV2BottomBarScope extends InheritedWidget {
+  const _AccountsV2BottomBarScope({required this.bar, required super.child});
+
+  final _BarSlot bar;
+
+  @override
+  bool updateShouldNotify(_AccountsV2BottomBarScope oldWidget) =>
+      oldWidget.bar != bar;
+}
+
+/// Puts [child] in the workspace's bottom bar while this widget is shown;
+/// without a host (a tab on its own) it is drawn where it stands.
+class AccountsV2BottomBar extends StatefulWidget {
+  const AccountsV2BottomBar({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<AccountsV2BottomBar> createState() => _AccountsV2BottomBarState();
+}
+
+class _AccountsV2BottomBarState extends State<AccountsV2BottomBar> {
+  final _token = Object();
+  _BarSlot? _host;
+
+  void _publish() {
+    final host = _host;
+    if (host == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _host != host) return;
+      host.offer(_token, widget.child);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final host = context
+        .dependOnInheritedWidgetOfExactType<_AccountsV2BottomBarScope>()
+        ?.bar;
+    if (host != _host) {
+      _clear();
+      _host = host;
+    }
+  }
+
+  void _clear() {
+    final host = _host;
+    if (host == null) return;
+    // Cleared after the frame: a host must not rebuild mid-frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => host.withdraw(_token));
+  }
+
+  @override
+  void dispose() {
+    _clear();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_host == null) return widget.child;
+    _publish();
+    return const SizedBox.shrink();
   }
 }
 

@@ -261,7 +261,7 @@ void main() {
         '60',
       );
       await tester.pumpAndSettle();
-      expect(find.text(t('v2c_unsaved')), findsOneWidget);
+      expect(find.text(t('v2c_bar_unsaved')), findsOneWidget);
       final save = find.widgetWithText(AccountsV2Button, t('v2c_save_changes'));
       await tester.ensureVisible(save);
       await tester.pumpAndSettle();

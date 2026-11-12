@@ -427,6 +427,12 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
         onChanged: (v) => setState(() => _fDue = v),
       ),
     ];
+    if (AccountsV2Breakpoints.isPhone(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: AccountsV2PhoneFilters(selects: selects),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: narrow
@@ -487,6 +493,7 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
     } else {
       body = AccountsV2Table(
         minWidth: 980,
+        phoneCards: true,
         columns: [
           AccountsV2Column(_t('v2i_c_invoice'), flex: 2),
           AccountsV2Column(_t('v2i_c_submitted'), width: 112),
@@ -500,7 +507,12 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
             AccountsV2Column(_t('v2i_c_received'), width: 168, numeric: true),
             AccountsV2Column(_t('v2i_c_balance'), width: 120, numeric: true),
           ],
-          AccountsV2Column(_t('v2i_c_status'), width: 130, center: true),
+          AccountsV2Column(
+            _t('v2i_c_status'),
+            width: 130,
+            center: true,
+            cardBadge: true,
+          ),
         ],
         rows: [for (final v in rows) _row(v)],
       );
@@ -1447,12 +1459,18 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
     return AccountsV2Table(
       boxed: true,
       minWidth: 520,
+      phoneCards: true,
       columns: [
         AccountsV2Column(_t('v2i_t_type'), width: 112),
         AccountsV2Column(_t('v2i_t_ref')),
         AccountsV2Column(_t('v2i_t_date'), width: 104),
         AccountsV2Column(_t('v2i_p_amount'), width: 112, numeric: true),
-        AccountsV2Column(_t('v2i_c_status'), width: 104, center: true),
+        AccountsV2Column(
+          _t('v2i_c_status'),
+          width: 104,
+          center: true,
+          cardBadge: true,
+        ),
         const AccountsV2Column('', width: 44, center: true),
       ],
       rows: rows,
@@ -1549,9 +1567,9 @@ class _RowMenu extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: () => _open(context),
-          child: const SizedBox(
-            width: 32,
-            height: 30,
+          child: SizedBox(
+            width: AccountsV2Breakpoints.isPhone(context) ? 44 : 32,
+            height: AccountsV2Breakpoints.isPhone(context) ? 44 : 30,
             child: Center(
               child: AccountsV2Icon(
                 'dots',

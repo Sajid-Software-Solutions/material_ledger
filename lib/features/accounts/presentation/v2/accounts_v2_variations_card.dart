@@ -96,6 +96,7 @@ class AccountsV2VariationsCard extends StatelessWidget {
             )
           else
             AccountsV2Table(
+              phoneCards: true,
               columns: [
                 AccountsV2Column(_t('v2c_vo_no'), width: 130),
                 AccountsV2Column(_t('v2c_description')),

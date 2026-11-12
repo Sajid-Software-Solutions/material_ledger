@@ -333,7 +333,12 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
     ];
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: narrow
+      child: AccountsV2Breakpoints.isPhone(context)
+          ? AccountsV2PhoneFilters(
+              search: fields.first,
+              selects: fields.sublist(1),
+            )
+          : narrow
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -394,6 +399,7 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
           else
             AccountsV2Table(
               minWidth: 1000,
+              phoneCards: true,
               columns: [
                 AccountsV2Column(_t('v2s_c_bill'), width: 112),
                 AccountsV2Column(_t('v2s_c_supplier'), flex: 3),
@@ -403,7 +409,12 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
                 AccountsV2Column(_t('v2s_c_incl'), width: 120, numeric: true),
                 AccountsV2Column(_t('v2s_c_paid'), width: 116, numeric: true),
                 AccountsV2Column(_t('v2s_c_due'), width: 108),
-                AccountsV2Column(_t('v2s_c_status'), width: 100, center: true),
+                AccountsV2Column(
+                  _t('v2s_c_status'),
+                  width: 100,
+                  center: true,
+                  cardBadge: true,
+                ),
               ],
               emptyRow: SizedBox(
                 height: 84,
@@ -425,7 +436,9 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
                       ),
                       v.linked
                           ? AccountsV2Chip(
-                              v.linkLabel.isEmpty ? '✓' : v.linkLabel,
+                              v.linkLabel.isEmpty
+                                  ? _t('v2_sup_linked')
+                                  : v.linkLabel,
                               tone: AccountsV2ChipTone.ok,
                               icon: 'check',
                             )

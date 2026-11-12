@@ -669,7 +669,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('≈ 2.50 ${t('v2m_delivered')} · DO-002'),
+        find.textContaining('~ 2.50 ${t('v2m_delivered')} · DO-002'),
         findsOneWidget,
       );
       expect(find.byTooltip(t('v2m_share_hint')), findsOneWidget);
