@@ -100,7 +100,7 @@ class AttendanceCrewsScreen extends ConsumerWidget {
                 ],
               ),
             ),
-          _HolidaysCard(language: language),
+          AttendanceHolidaysCard(language: language),
         ],
       ),
     );
@@ -467,10 +467,20 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
 
 /// Public holidays for this year. Everyone sees them; Admin and PR add and
 /// remove them. A holiday inside a confirmed month is refused by the server.
-class _HolidaysCard extends ConsumerWidget {
-  const _HolidaysCard({required this.language});
+/// Public holidays for the year: shown on Crews and in Configuration ›
+/// Workforce. Admin and PR add and remove them.
+class AttendanceHolidaysCard extends ConsumerWidget {
+  const AttendanceHolidaysCard({
+    super.key,
+    required this.language,
+    this.onChanged,
+  });
 
   final AppLanguage language;
+
+  /// After a holiday is added or removed (Configuration refreshes its
+  /// checklist).
+  final VoidCallback? onChanged;
 
   Future<void> _add(BuildContext context, WidgetRef ref, int year) async {
     final picked = await showDatePicker(
@@ -500,7 +510,10 @@ class _HolidaysCard extends ConsumerWidget {
         }
       },
     );
-    if (name != null) ref.invalidate(yorksAttendanceHolidaysProvider(year));
+    if (name != null) {
+      ref.invalidate(yorksAttendanceHolidaysProvider(year));
+      onChanged?.call();
+    }
   }
 
   Future<void> _remove(
@@ -530,7 +543,10 @@ class _HolidaysCard extends ConsumerWidget {
         }
       },
     );
-    if (done != null) ref.invalidate(yorksAttendanceHolidaysProvider(year));
+    if (done != null) {
+      ref.invalidate(yorksAttendanceHolidaysProvider(year));
+      onChanged?.call();
+    }
   }
 
   @override
