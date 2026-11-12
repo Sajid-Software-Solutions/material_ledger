@@ -2,6 +2,11 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
 select no_plan();
+-- Admin-recipient fixture. PR also receives rental reminders
+-- (PRODUCT_DECISIONS.md section 37), covered by yorks_rental_reminder_catch_up;
+-- the seeded PR persona is set aside so the Admin counts here stay exact.
+update public.v1_profiles set is_active = false
+where auth_user_id = '10000000-0000-4000-8000-000000000014';
 select ok(not enabled,'Rental producer defaults disabled') from public.v1_rental_notification_control where id;
 select ok(not external_push_enabled,'Initial rental cohort defaults inbox-only') from public.v1_rental_notification_control where id;
 select ok(not active,'Rental cron registration defaults inactive') from cron.job where jobname='yorks-rental-notifications';
