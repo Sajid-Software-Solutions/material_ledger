@@ -2308,6 +2308,21 @@ Requests:
 
 Attendance still carries no pay field; salary lives only in Worker Records.
 
+## 38. Workforce Center and crew requests (owner decision, 12 November 2026)
+
+Workforce gets one register, like Material Requests and Material Returns:
+**My work**, **Crew requests** and **Crews**, each record showing its state,
+current owner, next step, last actor and time. Site Engineers, Project
+Engineers and the Workshop In-Charge request workers; the project's Project
+Engineer approves, returns (reason) or rejects (reason); a request from
+someone who may approve it is approved on submit. PR (Admin when there is no
+PR) assigns free workers line by line, recording Partial or Cannot provide
+now with a reason, into an existing or new crew on that project. Procurement
+has no access; Accountant reads. PR receives one urgent overdue summary per
+day, never one alert per request. Releasing workers is a later request type.
+Full design: [`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md).
+Rollout flag: `YORKS_V1_WORKFORCE_CENTER` (default off).
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

@@ -17,6 +17,7 @@ import '../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../shared/sync/connectivity_service.dart';
 import '../data/attendance_repository.dart';
 import '../domain/attendance_models.dart';
+import '../domain/crew_request_models.dart';
 import '../domain/attendance_time.dart';
 import 'workforce_providers.dart';
 
@@ -70,6 +71,24 @@ final yorksAttendanceMonthSheetProvider = FutureProvider.autoDispose
       (ref, key) => ref
           .watch(yorksAttendanceRepositoryProvider)
           .getMonthSheet(crewId: key.crewId, month: key.month),
+    );
+
+/// Crew requests the signed-in person may see (Workforce Center).
+final yorksCrewRequestsProvider =
+    FutureProvider.autoDispose<CrewRequestRegister>(
+      (ref) => ref.watch(yorksAttendanceRepositoryProvider).listRequests(),
+    );
+
+final yorksCrewRequestProvider = FutureProvider.autoDispose
+    .family<CrewRequest, String>(
+      (ref, requestId) =>
+          ref.watch(yorksAttendanceRepositoryProvider).getRequest(requestId),
+    );
+
+/// Projects, trades, crews and (for PR/Admin) workers for request forms.
+final yorksCrewRequestOptionsProvider =
+    FutureProvider.autoDispose<CrewRequestOptions>(
+      (ref) => ref.watch(yorksAttendanceRepositoryProvider).requestOptions(),
     );
 
 typedef AttendanceDayKey = ({String crewId, String date});

@@ -28,6 +28,7 @@ Future<String?> showAttendanceCommandDialog(
   String? summary,
   String? body,
   String? fieldLabel,
+  bool fieldOptional = false,
   bool destructive = false,
   AttendanceDialogCommand? command,
 }) => showDialog<String>(
@@ -39,6 +40,7 @@ Future<String?> showAttendanceCommandDialog(
     summary: summary,
     body: body,
     fieldLabel: fieldLabel,
+    fieldOptional: fieldOptional,
     destructive: destructive,
     command: command,
   ),
@@ -52,6 +54,7 @@ class _AttendanceCommandDialog extends StatefulWidget {
     this.summary,
     this.body,
     this.fieldLabel,
+    this.fieldOptional = false,
     this.destructive = false,
     this.command,
   });
@@ -62,6 +65,7 @@ class _AttendanceCommandDialog extends StatefulWidget {
   final String? summary;
   final String? body;
   final String? fieldLabel;
+  final bool fieldOptional;
   final bool destructive;
   final AttendanceDialogCommand? command;
 
@@ -85,7 +89,7 @@ class _AttendanceCommandDialogState extends State<_AttendanceCommandDialog> {
 
   Future<void> _confirm() async {
     final text = _text.text.trim();
-    if (widget.fieldLabel != null && text.isEmpty) {
+    if (widget.fieldLabel != null && !widget.fieldOptional && text.isEmpty) {
       setState(
         () =>
             _error = AS.t(AS.needText, _language, {'field': widget.fieldLabel}),
@@ -114,7 +118,11 @@ class _AttendanceCommandDialogState extends State<_AttendanceCommandDialog> {
     }
     setState(() {
       _running = false;
-      _error = attendanceErrorText(failure, _language);
+      // A command may return the message to show, already in the person's
+      // language.
+      _error = failure is String
+          ? failure
+          : attendanceErrorText(failure, _language);
     });
   }
 

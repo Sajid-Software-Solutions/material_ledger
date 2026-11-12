@@ -20,6 +20,7 @@ import '../shared/models/yorks_v1_project_strings.dart';
 import '../shared/models/yorks_v1_role.dart';
 import '../features/workforce/application/attendance_providers.dart';
 import '../shared/models/yorks_v1_attendance_strings.dart';
+import '../shared/models/yorks_v1_crew_request_strings.dart';
 import '../shared/models/yorks_v1_shell_strings.dart';
 import '../shared/models/yorks_v1_team_chat_strings.dart';
 import '../shared/models/yorks_v1_workspace_status.dart';
@@ -160,12 +161,20 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     if (location.startsWith(RoutePaths.yorksV1Workforce) &&
         allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce) &&
         featureFlags.workforceAttendanceV2) {
+      final center = featureFlags.workforceCenter;
       sections.addAll([
-        const _YorksDestination(
-          label: AttendanceStrings.overviewShort,
+        _YorksDestination(
+          label: center
+              ? CrewRequestStrings.centerShort
+              : AttendanceStrings.overviewShort,
           icon: Icons.dashboard_outlined,
           selectedIcon: Icons.dashboard,
           path: RoutePaths.yorksV1Workforce,
+          // Crew requests waiting for this person (Workforce Center).
+          badgeCount: center
+              ? ref.watch(yorksCrewRequestsProvider).valueOrNull?.mine.length ??
+                    0
+              : 0,
         ),
         const _YorksDestination(
           label: AttendanceStrings.attendanceShort,

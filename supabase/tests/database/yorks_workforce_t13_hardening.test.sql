@@ -22,6 +22,12 @@ select is(
     'v1_workforce_calendars',
     'v1_workforce_crew_members',
     'v1_workforce_crew_profiles',
+    'v1_workforce_crew_request_assignments',
+    'v1_workforce_crew_request_counters',
+    'v1_workforce_crew_request_digests',
+    'v1_workforce_crew_request_events',
+    'v1_workforce_crew_request_lines',
+    'v1_workforce_crew_requests',
     'v1_workforce_day_changes',
     'v1_workforce_day_questions',
     'v1_workforce_day_rows',
@@ -284,7 +290,15 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_save_crew(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_save_day(p_team_id uuid, p_work_date date, p_rows jsonb, p_expected_version bigint, p_change_reason text, p_idempotency_key uuid)'),
   ('v1_wf_save_public_holiday(p_holiday_date date, p_holiday_name text, p_remove boolean)'),
-  ('v1_wf_set_crew_members(p_team_id uuid, p_add_worker_ids uuid[], p_remove_worker_ids uuid[], p_idempotency_key uuid)');
+  ('v1_wf_set_crew_members(p_team_id uuid, p_add_worker_ids uuid[], p_remove_worker_ids uuid[], p_idempotency_key uuid)'),
+  -- Workforce Center crew requests (WORKFORCE_CENTER_DESIGN.md).
+  ('v1_wf_cancel_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_wf_close_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_wf_decide_request(p_request_id uuid, p_decision text, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_wf_fulfil_request(p_request_id uuid, p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_wf_list_requests()'),
+  ('v1_wf_request_options()'),
+  ('v1_wf_submit_request(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)');
 
 select set_eq(
   'select proname || ''('' || arguments || '')''
