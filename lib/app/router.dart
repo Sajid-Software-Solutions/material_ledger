@@ -94,6 +94,9 @@ import '../features/workforce/presentation/attendance/attendance_crews_screen.da
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
+import '../features/workforce/presentation/requests/crew_request_assign_screen.dart';
+import '../features/workforce/presentation/requests/crew_request_detail_screen.dart';
+import '../features/workforce/presentation/requests/crew_request_form_screen.dart';
 import '../shared/models/app_config.dart';
 import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
@@ -228,6 +231,12 @@ abstract final class RoutePaths {
   static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
   static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
   static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
+  static const String yorksV1WorkforceRequestNew =
+      '/yorks/workforce/requests/new';
+  static const String yorksV1WorkforceRequest =
+      '/yorks/workforce/requests/:requestId';
+  static const String yorksV1WorkforceRequestAssign =
+      '/yorks/workforce/requests/:requestId/assign';
   static const String yorksV1TeamChat = '/yorks/team-chat';
   static const String yorksV1TeamChatConversation =
       '/yorks/team-chat/:conversationId';
@@ -2256,9 +2265,47 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1Workforce,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            const _WorkforceScreenSwitch(
-              attendanceV2: AttendanceOverviewScreen(),
-              legacy: YorksWorkforceOverviewScreen(),
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceOverviewScreen(
+                initialView: state.uri.queryParameters['view'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceRequestNew,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceCenterGate(
+              child: CrewRequestFormScreen(
+                requestId: state.uri.queryParameters['request'],
+              ),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceRequest,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceCenterGate(
+              child: CrewRequestDetailScreen(
+                requestId: state.pathParameters['requestId'] ?? '',
+              ),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceRequestAssign,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceCenterGate(
+              child: CrewRequestAssignScreen(
+                requestId: state.pathParameters['requestId'] ?? '',
+              ),
             ),
           ),
         ),
@@ -3169,6 +3216,23 @@ class _DeferredProcurementArrangementScreenState
 /// Workforce routes open the prototype attendance screens when
 /// `YORKS_V1_WORKFORCE_ATTENDANCE_V2` is on, and the T03-T10 screens
 /// otherwise. Both read the same server-confirmed permission snapshot.
+/// Crew request pages exist only with the Workforce Center on; otherwise the
+/// link opens Workforce as before.
+class _WorkforceCenterGate extends ConsumerWidget {
+  const _WorkforceCenterGate({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      ref.watch(yorksV1FeatureFlagsProvider).workforceCenter
+      ? child
+      : const _WorkforceScreenSwitch(
+          attendanceV2: AttendanceOverviewScreen(),
+          legacy: YorksWorkforceOverviewScreen(),
+        );
+}
+
 class _WorkforceScreenSwitch extends ConsumerWidget {
   const _WorkforceScreenSwitch({
     required this.attendanceV2,

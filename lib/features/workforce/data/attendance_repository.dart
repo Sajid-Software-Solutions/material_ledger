@@ -9,6 +9,7 @@ import '../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../shared/models/yorks_v1_feature_flags.dart';
 import '../../../shared/sync/connectivity_service.dart';
 import '../domain/attendance_models.dart';
+import '../domain/crew_request_models.dart';
 import 'workforce_repository.dart';
 
 final class YorksAttendanceRepository {
@@ -204,6 +205,135 @@ final class YorksAttendanceRepository {
       'p_idempotency_key': idempotencyKey,
     }),
   );
+
+  // ─── Crew requests (Workforce Center) ─────────────────────────────────────
+
+  Future<CrewRequestRegister> listRequests() async =>
+      CrewRequestRegister.fromJson(
+        await _invokeCenter('v1_wf_list_requests', const {}),
+      );
+
+  Future<CrewRequest> getRequest(String requestId) async =>
+      CrewRequest.fromJson(
+        await _invokeCenter('v1_wf_get_request', {'p_request_id': requestId}),
+      );
+
+  Future<CrewRequestOptions> requestOptions() async =>
+      CrewRequestOptions.fromJson(
+        await _invokeCenter('v1_wf_request_options', const {}),
+      );
+
+  /// Raises a request, or resubmits a returned one when [requestId] is set.
+  Future<CrewRequest> submitRequest({
+    String? requestId,
+    required String crewKind,
+    String? projectId,
+    String? workLabel,
+    String? targetCrewId,
+    required String neededFrom,
+    String? neededUntil,
+    String? notes,
+    required List<CrewRequestDraftLine> lines,
+    int? expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_submit_request', {
+      'p_payload': {
+        'request_id': ?requestId,
+        'crew_kind': crewKind,
+        'project_id': ?projectId,
+        if (workLabel != null && workLabel.trim().isNotEmpty)
+          'work_label': workLabel.trim(),
+        'target_crew_id': ?targetCrewId,
+        'needed_from': neededFrom,
+        'needed_until': ?neededUntil,
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        'lines': [for (final line in lines) line.toJson()],
+      },
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  /// [decision] is `approve`, `return` or `reject`.
+  Future<CrewRequest> decideRequest({
+    required String requestId,
+    required String decision,
+    String? reason,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_decide_request', {
+      'p_request_id': requestId,
+      'p_decision': decision,
+      'p_reason': reason,
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  Future<CrewRequest> cancelRequest({
+    required String requestId,
+    String? reason,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_cancel_request', {
+      'p_request_id': requestId,
+      'p_reason': reason,
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  /// Assigns workers into [crewId], or into a new crew described by
+  /// [newCrew] (`name`, `shift_start_minute`, `shift_finish_minute`, and
+  /// optionally a break).
+  Future<CrewRequest> fulfilRequest({
+    required String requestId,
+    String? crewId,
+    Map<String, Object?>? newCrew,
+    required List<CrewRequestFulfilLine> lines,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_fulfil_request', {
+      'p_request_id': requestId,
+      'p_payload': {
+        'crew_id': ?crewId,
+        'new_crew': ?newCrew,
+        'lines': [for (final line in lines) line.toJson()],
+      },
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  Future<CrewRequest> closeRequest({
+    required String requestId,
+    required String reason,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_close_request', {
+      'p_request_id': requestId,
+      'p_reason': reason,
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  Future<Map<String, dynamic>> _invokeCenter(
+    String functionName,
+    Map<String, Object?> parameters,
+  ) {
+    if (!_featureFlags.workforceCenter) {
+      throw const YorksV1DomainException(
+        YorksV1DomainErrorCode.featureDisabled,
+      );
+    }
+    return _invoke(functionName, parameters);
+  }
 
   Future<Map<String, dynamic>> _invoke(
     String functionName,

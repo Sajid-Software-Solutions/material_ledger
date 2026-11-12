@@ -32,6 +32,7 @@ class YorksV1FeatureFlags {
     bool roleOverviewV2 = false,
     bool workerRecords = false,
     bool workforceAttendanceV2 = false,
+    bool workforceCenter = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -51,7 +52,8 @@ class YorksV1FeatureFlags {
        _companyMaterialRequests = companyMaterialRequests,
        _roleOverviewV2 = roleOverviewV2,
        _workerRecords = workerRecords,
-       _workforceAttendanceV2 = workforceAttendanceV2;
+       _workforceAttendanceV2 = workforceAttendanceV2,
+       _workforceCenter = workforceCenter;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -127,6 +129,10 @@ class YorksV1FeatureFlags {
       _workforceAttendanceV2 = const bool.fromEnvironment(
         'YORKS_V1_WORKFORCE_ATTENDANCE_V2',
         defaultValue: false,
+      ),
+      _workforceCenter = const bool.fromEnvironment(
+        'YORKS_V1_WORKFORCE_CENTER',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -149,6 +155,7 @@ class YorksV1FeatureFlags {
   final bool _roleOverviewV2;
   final bool _workerRecords;
   final bool _workforceAttendanceV2;
+  final bool _workforceCenter;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -225,6 +232,12 @@ class YorksV1FeatureFlags {
   /// the T03-T10 attendance and timesheet screens when on. Default off until
   /// `supabase/release/workforce_attendance_v2_bundle.sql` is applied.
   bool get workforceAttendanceV2 => workforce && _workforceAttendanceV2;
+
+  /// The Workforce Center register and crew requests
+  /// (docs/yorks-v1/WORKFORCE_CENTER_DESIGN.md). Builds on attendance V2.
+  /// Default off until `20261113150000_workforce_crew_requests.sql` is
+  /// applied and the owner accepts it on staging.
+  bool get workforceCenter => workforceAttendanceV2 && _workforceCenter;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

@@ -1,6 +1,7 @@
 # Workforce Center and Crew Requests — design (draft for owner approval)
 
-Status: proposed, 12 November 2026. Builds on `PRODUCT_DECISIONS.md` section 37
+Status: approved by the owner and built, 12 November 2026 (decisions in
+`PRODUCT_DECISIONS.md` section 38). Behind `YORKS_V1_WORKFORCE_CENTER`. Builds on `PRODUCT_DECISIONS.md` section 37
 (PR role, attendance V2). Nothing here changes attendance rules already live.
 
 ## 1. Why
@@ -23,15 +24,16 @@ One page, same frame as the Material Request register: KPI strip, view
 switcher, search and filters, a desktop table with a sticky header and first
 column, and phone cards with 44 px targets.
 
-Views (segmented, like MR `total / mine / assigned / my_work / exceptions`):
+Views (as built; Attendance and Month confirmation keep their own Workforce
+tabs, and their open items appear in My work):
 
 | View | Contents | Who sees it |
 |---|---|---|
-| **My work** (default) | Everything waiting on me: days to enter, months to confirm, requests to approve or fulfil, returned requests to fix | everyone with Workforce access |
-| **Requests** | Crew requests I may see | requester, project team, PR, Admin, org-wide engineers |
-| **Crews** | Crews with this month's 8-day strip (today's Overview table) | as today |
-| **Attendance** | Days not entered, open questions | takers |
-| **Confirmations** | Months waiting for or past confirmation | confirmers, PR, Admin, Accountant (read) |
+| **My work** (default) | Everything waiting on me: months to confirm, crew requests to approve, fix or fill, crews with days not entered | everyone with Workforce access |
+| **Crew requests** | Open requests (finished ones one tap away), newest activity first | requester, project team, PR, Admin, org-wide engineers; Accountant reads |
+| **Crews** | Every crew with its last eight days, and what is happening | as before |
+
+The overdue-requests notification opens `/yorks/workforce?view=requests`.
 
 Each row/card shows: reference (crew name or `CRQ-2026-0001`), project, state
 chip, **current owner**, **next action**, last actor + role + time, age, and
@@ -142,12 +144,14 @@ assignment or event.
 Each slice is behind `YORKS_V1_WORKFORCE_CENTER` until accepted; desktop and
 360 px evidence; staging, then production on owner approval.
 
-## 6. Decisions needed
+## 6. Decisions (owner, 12 November 2026)
 
-1. A PE-raised request on their own project is approved on submit. (Proposed:
-   yes.)
-2. Workshop In-Charge may raise requests for workshop crews (no project).
-   (Proposed: yes, approved by an org-wide engineer.)
-3. Releasing workers from a project ("de-mobilise") is a later, separate
-   request type. (Proposed: later; PR/PE keep editing crew membership
-   directly for now.)
+1. A request raised by someone who may approve it (the project's Project
+   Engineer, an org-wide engineer, Admin) is approved on submit.
+2. Workshop requests (no project) may be raised by the Workshop In-Charge and
+   the other org-wide engineers; as org-wide engineers they are approved on
+   submit.
+3. Releasing workers from a project is a later, separate request type; PR and
+   Project Engineers keep editing crew membership directly for now.
+4. PR assigns only free workers (on no crew). Moving a worker from another
+   crew stays a crew edit.
