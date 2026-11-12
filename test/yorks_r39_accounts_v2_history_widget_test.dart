@@ -7,6 +7,7 @@ import 'package:material_ledger/features/accounts/data/accounts_records_reposito
 import 'package:material_ledger/features/accounts/domain/accounts_records_models.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_history_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_summary_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -146,9 +147,34 @@ void main() {
       expect(find.text('Invoice issued'), findsOneWidget);
       expect(find.text('Supplier bill approved'), findsOneWidget);
       expect(find.text(t('v2h_activity')), findsOneWidget);
-      expect(find.text(t('v2h_append_only')), findsOneWidget);
+      // Internal wording such as "Append-only" is not shown.
+      expect(find.text(t('v2h_append_only')), findsNothing);
       expect(find.text(t('v2h_register')), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('an entry opens the record it is about', (tester) async {
+      _wideSurface(tester);
+      final opened = <AccountsV2OverviewTarget>[];
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2HistoryTab(
+            projection: _projection(),
+            language: en,
+            onOpenRecord: opened.add,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.chevron_right), findsNWidgets(3));
+      await tester.tap(find.text('Invoice issued'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Supplier bill approved'));
+      await tester.pumpAndSettle();
+      expect(opened.first.tab, YorksAccountsWorkspaceV2Tab.invoices);
+      expect(opened.first.invoiceId, isNotNull);
+      expect(opened.last.tab, YorksAccountsWorkspaceV2Tab.supplierBills);
+      expect(opened.last.billId, isNotNull);
     });
 
     testWidgets('the search finds an entry by person or words', (tester) async {

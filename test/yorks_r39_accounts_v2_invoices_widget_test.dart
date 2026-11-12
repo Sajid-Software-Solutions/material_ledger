@@ -350,7 +350,7 @@ void main() {
 
       expect(find.text(t('v2i_report_actions')), findsOneWidget);
       expect(find.text(t('v2i_kpi_cheques')), findsOneWidget);
-      expect(find.text('AED 1,050,000'), findsWidgets);
+      expect(find.text('AED 1,050,000.00'), findsWidgets);
       expect(find.text(t('v2i_tracker')), findsOneWidget);
       expect(find.text('YRA322-01'), findsOneWidget);
       // Past its due date with money still due: overdue.
@@ -466,7 +466,9 @@ void main() {
       // Reference is the third text field (amount, date, reference, note).
       await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.invoiceId, 'i1');
       expect(captured!.paymentMethod, 'bank_transfer');
@@ -485,7 +487,9 @@ void main() {
       await _tap(tester, _button(t('v2i_record_payment')));
       await tester.enterText(find.byType(TextField).at(2), 'PAY-1');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(find.text(t('v2_err_over_due')), findsOneWidget);
     });
@@ -521,7 +525,9 @@ void main() {
       await _tap(tester, _button(t('v2i_record_cert')));
       await tester.enterText(find.byType(TextField).at(2), 'CERT-1');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.certificationReference, 'CERT-1');
       expect(find.text(t('v2_cert_saved')), findsOneWidget);
@@ -554,7 +560,9 @@ void main() {
         'Certified in error',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.certificationReference, 'CERT-2');
       expect(captured!.certifiedExVat.isPositive, isFalse);
@@ -599,18 +607,22 @@ void main() {
       await _tap(tester, _button(t('v2i_record_cheque')));
       // Due 550,000 less 200,000 already covered by cheques.
       expect(find.widgetWithText(TextField, '350000'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
       expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, t('v2_confirm')),
-            )
-            .onPressed,
-        isNull,
+        find.text(
+          t('v2b_need_text').replaceAll('{field}', t('v2_pdc_add_number')),
+        ),
+        findsOneWidget,
         reason: 'A cheque number is required',
       );
       await tester.enterText(find.byType(TextField).first, '004517');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.chequeNumber, '004517');
       expect(captured!.amount.canonicalText, '350000');
@@ -638,7 +650,9 @@ void main() {
       await _tap(tester, _button('${t('v2i_revise')} (R.1)'));
       await tester.enterText(find.byType(TextField).last, 'Wrong quantity');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(revised, 'i1@2:Wrong quantity');
       expect(find.text(t('v2_inv_revised')), findsOneWidget);
@@ -683,7 +697,9 @@ void main() {
         'Bank recalled it',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.originalPaymentId, 'pay1');
       expect(captured!.reason, 'Bank recalled it');
@@ -722,7 +738,9 @@ void main() {
         'Bank returned it',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.chequeOutcome, YorksAccountsPdcStatus.bounced);
     });
@@ -748,7 +766,9 @@ void main() {
         'Amount typed wrong',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured!.amount.postgresText, '1200');
       expect(captured!.paymentReference, 'BANK-1');
@@ -786,7 +806,9 @@ void main() {
         'Wrong client',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(find.text(t('v2_err_has_facts')), findsOneWidget);
       // The refusal is shown in the dialog, which stays open with the reason
@@ -796,6 +818,46 @@ void main() {
         findsOneWidget,
       );
       expect(find.widgetWithText(TextField, 'Wrong client'), findsOneWidget);
+    });
+
+    testWidgets('a greyed-out Record payment says why', (tester) async {
+      await _openDrawer(
+        tester,
+        projection: _projection(
+          pay: true,
+          invoices: [_invoice(status: YorksAccountsInvoiceStatus.submitted)],
+        ),
+        detail: _detail(status: 'submitted'),
+        onPay: (_) async => null,
+      );
+      expect(
+        find.byKey(const ValueKey('accounts-v2-pay-blocked')),
+        findsOneWidget,
+      );
+      expect(find.text(t('v2b_pay_blocked_cert')), findsOneWidget);
+    });
+
+    testWidgets('the payment dialog names the invoice and what is due', (
+      tester,
+    ) async {
+      await _openDrawer(
+        tester,
+        projection: _projection(pay: true),
+        onPay: (_) async => null,
+      );
+      await _tap(tester, _button(t('v2i_record_payment')));
+      expect(
+        find.text(
+          t('v2b_sum_due')
+              .replaceAll('{ref}', 'YRA322-01')
+              .replaceAll('{amount}', 'AED 550,000.00'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, t('v2_pay_title')),
+        findsOneWidget,
+      );
     });
 
     group('restoring a cancelled invoice', () {
@@ -975,7 +1037,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('YRA322-01'), findsOneWidget);
-      expect(find.text('AED 1,050,000'), findsWidgets);
+      expect(find.text('AED 1,050,000.00'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

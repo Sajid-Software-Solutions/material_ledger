@@ -253,7 +253,7 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
         AccountsV2KpiCard(
           icon: 'archive',
           label: _t('v2s_kpi_bills'),
-          value: v2Money(total, digits: 0),
+          value: v2Money(total),
           caption:
               '$count ${count == 1 ? _t('v2s_bill_word') : _t('v2s_bills_word')} · '
               '${_t('v2s_incl_vat')}',
@@ -262,14 +262,14 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
           icon: 'coins',
           tone: AccountsV2Tone.green,
           label: _t('v2s_kpi_paid'),
-          value: v2Money(paid, digits: 0),
+          value: v2Money(paid),
           caption: _t('v2s_paid_sub'),
         ),
         AccountsV2KpiCard(
           icon: 'clock',
           tone: overdue > 0 ? AccountsV2Tone.org : AccountsV2Tone.blue,
           label: _t('v2s_kpi_unpaid'),
-          value: v2Money(unpaid, digits: 0),
+          value: v2Money(unpaid),
           caption: '$overdue ${_t('v2s_overdue')}',
           valueTone: overdue > 0
               ? AccountsV2ValueTone.warn
@@ -281,7 +281,7 @@ class _AccountsV2SupplierTabState extends State<AccountsV2SupplierTab> {
           label: _t('v2s_kpi_unlinked'),
           value: '${unlinked.length}',
           caption: unlinked.isNotEmpty
-              ? '${v2Money(waiting, digits: 0)} ${_t('v2s_waiting_proof')}'
+              ? '${v2Money(waiting)} ${_t('v2s_waiting_proof')}'
               : _t('v2s_all_matched'),
           valueTone: unlinked.isNotEmpty
               ? AccountsV2ValueTone.bad

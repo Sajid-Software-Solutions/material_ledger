@@ -13,6 +13,7 @@ import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/accounts_supplier_inputs.dart';
 import '../../domain/accounts_supplier_models.dart';
 import '../v2/accounts_v2_common.dart';
+import '../v2/kit/accounts_v2_kit.dart' show showAccountsV2Drawer;
 import 'yorks_accounts_records_views.dart';
 
 Future<bool> showYorksAccountsSupplierBillDraftSheet(
@@ -53,16 +54,46 @@ Future<bool> showYorksAccountsSupplierBillActionsSheet(
     ) ??
     false;
 
+/// The Accounts workspace's bill form, in the same side drawer as an invoice
+/// (the legacy screens keep the bottom sheet). True when the bill was saved.
+Future<bool> showAccountsV2SupplierBillForm(
+  BuildContext context, {
+  required String projectId,
+  required AppLanguage language,
+  YorksAccountsSupplierBill? existing,
+}) async =>
+    await showAccountsV2Drawer<bool>(
+      context,
+      closeLabel: YorksV1AccountsStrings.text(language, 'close'),
+      title: Text(
+        YorksV1AccountsStrings.text(
+          language,
+          existing == null ? 'new_supplier_bill' : 'edit_supplier_bill',
+        ),
+      ),
+      builder: (_) => _SupplierBillDraftSheet(
+        projectId: projectId,
+        language: language,
+        existing: existing,
+        embedded: true,
+      ),
+    ) ??
+    false;
+
 class _SupplierBillDraftSheet extends ConsumerStatefulWidget {
   const _SupplierBillDraftSheet({
     required this.projectId,
     required this.language,
     required this.existing,
+    this.embedded = false,
   });
 
   final String projectId;
   final AppLanguage language;
   final YorksAccountsSupplierBill? existing;
+
+  /// Inside a drawer that already has the title and close button.
+  final bool embedded;
 
   @override
   ConsumerState<_SupplierBillDraftSheet> createState() =>
@@ -204,6 +235,7 @@ class _SupplierBillDraftSheetState
       yorksAccountsSupplierControllerProvider(widget.projectId),
     );
     return _SheetFrame(
+      embedded: widget.embedded,
       title: widget.existing == null
           ? _text('new_supplier_bill')
           : _text('edit_supplier_bill'),
@@ -1209,72 +1241,99 @@ class _SheetFrame extends StatelessWidget {
     required this.closeLabel,
     required this.child,
     this.footer,
+    this.embedded = false,
   });
   final String title;
   final String subtitle;
   final String closeLabel;
   final Widget child;
   final Widget? footer;
+  final bool embedded;
   @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.bottomCenter,
-    child: Container(
-      constraints: BoxConstraints(
-        maxWidth: 820,
-        maxHeight: MediaQuery.sizeOf(context).height * .94,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppSpacing.radiusXl),
-        ),
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl,
-              AppSpacing.xl,
-              AppSpacing.md,
-              AppSpacing.lg,
+  Widget build(BuildContext context) => embedded
+      ? Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  16,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(subtitle, style: AppTypography.bodySmall),
+                    const SizedBox(height: AppSpacing.lg),
+                    child,
+                  ],
+                ),
+              ),
             ),
-            child: Row(
+            footer ?? const SizedBox.shrink(),
+          ],
+        )
+      : Align(
+          alignment: Alignment.bottomCenter,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: 820,
+              maxHeight: MediaQuery.sizeOf(context).height * .94,
+            ),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppSpacing.radiusXl),
+              ),
+            ),
+            child: Column(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                  ),
+                  child: Row(
                     children: [
-                      Text(title, style: AppTypography.titleLarge),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(subtitle, style: AppTypography.bodyMedium),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(title, style: AppTypography.titleLarge),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(subtitle, style: AppTypography.bodyMedium),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: closeLabel,
+                        onPressed: Navigator.of(context).pop,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: closeLabel,
-                  onPressed: Navigator.of(context).pop,
-                  icon: const Icon(Icons.close_rounded),
+                const Divider(height: 1),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                      AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: child,
+                  ),
                 ),
+                footer ?? const SizedBox.shrink(),
               ],
             ),
           ),
-          const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: child,
-            ),
-          ),
-          footer ?? const SizedBox.shrink(),
-        ],
-      ),
-    ),
-  );
+        );
 }
 
 class _SheetFooter extends StatelessWidget {

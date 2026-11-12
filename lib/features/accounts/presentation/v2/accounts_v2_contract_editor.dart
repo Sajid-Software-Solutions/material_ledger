@@ -685,19 +685,42 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
 
   // ─── Dates ─────────────────────────────────────────────────────────────────
 
-  /// `2025-08-13` → `13/08/2025`, as the prototype's date input shows it.
+  /// `2025-08-13` → `13 Aug 2025`, as every Accounts screen shows a date.
   static String _displayDate(String? iso) {
     final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso ?? '');
     if (m == null) return iso ?? '';
-    return '${m.group(3)}/${m.group(2)}/${m.group(1)}';
+    return v2Date(iso);
   }
 
-  /// `13/08/2025` or `2025-08-13` → `2025-08-13`; null when not a date.
+  static const _months = [
+    'jan',
+    'feb',
+    'mar',
+    'apr',
+    'may',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'oct',
+    'nov',
+    'dec',
+  ];
+
+  /// `13 Aug 2025`, `13/08/2025` or `2025-08-13` → `2025-08-13`; null when
+  /// not a date.
   static String? _isoDate(String text) {
     final t = text.trim();
     if (t.isEmpty) return null;
     final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(t);
     if (iso != null) return t;
+    final named = RegExp(r'^(\d{1,2}) ([A-Za-z]{3}) (\d{4})$').firstMatch(t);
+    if (named != null) {
+      final month = _months.indexOf(named.group(2)!.toLowerCase()) + 1;
+      if (month == 0) return null;
+      return '${named.group(3)}-${month.toString().padLeft(2, '0')}-'
+          '${named.group(1)!.padLeft(2, '0')}';
+    }
     final dmy = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(t);
     if (dmy == null) return null;
     return '${dmy.group(3)}-${dmy.group(2)!.padLeft(2, '0')}-'
@@ -713,9 +736,7 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       lastDate: DateTime(2100),
     );
     if (picked == null) return;
-    _woDate.text =
-        '${picked.day.toString().padLeft(2, '0')}/'
-        '${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+    _woDate.text = v2Date(picked);
   }
 
   // ─── Model and changes ─────────────────────────────────────────────────────
@@ -1324,10 +1345,10 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
         AccountsV2KpiCard(
           icon: 'doc',
           label: _t('v2_kpi_contract'),
-          value: v2Money(contract, digits: 0),
+          value: v2Money(contract),
           caption:
               '${_t('v2o_excl_vat')} · '
-              '${v2Money(contract * (1 + vat / 100), digits: 0)} '
+              '${v2Money(contract * (1 + vat / 100))} '
               '${_t('v2o_with_vat')}',
         ),
         AccountsV2KpiCard(
@@ -1453,16 +1474,32 @@ class _ContractWorkspaceState extends State<_ContractWorkspace> {
       field(_t('v2c_client_trn'), _trn, enabled: refsOn),
       field(_t('v2c_client_contact'), _contact, enabled: invoiceOn),
       field(_t('v2c_wo_number'), _woNumber, enabled: refsOn),
-      field(
-        _t('v2c_wo_date'),
-        _woDate,
+      // Chosen from a calendar and shown like every other date; never typed.
+      AccountsV2TextField(
+        label: _t('v2c_wo_date'),
+        controller: _woDate,
+        size: AccountsV2FieldSize.large,
         enabled: refsOn,
-        problem: _ProblemField.woDate,
-        suffix: IconButton(
-          tooltip: _t('v2c_wo_date'),
-          onPressed: refsOn ? _pickDate : null,
-          icon: const Icon(Icons.calendar_today_outlined, size: 18),
-          color: AccountsV2Colors.ink,
+        readOnly: true,
+        onTap: refsOn ? _pickDate : null,
+        error: _flag(_ProblemField.woDate),
+        suffix: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (refsOn && _woDate.text.trim().isNotEmpty)
+              IconButton(
+                tooltip: _t('v2b_clear_date'),
+                onPressed: () => _woDate.clear(),
+                icon: const Icon(Icons.close, size: 18),
+                color: AccountsV2Colors.mut,
+              ),
+            IconButton(
+              tooltip: _t('v2_pick_date'),
+              onPressed: refsOn ? _pickDate : null,
+              icon: const Icon(Icons.calendar_today_outlined, size: 18),
+              color: AccountsV2Colors.ink,
+            ),
+          ],
         ),
       ),
       field(_t('v2c_contract_no'), _contractNumber, enabled: refsOn),

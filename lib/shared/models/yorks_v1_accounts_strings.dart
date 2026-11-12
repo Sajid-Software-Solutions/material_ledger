@@ -4554,21 +4554,23 @@ abstract final class YorksV1AccountsStrings {
     },
     'v2_err_invalid': {
       'en':
-          "Some of the details aren't valid. Please check the values and try again.",
-      'ar': "بعض التفاصيل غير صالحة. يرجى التحقق من القيم والمحاولة مرة أخرى.",
+          "Some details weren't accepted. Check the amounts, dates and references, then try again.",
+      'ar':
+          "لم تُقبل بعض التفاصيل. تحقق من المبالغ والتواريخ والمراجع ثم حاول مرة أخرى.",
       'ur':
-          "کچھ تفصیلات درست نہیں ہیں۔ براہ کرم اقدار جانچ کر دوبارہ کوشش کریں۔",
-      'hi': "कुछ विवरण मान्य नहीं हैं। कृपया मान जाँचकर पुनः प्रयास करें।",
+          "کچھ تفصیلات قبول نہیں ہوئیں۔ رقوم، تاریخیں اور حوالہ جات جانچیں، پھر دوبارہ کوشش کریں۔",
+      'hi':
+          "कुछ विवरण स्वीकार नहीं हुए। राशियाँ, तारीखें और संदर्भ जाँचें, फिर प्रयास करें।",
     },
     'v2_err_offline': {
       'en':
-          "Couldn't reach the server. Nothing was saved — please check your connection and try again.",
+          "Couldn't reach the server, so it isn't certain whether this was saved. Check your connection and try again: a retry is safe and won't record it twice.",
       'ar':
-          "تعذّر الوصول إلى الخادم. لم يُحفظ شيء — يرجى التحقق من الاتصال والمحاولة مرة أخرى.",
+          "تعذّر الوصول إلى الخادم، لذا ليس مؤكدًا إن كان هذا قد حُفظ. تحقق من الاتصال وحاول مرة أخرى: إعادة المحاولة آمنة ولن تسجله مرتين.",
       'ur':
-          "سرور تک رسائی نہیں ہو سکی۔ کچھ محفوظ نہیں ہوا — کنکشن جانچ کر دوبارہ کوشش کریں۔",
+          "سرور تک رسائی نہیں ہو سکی، اس لیے یقینی نہیں کہ یہ محفوظ ہوا یا نہیں۔ کنکشن جانچ کر دوبارہ کوشش کریں: دوبارہ کوشش محفوظ ہے اور اسے دو بار درج نہیں کرے گی۔",
       'hi':
-          "सर्वर तक नहीं पहुँच सके। कुछ सहेजा नहीं गया — कृपया कनेक्शन जाँचकर पुनः प्रयास करें।",
+          "सर्वर तक नहीं पहुँच सके, इसलिए पक्का नहीं कि यह सहेजा गया या नहीं। कनेक्शन जाँचकर फिर प्रयास करें: दोबारा प्रयास सुरक्षित है और इसे दो बार दर्ज नहीं करेगा।",
     },
     'v2_edit_items_blocked': {
       'en':
@@ -8909,6 +8911,462 @@ abstract final class YorksV1AccountsStrings {
       'ar': "استُعيدت المطالبة",
       'ur': "کلیم بحال ہوا",
       'hi': "दावा पुनर्स्थापित किया गया",
+    },
+    'v2b_need_text': {
+      'en': "Fill in “{field}”.",
+      'ar': "املأ «{field}».",
+      'ur': "«{field}» بھریں۔",
+      'hi': "“{field}” भरें।",
+    },
+    'v2b_need_amount': {
+      'en': "“{field}” must be a valid amount, with at most two decimals.",
+      'ar': "يجب أن يكون «{field}» مبلغًا صالحًا بخانتين عشريتين كحد أقصى.",
+      'ur': "«{field}» درست رقم ہونی چاہیے، زیادہ سے زیادہ دو اعشاریہ کے ساتھ۔",
+      'hi': "“{field}” मान्य राशि होनी चाहिए, अधिकतम दो दशमलव के साथ।",
+    },
+    'v2b_need_date': {
+      'en': "“{field}” must be a valid date.",
+      'ar': "يجب أن يكون «{field}» تاريخًا صالحًا.",
+      'ur': "«{field}» درست تاریخ ہونی چاہیے۔",
+      'hi': "“{field}” मान्य तारीख होनी चाहिए।",
+    },
+    'v2b_cert_over': {
+      'en': "The certified amount can't be more than the invoiced amount.",
+      'ar': "لا يمكن أن يتجاوز المبلغ المعتمد مبلغ الفاتورة.",
+      'ur': "تصدیق شدہ رقم انوائس کی رقم سے زیادہ نہیں ہو سکتی۔",
+      'hi': "प्रमाणित राशि इनवॉइस राशि से अधिक नहीं हो सकती।",
+    },
+    'v2b_cert_need_reason': {
+      'en':
+          "The certified amount differs from the invoiced amount: say why in “Reason for the difference”.",
+      'ar': "المبلغ المعتمد يختلف عن مبلغ الفاتورة: اذكر السبب في «سبب الفرق».",
+      'ur':
+          "تصدیق شدہ رقم انوائس کی رقم سے مختلف ہے: «فرق کی وجہ» میں وجہ لکھیں۔",
+      'hi': "प्रमाणित राशि इनवॉइस राशि से अलग है: “अंतर का कारण” में बताएँ।",
+    },
+    'v2b_err_cert_cap': {
+      'en':
+          "The certified amount must be at least what was already certified and no more than the invoiced amount.",
+      'ar':
+          "يجب ألا يقل المبلغ المعتمد عمّا اعتُمد سابقًا وألا يتجاوز مبلغ الفاتورة.",
+      'ur':
+          "تصدیق شدہ رقم پہلے سے تصدیق شدہ رقم سے کم اور انوائس کی رقم سے زیادہ نہیں ہو سکتی۔",
+      'hi':
+          "प्रमाणित राशि पहले प्रमाणित राशि से कम और इनवॉइस राशि से अधिक नहीं हो सकती।",
+    },
+    'v2b_err_amount': {
+      'en':
+          "An amount wasn't accepted: use a number above zero, with at most two decimals.",
+      'ar':
+          "لم يُقبل أحد المبالغ: استخدم رقمًا أكبر من الصفر بخانتين عشريتين كحد أقصى.",
+      'ur':
+          "ایک رقم قبول نہیں ہوئی: صفر سے زیادہ عدد استعمال کریں، زیادہ سے زیادہ دو اعشاریہ۔",
+      'hi':
+          "एक राशि स्वीकार नहीं हुई: शून्य से अधिक संख्या दें, अधिकतम दो दशमलव।",
+    },
+    'v2b_err_reason': {
+      'en': "This step needs a reason.",
+      'ar': "تتطلب هذه الخطوة سببًا.",
+      'ur': "اس قدم کے لیے وجہ درکار ہے۔",
+      'hi': "इस चरण के लिए कारण आवश्यक है।",
+    },
+    'v2b_err_identity': {
+      'en': "A date or reference this step needs is missing.",
+      'ar': "ينقص تاريخ أو مرجع تحتاجه هذه الخطوة.",
+      'ur': "اس قدم کے لیے درکار تاریخ یا حوالہ موجود نہیں۔",
+      'hi': "इस चरण के लिए आवश्यक तारीख या संदर्भ नहीं है।",
+    },
+    'v2b_sum_claimed': {
+      'en': "{ref} · invoiced {amount} excl. VAT",
+      'ar': "{ref} · مبلغ الفاتورة {amount} دون الضريبة",
+      'ur': "{ref} · انوائس {amount} بغیر VAT",
+      'hi': "{ref} · इनवॉइस {amount} VAT के बिना",
+    },
+    'v2b_sum_due': {
+      'en': "{ref} · still due {amount}",
+      'ar': "{ref} · المتبقي {amount}",
+      'ur': "{ref} · باقی واجب الادا {amount}",
+      'hi': "{ref} · शेष देय {amount}",
+    },
+    'v2b_sum_payment': {
+      'en': "Payment of {amount} on {date}",
+      'ar': "دفعة بمبلغ {amount} بتاريخ {date}",
+      'ur': "{date} کو {amount} کی ادائیگی",
+      'hi': "{date} को {amount} का भुगतान",
+    },
+    'v2b_keep_invoice': {
+      'en': "Keep invoice",
+      'ar': "الإبقاء على الفاتورة",
+      'ur': "انوائس رکھیں",
+      'hi': "इनवॉइस रखें",
+    },
+    'v2b_mark_status': {
+      'en': "Mark as {status}",
+      'ar': "وضع علامة {status}",
+      'ur': "{status} کے طور پر نشان لگائیں",
+      'hi': "{status} चिह्नित करें",
+    },
+    'v2b_note_optional': {
+      'en': "Note (optional)",
+      'ar': "ملاحظة (اختياري)",
+      'ur': "نوٹ (اختیاری)",
+      'hi': "टिप्पणी (वैकल्पिक)",
+    },
+    'v2b_checked_default': {
+      'en': "Checked in Progress & claims",
+      'ar': "تمت المراجعة في التقدم والمطالبات",
+      'ur': "پیش رفت اور کلیمز میں جانچا گیا",
+      'hi': "प्रगति और दावों में जाँचा गया",
+    },
+    'v2b_delete_draft': {
+      'en': "Delete draft",
+      'ar': "حذف المسودة",
+      'ur': "مسودہ حذف کریں",
+      'hi': "ड्राफ़्ट हटाएँ",
+    },
+    'v2b_keep_draft': {
+      'en': "Keep draft",
+      'ar': "الإبقاء على المسودة",
+      'ur': "مسودہ رکھیں",
+      'hi': "ड्राफ़्ट रखें",
+    },
+    'v2b_invoice_word': {
+      'en': "Invoice",
+      'ar': "فاتورة",
+      'ur': "انوائس",
+      'hi': "इनवॉइस",
+    },
+    'v2b_incl_vat': {
+      'en': "incl. VAT",
+      'ar': "شامل الضريبة",
+      'ur': "VAT سمیت",
+      'hi': "VAT सहित",
+    },
+    'v2b_issue_note': {
+      'en':
+          "Once issued, the invoice's number and amount are fixed. To change it later, revise it.",
+      'ar':
+          "بعد الإصدار يصبح رقم الفاتورة ومبلغها ثابتين. لتغييرها لاحقًا، عدّلها.",
+      'ur':
+          "جاری ہونے کے بعد انوائس کا نمبر اور رقم طے ہو جاتے ہیں۔ بعد میں بدلنے کے لیے اس میں ترمیم کریں۔",
+      'hi':
+          "जारी होने के बाद इनवॉइस का नंबर और राशि तय हो जाते हैं। बाद में बदलने के लिए उसे संशोधित करें।",
+    },
+    'v2b_pay_blocked_paid': {
+      'en': "This invoice is fully paid; nothing is left to record.",
+      'ar': "هذه الفاتورة مدفوعة بالكامل؛ لا شيء متبقٍ للتسجيل.",
+      'ur': "یہ انوائس مکمل ادا ہو چکی؛ درج کرنے کو کچھ باقی نہیں۔",
+      'hi': "यह इनवॉइस पूरा भुगतान हो चुका; दर्ज करने को कुछ बाकी नहीं।",
+    },
+    'v2b_pay_blocked_cancelled': {
+      'en': "This invoice is cancelled.",
+      'ar': "هذه الفاتورة ملغاة.",
+      'ur': "یہ انوائس منسوخ ہے۔",
+      'hi': "यह इनवॉइस रद्द है।",
+    },
+    'v2b_pay_blocked_cert': {
+      'en':
+          "Record the client's certification first: payments are recorded against what the client certified.",
+      'ar': "سجّل اعتماد العميل أولاً: تُسجَّل الدفعات مقابل ما اعتمده العميل.",
+      'ur':
+          "پہلے کلائنٹ کی تصدیق درج کریں: ادائیگیاں کلائنٹ کی تصدیق شدہ رقم کے مقابل درج ہوتی ہیں۔",
+      'hi':
+          "पहले क्लाइंट का प्रमाणन दर्ज करें: भुगतान क्लाइंट द्वारा प्रमाणित राशि के विरुद्ध दर्ज होते हैं।",
+    },
+    'v2b_period_reversed': {
+      'en': "The claim period's From date is after its To date.",
+      'ar': "تاريخ بداية فترة المطالبة بعد تاريخ نهايتها.",
+      'ur': "کلیم مدت کی شروع کی تاریخ اختتامی تاریخ کے بعد ہے۔",
+      'hi': "दावा अवधि की आरंभ तिथि समाप्ति तिथि के बाद है।",
+    },
+    'v2sd_amount': {
+      'en': "Amount (AED)",
+      'ar': "المبلغ (درهم)",
+      'ur': "رقم (AED)",
+      'hi': "राशि (AED)",
+    },
+    'v2sd_approve': {
+      'en': "Approve bill",
+      'ar': "اعتماد الفاتورة",
+      'ur': "بل منظور کریں",
+      'hi': "बिल स्वीकृत करें",
+    },
+    'v2sd_approve_hint': {
+      'en':
+          "The order, delivery and invoice are all on file. Once approved, payments can be recorded.",
+      'ar':
+          "أمر الشراء والتسليم والفاتورة كلها مسجلة. بعد الاعتماد يمكن تسجيل الدفعات.",
+      'ur':
+          "آرڈر، ڈیلیوری اور انوائس سب موجود ہیں۔ منظوری کے بعد ادائیگیاں درج ہو سکتی ہیں۔",
+      'hi':
+          "ऑर्डर, डिलीवरी और इनवॉइस सब मौजूद हैं। स्वीकृति के बाद भुगतान दर्ज हो सकते हैं।",
+    },
+    'v2sd_approve_missing': {
+      'en':
+          "Some papers for this bill are missing (see below). Approve it anyway only with a reason, which is recorded.",
+      'ar':
+          "بعض مستندات هذه الفاتورة ناقصة (انظر أدناه). اعتمدها رغم ذلك فقط مع ذكر سبب يُسجَّل.",
+      'ur':
+          "اس بل کے کچھ کاغذات موجود نہیں (نیچے دیکھیں)۔ پھر بھی منظور کریں تو وجہ کے ساتھ، جو درج ہوگی۔",
+      'hi':
+          "इस बिल के कुछ कागज़ नहीं हैं (नीचे देखें)। फिर भी स्वीकृत करें तो कारण के साथ, जो दर्ज होगा।",
+    },
+    'v2sd_approve_reason': {
+      'en': "Why approve without all papers",
+      'ar': "لماذا الاعتماد دون كل المستندات",
+      'ur': "تمام کاغذات کے بغیر کیوں منظور کر رہے ہیں",
+      'hi': "सभी कागज़ों के बिना क्यों स्वीकृत कर रहे हैं",
+    },
+    'v2sd_approved': {
+      'en': "Bill approved.",
+      'ar': "تم اعتماد الفاتورة.",
+      'ur': "بل منظور ہو گیا۔",
+      'hi': "बिल स्वीकृत हुआ।",
+    },
+    'v2sd_approved_without': {
+      'en': "Approved without all papers: {reason}",
+      'ar': "اعتُمدت دون كل المستندات: {reason}",
+      'ur': "تمام کاغذات کے بغیر منظور: {reason}",
+      'hi': "सभी कागज़ों के बिना स्वीकृत: {reason}",
+    },
+    'v2sd_cancel': {
+      'en': "Cancel bill",
+      'ar': "إلغاء الفاتورة",
+      'ur': "بل منسوخ کریں",
+      'hi': "बिल रद्द करें",
+    },
+    'v2sd_cancel_hint': {
+      'en':
+          "A cancelled bill stays in History. A bill with payments can't be cancelled until they are reversed.",
+      'ar':
+          "تبقى الفاتورة الملغاة في السجل. لا يمكن إلغاء فاتورة عليها دفعات حتى تُعكس.",
+      'ur':
+          "منسوخ بل ہسٹری میں رہتا ہے۔ ادائیگیوں والا بل ان کے واپس ہونے تک منسوخ نہیں ہو سکتا۔",
+      'hi':
+          "रद्द बिल इतिहास में रहता है। भुगतान वाला बिल उनके उलटने तक रद्द नहीं हो सकता।",
+    },
+    'v2sd_cancelled': {
+      'en': "Bill cancelled.",
+      'ar': "أُلغيت الفاتورة.",
+      'ur': "بل منسوخ ہو گیا۔",
+      'hi': "बिल रद्द हुआ।",
+    },
+    'v2sd_date': {
+      'en': "Payment date",
+      'ar': "تاريخ الدفع",
+      'ur': "ادائیگی کی تاریخ",
+      'hi': "भुगतान तिथि",
+    },
+    'v2sd_doc_delivery': {
+      'en': "Delivery received on site",
+      'ar': "استلام التوريد في الموقع",
+      'ur': "سائٹ پر وصول شدہ ڈیلیوری",
+      'hi': "साइट पर प्राप्त डिलीवरी",
+    },
+    'v2sd_doc_invoice': {
+      'en': "Supplier's invoice file",
+      'ar': "ملف فاتورة المورد",
+      'ur': "سپلائر کی انوائس فائل",
+      'hi': "आपूर्तिकर्ता की इनवॉइस फ़ाइल",
+    },
+    'v2sd_doc_missing': {
+      'en': "Not on file",
+      'ar': "غير مسجل",
+      'ur': "موجود نہیں",
+      'hi': "मौजूद नहीं",
+    },
+    'v2sd_doc_on_file': {
+      'en': "On file",
+      'ar': "مسجل",
+      'ur': "موجود ہے",
+      'hi': "मौजूद है",
+    },
+    'v2sd_doc_po': {
+      'en': "Purchase order (PO / LPO)",
+      'ar': "أمر الشراء (PO / LPO)",
+      'ur': "پرچیز آرڈر (PO / LPO)",
+      'hi': "खरीद आदेश (PO / LPO)",
+    },
+    'v2sd_docs': {
+      'en': "Papers for this bill",
+      'ar': "مستندات هذه الفاتورة",
+      'ur': "اس بل کے کاغذات",
+      'hi': "इस बिल के कागज़",
+    },
+    'v2sd_docs_sub': {
+      'en':
+          "A bill is ready to pay when its order, delivery and invoice are all on file.",
+      'ar':
+          "تكون الفاتورة جاهزة للدفع عندما يكون أمرها وتسليمها وفاتورتها مسجلة.",
+      'ur':
+          "بل ادائیگی کے لیے تیار ہوتا ہے جب اس کا آرڈر، ڈیلیوری اور انوائس موجود ہوں۔",
+      'hi':
+          "बिल भुगतान के लिए तैयार होता है जब उसका ऑर्डर, डिलीवरी और इनवॉइस मौजूद हों।",
+    },
+    'v2sd_due': {
+      'en': "Still due",
+      'ar': "المتبقي",
+      'ur': "باقی واجب الادا",
+      'hi': "शेष देय",
+    },
+    'v2sd_due_caption': {
+      'en': "Due {date}",
+      'ar': "مستحق في {date}",
+      'ur': "{date} تک واجب",
+      'hi': "{date} तक देय",
+    },
+    'v2sd_edit': {
+      'en': "Edit bill",
+      'ar': "تعديل الفاتورة",
+      'ur': "بل میں ترمیم",
+      'hi': "बिल संपादित करें",
+    },
+    'v2sd_edit_payment': {
+      'en': "Edit payment",
+      'ar': "تعديل الدفعة",
+      'ur': "ادائیگی میں ترمیم",
+      'hi': "भुगतान संपादित करें",
+    },
+    'v2sd_edited': {
+      'en': "Payment updated.",
+      'ar': "تم تحديث الدفعة.",
+      'ur': "ادائیگی اپ ڈیٹ ہو گئی۔",
+      'hi': "भुगतान अपडेट हुआ।",
+    },
+    'v2sd_keep': {
+      'en': "Keep bill",
+      'ar': "الإبقاء على الفاتورة",
+      'ur': "بل رکھیں",
+      'hi': "बिल रखें",
+    },
+    'v2sd_mismatch': {
+      'en': "Entered without all papers: {reason}",
+      'ar': "أُدخلت دون كل المستندات: {reason}",
+      'ur': "تمام کاغذات کے بغیر درج: {reason}",
+      'hi': "सभी कागज़ों के बिना दर्ज: {reason}",
+    },
+    'v2sd_no_payments': {
+      'en': "No payments yet.",
+      'ar': "لا دفعات بعد.",
+      'ur': "ابھی کوئی ادائیگی نہیں۔",
+      'hi': "अभी कोई भुगतान नहीं।",
+    },
+    'v2sd_nothing_to_do': {
+      'en': "Nothing can be done to this bill with your access.",
+      'ar': "لا يمكن إجراء شيء على هذه الفاتورة بصلاحياتك.",
+      'ur': "آپ کی رسائی سے اس بل پر کچھ نہیں ہو سکتا۔",
+      'hi': "आपकी पहुँच से इस बिल पर कुछ नहीं हो सकता।",
+    },
+    'v2sd_paid': {
+      'en': "Paid",
+      'ar': "المدفوع",
+      'ur': "ادا شدہ",
+      'hi': "भुगतान किया",
+    },
+    'v2sd_paid_done': {
+      'en': "Payment recorded.",
+      'ar': "سُجلت الدفعة.",
+      'ur': "ادائیگی درج ہو گئی۔",
+      'hi': "भुगतान दर्ज हुआ।",
+    },
+    'v2sd_pay': {
+      'en': "Record payment",
+      'ar': "تسجيل دفعة",
+      'ur': "ادائیگی درج کریں",
+      'hi': "भुगतान दर्ज करें",
+    },
+    'v2sd_pay_blocked_draft': {
+      'en': "Approve the bill before recording payments.",
+      'ar': "اعتمد الفاتورة قبل تسجيل الدفعات.",
+      'ur': "ادائیگیاں درج کرنے سے پہلے بل منظور کریں۔",
+      'hi': "भुगतान दर्ज करने से पहले बिल स्वीकृत करें।",
+    },
+    'v2sd_pay_blocked_paid': {
+      'en': "This bill is fully paid.",
+      'ar': "هذه الفاتورة مدفوعة بالكامل.",
+      'ur': "یہ بل مکمل ادا ہو چکا۔",
+      'hi': "यह बिल पूरा भुगतान हो चुका।",
+    },
+    'v2sd_payments': {
+      'en': "Payments",
+      'ar': "الدفعات",
+      'ur': "ادائیگیاں",
+      'hi': "भुगतान",
+    },
+    'v2sd_reference': {
+      'en': "Payment reference",
+      'ar': "مرجع الدفع",
+      'ur': "ادائیگی کا حوالہ",
+      'hi': "भुगतान संदर्भ",
+    },
+    'v2sd_reopen': {
+      'en': "Reopen as draft",
+      'ar': "إعادة فتح كمسودة",
+      'ur': "مسودے کے طور پر دوبارہ کھولیں",
+      'hi': "ड्राफ़्ट के रूप में फिर खोलें",
+    },
+    'v2sd_reopen_hint': {
+      'en':
+          "The bill goes back to a draft so its details can be corrected, then approved again.",
+      'ar': "تعود الفاتورة إلى مسودة لتصحيح تفاصيلها ثم اعتمادها مجددًا.",
+      'ur':
+          "بل مسودہ بن جاتا ہے تاکہ تفصیلات درست ہو سکیں، پھر دوبارہ منظور ہو۔",
+      'hi':
+          "बिल ड्राफ़्ट बन जाता है ताकि विवरण सुधारे जा सकें, फिर दोबारा स्वीकृत हो।",
+    },
+    'v2sd_reopened': {
+      'en': "Bill reopened as a draft.",
+      'ar': "أُعيد فتح الفاتورة كمسودة.",
+      'ur': "بل مسودے کے طور پر دوبارہ کھل گیا۔",
+      'hi': "बिल ड्राफ़्ट के रूप में फिर खुला।",
+    },
+    'v2sd_reverse': {
+      'en': "Reverse payment",
+      'ar': "عكس الدفعة",
+      'ur': "ادائیگی واپس کریں",
+      'hi': "भुगतान उलटें",
+    },
+    'v2sd_reversed': {
+      'en': "Payment reversed.",
+      'ar': "عُكست الدفعة.",
+      'ur': "ادائیگی واپس ہو گئی۔",
+      'hi': "भुगतान उलटा गया।",
+    },
+    'v2sd_sum_due': {
+      'en': "{ref} · {supplier} · still due {amount}",
+      'ar': "{ref} · {supplier} · المتبقي {amount}",
+      'ur': "{ref} · {supplier} · باقی {amount}",
+      'hi': "{ref} · {supplier} · शेष {amount}",
+    },
+    'v2sd_total': {
+      'en': "Bill total",
+      'ar': "إجمالي الفاتورة",
+      'ur': "بل کی کل رقم",
+      'hi': "बिल कुल",
+    },
+    'v2sd_total_caption': {
+      'en': "{ex} + VAT {vat}",
+      'ar': "{ex} + ضريبة {vat}",
+      'ur': "{ex} + VAT {vat}",
+      'hi': "{ex} + VAT {vat}",
+    },
+    'v2p_physical_building': {
+      'en': "physical building",
+      'ar': "مبنى فعلي",
+      'ur': "فزیکل عمارت",
+      'hi': "भौतिक भवन",
+    },
+    'v2p_billing_stage': {
+      'en': "billing stage",
+      'ar': "مرحلة فوترة",
+      'ur': "بلنگ مرحلہ",
+      'hi': "बिलिंग चरण",
+    },
+    'v2b_file_unnamed': {
+      'en': "Attached file",
+      'ar': "ملف مرفق",
+      'ur': "منسلک فائل",
+      'hi': "संलग्न फ़ाइल",
     },
   };
 

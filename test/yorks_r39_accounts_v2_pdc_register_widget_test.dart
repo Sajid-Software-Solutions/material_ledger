@@ -151,7 +151,9 @@ void main() {
       expect(find.text(t('v2i_ps_inhand')), findsOneWidget);
       await tester.tap(find.text(t('v2i_mark_deposited')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
 
       expect(captured, isNotNull);
@@ -195,8 +197,16 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(t('v2_pdc_undo_money_hint')), findsOneWidget);
-        final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
-        expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+        final confirm = find.byKey(
+          const ValueKey('accounts-v2-dialog-confirm'),
+        );
+        // Pressing it early names what is missing and sends nothing.
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('accounts-v2-dialog-error')),
+          findsOneWidget,
+        );
         await tester.enterText(find.byType(TextField).last, 'Wrong cheque');
         await tester.pumpAndSettle();
         await tester.tap(confirm);
@@ -246,7 +256,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).last, 'Client asked');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
 
       expect(captured!.targetStatus, YorksAccountsPdcStatus.received);
@@ -283,8 +295,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('CHQ-001'), findsWidgets);
-      final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
-      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      final confirm = find.byKey(const ValueKey('accounts-v2-dialog-confirm'));
+      // Pressing it early names what is missing and sends nothing.
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('accounts-v2-dialog-error')),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(TextField).last, 'Typed it wrong');
       await tester.pumpAndSettle();
       await tester.tap(confirm);
@@ -336,17 +354,23 @@ void main() {
       await tester.pumpAndSettle();
 
       // Confirm is disabled until the clearance reference is filled.
-      final confirm = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, t('v2_confirm')),
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
       );
-      expect(confirm.onPressed, isNull);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('accounts-v2-dialog-error')),
+        findsOneWidget,
+      );
 
       await tester.enterText(
         find.widgetWithText(TextField, t('v2_pdc_clearance_ref')),
         'BANK-REF-9',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
 
       expect(captured, isNotNull);
@@ -398,7 +422,9 @@ void main() {
         'Re-presented after bounce',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
 
       expect(captured, isNotNull);

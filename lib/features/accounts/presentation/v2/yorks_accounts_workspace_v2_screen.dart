@@ -48,6 +48,7 @@ import 'accounts_v2_invoices_tab.dart';
 import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_safety.dart';
 import 'accounts_v2_summary_tab.dart';
+import 'accounts_v2_supplier_drawer.dart';
 import 'accounts_v2_supplier_tab.dart';
 import 'kit/accounts_v2_kit.dart';
 import 'kit/accounts_v2_report_buttons.dart';
@@ -460,7 +461,15 @@ class _YorksAccountsWorkspaceV2ScreenState
           onFocusHandled: () => _focusBillId = null,
         );
       case YorksAccountsWorkspaceV2Tab.history:
-        return _HistoryBody(projectId: widget.projectId, language: language);
+        return _HistoryBody(
+          projectId: widget.projectId,
+          language: language,
+          onOpenTarget: (target) {
+            _focusInvoiceId = target.invoiceId;
+            _focusBillId = target.billId;
+            _select(target.tab);
+          },
+        );
     }
   }
 }
@@ -1463,7 +1472,7 @@ class _SupplierBody extends ConsumerWidget {
           onAddBill: !projection.commands.createBill
               ? null
               : () async {
-                  final saved = await showYorksAccountsSupplierBillDraftSheet(
+                  final saved = await showAccountsV2SupplierBillForm(
                     context,
                     projectId: projectId,
                     language: language,
@@ -1471,13 +1480,13 @@ class _SupplierBody extends ConsumerWidget {
                   if (saved) await controller.refresh();
                 },
           onOpenBill: (bill) async {
-            await showYorksAccountsSupplierBillActionsSheet(
+            await showAccountsV2SupplierBillDrawer(
               context,
               projectId: projectId,
-              supplierBillId: bill.supplierBillId,
+              bill: bill,
               language: language,
             );
-            // Always reload: an edit made inside the sheet leaves it open, so
+            // Always reload: an edit made inside the drawer leaves it open, so
             // closing it afterwards doesn't report a change.
             await controller.refresh();
           },
@@ -1491,10 +1500,15 @@ class _SupplierBody extends ConsumerWidget {
 }
 
 class _HistoryBody extends ConsumerWidget {
-  const _HistoryBody({required this.projectId, required this.language});
+  const _HistoryBody({
+    required this.projectId,
+    required this.language,
+    this.onOpenTarget,
+  });
 
   final String projectId;
   final AppLanguage language;
+  final ValueChanged<AccountsV2OverviewTarget>? onOpenTarget;
 
   Future<void> _addFile(
     BuildContext context,
@@ -1594,6 +1608,7 @@ class _HistoryBody extends ConsumerWidget {
           onAddFile: documentsWorkspace?.canUpload == true
               ? () => _addFile(context, documentsWorkspace!)
               : null,
+          onOpenRecord: onOpenTarget,
         ),
       ],
     );

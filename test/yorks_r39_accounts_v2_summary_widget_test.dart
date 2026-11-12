@@ -190,7 +190,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(t('v2_kpi_contract')), findsOneWidget);
-      expect(find.text('AED 17,192,000'), findsWidgets);
+      expect(find.text('AED 17,192,000.00'), findsWidgets);
       expect(find.text(t('v2_step_setup')), findsOneWidget);
       expect(find.text(t('v2o_money_title')), findsOneWidget);
       // The bar's segments really have size; they once collapsed to nothing.
@@ -259,7 +259,7 @@ void main() {
         expect(find.text(t(tab)), findsWidgets);
       }
       // Summary data loaded.
-      expect(find.text('AED 17,192,000'), findsWidgets);
+      expect(find.text('AED 17,192,000.00'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

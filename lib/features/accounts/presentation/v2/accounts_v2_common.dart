@@ -15,6 +15,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_accounts_strings.dart';
 import '../../domain/accounts_decimal.dart';
+import 'kit/accounts_v2_kit.dart' show v2Date;
 
 /// Localized copy for the V2 workspace (echoes the key when missing).
 String accountsV2Text(AppLanguage language, String key) =>
@@ -70,12 +71,43 @@ String accountsV2ErrorText(AppLanguage language, String? code) {
           'immutableRecord',
         ]) =>
       'v2_err_state',
+    _ when c.contains('CERTIFICATION_DIFFERENCE_REASON_REQUIRED') =>
+      'v2b_cert_need_reason',
+    _ when c.contains('CERTIFICATION_CAP_INVALID') => 'v2b_err_cert_cap',
+    _
+        when any([
+          'INVALID_PAYMENT_AMOUNT',
+          'INVALID_PDC_AMOUNT',
+          'INVALID_CLAIM_AMOUNT',
+          'INVALID_CERTIFICATION_AMOUNT',
+          'INVALID_NUMERIC',
+        ]) =>
+      'v2b_err_amount',
+    _ when c.contains('REASON_REQUIRED') => 'v2b_err_reason',
+    _
+        when any([
+          'IDENTITY_REQUIRED',
+          'CLEARANCE_REFERENCE_REQUIRED',
+          'INVOICE_DATE_REQUIRED',
+          'INVOICE_REFERENCE_REQUIRED',
+          'FIELDS_REQUIRED',
+        ]) =>
+      'v2b_err_identity',
     _ when any(['backendUnavailable', 'network', 'timeout', 'offline']) =>
       'v2_err_offline',
     _ when any(['INVALID_', 'REQUIRED', 'invalidInput']) => 'v2_err_invalid',
     _ => 'v2_action_failed',
   };
   return accountsV2Text(language, key);
+}
+
+/// "Claim #03" from a claim label: the word is not repeated when the label
+/// (a stored reference such as "Claim #03") already starts with it.
+String accountsV2ClaimPhrase(AppLanguage language, String label) {
+  final word = accountsV2Text(language, 'v2o_claim');
+  final trimmed = label.trim();
+  if (trimmed.toLowerCase().startsWith(word.toLowerCase())) return trimmed;
+  return trimmed.isEmpty ? word : '$word $trimmed';
 }
 
 /// A restore's failure code: the claim cap there means the progress was
@@ -168,7 +200,10 @@ final class AccountsV2Format {
 
 /// A date input: type `YYYY-MM-DD` or pick from a calendar. The text stays the
 /// value the accounts commands parse, so both routes behave the same.
-class AccountsV2DateField extends StatelessWidget {
+/// A date chosen from a calendar and shown the way every Accounts screen
+/// shows dates ("10 Jul 2026"). [controller] keeps the `YYYY-MM-DD` value the
+/// commands send, so callers read and write it as before; nothing is typed.
+class AccountsV2DateField extends StatefulWidget {
   const AccountsV2DateField({
     super.key,
     required this.label,
@@ -182,35 +217,72 @@ class AccountsV2DateField extends StatelessWidget {
   final AppLanguage language;
   final VoidCallback? onChanged;
 
-  Future<void> _pick(BuildContext context) async {
+  @override
+  State<AccountsV2DateField> createState() => _AccountsV2DateFieldState();
+}
+
+class _AccountsV2DateFieldState extends State<AccountsV2DateField> {
+  final _shown = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_sync);
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(AccountsV2DateField old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      old.controller.removeListener(_sync);
+      widget.controller.addListener(_sync);
+      _sync();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_sync);
+    _shown.dispose();
+    super.dispose();
+  }
+
+  void _sync() {
+    final iso = widget.controller.text.trim();
+    final text = iso.isEmpty ? '' : v2Date(iso);
+    if (_shown.text != text) _shown.text = text;
+  }
+
+  Future<void> _pick() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.tryParse(controller.text.trim()) ?? now,
+      initialDate: DateTime.tryParse(widget.controller.text.trim()) ?? now,
       firstDate: DateTime(2015),
       lastDate: DateTime(now.year + 10),
     );
     if (picked == null) return;
     String two(int v) => v.toString().padLeft(2, '0');
-    controller.text = '${picked.year}-${two(picked.month)}-${two(picked.day)}';
-    onChanged?.call();
+    widget.controller.text =
+        '${picked.year}-${two(picked.month)}-${two(picked.day)}';
+    widget.onChanged?.call();
   }
 
   @override
   Widget build(BuildContext context) {
     return TextField(
-      controller: controller,
-      keyboardType: TextInputType.datetime,
-      onChanged: onChanged == null ? null : (_) => onChanged!(),
+      controller: _shown,
+      readOnly: true,
+      onTap: _pick,
       decoration: InputDecoration(
-        labelText: label,
-        hintText: 'YYYY-MM-DD',
+        labelText: widget.label,
         isDense: true,
         border: const OutlineInputBorder(),
         suffixIcon: IconButton(
-          tooltip: accountsV2Text(language, 'v2_pick_date'),
+          tooltip: accountsV2Text(widget.language, 'v2_pick_date'),
           icon: const Icon(Icons.calendar_today_outlined, size: 18),
-          onPressed: () => _pick(context),
+          onPressed: _pick,
         ),
       ),
     );

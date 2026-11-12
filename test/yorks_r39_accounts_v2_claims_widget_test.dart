@@ -823,7 +823,9 @@ void main() {
       await _tap(tester, _button(t('v2p_mark_checked')));
       await tester.enterText(find.byType(TextField).last, 'Checked on site');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(captured, 'Checked on site');
     });
@@ -860,13 +862,17 @@ void main() {
         find.widgetWithText(TextField, t('v2_claim_reference_opt')),
         'REF-7',
       );
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(find.text(t('v2_err_settings_required')), findsOneWidget);
       expect(find.widgetWithText(TextField, 'REF-7'), findsOneWidget);
       expect(find.text(t('v2_claim_issued')), findsNothing);
 
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(attempts, 2);
       expect(find.text(t('v2_claim_issued')), findsOneWidget);
@@ -897,10 +903,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       await _tap(tester, _button(t('v2p_issue_invoice')).last);
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(issued, 'c1@2');
       expect(find.text(t('v2_claim_issued')), findsOneWidget);
+      expect(
+        find.widgetWithText(SnackBarAction, t('v2p_view_invoice')),
+        findsNothing,
+        reason: 'no invoice link without a way to open it',
+      );
     });
 
     testWidgets('a draft cannot be issued before it is checked', (
@@ -953,8 +966,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       await _tap(tester, _button(t('v2p_back_to_draft')));
-      final confirm = find.widgetWithText(FilledButton, t('v2_confirm'));
-      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      final confirm = find.byKey(const ValueKey('accounts-v2-dialog-confirm'));
+      // Pressing it early names what is missing and sends nothing.
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('accounts-v2-dialog-error')),
+        findsOneWidget,
+      );
       await tester.enterText(find.byType(TextField).last, 'Wrong quantity');
       await tester.pumpAndSettle();
       await tester.tap(confirm);
@@ -986,10 +1005,128 @@ void main() {
       await _tap(tester, _button(t('v2p_delete_draft')));
       await tester.enterText(find.byType(TextField).last, 'Started twice');
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t('v2_confirm')));
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
       await tester.pumpAndSettle();
       expect(deleted, 'c1:Started twice');
       expect(find.text(t('v2p_deleted')), findsOneWidget);
+    });
+
+    testWidgets('Mark checked needs no typed note', (tester) async {
+      _surface(tester);
+      String? captured;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            onMarkChecked:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  captured = reason;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_mark_checked')));
+      expect(
+        find.widgetWithText(FilledButton, t('v2_claim_mark_checked')),
+        findsOneWidget,
+        reason: 'the button names the step',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(captured, t('v2b_checked_default'));
+    });
+
+    testWidgets('Delete draft is named, red, and Keep draft backs out', (
+      tester,
+    ) async {
+      _surface(tester);
+      var deletes = 0;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            onCancelClaim:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) async {
+                  deletes++;
+                  return null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_delete_draft')));
+      final delete = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, t('v2b_delete_draft')),
+      );
+      expect(delete.style?.backgroundColor?.resolve({}), AccountsV2Colors.bad);
+      // Pressing it without a reason says so and deletes nothing.
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('accounts-v2-dialog-error')), findsOne);
+      await tester.tap(find.text(t('v2b_keep_draft')));
+      await tester.pumpAndSettle();
+      expect(deletes, 0);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('Issue shows what will be issued and links to it after', (
+      tester,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
+            language: en,
+            onOpenInvoice: (id, {bool revise = false}) {},
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async => null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_issue_invoice')).last);
+      expect(
+        find.byKey(const ValueKey('accounts-v2-dialog-summary')),
+        findsOneWidget,
+      );
+      expect(find.text(t('v2b_issue_note')), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, t('v2_claim_issue')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(SnackBarAction, t('v2p_view_invoice')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('previews the invoice before issuing', (tester) async {

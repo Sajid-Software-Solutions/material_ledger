@@ -623,7 +623,28 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog>
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2b_mark_status').replaceAll(
+          '{status}',
+          accountsV2Text(widget.language, _statusKey(widget.target)),
+        ),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedDate(widget.language, _date, _t('v2_pdc_action_date')),
+          (
+            !_needsClearance || _clearance.text.trim().isNotEmpty,
+            _t(
+              'v2b_need_text',
+            ).replaceAll('{field}', _t('v2_pdc_clearance_ref')),
+          ),
+          (
+            !_needsReason || _reason.text.trim().isNotEmpty,
+            _t('v2b_need_text').replaceAll('{field}', _t('v2_pdc_reason')),
+          ),
+        ]),
+        destructive: const {
+          YorksAccountsPdcStatus.bounced,
+          YorksAccountsPdcStatus.returned,
+          YorksAccountsPdcStatus.cancelled,
+        }.contains(widget.target),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -776,7 +797,21 @@ class _PdcEditDialogState extends State<_PdcEditDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2c_save_changes'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedText(widget.language, _cheque, _t('v2_pdc_col_cheque')),
+          accountsV2NeedDate(
+            widget.language,
+            _date,
+            _t('v2_pdc_col_cheque_date'),
+          ),
+          accountsV2NeedAmount(
+            widget.language,
+            _amount,
+            _t('v2_pdc_col_amount'),
+          ),
+          accountsV2NeedText(widget.language, _reason, _t('v2_pdc_reason')),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
@@ -904,7 +939,21 @@ class _PdcReplacementDialogState extends State<_PdcReplacementDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t('v2_pdc_replace_title'),
+        blockedReason: accountsV2FirstBlocker([
+          accountsV2NeedText(
+            widget.language,
+            _cheque,
+            _t('v2_pdc_replace_cheque'),
+          ),
+          accountsV2NeedDate(widget.language, _date, _t('v2_pdc_replace_date')),
+          accountsV2NeedAmount(
+            widget.language,
+            _amount,
+            _t('v2_pdc_replace_amount'),
+          ),
+          accountsV2NeedText(widget.language, _reason, _t('v2_pdc_reason')),
+        ]),
         onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
       ),
     );
