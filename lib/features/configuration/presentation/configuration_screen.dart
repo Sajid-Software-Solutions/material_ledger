@@ -707,6 +707,7 @@ class _SectionBodyState extends ConsumerState<_SectionBody> {
   List<Widget> _workforce(BuildContext context) {
     final language = _language;
     return [
+      _OffDays(host: this),
       AttendanceHolidaysCard(
         key: const ValueKey('config-workforce-holidays'),
         language: language,
@@ -2473,6 +2474,105 @@ class _AccountsSectionState extends State<_AccountsSection> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Workforce: weekly off days ─────────────────────────────────────────────
+
+class _OffDays extends StatelessWidget {
+  const _OffDays({required this.host});
+
+  final _SectionBodyState host;
+
+  static const _order = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final language = host._language;
+    final published = host._workspace.weeklyOffDays;
+    final pending = host.pendingValue('workforce.weekly_off_days');
+    final current = pending is List
+        ? [for (final day in pending) day.toString()]
+        : published;
+    String describe(List<String> days) => days.isEmpty
+        ? CS.t(CS.empty, language)
+        : [
+            for (final day in _order)
+              if (days.contains(day)) CS.t(CS.weekdays[day]!, language),
+          ].join(', ');
+    return AccountsV2Panel(
+      key: const ValueKey('config-off-days'),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              CS.t(CS.offDaysTitle, language),
+              style: v2Style(14, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              CS.t(CS.offDaysHint, language),
+              style: v2Style(12.5, color: AccountsV2Colors.mut),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final day in _order)
+                  AccountsV2Button(
+                    key: ValueKey('config-off-day-$day'),
+                    label: CS.t(CS.weekdays[day]!, language),
+                    icon: current.contains(day) ? 'check' : null,
+                    kind: current.contains(day)
+                        ? AccountsV2ButtonKind.primary
+                        : AccountsV2ButtonKind.normal,
+                    onPressed: !host._editable
+                        ? null
+                        : () {
+                            final selected = !current.contains(day);
+                            final next = [
+                              for (final d in _order)
+                                if (d == day ? selected : current.contains(d))
+                                  d,
+                            ];
+                            if (next.length > 6) return;
+                            final same =
+                                next.length == published.length &&
+                                next.every(published.contains);
+                            host.stage(
+                              'workforce.weekly_off_days',
+                              same
+                                  ? null
+                                  : ConfigChange(
+                                      {
+                                        'kind': 'setting',
+                                        'key': 'workforce.weekly_off_days',
+                                        'value': next,
+                                      },
+                                      label: CS.t(CS.offDaysTitle, language),
+                                      before: describe(published),
+                                      after: describe(next),
+                                    ),
+                            );
+                          },
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

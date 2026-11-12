@@ -225,6 +225,36 @@ select is(
   60, 'The default payment terms are 60 days for new baselines'
 );
 
+-- Weekly off days -------------------------------------------------------------
+
+reset role;
+select is(public.v1_wf_day_type('2026-11-15'), 'holiday', 'Sunday is the default off day');
+select is(public.v1_wf_day_type('2026-11-13'), 'work', 'Friday is a working day by default');
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
+select ok(
+  public.v1_cfg_get_workspace() -> 'weekly_off_days' = '["sunday"]'::jsonb,
+  'PR sees the weekly off days'
+);
+select throws_ok(
+  format($$select public.v1_cfg_apply('workforce',
+    '[{"kind":"setting","key":"workforce.weekly_off_days","value":["funday"]}]',
+    'Bad weekday name', %s, '9c000000-0000-4000-8000-000000000020')$$,
+    current_setting('cfg.v0')::integer + 4),
+  '22023', 'V1_CFG_OFF_DAYS_INVALID', 'Only real weekday names are accepted'
+);
+select lives_ok(
+  format($$select public.v1_cfg_apply('workforce',
+    '[{"kind":"setting","key":"workforce.weekly_off_days","value":["friday","saturday"]}]',
+    'Site works a Friday-Saturday weekend', %s,
+    '9c000000-0000-4000-8000-000000000021')$$,
+    current_setting('cfg.v0')::integer + 4),
+  'PR changes the weekly off days'
+);
+reset role;
+select is(public.v1_wf_day_type('2026-11-15'), 'work', 'Sunday becomes a working day');
+select is(public.v1_wf_day_type('2026-11-13'), 'holiday', 'Friday becomes an off day');
+
 -- Boundary ----------------------------------------------------------------------
 
 select ok(

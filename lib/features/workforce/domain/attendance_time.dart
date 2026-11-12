@@ -157,9 +157,13 @@ AttendanceMinutes computeAttendanceMinutes({
   );
 }
 
-/// Sunday is the usual rest day; holidays come from the server calendar.
-bool attendanceIsRestDay(DateTime date, {Set<String> holidays = const {}}) =>
-    date.weekday == DateTime.sunday || holidays.contains(attendanceIso(date));
+/// Weekly off days (Sunday unless Configuration says otherwise, as
+/// `DateTime.weekday` numbers) and the server's public holidays.
+bool attendanceIsRestDay(
+  DateTime date, {
+  Set<String> holidays = const {},
+  Set<int> offDays = const {DateTime.sunday},
+}) => offDays.contains(date.weekday) || holidays.contains(attendanceIso(date));
 
 /// `YYYY-MM-DD` for a calendar date.
 String attendanceIso(DateTime date) =>

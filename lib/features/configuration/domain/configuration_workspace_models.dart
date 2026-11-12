@@ -145,6 +145,7 @@ final class ConfigWorkspace {
     this.rentalsEnabled = false,
     this.rentalsPush = false,
     this.rentalsLastRun,
+    this.weeklyOffDays = const ['sunday'],
   });
 
   factory ConfigWorkspace.fromJson(Map<String, dynamic> json) {
@@ -241,6 +242,9 @@ final class ConfigWorkspace {
           ? null
           : DateTime.tryParse('${rentals['last_run_at']}')?.toLocal(),
       checks: ConfigChecks.fromJson(_map(json['checks'])),
+      weeklyOffDays: json['weekly_off_days'] is List
+          ? [for (final day in json['weekly_off_days'] as List) day.toString()]
+          : const ['sunday'],
     );
   }
 
@@ -260,6 +264,10 @@ final class ConfigWorkspace {
   final bool rentalsPush;
   final DateTime? rentalsLastRun;
   final ConfigChecks checks;
+
+  /// Weekday names (`sunday`, …) that are off; work on them is holiday
+  /// overtime.
+  final List<String> weeklyOffDays;
 
   bool canEdit(ConfigSection section) => editable.contains(section.wire);
 

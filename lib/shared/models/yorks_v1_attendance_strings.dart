@@ -1297,10 +1297,10 @@ abstract final class AttendanceStrings {
     hi: 'सार्वजनिक अवकाश',
   );
   static const holidaysSub = _T(
-    en: 'Every hour worked on these days counts as holiday overtime, like Sundays.',
-    ar: 'كل ساعة عمل في هذه الأيام تُحسب عملًا إضافيًا في عطلة، مثل أيام الأحد.',
-    ur: 'ان دنوں کا ہر گھنٹہ اتوار کی طرح چھٹی کا اوور ٹائم ہے۔',
-    hi: 'इन दिनों का हर घंटा रविवार की तरह अवकाश ओवरटाइम है।',
+    en: 'Every hour worked on these days counts as holiday overtime, like the weekly off days.',
+    ar: 'كل ساعة عمل في هذه الأيام تُحسب عملًا إضافيًا في عطلة، مثل أيام العطلة الأسبوعية.',
+    ur: 'ان دنوں کا ہر گھنٹہ ہفتہ وار چھٹی کی طرح چھٹی کا اوور ٹائم ہے۔',
+    hi: 'इन दिनों का हर घंटा साप्ताहिक अवकाश की तरह अवकाश ओवरटाइम है।',
   );
   static const addHoliday = _T(
     en: 'Add holiday',

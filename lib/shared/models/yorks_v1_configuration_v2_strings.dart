@@ -878,6 +878,27 @@ abstract final class ConfigStrings {
     ur: 'ان دنوں کا کام چھٹی کا اوور ٹائم شمار ہوتا ہے۔',
     hi: 'इन दिनों का काम छुट्टी का ओवरटाइम गिना जाता है।',
   );
+  static const offDaysTitle = _T(
+    en: 'Weekly off days',
+    ar: 'أيام العطلة الأسبوعية',
+    ur: 'ہفتہ وار چھٹی کے دن',
+    hi: 'साप्ताहिक अवकाश के दिन',
+  );
+  static const offDaysHint = _T(
+    en: 'Work on these days counts as holiday overtime, like public holidays. Days already saved keep their hours.',
+    ar: 'يُحتسب العمل في هذه الأيام عملًا إضافيًا في العطلة مثل العطلات الرسمية. تحتفظ الأيام المحفوظة بساعاتها.',
+    ur: 'ان دنوں کا کام سرکاری چھٹیوں کی طرح چھٹی کا اوور ٹائم شمار ہوتا ہے۔ محفوظ شدہ دن اپنے گھنٹے رکھتے ہیں۔',
+    hi: 'इन दिनों का काम सार्वजनिक छुट्टियों की तरह छुट्टी का ओवरटाइम गिना जाता है। सहेजे गए दिन अपने घंटे रखते हैं।',
+  );
+  static const weekdays = <String, TranslatableString>{
+    'monday': _T(en: 'Mon', ar: 'الإثنين', ur: 'پیر', hi: 'सोम'),
+    'tuesday': _T(en: 'Tue', ar: 'الثلاثاء', ur: 'منگل', hi: 'मंगल'),
+    'wednesday': _T(en: 'Wed', ar: 'الأربعاء', ur: 'بدھ', hi: 'बुध'),
+    'thursday': _T(en: 'Thu', ar: 'الخميس', ur: 'جمعرات', hi: 'गुरु'),
+    'friday': _T(en: 'Fri', ar: 'الجمعة', ur: 'جمعہ', hi: 'शुक्र'),
+    'saturday': _T(en: 'Sat', ar: 'السبت', ur: 'ہفتہ', hi: 'शनि'),
+    'sunday': _T(en: 'Sun', ar: 'الأحد', ur: 'اتوار', hi: 'रवि'),
+  };
   static const shiftsLocations = _T(
     en: 'Shifts, internal locations and trades',
     ar: 'الورديات والمواقع الداخلية والمهن',
