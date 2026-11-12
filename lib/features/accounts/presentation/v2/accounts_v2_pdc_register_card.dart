@@ -20,6 +20,7 @@ import '../../domain/accounts_decimal.dart';
 import '../../domain/accounts_receivables_inputs.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import 'accounts_v2_common.dart';
+import 'accounts_v2_safety.dart';
 import 'kit/accounts_v2_kit.dart';
 
 /// Runs a cheque lifecycle transition; returns null on success or an error
@@ -83,41 +84,26 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
         pdc: pdc,
         target: target,
         language: language,
+        onSubmit: onTransition,
       ),
     );
-    if (input == null) return;
-    final error = await onTransition!(input);
-    if (!context.mounted) return;
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t('v2_pdc_saved')
-              : accountsV2ErrorText(language, error),
-        ),
-      ),
-    );
+    if (input == null || !context.mounted) return;
+    messenger?.showSnackBar(SnackBar(content: Text(_t('v2_pdc_saved'))));
   }
 
   Future<void> _edit(BuildContext context, YorksAccountsProjectPdc pdc) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final input = await showDialog<YorksAccountsPdcEditInput>(
       context: context,
-      builder: (_) =>
-          _PdcEditDialog(projectId: projectId, pdc: pdc, language: language),
-    );
-    if (input == null) return;
-    final error = await onEdit!(input);
-    if (!context.mounted) return;
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t('v2_pdc_saved')
-              : accountsV2ErrorText(language, error),
-        ),
+      builder: (_) => _PdcEditDialog(
+        projectId: projectId,
+        pdc: pdc,
+        language: language,
+        onSubmit: onEdit,
       ),
     );
+    if (input == null || !context.mounted) return;
+    messenger?.showSnackBar(SnackBar(content: Text(_t('v2_pdc_saved'))));
   }
 
   Future<void> _replace(
@@ -131,20 +117,11 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
         projectId: projectId,
         pdc: pdc,
         language: language,
+        onSubmit: onReplace,
       ),
     );
-    if (input == null) return;
-    final error = await onReplace!(input);
-    if (!context.mounted) return;
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(
-          error == null
-              ? _t('v2_pdc_saved')
-              : accountsV2ErrorText(language, error),
-        ),
-      ),
-    );
+    if (input == null || !context.mounted) return;
+    messenger?.showSnackBar(SnackBar(content: Text(_t('v2_pdc_saved'))));
   }
 
   @override
@@ -528,7 +505,11 @@ class _PdcTransitionDialog extends StatefulWidget {
     required this.pdc,
     required this.target,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPdcTransitionInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsProjectPdc pdc;
@@ -539,7 +520,11 @@ class _PdcTransitionDialog extends StatefulWidget {
   State<_PdcTransitionDialog> createState() => _PdcTransitionDialogState();
 }
 
-class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
+class _PdcTransitionDialogState extends State<_PdcTransitionDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _date;
   final _clearance = TextEditingController();
   final _reason = TextEditingController();
@@ -594,7 +579,7 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
         input != null &&
         input.isValid &&
         (!_needsReason || _reason.text.trim().isNotEmpty);
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pdc_transition_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -637,16 +622,10 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog> {
           ],
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -688,7 +667,11 @@ class _PdcEditDialog extends StatefulWidget {
     required this.projectId,
     required this.pdc,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPdcEditInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsProjectPdc pdc;
@@ -698,7 +681,11 @@ class _PdcEditDialog extends StatefulWidget {
   State<_PdcEditDialog> createState() => _PdcEditDialogState();
 }
 
-class _PdcEditDialogState extends State<_PdcEditDialog> {
+class _PdcEditDialogState extends State<_PdcEditDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _cheque;
   late final TextEditingController _date;
   late final TextEditingController _amount;
@@ -747,7 +734,7 @@ class _PdcEditDialogState extends State<_PdcEditDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pdc_edit_title')),
       content: SingleChildScrollView(
         child: Column(
@@ -788,16 +775,10 @@ class _PdcEditDialogState extends State<_PdcEditDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }
@@ -809,7 +790,11 @@ class _PdcReplacementDialog extends StatefulWidget {
     required this.projectId,
     required this.pdc,
     required this.language,
+    this.onSubmit,
   });
+
+  /// Runs the command while the dialog stays open; null closes with the input.
+  final AccountsV2DialogCommand<YorksAccountsPdcReplacementInput>? onSubmit;
 
   final String projectId;
   final YorksAccountsProjectPdc pdc;
@@ -819,7 +804,11 @@ class _PdcReplacementDialog extends StatefulWidget {
   State<_PdcReplacementDialog> createState() => _PdcReplacementDialogState();
 }
 
-class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
+class _PdcReplacementDialogState extends State<_PdcReplacementDialog>
+    with AccountsV2SubmitDialog {
+  @override
+  AppLanguage get submitLanguage => widget.language;
+
   late final TextEditingController _cheque;
   late final TextEditingController _date;
   late final TextEditingController _amount;
@@ -868,7 +857,7 @@ class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
   Widget build(BuildContext context) {
     final input = _build();
     final valid = input != null && input.isValid;
-    return AlertDialog(
+    return submitDialog(
       title: Text(_t('v2_pdc_replace_title')),
       content: SingleChildScrollView(
         child: Column(
@@ -914,16 +903,10 @@ class _PdcReplacementDialogState extends State<_PdcReplacementDialog> {
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(_t('v2_cancel')),
-        ),
-        FilledButton(
-          onPressed: valid ? () => Navigator.of(context).pop(input) : null,
-          child: Text(_t('v2_confirm')),
-        ),
-      ],
+      actions: submitActions(
+        confirmLabel: _t('v2_confirm'),
+        onConfirm: valid ? () => submit(input, widget.onSubmit) : null,
+      ),
     );
   }
 }

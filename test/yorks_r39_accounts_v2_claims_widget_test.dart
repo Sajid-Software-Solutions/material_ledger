@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/accounts/application/accounts_providers.dart';
+import 'package:material_ledger/features/accounts/application/v2/accounts_unsaved_drafts.dart';
 import 'package:material_ledger/features/accounts/application/v2/accounts_workspace_v2_controllers.dart';
 import 'package:material_ledger/features/accounts/data/accounts_repository.dart'
     show YorksAccountsRpcClient;
@@ -15,6 +16,7 @@ import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
+import 'package:material_ledger/shared/services/yorks_v1_procurement_unload_guard.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// One building (Block A), two stages:
@@ -646,6 +648,62 @@ void main() {
     });
   });
 
+  group('AccountsV2ClaimsTab unsaved progress', () {
+    AccountsV2ClaimsTab tab(YorksAccountsUnsavedDrafts drafts) =>
+        AccountsV2ClaimsTab(
+          workbench: _wb(),
+          language: en,
+          canRecordProgress: true,
+          onSaveWorkbench: _noSave,
+          drafts: drafts,
+        );
+
+    testWidgets('typing comes back when the tab opens again', (tester) async {
+      _surface(tester);
+      final drafts = YorksAccountsUnsavedDrafts(unloadGuard: _NoGuard());
+      addTearDown(drafts.dispose);
+      await tester.pumpWidget(_wrap(tab(drafts)));
+      await tester.pumpAndSettle();
+      await tester.enterText(_input(0), '12.5');
+      await tester.pumpAndSettle();
+      expect(drafts.has(YorksAccountsDraftSection.claimsPrefix), isTrue);
+
+      await tester.pumpWidget(_wrap(const SizedBox()));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(_wrap(tab(drafts)));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        '12.5',
+      );
+    });
+
+    testWidgets('Discard can be undone', (tester) async {
+      _surface(tester);
+      final drafts = YorksAccountsUnsavedDrafts(unloadGuard: _NoGuard());
+      addTearDown(drafts.dispose);
+      await tester.pumpWidget(_wrap(tab(drafts)));
+      await tester.pumpAndSettle();
+      final before = tester
+          .widget<AccountsV2CellInput>(_input(0))
+          .controller
+          .text;
+      await tester.enterText(_input(0), '12.5');
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2c_discard')));
+      expect(
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        before,
+      );
+      await tester.tap(find.widgetWithText(SnackBarAction, t('v2_undo')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AccountsV2CellInput>(_input(0)).controller.text,
+        '12.5',
+      );
+    });
+  });
+
   group('AccountsV2ClaimsTab claim commands', () {
     testWidgets('a draft claim marks checked with a reason', (tester) async {
       _surface(tester);
@@ -674,6 +732,51 @@ void main() {
       await tester.tap(find.text(t('v2_confirm')));
       await tester.pumpAndSettle();
       expect(captured, 'Checked on site');
+    });
+
+    testWidgets('a refused issue stays open with the dates kept', (
+      tester,
+    ) async {
+      _surface(tester);
+      var attempts = 0;
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(claimStatus: 'ready_for_accounts'),
+            language: en,
+            onIssue:
+                ({
+                  required String claimId,
+                  required int expectedClaimVersion,
+                  required String invoiceDate,
+                  required String submissionDate,
+                  String? invoiceReference,
+                }) async {
+                  attempts++;
+                  return attempts == 1
+                      ? 'R39_ACCOUNTS_INVOICE_SETTINGS_REQUIRED'
+                      : null;
+                },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(tester, _button(t('v2p_issue_invoice')).last);
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2_claim_reference_opt')),
+        'REF-7',
+      );
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(find.text(t('v2_err_settings_required')), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'REF-7'), findsOneWidget);
+      expect(find.text(t('v2_claim_issued')), findsNothing);
+
+      await tester.tap(find.text(t('v2_confirm')));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(find.text(t('v2_claim_issued')), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'REF-7'), findsNothing);
     });
 
     testWidgets('a checked claim issues its invoice', (tester) async {
@@ -932,3 +1035,10 @@ Future<String?> _noSave({
   required List<String> evidenceDocumentIds,
   String? reason,
 }) async => null;
+
+class _NoGuard implements YorksV1ProcurementUnloadGuard {
+  @override
+  void setActive(bool active) {}
+  @override
+  void dispose() {}
+}

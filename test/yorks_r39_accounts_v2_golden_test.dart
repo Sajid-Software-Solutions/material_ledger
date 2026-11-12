@@ -120,7 +120,7 @@ Map<String, dynamic> _summaryJson() => {
   },
 };
 
-Map<String, dynamic> _contractJson() => {
+Map<String, dynamic> _contractJson({int version = 1}) => {
   'schema_version': 1,
   'project_id': 'p1',
   'project_reference': 'YRA-322',
@@ -132,7 +132,7 @@ Map<String, dynamic> _contractJson() => {
     'view_project_commercial_values': true,
     'configure_project_commercials': true,
   },
-  'profile_version': 1,
+  'profile_version': version,
   'revision_number': 1,
   'currency_code': 'AED',
   'contract_value': '17192000.00',
@@ -341,11 +341,13 @@ Widget _summaryTab() => AccountsV2SummaryTab(
   today: DateTime(2026, 11, 7),
 );
 
-Widget _contractTab() => AccountsV2ContractTab(
-  setup: YorksAccountsCommercialSetupRead.fromJson(_contractJson()),
+Widget _contractTab({int version = 1}) => AccountsV2ContractTab(
+  setup: YorksAccountsCommercialSetupRead.fromJson(
+    _contractJson(version: version),
+  ),
   language: _en,
   canEdit: true,
-  onSave: (_) async => null,
+  onSave: (_, _) async => null,
   onSaveReferences:
       ({
         String? clientTrn,
@@ -615,6 +617,36 @@ void main() {
         );
       });
     }
+  }
+
+  // Unsaved contract edits when someone else saves a newer version: the bar
+  // explains that nothing of theirs was saved and offers the two ways on.
+  for (final vp in viewports.entries) {
+    testWidgets('accounts v2 contract stale ${vp.key}', (tester) async {
+      tester.view.physicalSize = vp.value;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      Widget app(int version) => MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: _contractTab(version: version),
+          ),
+        ),
+      );
+      await tester.pumpWidget(app(1));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, '17500000');
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app(2));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/accounts_v2/contract_stale_${vp.key}.png'),
+      );
+    });
   }
 }
 
