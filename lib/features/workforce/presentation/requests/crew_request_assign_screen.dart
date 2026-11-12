@@ -1,8 +1,11 @@
-/// Workforce Center — PR assigns workers to an approved crew request.
+/// Workforce Center — assign workers to a crew request, or approve and
+/// assign in one step.
 ///
 /// Like a Material Request arrangement: each line is filled from free
 /// workers, and a line left short is recorded as Partial or Cannot provide
-/// now with a reason. Everything is saved in one server command, or nothing.
+/// now with a reason. A person asked for by name is ticked for the approver,
+/// with a warning when they are on another crew; approving moves them.
+/// Everything is saved in one server command, or nothing.
 library;
 
 import 'package:flutter/material.dart';
@@ -56,7 +59,7 @@ class CrewRequestAssignScreen extends ConsumerWidget {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    if (!loadedRequest.access.fulfil) {
+    if (!loadedRequest.access.fulfil && !_approving(loadedRequest)) {
       return Scaffold(
         backgroundColor: AppColors.surface,
         body: CrMessage(
@@ -77,6 +80,10 @@ class CrewRequestAssignScreen extends ConsumerWidget {
     );
   }
 }
+
+/// The approver approves and assigns in one step.
+bool _approving(CrewRequest request) =>
+    request.state == CrewRequestState.submitted && request.access.decide;
 
 class _LineChoice {
   _LineChoice(CrewRequestLine line)
@@ -128,6 +135,28 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
 
   CrewRequest get _request => widget.request;
   AppLanguage get _language => widget.language;
+  bool get _approve => _approving(_request);
+
+  AttendanceWorker? _worker(String id) {
+    for (final worker in widget.options.workers) {
+      if (worker.id == id) return worker;
+    }
+    return null;
+  }
+
+  /// The person named on [line], when they can still be assigned to it:
+  /// active, not yet on this request and not already on the chosen crew.
+  AttendanceWorker? _named(CrewRequestLine line) {
+    final named = line.worker;
+    if (named == null || line.short == 0) return null;
+    if (line.assigned.any((a) => a.workerId == named.id)) return null;
+    final worker = _worker(named.id);
+    if (worker == null) return null;
+    if (worker.crewId != null && !_newCrew && worker.crewId == _crewId) {
+      return null;
+    }
+    return worker;
+  }
 
   List<CrewRequestCrewOption> get _crews => [
     for (final crew in widget.options.crews)
@@ -153,6 +182,11 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
     _crewName = TextEditingController(text: label);
     _shiftStart = TextEditingController(text: formatAttendanceTimeInput(390));
     _shiftFinish = TextEditingController(text: formatAttendanceTimeInput(1020));
+    // People asked for by name start ticked; the approver may untick them.
+    for (final line in _request.lines) {
+      final named = _named(line);
+      if (named != null) _choices[line.id]!.chosen.add(named.id);
+    }
   }
 
   @override
@@ -169,10 +203,28 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
   void _changed() => setState(() {
     _key = null;
     _error = null;
+    // A named person already on the chosen crew cannot join it again.
+    for (final line in _request.lines) {
+      final named = line.worker;
+      if (named != null && _named(line) == null) {
+        _choices[line.id]!.chosen.remove(named.id);
+      }
+    }
   });
 
   /// Workers free to join: active, on no crew, not chosen on another line.
+  /// The person named on the line comes first, even from another crew.
   List<AttendanceWorker> _free(CrewRequestLine line) {
+    final named = _named(line);
+    final others = _freeOthers(line);
+    return [
+      ?named,
+      for (final worker in others)
+        if (worker.id != named?.id) worker,
+    ];
+  }
+
+  List<AttendanceWorker> _freeOthers(CrewRequestLine line) {
     final takenElsewhere = {
       for (final entry in _choices.entries)
         if (entry.key != line.id) ...entry.value.chosen,
@@ -239,6 +291,13 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
         ),
       );
     }
+    if (lines.isEmpty && _approve) {
+      // Approve without choosing anyone now.
+      lines.addAll([
+        for (final line in _request.lines)
+          CrewRequestFulfilLine(lineId: line.id, workerIds: const []),
+      ]);
+    }
     if (lines.isEmpty) {
       setState(() => _error = CRS.t(CRS.errNothingToSave, _language));
       return;
@@ -283,13 +342,21 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
             lines: lines,
             expectedVersion: _request.recordVersion,
             idempotencyKey: _key!,
+            approve: _approve,
           );
       if (!mounted) return;
       ref.invalidate(yorksCrewRequestProvider(_request.id));
       ref.invalidate(yorksCrewRequestsProvider);
       ref.invalidate(yorksCrewRequestOptionsProvider);
       ref.invalidate(yorksAttendanceCrewsProvider);
-      attendanceToast(context, CRS.t(CRS.assignedToast, _language));
+      attendanceToast(
+        context,
+        !_approve
+            ? CRS.t(CRS.assignedToast, _language)
+            : _chosenCount > 0
+            ? CRS.t(CRS.approvedAssignedToast, _language, {'n': _chosenCount})
+            : CRS.t(CRS.approvedToast, _language),
+      );
       context.go(crewRequestPath(_request.id));
     } catch (error) {
       if (!mounted) return;
@@ -409,6 +476,10 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
       label: Text(
         _busy
             ? AS.t(AS.saving, language)
+            : _approve
+            ? (chosen > 0
+                  ? CRS.t(CRS.saveApproveAssign, language, {'n': chosen})
+                  : CRS.t(CRS.approveOnly, language))
             : chosen > 0
             ? CRS.t(CRS.saveAssign, language, {'n': chosen})
             : CRS.t(CRS.saveDecisions, language),
@@ -427,21 +498,32 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
                 if (phone)
                   YorksMobilePageTitle(
                     eyebrow: _request.number,
-                    title: CRS.t(CRS.assignWorkers, language),
-                    description: CRS.t(CRS.assignIntro, language),
+                    title: CRS.t(
+                      _approve ? CRS.approveAndAssign : CRS.assignWorkers,
+                      language,
+                    ),
+                    description: CRS.t(
+                      _approve ? CRS.approveAssignIntro : CRS.assignIntro,
+                      language,
+                    ),
                   )
                 else ...[
                   Text(
-                    CRS.t(CRS.assignTitle, language, {
-                      'number': _request.number,
-                    }),
+                    CRS.t(
+                      _approve ? CRS.approveAssignTitle : CRS.assignTitle,
+                      language,
+                      {'number': _request.number},
+                    ),
                     style: AppTypography.headlineSmall.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    CRS.t(CRS.assignIntro, language),
+                    CRS.t(
+                      _approve ? CRS.approveAssignIntro : CRS.assignIntro,
+                      language,
+                    ),
                     style: AppTypography.bodySmall.copyWith(
                       color: AppColors.muted,
                     ),
@@ -463,6 +545,7 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
                     line: line,
                     choice: _choices[line.id]!,
                     free: _free(line),
+                    named: _named(line),
                     language: language,
                     enabled: !_busy,
                     onChanged: _changed,
@@ -492,7 +575,10 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
         children: [
           if (phone)
             YorksMobileAppBar(
-              title: CRS.t(CRS.assignWorkers, language),
+              title: CRS.t(
+                _approve ? CRS.approveAndAssign : CRS.assignWorkers,
+                language,
+              ),
               leading: YorksMobileIconButton(
                 key: const ValueKey('crew-request-assign-back'),
                 icon: Icons.arrow_back_rounded,
@@ -560,11 +646,15 @@ class _LineCard extends StatelessWidget {
     required this.language,
     required this.enabled,
     required this.onChanged,
+    this.named,
   });
 
   final CrewRequestLine line;
   final _LineChoice choice;
   final List<AttendanceWorker> free;
+
+  /// The person asked for by name on this line, when still assignable.
+  final AttendanceWorker? named;
   final AppLanguage language;
   final bool enabled;
   final VoidCallback onChanged;
@@ -600,7 +690,11 @@ class _LineCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${line.quantity} × ${line.trade}',
+                        line.worker == null
+                            ? '${line.quantity} × ${line.trade}'
+                            : line.trade.isEmpty
+                            ? line.worker!.name
+                            : '${line.worker!.name} (${line.trade})',
                         style: AppTypography.titleSmall,
                       ),
                       if (line.note != null)
@@ -701,15 +795,45 @@ class _LineCard extends StatelessWidget {
                           },
                     secondary: AttendanceAvatar(initials: worker.initials),
                     title: Text(worker.name, style: AppTypography.bodyLarge),
-                    subtitle: Text(
-                      [
-                        worker.number,
-                        worker.designation,
-                        worker.company,
-                      ].where((part) => part.isNotEmpty).join(' · '),
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.muted,
-                      ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            worker.number,
+                            worker.designation,
+                            worker.company,
+                          ].where((part) => part.isNotEmpty).join(' · '),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        if (worker.id == named?.id) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              CrPill(
+                                icon: Icons.badge_outlined,
+                                label: CRS.t(CRS.namedOnLine, language),
+                              ),
+                              if (worker.crewId != null)
+                                CrPill(
+                                  key: ValueKey(
+                                    'crew-request-assign-moves-${worker.id}',
+                                  ),
+                                  icon: Icons.warning_amber_rounded,
+                                  label: CRS.t(CRS.movesFrom, language, {
+                                    'crew': worker.crewName ?? '',
+                                  }),
+                                  color: AppColors.warning,
+                                  background: AppColors.warningContainer,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),

@@ -1,6 +1,8 @@
 // Workforce Center and crew requests against a fake server: the register
-// views, raising a request, the Project Engineer's decision with a reason,
-// PR's assignment with a short line, and phone layouts.
+// views, raising a request by trade or by name, the Project Engineer's
+// decision with a reason, approve-and-assign in one step with the named
+// worker's warning, PR's assignment with a short line, taking attendance and
+// finishing, and phone layouts.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -12,6 +14,7 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
+import 'package:material_ledger/features/workforce/domain/crew_request_models.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_assign_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_detail_screen.dart';
@@ -95,13 +98,58 @@ Map<String, Object?> _requestAccess({
   bool fulfil = false,
   bool cancel = false,
   bool resubmit = false,
+  bool finish = false,
 }) => {
   'view': true,
   'decide': decide,
   'fulfil': fulfil,
   'cancel': cancel,
   'resubmit': resubmit,
+  'finish': finish,
 };
+
+/// Rahim Shah, asked for by name, is on another project's crew.
+const _otherCrewId = '5a000000-0000-4000-8000-000000000009';
+const _rahim = {
+  'id': 'w3',
+  'number': 'W-3',
+  'name': 'Rahim Shah',
+  'designation': 'Duct fitter',
+  'crew_id': _otherCrewId,
+  'crew_name': 'Ruwais crew',
+};
+
+/// A request naming Rahim Shah, plus two helpers by trade.
+List<Map<String, Object?>> _namedLines({
+  List<Map<String, Object?>> assigned = const [],
+}) => [
+  {
+    'id': 'line-1',
+    'line_number': 1,
+    'trade': 'Duct fitter',
+    'quantity': 1,
+    'note': null,
+    'decision': null,
+    'decision_reason': null,
+    'worker': _rahim,
+    'assigned': assigned,
+  },
+  {
+    'id': 'line-2',
+    'line_number': 2,
+    'trade': 'Helper',
+    'quantity': 2,
+    'note': null,
+    'decision': null,
+    'decision_reason': null,
+    'assigned': <Object>[],
+  },
+];
+
+const _namedTrades = [
+  {'trade': 'Duct fitter', 'quantity': 1, 'worker_name': 'Rahim Shah'},
+  {'trade': 'Helper', 'quantity': 2},
+];
 
 Map<String, Object?> _request({
   String state = 'submitted',
@@ -110,6 +158,9 @@ Map<String, Object?> _request({
   int version = 1,
   List<Map<String, Object?>>? assigned,
   String? reason,
+  List<Map<String, Object?>>? lines,
+  List<Map<String, Object?>>? trades,
+  bool onCrew = false,
 }) => {
   'id': _requestId,
   'number': 'CRQ-2026-0001',
@@ -119,6 +170,8 @@ Map<String, Object?> _request({
   'project_name': 'Sweihan',
   'project_ref': 'YRA-321',
   'work_label': 'Level 3 ductwork',
+  'target_crew_id': onCrew ? _crewId : null,
+  'target_crew_name': onCrew ? 'Sweihan site crew' : null,
   'needed_from': '2026-11-14',
   'needed_until': null,
   'notes': 'Ceiling closes next week',
@@ -140,33 +193,37 @@ Map<String, Object?> _request({
   'overdue': false,
   'requested_count': 5,
   'assigned_count': assigned?.length ?? 0,
-  'trades': [
-    {'trade': 'Duct fitter', 'quantity': 3},
-    {'trade': 'Helper', 'quantity': 2},
-  ],
+  'trades':
+      trades ??
+      [
+        {'trade': 'Duct fitter', 'quantity': 3},
+        {'trade': 'Helper', 'quantity': 2},
+      ],
   'access': access ?? _requestAccess(),
-  'lines': [
-    {
-      'id': 'line-1',
-      'line_number': 1,
-      'trade': 'Duct fitter',
-      'quantity': 3,
-      'note': null,
-      'decision': null,
-      'decision_reason': null,
-      'assigned': assigned ?? <Object>[],
-    },
-    {
-      'id': 'line-2',
-      'line_number': 2,
-      'trade': 'Helper',
-      'quantity': 2,
-      'note': 'Any helper',
-      'decision': null,
-      'decision_reason': null,
-      'assigned': <Object>[],
-    },
-  ],
+  'lines':
+      lines ??
+      [
+        {
+          'id': 'line-1',
+          'line_number': 1,
+          'trade': 'Duct fitter',
+          'quantity': 3,
+          'note': null,
+          'decision': null,
+          'decision_reason': null,
+          'assigned': assigned ?? <Object>[],
+        },
+        {
+          'id': 'line-2',
+          'line_number': 2,
+          'trade': 'Helper',
+          'quantity': 2,
+          'note': 'Any helper',
+          'decision': null,
+          'decision_reason': null,
+          'assigned': <Object>[],
+        },
+      ],
   'events': [
     {
       'type': 'submitted',
@@ -184,7 +241,7 @@ Map<String, Object?> _register(
   bool canRequest = true,
 }) => {'today': _today, 'can_request': canRequest, 'requests': requests};
 
-Map<String, Object?> _options({bool officer = false}) => {
+Map<String, Object?> _options({bool officer = false, bool named = false}) => {
   'today': _today,
   'workshop': false,
   'projects': [
@@ -206,7 +263,7 @@ Map<String, Object?> _options({bool officer = false}) => {
       'shift_finish_minute': 1020,
     },
   ],
-  'workers': officer
+  'workers': officer || named
       ? [
           for (final (i, name) in [
             'Gul Zaman',
@@ -222,6 +279,7 @@ Map<String, Object?> _options({bool officer = false}) => {
               'crew_id': null,
               'crew_name': null,
             },
+          {..._rahim, 'company': 'Example Manpower LLC'},
         ]
       : <Object>[],
 };
@@ -476,7 +534,7 @@ void main() {
 
     expect(
       find.text(
-        "Goes to the project's Project Engineer for approval, then PR assigns the workers.",
+        "Goes to the project's Project Engineer, who approves it and assigns the workers.",
       ),
       findsOneWidget,
     );
@@ -534,7 +592,7 @@ void main() {
     await _pump(tester, rpc, '/yorks/workforce/requests/$_requestId');
 
     expect(find.text('CRQ-2026-0001'), findsOneWidget);
-    expect(find.text('Approve or return'), findsOneWidget);
+    expect(find.text('Approve and assign, or return'), findsOneWidget);
 
     await _tap(tester, find.byKey(const ValueKey('crew-request-return')));
     expect(find.text('Return CRQ-2026-0001?'), findsOneWidget);
@@ -613,6 +671,289 @@ void main() {
         'reason': 'Third fitter free from Monday',
       },
     ]);
+  });
+
+  test('a person asked for by name is one person, with their trade', () {
+    expect(
+      const CrewRequestDraftLine(
+        trade: 'Duct fitter',
+        quantity: 7,
+        workerId: 'w3',
+      ).toJson(),
+      {'worker_id': 'w3', 'trade': 'Duct fitter', 'quantity': 1},
+    );
+    expect(
+      const CrewRequestDraftLine(trade: ' Helper ', quantity: 2).toJson(),
+      {'trade': 'Helper', 'quantity': 2},
+    );
+    final line = CrewRequestLine.fromJson(_namedLines().first);
+    expect(line.worker?.name, 'Rahim Shah');
+    expect(line.namedOnOtherCrew, isTrue);
+    final assigned = CrewRequestLine.fromJson(
+      _namedLines(
+        assigned: [
+          {
+            'worker_id': 'w3',
+            'number': 'W-3',
+            'name': 'Rahim Shah',
+            'designation': 'Duct fitter',
+            'crew_id': _crewId,
+            'crew_name': 'Sweihan site crew',
+          },
+        ],
+      ).first,
+    );
+    expect(assigned.namedOnOtherCrew, isFalse);
+    expect(CrewRequestState.from('completed').isOpen, isFalse);
+    expect(CrewRequestState.from('fulfilled').isOpen, isTrue);
+  });
+
+  testWidgets('a Site Engineer names a worker as they type; the warning shows', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1400));
+    final rpc = _FakeRpc({
+      'v1_wf_request_options': (_) => _options(named: true),
+      'v1_wf_submit_request': (_) =>
+          _request(lines: _namedLines(), trades: _namedTrades),
+      'v1_wf_get_request': (_) =>
+          _request(lines: _namedLines(), trades: _namedTrades),
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1WorkforceRequestNew);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-trade-0')),
+      'rahim',
+    );
+    await tester.pumpAndSettle();
+    final suggestion = find.byKey(
+      const ValueKey('crew-request-suggest-worker-0-w3'),
+    );
+    expect(suggestion, findsOneWidget);
+    expect(find.text('On Ruwais crew'), findsOneWidget);
+    await _tap(tester, suggestion);
+
+    expect(find.byKey(const ValueKey('crew-request-named-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('crew-request-quantity-0')), findsNothing);
+    expect(find.text('Rahim Shah is on Ruwais crew'), findsOneWidget);
+    expect(
+      find.text(
+        "The approver sees this. If they approve, Rahim Shah moves to this request's crew.",
+      ),
+      findsOneWidget,
+    );
+
+    // A second line by trade; the named person is not offered twice.
+    await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-trade-1')),
+      'rahim',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('crew-request-suggest-worker-1-w3')),
+      findsNothing,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-trade-1')),
+      'help',
+    );
+    await tester.pumpAndSettle();
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('crew-request-suggest-trade-1-Helper')),
+    );
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('crew-request-quantity-1')),
+          )
+          .controller!
+          .text,
+      '1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-quantity-1')),
+      '2',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Rahim Shah (Duct fitter), 2 × Helper'), findsOneWidget);
+
+    await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
+    final payload =
+        rpc.last('v1_wf_submit_request')['p_payload'] as Map<String, Object?>;
+    expect(payload['lines'], [
+      {'worker_id': 'w3', 'trade': 'Duct fitter', 'quantity': 1},
+      {'trade': 'Helper', 'quantity': 2},
+    ]);
+  });
+
+  testWidgets('the Project Engineer approves and assigns in one step', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1600));
+    final rpc = _FakeRpc({
+      'v1_wf_get_request': (_) => _request(
+        access: _requestAccess(decide: true),
+        lines: _namedLines(),
+        trades: _namedTrades,
+        version: 2,
+      ),
+      'v1_wf_request_options': (_) => _options(officer: true),
+      'v1_wf_list_requests': (_) => _register(const []),
+      'v1_wf_fulfil_request': (_) => _request(
+        state: 'partially_fulfilled',
+        owner: 'pr',
+        access: _requestAccess(fulfil: true),
+        lines: _namedLines(),
+        trades: _namedTrades,
+        version: 3,
+      ),
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      '/yorks/workforce/requests/$_requestId',
+    );
+
+    // The approver sees the requester's warning clearly.
+    expect(
+      find.byKey(const ValueKey('crew-request-line-warning-line-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('On Ruwais crew · approving moves them here'),
+      findsOneWidget,
+    );
+    expect(find.text('Rahim Shah (Duct fitter), 2 × Helper'), findsWidgets);
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('crew-request-approve-assign')),
+    );
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      '/yorks/workforce/requests/$_requestId/assign',
+    );
+    expect(find.text('Approve and assign · CRQ-2026-0001'), findsOneWidget);
+
+    final named = find.byKey(
+      const ValueKey('crew-request-assign-worker-line-1-w3'),
+    );
+    expect(tester.widget<CheckboxListTile>(named).value, isTrue);
+    expect(
+      find.byKey(const ValueKey('crew-request-assign-moves-w3')),
+      findsOneWidget,
+    );
+    expect(find.text('Moves from Ruwais crew'), findsOneWidget);
+
+    // The approver may remove the named person, then change their mind.
+    await _tap(tester, named);
+    expect(tester.widget<CheckboxListTile>(named).value, isFalse);
+    expect(find.text('Approve only'), findsOneWidget);
+    await _tap(tester, named);
+    expect(find.text('Approve and assign 1'), findsOneWidget);
+
+    await _tap(tester, find.byKey(const ValueKey('crew-request-assign-save')));
+    final sent = rpc.last('v1_wf_fulfil_request');
+    expect(sent['p_expected_version'], 2);
+    final payload = sent['p_payload'] as Map<String, Object?>;
+    expect(payload['approve'], isTrue);
+    expect(payload['crew_id'], _crewId);
+    expect(payload['lines'], [
+      {
+        'line_id': 'line-1',
+        'worker_ids': ['w3'],
+      },
+    ]);
+  });
+
+  testWidgets('approve only sends every line with no one chosen', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1600));
+    final rpc = _FakeRpc({
+      'v1_wf_get_request': (_) => _request(
+        access: _requestAccess(decide: true),
+        lines: _namedLines(),
+        trades: _namedTrades,
+      ),
+      'v1_wf_request_options': (_) => _options(officer: true),
+      'v1_wf_list_requests': (_) => _register(const []),
+      'v1_wf_fulfil_request': (_) =>
+          _request(state: 'approved', owner: 'pr', version: 2),
+    });
+    await _pump(tester, rpc, '/yorks/workforce/requests/$_requestId/assign');
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('crew-request-assign-worker-line-1-w3')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('crew-request-assign-save')));
+    final payload =
+        rpc.last('v1_wf_fulfil_request')['p_payload'] as Map<String, Object?>;
+    expect(payload['approve'], isTrue);
+    expect(payload.containsKey('crew_id'), isFalse);
+    expect(payload['lines'], [
+      {'line_id': 'line-1', 'worker_ids': <String>[]},
+      {'line_id': 'line-2', 'worker_ids': <String>[]},
+    ]);
+  });
+
+  testWidgets('the requester takes attendance, then finishes the request', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 1200));
+    var current = _request(
+      state: 'fulfilled',
+      owner: 'requester',
+      access: _requestAccess(finish: true),
+      version: 5,
+      onCrew: true,
+    );
+    final rpc = _FakeRpc({
+      'v1_wf_get_request': (_) => current,
+      'v1_wf_list_requests': (_) => _register([current]),
+      'v1_wf_finish_request': (params) {
+        current = _request(
+          state: 'completed',
+          owner: 'none',
+          version: 6,
+          onCrew: true,
+        );
+        return current;
+      },
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      '/yorks/workforce/requests/$_requestId',
+    );
+
+    expect(find.text('Workers on site'), findsWidgets);
+    expect(
+      find.text('Take attendance · finish when the work is done'),
+      findsOneWidget,
+    );
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('crew-request-take-attendance')),
+    );
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '/yorks/workforce/attendance?crew=$_crewId',
+    );
+    router.go('/yorks/workforce/requests/$_requestId');
+    await tester.pumpAndSettle();
+
+    await _tap(tester, find.byKey(const ValueKey('crew-request-finish')));
+    expect(find.text('Finish CRQ-2026-0001?'), findsOneWidget);
+    expect(rpc.calls.map((c) => c.$1), isNot(contains('v1_wf_finish_request')));
+    await tester.tap(find.text('Finish and release workers').last);
+    await tester.pumpAndSettle();
+    final sent = rpc.last('v1_wf_finish_request');
+    expect(sent['p_expected_version'], 5);
+    expect(sent['p_idempotency_key'], isNotNull);
+    expect(find.text('Finished'), findsWidgets);
+    expect(find.byKey(const ValueKey('crew-request-finish')), findsNothing);
   });
 
   test('engineers and the Accountant reach Workforce by role', () {
@@ -876,6 +1217,95 @@ void main() {
         const Size(360, 800),
         RoutePaths.yorksV1WorkforceRequestNew,
         'phone_form',
+      );
+    });
+    testWidgets('desktop approve and assign', (tester) async {
+      _size(tester, const Size(1280, 1000));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_get_request': (_) => _request(
+            access: _requestAccess(decide: true),
+            lines: _namedLines(),
+            trades: _namedTrades,
+          ),
+        }),
+        '/yorks/workforce/requests/$_requestId/assign',
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile(
+          'goldens/workforce_center_desktop_approve_assign.png',
+        ),
+      );
+    });
+    testWidgets('phone request named, waiting for approval', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_get_request': (_) => _request(
+            access: _requestAccess(decide: true),
+            lines: _namedLines(),
+            trades: _namedTrades,
+          ),
+        }),
+        '/yorks/workforce/requests/$_requestId',
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_phone_request_named.png'),
+      );
+    });
+    testWidgets('phone request on site', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_get_request': (_) => _request(
+            state: 'fulfilled',
+            owner: 'requester',
+            access: _requestAccess(finish: true),
+            onCrew: true,
+          ),
+        }),
+        '/yorks/workforce/requests/$_requestId',
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_phone_request_on_site.png'),
+      );
+    });
+    testWidgets('phone form, a person by name', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_request_options': (_) => _options(named: true),
+        }),
+        RoutePaths.yorksV1WorkforceRequestNew,
+      );
+      await _tap(tester, find.byKey(const ValueKey('crew-request-continue')));
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-trade-0')),
+        'ra',
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_phone_form_suggest.png'),
+      );
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-suggest-worker-0-w3')),
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_phone_form_named.png'),
       );
     });
     testWidgets('phone assign', (tester) async {

@@ -233,11 +233,11 @@ select set_config('crq.lines', (
 ), true);
 
 set local role authenticated;
-select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
 select throws_ok(
   $$select public.v1_wf_fulfil_request(current_setting('crq.id')::uuid,
       '{"lines":[]}'::jsonb, 4, '7c030000-0000-4000-8000-000000000040')$$,
-  '42501', null, 'Only PR or Admin assigns workers'
+  '42501', null, 'A Site Engineer does not assign workers'
 );
 
 select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
@@ -481,6 +481,177 @@ select ok(
   'The summary runs every morning'
 );
 
+-- By name, approve and assign in one step, finish ----------------------------
+
+reset role;
+insert into public.v1_workforce_workers (
+  id, worker_number, full_name, designation, employer_company, worker_type,
+  joining_date, created_by_auth_user_id, updated_by_auth_user_id
+) values
+  ('7c020000-0000-4000-8000-000000000006', 'CRQT-6', 'Named Fitter',
+   'Duct fitter', 'Example Manpower LLC', 'agency_worker', date '2025-01-01',
+   '10000000-0000-4000-8000-000000000004',
+   '10000000-0000-4000-8000-000000000004'),
+  ('7c020000-0000-4000-8000-000000000007', 'CRQT-7', 'Spare Helper',
+   'Helper', 'Example Manpower LLC', 'agency_worker', date '2025-01-01',
+   '10000000-0000-4000-8000-000000000004',
+   '10000000-0000-4000-8000-000000000004');
+-- The named fitter is on the workshop crew today.
+insert into public.v1_workforce_teams (
+  id, team_code, team_name, valid_from, created_by_auth_user_id,
+  updated_by_auth_user_id
+) values (
+  '7c040000-0000-4000-8000-000000000001', 'CRQT-WS', 'Request workshop crew',
+  public.v1_wf_today() - 30, '10000000-0000-4000-8000-000000000004',
+  '10000000-0000-4000-8000-000000000004'
+);
+insert into public.v1_workforce_crew_profiles (
+  team_id, crew_kind, needs_confirmation, shift_start_minute,
+  shift_finish_minute, created_by_auth_user_id, updated_by_auth_user_id
+) values (
+  '7c040000-0000-4000-8000-000000000001', 'workshop', false, 420, 960,
+  '10000000-0000-4000-8000-000000000004',
+  '10000000-0000-4000-8000-000000000004'
+);
+insert into public.v1_workforce_crew_members (
+  team_id, worker_id, added_by_auth_user_id
+) values (
+  '7c040000-0000-4000-8000-000000000001',
+  '7c020000-0000-4000-8000-000000000006',
+  '10000000-0000-4000-8000-000000000004'
+);
+-- The Site Engineer is back on the project.
+insert into public.v1_project_members (
+  project_id, member_auth_user_id, project_role, effective_from,
+  reason, assigned_by_auth_user_id, assigned_by_role
+) values (
+  '7c010000-0000-4000-8000-000000000001',
+  '10000000-0000-4000-8000-000000000002', 'site_engineer',
+  clock_timestamp(), 'Crew request test',
+  '10000000-0000-4000-8000-000000000004', 'admin'
+);
+
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select throws_ok(
+  format($$select public.v1_wf_submit_request(jsonb_build_object(
+      'crew_kind', 'project',
+      'project_id', '7c010000-0000-4000-8000-000000000001',
+      'needed_from', %L,
+      'lines', jsonb_build_array(
+        jsonb_build_object('worker_id', '7c020000-0000-4000-8000-000000000006'),
+        jsonb_build_object('worker_id', '7c020000-0000-4000-8000-000000000006'))),
+    null, '7c030000-0000-4000-8000-000000000060')$$,
+    current_setting('crq.from')),
+  '22023', null, 'The same person cannot be asked for twice'
+);
+select set_config('crq.named', (
+  public.v1_wf_submit_request(jsonb_build_object(
+      'crew_kind', 'project',
+      'project_id', '7c010000-0000-4000-8000-000000000001',
+      'needed_from', current_setting('crq.from'),
+      'lines', jsonb_build_array(
+        jsonb_build_object(
+          'worker_id', '7c020000-0000-4000-8000-000000000006',
+          'quantity', 5),
+        jsonb_build_object('trade', 'Helper', 'quantity', 1))),
+    null, '7c030000-0000-4000-8000-000000000061') ->> 'id'
+), true);
+select ok(
+  (select (line ->> 'quantity')::int = 1
+      and line ->> 'trade' = 'Duct fitter'
+      and line -> 'worker' ->> 'crew_name' = 'Request workshop crew'
+   from jsonb_array_elements(
+     public.v1_wf_get_request(current_setting('crq.named')::uuid) -> 'lines'
+   ) line
+   where (line ->> 'line_number')::int = 1),
+  'A named worker is one person, takes their designation and shows their current crew'
+);
+select throws_ok(
+  format($$select public.v1_wf_fulfil_request(%L::uuid,
+      jsonb_build_object('approve', true, 'lines', jsonb_build_array()),
+      1, '7c030000-0000-4000-8000-000000000062')$$,
+    current_setting('crq.named')),
+  '42501', null, 'The requester cannot approve their own request'
+);
+reset role;
+select set_config('crq.named_lines', (
+  select jsonb_agg(line.id order by line.line_number)::text
+  from public.v1_workforce_crew_request_lines line
+  where line.request_id = current_setting('crq.named')::uuid and line.is_current
+), true);
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
+select is(
+  public.v1_wf_fulfil_request(current_setting('crq.named')::uuid,
+    jsonb_build_object(
+      'approve', true,
+      'new_crew', jsonb_build_object('name', 'Named request crew',
+        'shift_start_minute', 390, 'shift_finish_minute', 1020),
+      'lines', jsonb_build_array(
+        jsonb_build_object(
+          'line_id', current_setting('crq.named_lines')::jsonb ->> 0,
+          'worker_ids', jsonb_build_array(
+            '7c020000-0000-4000-8000-000000000006')),
+        jsonb_build_object(
+          'line_id', current_setting('crq.named_lines')::jsonb ->> 1,
+          'worker_ids', jsonb_build_array(
+            '7c020000-0000-4000-8000-000000000007')))),
+    1, '7c030000-0000-4000-8000-000000000063') ->> 'state',
+  'fulfilled',
+  'The Project Engineer approves and assigns in one step'
+);
+reset role;
+select set_config('crq.named_crew', (
+  select target_team_id::text from public.v1_workforce_crew_requests
+  where id = current_setting('crq.named')::uuid
+), true);
+select ok(
+  exists (
+    select 1 from public.v1_workforce_crew_members member
+    where member.worker_id = '7c020000-0000-4000-8000-000000000006'
+      and member.team_id = current_setting('crq.named_crew')::uuid
+      and member.removed_at is null
+  ) and exists (
+    select 1 from public.v1_workforce_crew_members member
+    where member.worker_id = '7c020000-0000-4000-8000-000000000006'
+      and member.team_id = '7c040000-0000-4000-8000-000000000001'
+      and member.removed_at is not null
+  ),
+  'The named worker moved from the workshop crew to the request crew'
+);
+select ok(
+  exists (
+    select 1 from public.v1_workforce_crew_request_events event
+    where event.request_id = current_setting('crq.named')::uuid
+      and event.event_type = 'approved'
+      and (event.detail ->> 'with_assignment')::boolean
+  ),
+  'The approval is recorded as made together with the assignment'
+);
+
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000003', 'procurement');
+select throws_ok(
+  format($$select public.v1_wf_finish_request(%L::uuid, null, 2,
+      '7c030000-0000-4000-8000-000000000064')$$, current_setting('crq.named')),
+  '42501', null, 'Procurement cannot finish a crew request'
+);
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select is(
+  public.v1_wf_finish_request(current_setting('crq.named')::uuid,
+    'Ductwork on level 3 done', 2,
+    '7c030000-0000-4000-8000-000000000065') ->> 'state',
+  'completed', 'The requester finishes the request when the work is done'
+);
+reset role;
+select is(
+  (select count(*)::int from public.v1_workforce_crew_members member
+   where member.team_id = current_setting('crq.named_crew')::uuid
+     and member.removed_at is null),
+  0, 'Its workers leave the crew'
+);
+
 -- Boundary ------------------------------------------------------------------
 
 select ok(
@@ -491,7 +662,9 @@ select ok(
   and not has_function_privilege('authenticated',
     'public.v1_wf_send_crew_request_reminders()', 'execute')
   and not has_function_privilege('anon',
-    'public.v1_wf_list_requests()', 'execute'),
+    'public.v1_wf_list_requests()', 'execute')
+  and not has_function_privilege('anon',
+    'public.v1_wf_finish_request(uuid,text,bigint,uuid)', 'execute'),
   'Requests are reachable only through their functions'
 );
 

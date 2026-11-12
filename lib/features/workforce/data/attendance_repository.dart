@@ -296,14 +296,31 @@ final class YorksAttendanceRepository {
     required List<CrewRequestFulfilLine> lines,
     required int expectedVersion,
     required String idempotencyKey,
+    bool approve = false,
   }) async => CrewRequest.fromJson(
     await _invokeCenter('v1_wf_fulfil_request', {
       'p_request_id': requestId,
       'p_payload': {
+        if (approve) 'approve': true,
         'crew_id': ?crewId,
         'new_crew': ?newCrew,
         'lines': [for (final line in lines) line.toJson()],
       },
+      'p_expected_version': expectedVersion,
+      'p_idempotency_key': idempotencyKey,
+    }),
+  );
+
+  /// Work done: the request finishes and its workers leave the crew.
+  Future<CrewRequest> finishRequest({
+    required String requestId,
+    String? reason,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => CrewRequest.fromJson(
+    await _invokeCenter('v1_wf_finish_request', {
+      'p_request_id': requestId,
+      'p_reason': reason,
       'p_expected_version': expectedVersion,
       'p_idempotency_key': idempotencyKey,
     }),

@@ -2,6 +2,10 @@
 /// in the Material Request style: three steps on a phone (Details, People,
 /// Review) and numbered sections with a summary on desktop.
 ///
+/// Each line asks for a person by name or for a number of a trade: one
+/// field suggests people and trades as the requester types. A person on
+/// another crew is shown with a warning; the approver sees it too.
+///
 /// Nothing reaches the approver until Send succeeds on the server; a refusal
 /// is shown with everything typed still there.
 library;
@@ -16,9 +20,16 @@ import '../../../../core/widgets/yorks_mobile_ui.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../application/attendance_providers.dart';
 import '../../data/attendance_repository.dart';
+import '../../domain/attendance_models.dart';
+import '../../domain/attendance_search.dart';
 import '../../domain/crew_request_models.dart';
 import '../attendance/attendance_common.dart'
-    show AS, attendanceLanguage, attendanceLongDate, attendanceToast;
+    show
+        AS,
+        AttendanceAvatar,
+        attendanceLanguage,
+        attendanceLongDate,
+        attendanceToast;
 import 'crew_request_common.dart';
 import 'crew_request_kit.dart';
 
@@ -83,25 +94,42 @@ class CrewRequestFormScreen extends ConsumerWidget {
 }
 
 class _LineDraft {
-  _LineDraft({String trade = '', String quantity = '', String note = ''})
-    : trade = TextEditingController(text: trade),
-      quantity = TextEditingController(text: quantity),
-      note = TextEditingController(text: note);
+  _LineDraft({
+    String trade = '',
+    String quantity = '',
+    String note = '',
+    this.worker,
+  }) : trade = TextEditingController(text: trade),
+       quantity = TextEditingController(text: quantity),
+       note = TextEditingController(text: note);
 
+  /// What is typed: a name being looked up, or a trade.
   final TextEditingController trade;
   final TextEditingController quantity;
   final TextEditingController note;
 
-  int? get count => int.tryParse(quantity.text.trim());
+  /// The person asked for by name; the line is then for one person.
+  AttendanceWorker? worker;
+
+  int? get count => worker != null ? 1 : int.tryParse(quantity.text.trim());
   bool get isBlank =>
+      worker == null &&
       trade.text.trim().isEmpty &&
       quantity.text.trim().isEmpty &&
       note.text.trim().isEmpty;
   bool get isValid =>
-      trade.text.trim().isNotEmpty &&
-      count != null &&
-      count! >= 1 &&
-      count! <= 200;
+      worker != null ||
+      (trade.text.trim().isNotEmpty &&
+          count != null &&
+          count! >= 1 &&
+          count! <= 200);
+
+  /// How the line reads in the summary.
+  String get label => worker != null
+      ? (worker!.designation.isEmpty
+            ? worker!.name
+            : '${worker!.name} (${worker!.designation})')
+      : '${count ?? 0} × ${trade.text.trim()}';
 
   void dispose() {
     trade.dispose();
@@ -163,11 +191,23 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
     _notes = TextEditingController(text: request?.notes ?? '');
     if (request != null && request.lines.isNotEmpty) {
       for (final line in request.lines) {
+        final named = line.worker;
         _lines.add(
           _LineDraft(
-            trade: line.trade,
-            quantity: '${line.quantity}',
+            trade: named == null ? line.trade : '',
+            quantity: named == null ? '${line.quantity}' : '',
             note: line.note ?? '',
+            worker: named == null
+                ? null
+                : _optionWorker(named.id) ??
+                      AttendanceWorker(
+                        id: named.id,
+                        number: named.number,
+                        name: named.name,
+                        designation: named.designation,
+                        crewId: named.crewId,
+                        crewName: named.crewName,
+                      ),
           ),
         );
       }
@@ -190,6 +230,19 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
     _idempotencyKey = null;
     _error = null;
   });
+
+  AttendanceWorker? _optionWorker(String id) {
+    for (final worker in _options.workers) {
+      if (worker.id == id) return worker;
+    }
+    return null;
+  }
+
+  /// People already named on another line of this request.
+  Set<String> _namedElsewhere(_LineDraft line) => {
+    for (final other in _lines)
+      if (!identical(other, line) && other.worker != null) other.worker!.id,
+  };
 
   CrewRequestProjectOption? get _project {
     for (final project in _options.projects) {
@@ -300,9 +353,10 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
             lines: [
               for (final line in _filled)
                 CrewRequestDraftLine(
-                  trade: line.trade.text,
+                  trade: line.worker?.designation ?? line.trade.text,
                   quantity: line.count!,
                   note: line.note.text,
+                  workerId: line.worker?.id,
                 ),
             ],
             expectedVersion: request?.recordVersion,
@@ -475,112 +529,313 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
     ];
   }
 
-  Widget _lineCard(int index, _LineDraft line) {
-    final typed = line.trade.text.trim().toLowerCase();
-    final suggestions = [
-      for (final trade in _options.trades)
-        if (trade.toLowerCase() != typed &&
-            (typed.isEmpty || trade.toLowerCase().contains(typed)))
-          trade,
-    ].take(6).toList();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: CrCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    CRS.t(CRS.lineNumber, _language, {'n': index + 1}),
-                    style: AppTypography.titleSmall,
-                  ),
+  Widget _lineCard(int index, _LineDraft line) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: CrCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  CRS.t(CRS.lineNumber, _language, {'n': index + 1}),
+                  style: AppTypography.titleSmall,
                 ),
-                if (_lines.length > 1)
-                  IconButton.outlined(
-                    key: ValueKey('crew-request-remove-$index'),
-                    tooltip: CRS.t(CRS.remove, _language),
-                    color: AppColors.error,
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            final removed = _lines.removeAt(index);
-                            _changed();
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => removed.dispose(),
-                            );
-                          },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-              ],
+              ),
+              if (_lines.length > 1)
+                IconButton.outlined(
+                  key: ValueKey('crew-request-remove-$index'),
+                  tooltip: CRS.t(CRS.remove, _language),
+                  color: AppColors.error,
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          final removed = _lines.removeAt(index);
+                          _changed();
+                          WidgetsBinding.instance.addPostFrameCallback(
+                            (_) => removed.dispose(),
+                          );
+                        },
+                  icon: const Icon(Icons.close_rounded),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (line.worker != null)
+            _namedPerson(index, line)
+          else
+            ..._nameOrTrade(index, line),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            key: ValueKey('crew-request-note-$index'),
+            controller: line.note,
+            enabled: !_busy,
+            onChanged: (_) => _changed(),
+            decoration: InputDecoration(
+              labelText: CRS.t(CRS.lineNote, _language),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: ValueKey('crew-request-trade-$index'),
-                    controller: line.trade,
-                    enabled: !_busy,
-                    onChanged: (_) => _changed(),
-                    decoration: InputDecoration(
-                      labelText: CRS.t(CRS.trade, _language),
-                      hintText: CRS.t(CRS.tradeHint, _language),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  /// A person asked for by name: who they are, and a warning when they are
+  /// on another crew.
+  Widget _namedPerson(int index, _LineDraft line) {
+    final worker = line.worker!;
+    final onCrew = worker.crewId != null;
+    return Column(
+      key: ValueKey('crew-request-named-$index'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          ),
+          child: Row(
+            children: [
+              AttendanceAvatar(initials: worker.initials),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(worker.name, style: AppTypography.titleSmall),
+                    Text(
+                      [
+                        worker.number,
+                        worker.designation,
+                      ].where((part) => part.isNotEmpty).join(' · '),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.inkSecondary,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                SizedBox(
-                  width: 96,
-                  child: TextField(
-                    key: ValueKey('crew-request-quantity-$index'),
-                    controller: line.quantity,
-                    enabled: !_busy,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => _changed(),
-                    decoration: InputDecoration(
-                      labelText: CRS.t(CRS.howMany, _language),
+                    const SizedBox(height: 6),
+                    CrPill(
+                      icon: Icons.badge_outlined,
+                      label: CRS.t(CRS.namedPerson, _language),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            if (suggestions.isNotEmpty && !_busy) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final trade in suggestions)
-                    ActionChip(
-                      label: Text(trade),
-                      onPressed: () {
-                        line.trade.text = trade;
+              ),
+              TextButton(
+                key: ValueKey('crew-request-change-$index'),
+                onPressed: _busy
+                    ? null
+                    : () {
+                        line.worker = null;
+                        line.trade.clear();
                         _changed();
                       },
-                    ),
-                ],
+                child: Text(CRS.t(CRS.changePerson, _language)),
               ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              key: ValueKey('crew-request-note-$index'),
-              controller: line.note,
-              enabled: !_busy,
-              onChanged: (_) => _changed(),
-              decoration: InputDecoration(
-                labelText: CRS.t(CRS.lineNote, _language),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (onCrew) ...[
+          const SizedBox(height: AppSpacing.sm),
+          YorksMobileCallout(
+            key: ValueKey('crew-request-on-crew-$index'),
+            icon: Icons.warning_amber_rounded,
+            title: CRS.t(CRS.onCrewWarningTitle, _language, {
+              'name': worker.name,
+              'crew': worker.crewName ?? '',
+            }),
+            message: CRS.t(CRS.onCrewWarningBody, _language, {
+              'name': worker.name,
+            }),
+            warning: true,
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _addLine() => Row(
+  /// One field for a name or a trade, with suggestions as it is typed.
+  List<Widget> _nameOrTrade(int index, _LineDraft line) {
+    final typed = line.trade.text.trim();
+    final canon = attendanceCanon(typed);
+    final taken = _namedElsewhere(line);
+    final people = typed.isEmpty
+        ? const <AttendanceWorker>[]
+        : [
+            for (final hit in attendanceFuzzySearch(
+              typed,
+              [
+                for (final worker in _options.workers)
+                  if (!taken.contains(worker.id)) worker,
+              ],
+              (worker) => '${worker.name} ${worker.number}',
+              limit: 5,
+            ))
+              hit.item,
+          ];
+    final trades = typed.isEmpty
+        ? _options.trades.take(6).toList()
+        : [
+            for (final hit in attendanceFuzzySearch(
+              typed,
+              _options.trades,
+              (trade) => trade,
+              limit: 4,
+            ))
+              if (attendanceCanon(hit.item) != canon) hit.item,
+          ];
+    return [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TextField(
+              key: ValueKey('crew-request-trade-$index'),
+              controller: line.trade,
+              enabled: !_busy,
+              onChanged: (_) => _changed(),
+              decoration: InputDecoration(
+                labelText: CRS.t(CRS.trade, _language),
+                hintText: CRS.t(CRS.tradeHint, _language),
+                prefixIcon: const Icon(Icons.search_rounded),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          SizedBox(
+            width: 96,
+            child: TextField(
+              key: ValueKey('crew-request-quantity-$index'),
+              controller: line.quantity,
+              enabled: !_busy,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => _changed(),
+              decoration: InputDecoration(
+                labelText: CRS.t(CRS.howMany, _language),
+              ),
+            ),
+          ),
+        ],
+      ),
+      if (!_busy && people.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          key: ValueKey('crew-request-suggest-people-$index'),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.line),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                  AppSpacing.md,
+                  4,
+                ),
+                child: Text(
+                  CRS.t(CRS.suggestPeople, _language),
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+              for (final worker in people)
+                Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(
+                    key: ValueKey(
+                      'crew-request-suggest-worker-$index-${worker.id}',
+                    ),
+                    minTileHeight: 52,
+                    leading: AttendanceAvatar(initials: worker.initials),
+                    title: Text(worker.name, style: AppTypography.bodyLarge),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            worker.number,
+                            worker.designation,
+                          ].where((part) => part.isNotEmpty).join(' · '),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        if (worker.crewId != null) ...[
+                          const SizedBox(height: 4),
+                          CrPill(
+                            icon: Icons.warning_amber_rounded,
+                            label: CRS.t(CRS.workerOnCrew, _language, {
+                              'crew': worker.crewName ?? '',
+                            }),
+                            color: AppColors.warning,
+                            background: AppColors.warningContainer,
+                          ),
+                        ],
+                      ],
+                    ),
+                    trailing: worker.crewId == null
+                        ? CrPill(
+                            label: CRS.t(CRS.workerFree, _language),
+                            color: AppColors.success,
+                            background: AppColors.successContainer,
+                          )
+                        : null,
+                    onTap: () {
+                      line.worker = worker;
+                      line.trade.clear();
+                      line.quantity.clear();
+                      FocusScope.of(context).unfocus();
+                      _changed();
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      if (!_busy && trades.isNotEmpty) ...[
+        const SizedBox(height: AppSpacing.sm),
+        if (typed.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              CRS.t(CRS.suggestTrades, _language),
+              style: AppTypography.labelMedium.copyWith(color: AppColors.muted),
+            ),
+          ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final trade in trades)
+              ActionChip(
+                key: ValueKey('crew-request-suggest-trade-$index-$trade'),
+                avatar: const Icon(Icons.engineering_outlined, size: 16),
+                label: Text(trade),
+                onPressed: () {
+                  line.trade.text = trade;
+                  if (line.quantity.text.trim().isEmpty) {
+                    line.quantity.text = '1';
+                  }
+                  _changed();
+                },
+              ),
+          ],
+        ),
+      ],
+    ];
+  }
+
+  Widget _addLine() => Wrap(
+    spacing: AppSpacing.md,
+    runSpacing: AppSpacing.sm,
+    crossAxisAlignment: WrapCrossAlignment.center,
     children: [
       FilledButton.icon(
         key: const ValueKey('crew-request-add-line'),
@@ -593,12 +848,9 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
         icon: const Icon(Icons.add_rounded),
         label: Text(CRS.t(CRS.addTrade, _language)),
       ),
-      const SizedBox(width: AppSpacing.md),
-      Flexible(
-        child: Text(
-          CRS.t(CRS.peopleCount, _language, {'n': _peopleCount}),
-          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
-        ),
+      Text(
+        CRS.t(CRS.peopleCount, _language, {'n': _peopleCount}),
+        style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
       ),
     ],
   );
@@ -679,7 +931,7 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
               label: CRS.t(CRS.rowPeople, _language),
               value: [
                 for (final line in _filled)
-                  if (line.isValid) '${line.count} × ${line.trade.text.trim()}',
+                  if (line.isValid) line.label,
               ].join(', '),
             ),
           CrFact(
