@@ -498,6 +498,102 @@ const notificationModuleEvents = <String, Map<String, Object>>{
     "destination": "rentals",
     "urgent": false,
   },
+  "workforce_crew_request_submitted": {
+    "title": <String>[
+      "Crew request to approve",
+      "طلب طاقم بانتظار الموافقة",
+      "منظوری کے لیے عملے کی درخواست",
+      "स्वीकृति के लिए क्रू अनुरोध",
+    ],
+    "body": <String>[
+      "A site engineer asked for workers on your project. Open it to approve or return it.",
+      "طلب مهندس الموقع عمالًا لمشروعك. افتحه للموافقة عليه أو إعادته.",
+      "سائٹ انجینئر نے آپ کے پروجیکٹ کے لیے کارکن مانگے ہیں۔ منظور یا واپس کرنے کے لیے کھولیں۔",
+      "साइट इंजीनियर ने आपके प्रोजेक्ट के लिए कामगार माँगे हैं। स्वीकृत या वापस करने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_crew_request_approved": {
+    "title": <String>[
+      "Crew request approved",
+      "تمت الموافقة على طلب الطاقم",
+      "عملے کی درخواست منظور",
+      "क्रू अनुरोध स्वीकृत",
+    ],
+    "body": <String>[
+      "An approved crew request is waiting for workers. Open it to assign them.",
+      "طلب طاقم معتمد بانتظار العمال. افتحه لتعيينهم.",
+      "منظور شدہ عملے کی درخواست کارکنوں کی منتظر ہے۔ انہیں مقرر کرنے کے لیے کھولیں۔",
+      "एक स्वीकृत क्रू अनुरोध कामगारों की प्रतीक्षा में है। उन्हें सौंपने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_crew_request_returned": {
+    "title": <String>[
+      "Crew request returned",
+      "تمت إعادة طلب الطاقم",
+      "عملے کی درخواست واپس کی گئی",
+      "क्रू अनुरोध वापस किया गया",
+    ],
+    "body": <String>[
+      "Your crew request was returned with a note. Open it to fix and send it again.",
+      "أُعيد طلب الطاقم مع ملاحظة. افتحه لتصحيحه وإرساله مجددًا.",
+      "آپ کی عملے کی درخواست ایک نوٹ کے ساتھ واپس آئی ہے۔ درست کر کے دوبارہ بھیجنے کے لیے کھولیں۔",
+      "आपका क्रू अनुरोध एक टिप्पणी के साथ वापस आया है। सुधारकर फिर भेजने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_crew_request_rejected": {
+    "title": <String>[
+      "Crew request rejected",
+      "تم رفض طلب الطاقم",
+      "عملے کی درخواست مسترد",
+      "क्रू अनुरोध अस्वीकृत",
+    ],
+    "body": <String>[
+      "Your crew request was rejected. Open it to read the reason.",
+      "تم رفض طلب الطاقم. افتحه لقراءة السبب.",
+      "آپ کی عملے کی درخواست مسترد کر دی گئی۔ وجہ پڑھنے کے لیے کھولیں۔",
+      "आपका क्रू अनुरोध अस्वीकार किया गया। कारण पढ़ने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_crew_request_fulfilled": {
+    "title": <String>[
+      "Workers assigned",
+      "تم تعيين العمال",
+      "کارکن مقرر کر دیے گئے",
+      "कामगार सौंपे गए",
+    ],
+    "body": <String>[
+      "Workers were assigned to a crew request. Open it to see who joins the crew.",
+      "تم تعيين عمال لطلب طاقم. افتحه لترى من انضم إلى الطاقم.",
+      "عملے کی درخواست پر کارکن مقرر کیے گئے۔ کون شامل ہوا، دیکھنے کے لیے کھولیں۔",
+      "क्रू अनुरोध पर कामगार सौंपे गए। कौन शामिल हुआ, देखने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_crew_request_overdue": {
+    "title": <String>[
+      "Crew requests waiting for workers",
+      "طلبات طواقم بانتظار العمال",
+      "عملے کی درخواستیں کارکنوں کی منتظر",
+      "कामगारों की प्रतीक्षा में क्रू अनुरोध",
+    ],
+    "body": <String>[
+      "Approved crew requests are due and still need workers. Open the Workforce Center to assign them.",
+      "طلبات طواقم معتمدة حان موعدها وما زالت تحتاج إلى عمال. افتح مركز القوى العاملة لتعيينهم.",
+      "منظور شدہ عملے کی درخواستوں کا وقت آ گیا ہے اور ابھی کارکن درکار ہیں۔ مقرر کرنے کے لیے ورک فورس سینٹر کھولیں۔",
+      "स्वीकृत क्रू अनुरोधों का समय आ गया है और अभी कामगार चाहिए। सौंपने के लिए वर्कफ़ोर्स सेंटर खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": true,
+  },
 };
 String moduleNotificationText(String code, String field, AppLanguage language) {
   final values = notificationModuleEvents[code]![field] as List<String>;

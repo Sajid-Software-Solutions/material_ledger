@@ -494,5 +494,101 @@
     },
     "destination": "rentals",
     "urgent": false
+  },
+  "workforce_crew_request_submitted": {
+    "title": {
+      "en": "Crew request to approve",
+      "ar": "طلب طاقم بانتظار الموافقة",
+      "ur": "منظوری کے لیے عملے کی درخواست",
+      "hi": "स्वीकृति के लिए क्रू अनुरोध"
+    },
+    "body": {
+      "en": "A site engineer asked for workers on your project. Open it to approve or return it.",
+      "ar": "طلب مهندس الموقع عمالًا لمشروعك. افتحه للموافقة عليه أو إعادته.",
+      "ur": "سائٹ انجینئر نے آپ کے پروجیکٹ کے لیے کارکن مانگے ہیں۔ منظور یا واپس کرنے کے لیے کھولیں۔",
+      "hi": "साइट इंजीनियर ने आपके प्रोजेक्ट के लिए कामगार माँगे हैं। स्वीकृत या वापस करने के लिए खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": false
+  },
+  "workforce_crew_request_approved": {
+    "title": {
+      "en": "Crew request approved",
+      "ar": "تمت الموافقة على طلب الطاقم",
+      "ur": "عملے کی درخواست منظور",
+      "hi": "क्रू अनुरोध स्वीकृत"
+    },
+    "body": {
+      "en": "An approved crew request is waiting for workers. Open it to assign them.",
+      "ar": "طلب طاقم معتمد بانتظار العمال. افتحه لتعيينهم.",
+      "ur": "منظور شدہ عملے کی درخواست کارکنوں کی منتظر ہے۔ انہیں مقرر کرنے کے لیے کھولیں۔",
+      "hi": "एक स्वीकृत क्रू अनुरोध कामगारों की प्रतीक्षा में है। उन्हें सौंपने के लिए खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": false
+  },
+  "workforce_crew_request_returned": {
+    "title": {
+      "en": "Crew request returned",
+      "ar": "تمت إعادة طلب الطاقم",
+      "ur": "عملے کی درخواست واپس کی گئی",
+      "hi": "क्रू अनुरोध वापस किया गया"
+    },
+    "body": {
+      "en": "Your crew request was returned with a note. Open it to fix and send it again.",
+      "ar": "أُعيد طلب الطاقم مع ملاحظة. افتحه لتصحيحه وإرساله مجددًا.",
+      "ur": "آپ کی عملے کی درخواست ایک نوٹ کے ساتھ واپس آئی ہے۔ درست کر کے دوبارہ بھیجنے کے لیے کھولیں۔",
+      "hi": "आपका क्रू अनुरोध एक टिप्पणी के साथ वापस आया है। सुधारकर फिर भेजने के लिए खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": false
+  },
+  "workforce_crew_request_rejected": {
+    "title": {
+      "en": "Crew request rejected",
+      "ar": "تم رفض طلب الطاقم",
+      "ur": "عملے کی درخواست مسترد",
+      "hi": "क्रू अनुरोध अस्वीकृत"
+    },
+    "body": {
+      "en": "Your crew request was rejected. Open it to read the reason.",
+      "ar": "تم رفض طلب الطاقم. افتحه لقراءة السبب.",
+      "ur": "آپ کی عملے کی درخواست مسترد کر دی گئی۔ وجہ پڑھنے کے لیے کھولیں۔",
+      "hi": "आपका क्रू अनुरोध अस्वीकार किया गया। कारण पढ़ने के लिए खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": false
+  },
+  "workforce_crew_request_fulfilled": {
+    "title": {
+      "en": "Workers assigned",
+      "ar": "تم تعيين العمال",
+      "ur": "کارکن مقرر کر دیے گئے",
+      "hi": "कामगार सौंपे गए"
+    },
+    "body": {
+      "en": "Workers were assigned to a crew request. Open it to see who joins the crew.",
+      "ar": "تم تعيين عمال لطلب طاقم. افتحه لترى من انضم إلى الطاقم.",
+      "ur": "عملے کی درخواست پر کارکن مقرر کیے گئے۔ کون شامل ہوا، دیکھنے کے لیے کھولیں۔",
+      "hi": "क्रू अनुरोध पर कामगार सौंपे गए। कौन शामिल हुआ, देखने के लिए खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": false
+  },
+  "workforce_crew_request_overdue": {
+    "title": {
+      "en": "Crew requests waiting for workers",
+      "ar": "طلبات طواقم بانتظار العمال",
+      "ur": "عملے کی درخواستیں کارکنوں کی منتظر",
+      "hi": "कामगारों की प्रतीक्षा में क्रू अनुरोध"
+    },
+    "body": {
+      "en": "Approved crew requests are due and still need workers. Open the Workforce Center to assign them.",
+      "ar": "طلبات طواقم معتمدة حان موعدها وما زالت تحتاج إلى عمال. افتح مركز القوى العاملة لتعيينهم.",
+      "ur": "منظور شدہ عملے کی درخواستوں کا وقت آ گیا ہے اور ابھی کارکن درکار ہیں۔ مقرر کرنے کے لیے ورک فورس سینٹر کھولیں۔",
+      "hi": "स्वीकृत क्रू अनुरोधों का समय आ गया है और अभी कामगार चाहिए। सौंपने के लिए वर्कफ़ोर्स सेंटर खोलें।"
+    },
+    "destination": "attendance",
+    "urgent": true
   }
 }
