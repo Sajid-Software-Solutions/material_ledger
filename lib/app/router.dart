@@ -1030,6 +1030,9 @@ bool? _isYorksV1RouteAllowedForRole(
   }
 
   if (path == RoutePaths.yorksV1Configuration) {
+    // PR configures Workforce and Rentals there (PRODUCT_DECISIONS 39); the
+    // server decides what each person may see and change.
+    if (role == YorksV1Role.pr) return true;
     return _hybridRouteAllows(
       permissionResolver,
       YorksV1CapabilityKeys.configurationView,
@@ -2257,8 +2260,12 @@ GoRouter createAppRouter({
         ),
       GoRoute(
         path: RoutePaths.yorksV1Configuration,
-        pageBuilder: (context, state) =>
-            _yorksV1Slide(state.pageKey, yorksConfigurationScreen()),
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          yorksConfigurationScreen(
+            section: state.uri.queryParameters['section'],
+          ),
+        ),
       ),
       if (yorksV1WorkforceEnabled)
         GoRoute(

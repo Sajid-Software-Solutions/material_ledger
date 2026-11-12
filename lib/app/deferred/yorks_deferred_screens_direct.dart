@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../features/admin/presentation/screens/user_management_screen.dart';
-import '../../features/admin/presentation/screens/yorks_v1_configuration_screen.dart';
+import '../../features/configuration/presentation/configuration_screen.dart';
 import '../../features/admin/presentation/screens/yorks_v1_user_access_screen.dart';
 import '../../features/materials/presentation/screens/yorks_v1_inventory_import_screen.dart';
 import '../../features/materials/presentation/screens/yorks_v1_inventory_screen.dart';
@@ -31,7 +31,8 @@ Widget yorksInventoryImportScreen({
   onOpenSupplier: onOpenSupplier,
 );
 
-Widget yorksConfigurationScreen() => const YorksV1ConfigurationScreen();
+Widget yorksConfigurationScreen({String? section}) =>
+    ConfigurationScreen(initialSection: section);
 
 Widget yorksWorkforceAdministrationScreen() =>
     const YorksWorkforceAdministrationScreen();
