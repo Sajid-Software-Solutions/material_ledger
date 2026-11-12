@@ -165,13 +165,17 @@ mixin AccountsV2SubmitDialog<W extends StatefulWidget> on State<W> {
     canPop: !submitting,
     child: AlertDialog(
       title: title,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Flexible(child: content),
-          submitErrorLine(),
-        ],
+      // A long refusal wraps instead of widening the dialog.
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(child: content),
+            submitErrorLine(),
+          ],
+        ),
       ),
       actions: actions,
     ),

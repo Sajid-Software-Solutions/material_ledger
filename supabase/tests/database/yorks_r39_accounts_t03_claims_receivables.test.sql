@@ -256,9 +256,9 @@ select ok(
   'Progress reduction is blocked with the exact consuming claim reference in domain detail'
 );
 
-select throws_ok($sql$select public.v1_record_client_certification(
-  '39310000-0000-4000-8000-000000000001',gen_random_uuid(),1,'CERT-X',current_date,'1.00',null,gen_random_uuid())$sql$,
-  '42501','R39_ACCOUNTS_ACCESS_DENIED','Project Engineer cannot record certification');
+-- Owner decision of 11 November 2026: a PE member may record certification.
+select ok(public.v1_current_user_has_capability('record_client_certification','39310000-0000-4000-8000-000000000001'),
+  'Project Engineer member may record certification');
 
 reset role;
 set local role authenticated;

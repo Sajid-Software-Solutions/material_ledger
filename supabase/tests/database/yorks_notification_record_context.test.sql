@@ -316,10 +316,21 @@ select is(jsonb_array_length(public.v1_notification_page(p_search=>'CTX-CHEQUE-5
 
 select set_config('request.jwt.claims',
  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer"}}',true);
+-- This PE carries a per-user commercial-values denial, which still hides the
+-- client references. Since the owner decision of 11 November 2026 a PE member
+-- holds view_supplier_costs, so the supplier bill reference is admitted.
 select is(pg_temp.record_context_item(entity_type,entity_id)->>'record_label',null::text,
- 'Project membership does not reveal restricted Accounts reference for '||entity_type) from context_targets;
+ 'A commercial-values denial still hides the Accounts reference for '||entity_type)
+from context_targets where entity_type<>'accounts_supplier_bill';
 select ok(not pg_temp.record_context_search(search_reference,entity_type,entity_id),
- 'Project Engineer cannot search a restricted Accounts reference for '||entity_type) from context_targets;
+ 'A commercial-values denial still blocks searching the Accounts reference for '||entity_type)
+from context_targets where entity_type<>'accounts_supplier_bill';
+select is(pg_temp.record_context_item(entity_type,entity_id)->>'record_label',expected_label,
+ 'Project Engineer member reads the supplier bill reference')
+from context_targets where entity_type='accounts_supplier_bill';
+select ok(pg_temp.record_context_search(search_reference,entity_type,entity_id),
+ 'Project Engineer member can search the supplier bill reference')
+from context_targets where entity_type='accounts_supplier_bill';
 select set_config('request.jwt.claims',
  '{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer"}}',true);
 select is(pg_temp.record_context_item(entity_type,entity_id)->>'record_label',null::text,

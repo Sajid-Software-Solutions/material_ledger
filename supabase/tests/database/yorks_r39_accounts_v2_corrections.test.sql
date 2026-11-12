@@ -88,7 +88,7 @@ select is(public.v1_permission_exact_role('10000000-0000-4000-8000-000000000001'
 -- ═══ Decision 3: commercial values ══════════════════════════════════════════
 select pg_temp.act('pe');
 select ok(public.v1_current_user_has_capability('view_project_commercial_values','39d1a000-0000-4000-8000-000000000001'),'Project Engineer sees commercial values by default');
-select ok(not public.v1_current_user_has_capability('view_supplier_costs','39d1a000-0000-4000-8000-000000000001'),'That does not extend to supplier costs');
+select ok(public.v1_current_user_has_capability('view_supplier_costs','39d1a000-0000-4000-8000-000000000001'),'Since 11 November 2026 that extends to supplier costs');
 select pg_temp.act('se');
 select ok(not public.v1_current_user_has_capability('view_project_commercial_values','39d1a000-0000-4000-8000-000000000001'),'Site Engineer still does not');
 select pg_temp.act('procurement');
@@ -262,8 +262,9 @@ select pg_temp.act('se');
 select throws_ok($$select public.v1_correct_client_certification('39d1a000-0000-4000-8000-000000000001',pg_temp.inv(),1,'X',date '2026-09-27','1.00','x',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Site Engineer cannot correct a certification');
 select throws_ok($$select public.v1_update_client_pdc('39d1a000-0000-4000-8000-000000000001',pg_temp.pdc('CHQ-2'),1,'X',date '2026-09-27','1.00',null,'x',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Site Engineer cannot edit a cheque');
 select pg_temp.act('pe');
-select throws_ok($$select public.v1_correct_client_payment('39d1a000-0000-4000-8000-000000000001',pg_temp.inv(),1,gen_random_uuid(),date '2026-09-27','cash','X','1.00','x',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Project Engineer cannot edit a payment');
-select throws_ok($$select pg_temp.move('CHQ-2','expected','x')$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Project Engineer cannot move a cheque');
+-- Owner decision of 11 November 2026: a PE member holds payment and PDC keys.
+select ok(public.v1_current_user_has_capability('record_client_payment','39d1a000-0000-4000-8000-000000000001'),'Project Engineer may correct a payment');
+select ok(public.v1_current_user_has_capability('manage_pdc','39d1a000-0000-4000-8000-000000000001'),'Project Engineer may move a cheque');
 select pg_temp.act('procurement');
 select throws_ok($$select public.v1_reverse_client_payment('39d1a000-0000-4000-8000-000000000001',pg_temp.inv(),1,gen_random_uuid(),date '2026-09-27',null,'x',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Procurement cannot reverse a client payment');
 
@@ -298,7 +299,7 @@ select is(pg_temp.bpaid(),0.00::numeric,'A supplier reversal needs no reference 
 select pg_temp.act('procurement');
 select throws_ok($$select public.v1_reopen_supplier_bill('39d1a000-0000-4000-8000-000000000001',pg_temp.bill(),pg_temp.bv(),'Mine',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Without cost access Procurement cannot take back an approval');
 select pg_temp.act('pe');
-select throws_ok($$select public.v1_reopen_supplier_bill('39d1a000-0000-4000-8000-000000000001',pg_temp.bill(),pg_temp.bv(),'Mine',pg_temp.key())$$,'42501','R39_ACCOUNTS_ACCESS_DENIED','Project Engineer cannot reopen a bill');
+select ok(public.v1_current_user_has_capability('approve_supplier_bill_payment','39d1a000-0000-4000-8000-000000000001'),'Project Engineer may take back an approval (11 November 2026)');
 select pg_temp.act('accountant');
 select throws_ok($$select public.v1_reopen_supplier_bill('39d1a000-0000-4000-8000-000000000001',pg_temp.bill(),pg_temp.bv(),' ',pg_temp.key())$$,'22023','R39_ACCOUNTS_REASON_REQUIRED','Reopening needs a reason');
 select public.v1_reopen_supplier_bill('39d1a000-0000-4000-8000-000000000001',pg_temp.bill(),pg_temp.bv(),'Wrong invoice date',pg_temp.key());

@@ -28,6 +28,12 @@ String accountsV2ErrorText(AppLanguage language, String? code) {
   final key = switch (c) {
     _ when any(['VERSION_CONFLICT', 'STALE_VERSION', 'conflict']) =>
       'v2_err_conflict',
+    _ when c.contains('RESTORE_CONTRACT_CHANGED') => 'v2r_err_contract_changed',
+    _ when c.contains('RESTORE_SUPERSEDED') => 'v2r_err_superseded',
+    _ when c.contains('RESTORE_CLAIMED_AGAIN') => 'v2r_err_claimed_again',
+    _ when c.contains('OPEN_CLAIM_EXISTS') => 'v2r_err_open_claim',
+    _ when c.contains('CLAIM_NOT_RESTORABLE') => 'v2r_err_claim_has_invoice',
+    _ when c.contains('INVOICE_NOT_RESTORABLE') => 'v2r_err_not_restorable',
     _ when any(['ACCESS_DENIED', 'unauthorized', 'unauthenticated']) =>
       'v2_err_denied',
     _ when any(['PAYMENT_CAP', 'PDC_EXPOSURE_CAP', 'NOT_PAYABLE']) =>
@@ -71,6 +77,13 @@ String accountsV2ErrorText(AppLanguage language, String? code) {
   };
   return accountsV2Text(language, key);
 }
+
+/// A restore's failure code: the claim cap there means the progress was
+/// claimed again since, which deserves its own explanation.
+String? accountsV2RestoreFailure(String? code) =>
+    code != null && code.contains('CLAIM_CAP')
+    ? 'R39_ACCOUNTS_RESTORE_CLAIMED_AGAIN'
+    : code;
 
 /// Today as a `YYYY-MM-DD` string, the format the accounts date inputs use.
 String accountsV2TodayIso() {

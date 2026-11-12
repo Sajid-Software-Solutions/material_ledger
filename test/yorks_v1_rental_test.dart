@@ -1998,6 +1998,9 @@ final rentalPortfolioFixture = YorksV1RentalPortfolio.fromJson({
       'contract_status': 'Active',
       'lease_start': '2026-01-01',
       'lease_end': '2026-12-31',
+      // Server-computed, pinned so the register does not change with the
+      // calendar (the stored screenshot shows the lease as active).
+      'days_to_lease_end': 120,
       'monthly_rent': 8000,
       'security_deposit': 16000,
       'monthly_due_day': 5,

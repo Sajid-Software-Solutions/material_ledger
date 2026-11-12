@@ -2223,6 +2223,36 @@ history; their stored snapshots are not rewritten.
 YRA32201 had been frozen with "WLL"; its stored company name is corrected to
 the LLC - SPC name YRA32202R.1 carries, with an audit event.
 
+## 36. R39 Accounts — restoring a cancelled invoice or deleted claim (owner decision, 12 November 2026)
+
+From the Accounts usability review: a person who cancels an invoice or deletes
+a claim by mistake can take it back, instead of re-entering it.
+
+**What can be restored.** A manually cancelled client invoice returns to the
+status it had (draft, submitted or under certification) with its own number,
+dates and amounts, and its claim returns to invoiced. A deleted claim that
+never had an invoice returns to draft, or to checked if it had been checked.
+Invoice numbers are unique across cancelled invoices, so a restored number
+never clashes.
+
+**When it is refused.** An invoice replaced by a revision (R.n) is not
+restorable: the revision is the live record. Nothing is restored after the
+contract was revised, because its amounts belong to the older contract. Nothing
+is restored if progress it claimed has since been claimed again (the normal
+claim cap). A claim is not restored while another claim is open, keeping one
+open claim at a time. A claim that had an invoice comes back only with that
+invoice.
+
+**Who.** The same people who may cancel: `manage_client_invoices` for an
+invoice; `manage_client_invoices` or `prepare_client_claim` for a claim. A
+reason is required.
+
+**Record.** The cancellation is never erased. The cancel and the restore are
+both in the audit trail with before and after snapshots, and History shows
+"Invoice restored" or "Claim restored". Migration
+`20261112100000_accounts_restore_cancelled_invoice_claim.sql`, applied by hand
+through `supabase/release/accounts_restore_bundle.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

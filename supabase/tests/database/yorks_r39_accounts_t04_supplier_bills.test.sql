@@ -232,12 +232,12 @@ select set_config(
  '{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-project-engineer"}}',
  true
 );
-select throws_ok(
+-- Owner decision of 11 November 2026: a PE member sees supplier costs.
+select lives_ok(
  $sql$select public.v1_list_supplier_bills(
   '39410000-0000-4000-8000-000000000001',null,null,null,null,null,25
  )$sql$,
- '42501','R39_ACCOUNTS_ACCESS_DENIED',
- 'Project Engineers cannot query protected supplier cost projections'
+ 'Project Engineer members may query supplier cost projections'
 );
 
 select set_config(

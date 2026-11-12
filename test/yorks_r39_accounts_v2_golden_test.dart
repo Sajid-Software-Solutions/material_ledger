@@ -386,9 +386,15 @@ Widget _contractTab({int version = 1}) => AccountsV2ContractTab(
       }) async => null,
 );
 
-Widget _claimsTab() => AccountsV2ClaimsTab(
+Widget _claimsTab({
+  YorksReopenClaimAction? onCancelClaim,
+  YorksReopenClaimAction? onRestoreClaim,
+  bool withDeleted = false,
+}) => AccountsV2ClaimsTab(
   workbench: YorksAccountsWorkbench.fromJson(_workbenchJson()),
   language: _en,
+  onCancelClaim: onCancelClaim,
+  onRestoreClaim: onRestoreClaim,
   claims: [
     YorksAccountsClaimSummary.fromJson(const {
       'claim_id': 'c1',
@@ -408,6 +414,16 @@ Widget _claimsTab() => AccountsV2ClaimsTab(
       'claimed_ex_vat': '1000000.00',
       'record_version': 3,
     }),
+    if (withDeleted)
+      YorksAccountsClaimSummary.fromJson(const {
+        'claim_id': 'c9',
+        'claim_reference': 'YRA322-CLM-09',
+        'status': 'cancelled',
+        'claim_period_start': '2026-06-01',
+        'claim_period_end': '2026-06-25',
+        'claimed_ex_vat': '20000.00',
+        'record_version': 2,
+      }),
   ],
   onSelectClaim: (_) {},
 );
@@ -645,6 +661,54 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/accounts_v2/contract_stale_${vp.key}.png'),
+      );
+    });
+  }
+
+  // A refused command keeps its dialog open with the reason inside.
+  for (final vp in viewports.entries) {
+    testWidgets('accounts v2 dialog refusal ${vp.key}', (tester) async {
+      tester.view.physicalSize = vp.value;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _claimsTab(
+                withDeleted: true,
+                onRestoreClaim:
+                    ({
+                      required String claimId,
+                      required int expectedVersion,
+                      required String reason,
+                    }) async => 'R39_ACCOUNTS_OPEN_CLAIM_EXISTS',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final deleted = find.byKey(const ValueKey('accounts-v2-deleted-claims'));
+      await tester.ensureVisible(deleted);
+      await tester.tap(deleted);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-restore-claim-c9')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Deleted by mistake');
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/accounts_v2/dialog_refusal_${vp.key}.png'),
       );
     });
   }
