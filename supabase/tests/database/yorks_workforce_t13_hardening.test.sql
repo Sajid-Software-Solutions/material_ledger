@@ -291,6 +291,8 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_save_day(p_team_id uuid, p_work_date date, p_rows jsonb, p_expected_version bigint, p_change_reason text, p_idempotency_key uuid)'),
   ('v1_wf_save_public_holiday(p_holiday_date date, p_holiday_name text, p_remove boolean)'),
   ('v1_wf_set_crew_members(p_team_id uuid, p_add_worker_ids uuid[], p_remove_worker_ids uuid[], p_idempotency_key uuid)'),
+  -- Configuration workspace reads the public-holiday count (section 39).
+  ('v1_cfg_get_workspace()'),
   -- Workforce Center crew requests (WORKFORCE_CENTER_DESIGN.md).
   ('v1_wf_cancel_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_close_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
