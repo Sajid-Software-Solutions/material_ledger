@@ -704,6 +704,100 @@ void main() {
     });
   });
 
+  group('AccountsV2ClaimsTab deleted claims', () {
+    final deleted = YorksAccountsClaimSummary.fromJson(const {
+      'claim_id': 'c9',
+      'claim_reference': 'CLM-09',
+      'status': 'cancelled',
+      'claim_period_start': '2026-09-01',
+      'claim_period_end': '2026-09-25',
+      'claimed_ex_vat': '20000.00',
+      'record_version': 2,
+    });
+
+    Future<void> openRestore(
+      WidgetTester tester,
+      Future<String?> Function(String claimId, int version, String reason)
+      onRestore,
+    ) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            claims: [deleted],
+            onRestoreClaim:
+                ({
+                  required String claimId,
+                  required int expectedVersion,
+                  required String reason,
+                }) => onRestore(claimId, expectedVersion, reason),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('accounts-v2-deleted-claims')),
+      );
+      expect(find.text('CLM-09'), findsOneWidget);
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('accounts-v2-restore-claim-c9')),
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, t('v2r_restore_reason')),
+        'Deleted by mistake',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a deleted claim is listed and restored', (tester) async {
+      String? sent;
+      await openRestore(tester, (id, version, reason) async {
+        sent = '$id@$version:$reason';
+        return null;
+      });
+      expect(sent, 'c9@2:Deleted by mistake');
+      expect(find.text(t('v2r_claim_restored')), findsOneWidget);
+      expect(find.text('CLM-09'), findsNothing, reason: 'the list closed');
+    });
+
+    testWidgets('a claim that had an invoice points to the invoice', (
+      tester,
+    ) async {
+      await openRestore(
+        tester,
+        (_, _, _) async => 'R39_ACCOUNTS_CLAIM_NOT_RESTORABLE',
+      );
+      expect(find.text(t('v2r_err_claim_has_invoice')), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Deleted by mistake'), findsOne);
+    });
+
+    testWidgets('no Restore without the command', (tester) async {
+      _surface(tester);
+      await tester.pumpWidget(
+        _wrap(
+          AccountsV2ClaimsTab(
+            workbench: _wb(),
+            language: en,
+            claims: [deleted],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('accounts-v2-deleted-claims')),
+        findsNothing,
+      );
+    });
+  });
+
   group('AccountsV2ClaimsTab claim commands', () {
     testWidgets('a draft claim marks checked with a reason', (tester) async {
       _surface(tester);

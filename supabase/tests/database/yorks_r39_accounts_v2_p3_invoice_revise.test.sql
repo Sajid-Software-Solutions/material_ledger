@@ -101,5 +101,14 @@ select throws_ok(
   '55000','R39_ACCOUNTS_INVOICE_NOT_REVISABLE','A superseded invoice cannot be revised again');
 reset role;
 
+-- Restoring the retired predecessor is refused: the R.1 is the live invoice.
+insert into v1_r39_p3r select 'pred_version', to_jsonb((select record_version from public.v1_accounts_client_invoices where id=(select (payload->>'invoice_id')::uuid from v1_r39_p3r where result_key='issue1')));
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000004","role":"authenticated","app_metadata":{"role":"admin","app_user_id":"usr-local-admin"}}',true);
+select throws_ok(
+  $$select public.v1_restore_client_invoice('39a10000-0000-4000-8000-000000000001',(select (payload->>'invoice_id')::uuid from v1_r39_p3r where result_key='issue1'),(select (payload#>>'{}')::int from v1_r39_p3r where result_key='pred_version'),'x','39f90000-0000-4000-8000-00000000006d')$$,
+  '55000','R39_ACCOUNTS_RESTORE_SUPERSEDED','A superseded invoice cannot be restored');
+reset role;
+
 select finish();
 rollback;

@@ -53,10 +53,14 @@ const _cmds = YorksAccountsReceivablesCommands(
 YorksAccountsClientInvoiceSummary _invoice({
   YorksAccountsInvoiceStatus status = YorksAccountsInvoiceStatus.certified,
   String certified = '900000.00',
+  String id = 'i1',
+  String reference = 'YRA322-01',
+  String? replaces,
 }) => YorksAccountsClientInvoiceSummary(
-  invoiceId: 'i1',
+  invoiceId: id,
   claimId: 'c1',
-  invoiceReference: 'YRA322-01',
+  invoiceReference: reference,
+  replacesReference: replaces,
   status: status,
   claimedExVat: _d('1000000.00'),
   certifiedExVat: _d(certified),
@@ -792,6 +796,122 @@ void main() {
         findsOneWidget,
       );
       expect(find.widgetWithText(TextField, 'Wrong client'), findsOneWidget);
+    });
+
+    group('restoring a cancelled invoice', () {
+      YorksAccountsInvoicesProjection cancelled({
+        List<YorksAccountsClientInvoiceSummary>? invoices,
+      }) => YorksAccountsInvoicesProjection(
+        schemaVersion: 1,
+        projectId: 'p1',
+        invoices:
+            invoices ??
+            [_invoice(status: YorksAccountsInvoiceStatus.cancelled)],
+        nextCursor: null,
+        capabilities: const YorksAccountsReceivablesCapabilities(
+          canViewValues: true,
+          prepareClientClaim: true,
+          manageClientInvoices: true,
+          recordClientCertification: false,
+          recordClientPayment: false,
+          managePdc: false,
+        ),
+        commands: _cmds,
+      );
+
+      Future<void> open(
+        WidgetTester tester,
+        YorksAccountsInvoicesProjection projection,
+        YorksCancelInvoiceAction onRestore,
+      ) async {
+        _surface(tester);
+        await tester.pumpWidget(
+          _wrap(
+            AccountsV2InvoicesTab(
+              projection: projection,
+              language: AppLanguage.english,
+              onOpenDetail: (id) async => _detail(status: 'cancelled'),
+              onRestoreInvoice: onRestore,
+              focusInvoiceId: 'i1',
+              today: DateTime(2026, 11, 7),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('restores with a reason, and says so', (tester) async {
+        YorksAccountsEntityActionInput? sent;
+        await open(tester, cancelled(), (input) async {
+          sent = input;
+          return null;
+        });
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('accounts-v2-restore-invoice')),
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, t('v2r_restore_reason')),
+          'Cancelled by mistake',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+        );
+        await tester.pumpAndSettle();
+        expect(sent?.entityId, 'i1');
+        expect(sent?.reason, 'Cancelled by mistake');
+        expect(find.text(t('v2r_invoice_restored')), findsOneWidget);
+      });
+
+      testWidgets('progress claimed again is explained in the dialog', (
+        tester,
+      ) async {
+        await open(
+          tester,
+          cancelled(),
+          (_) async => 'R39_ACCOUNTS_CLAIM_CAP_EXCEEDED',
+        );
+        await _tap(
+          tester,
+          find.byKey(const ValueKey('accounts-v2-restore-invoice')),
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, t('v2r_restore_reason')),
+          'Mistake',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('accounts-v2-dialog-confirm')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(t('v2r_err_claimed_again')), findsOneWidget);
+        expect(find.widgetWithText(TextField, 'Mistake'), findsOneWidget);
+      });
+
+      testWidgets('an invoice a revision replaced offers no Restore', (
+        tester,
+      ) async {
+        final successor = _invoice(
+          id: 'i2',
+          reference: 'YRA322-01R.1',
+          replaces: 'YRA322-01',
+        );
+        await open(
+          tester,
+          cancelled(
+            invoices: [
+              _invoice(status: YorksAccountsInvoiceStatus.cancelled),
+              successor,
+            ],
+          ),
+          (_) async => null,
+        );
+        expect(
+          find.byKey(const ValueKey('accounts-v2-restore-invoice')),
+          findsNothing,
+        );
+      });
     });
 
     testWidgets('the drawer lays out at 360px', (tester) async {

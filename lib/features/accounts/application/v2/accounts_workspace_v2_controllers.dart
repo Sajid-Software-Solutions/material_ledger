@@ -484,6 +484,27 @@ final class YorksAccountsWorkbenchController
     ),
   );
 
+  /// Restores a deleted claim (one that never had an invoice) as it was. No
+  /// optimistic success; the server re-checks the claim cap and open claims.
+  Future<String?> restoreClaim({
+    required String claimId,
+    required int expectedVersion,
+    required String reason,
+  }) => runCommand(
+    operation: 'restore_claim',
+    entityId: claimId,
+    payload: {'version': expectedVersion, 'reason': reason},
+    action: (key) => _receivables.restoreClaim(
+      YorksAccountsEntityActionInput(
+        projectId: _projectId,
+        entityId: claimId,
+        expectedVersion: expectedVersion,
+        reason: reason,
+      ),
+      idempotencyKey: key,
+    ),
+  );
+
   /// Reopens a checked claim back to draft. No optimistic success: on the
   /// server's confirmation the workbench is re-fetched. Returns null on success
   /// or an error message (a version conflict is resolved by the reload).
@@ -1004,6 +1025,15 @@ final class YorksAccountsInvoicesController
         entityId: input.entityId,
         payload: input.idempotencyPayload(),
         action: (key) => _repository.cancelInvoice(input, idempotencyKey: key),
+      );
+
+  /// Restores a cancelled invoice and its claim. No optimistic success.
+  Future<String?> restoreInvoice(YorksAccountsEntityActionInput input) =>
+      runCommand(
+        operation: 'restore_invoice',
+        entityId: input.entityId,
+        payload: input.idempotencyPayload(),
+        action: (key) => _repository.restoreInvoice(input, idempotencyKey: key),
       );
 
   /// Records a cheque against an invoice. No optimistic success.

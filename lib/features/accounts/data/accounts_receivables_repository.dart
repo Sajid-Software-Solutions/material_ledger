@@ -95,6 +95,19 @@ abstract interface class YorksAccountsReceivablesRepository {
     required String idempotencyKey,
   });
 
+  /// Restores a cancelled invoice (and its claim) when nothing since makes it
+  /// wrong; the server names the reason otherwise.
+  Future<YorksAccountsReceivablesCommandResult> restoreInvoice(
+    YorksAccountsEntityActionInput input, {
+    required String idempotencyKey,
+  });
+
+  /// Restores a deleted claim that never had an invoice.
+  Future<YorksAccountsReceivablesCommandResult> restoreClaim(
+    YorksAccountsEntityActionInput input, {
+    required String idempotencyKey,
+  });
+
   Future<YorksAccountsReceivablesCommandResult> recordCertification(
     YorksAccountsCertificationInput input, {
     required String idempotencyKey,
@@ -475,6 +488,18 @@ final class YorksSupabaseAccountsReceivablesRepository
     YorksAccountsEntityActionInput input, {
     required String idempotencyKey,
   }) => _invoiceAction('v1_cancel_client_invoice', input, idempotencyKey);
+
+  @override
+  Future<YorksAccountsReceivablesCommandResult> restoreInvoice(
+    YorksAccountsEntityActionInput input, {
+    required String idempotencyKey,
+  }) => _invoiceAction('v1_restore_client_invoice', input, idempotencyKey);
+
+  @override
+  Future<YorksAccountsReceivablesCommandResult> restoreClaim(
+    YorksAccountsEntityActionInput input, {
+    required String idempotencyKey,
+  }) => _claimAction('v1_restore_client_claim', input, idempotencyKey);
 
   @override
   Future<YorksAccountsReceivablesCommandResult> recordCertification(

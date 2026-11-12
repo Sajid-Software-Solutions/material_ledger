@@ -1095,6 +1095,18 @@ class _ClaimsBody extends ConsumerWidget {
                   reason: reason,
                 ),
               ),
+          onRestoreClaim:
+              ({
+                required String claimId,
+                required int expectedVersion,
+                required String reason,
+              }) => thenOpenClaim(
+                controller.restoreClaim(
+                  claimId: claimId,
+                  expectedVersion: expectedVersion,
+                  reason: reason,
+                ),
+              ),
           onSaveWorkbench:
               ({
                 String? claimReference,
@@ -1362,6 +1374,8 @@ class _InvoicesBody extends ConsumerWidget {
           ),
           onCancelInvoice: (input) =>
               _thenRefreshAll(ref, () => controller.cancelInvoice(input)),
+          onRestoreInvoice: (input) =>
+              _thenRefreshAll(ref, () => controller.restoreInvoice(input)),
           onRevise: controller.revise,
           onCreatePdc: (input) async {
             final error = await controller.createPdc(input);

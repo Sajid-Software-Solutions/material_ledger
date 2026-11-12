@@ -169,6 +169,7 @@ class AccountsV2InvoicesTab extends StatefulWidget {
     this.onCorrectPayment,
     this.onCorrectCertification,
     this.onCancelInvoice,
+    this.onRestoreInvoice,
     this.onRevise,
     this.onCreatePdc,
     this.onPrintInvoice,
@@ -195,6 +196,9 @@ class AccountsV2InvoicesTab extends StatefulWidget {
   final YorksCorrectPaymentAction? onCorrectPayment;
   final YorksCorrectCertificationAction? onCorrectCertification;
   final YorksCancelInvoiceAction? onCancelInvoice;
+
+  /// Restores a cancelled invoice (and its claim); null hides Restore.
+  final YorksCancelInvoiceAction? onRestoreInvoice;
 
   /// Revises an issued invoice (R.n) from the drawer; null hides it.
   final YorksReviseInvoiceAction? onRevise;
@@ -656,6 +660,7 @@ class _AccountsV2InvoicesTabState extends State<AccountsV2InvoicesTab> {
         onCorrectPayment: widget.onCorrectPayment,
         onCorrectCertification: widget.onCorrectCertification,
         onCancelInvoice: widget.onCancelInvoice,
+        onRestoreInvoice: widget.onRestoreInvoice,
         onRevise: widget.onRevise,
         onCreatePdc: widget.projection.capabilities.managePdc
             ? widget.onCreatePdc
@@ -686,6 +691,7 @@ class _InvoiceDrawer extends StatefulWidget {
     this.onCorrectPayment,
     this.onCorrectCertification,
     this.onCancelInvoice,
+    this.onRestoreInvoice,
     this.onRevise,
     this.onCreatePdc,
     this.onPrintInvoice,
@@ -707,6 +713,9 @@ class _InvoiceDrawer extends StatefulWidget {
   final YorksCorrectPaymentAction? onCorrectPayment;
   final YorksCorrectCertificationAction? onCorrectCertification;
   final YorksCancelInvoiceAction? onCancelInvoice;
+
+  /// Restores a cancelled invoice (and its claim); null hides Restore.
+  final YorksCancelInvoiceAction? onRestoreInvoice;
   final YorksReviseInvoiceAction? onRevise;
   final YorksCreatePdcAction? onCreatePdc;
   final Future<String?> Function(String invoiceId)? onPrintInvoice;
@@ -922,6 +931,30 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
     _done(reason, 'v2_inv_cancel_done');
   }
 
+  Future<void> _restore(YorksAccountsInvoiceDetailProjection d) async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ReviseDialog(
+        language: widget.language,
+        titleKey: 'v2r_restore_invoice',
+        hintKey: 'v2r_restore_invoice_detail',
+        reasonKey: 'v2r_restore_reason',
+        confirmKey: 'v2r_restore_invoice',
+        onSubmit: (reason) async => accountsV2RestoreFailure(
+          await widget.onRestoreInvoice!(
+            YorksAccountsEntityActionInput(
+              projectId: d.projectId,
+              entityId: inv.invoiceId,
+              expectedVersion: d.invoice.recordVersion,
+              reason: reason,
+            ),
+          ),
+        ),
+      ),
+    );
+    _done(reason, 'v2r_invoice_restored');
+  }
+
   Future<void> _editPayment(
     YorksAccountsInvoiceDetailProjection d,
     YorksAccountsClientPayment p,
@@ -1040,6 +1073,21 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
                   style: v2Style(12, color: AccountsV2Colors.mut),
                 ),
               ],
+              if (_canRestore(d)) ...[
+                const SizedBox(height: 20),
+                AccountsV2Button(
+                  key: const ValueKey('accounts-v2-restore-invoice'),
+                  label: _t('v2r_restore_invoice'),
+                  icon: 'history',
+                  size: AccountsV2ButtonSize.small,
+                  onPressed: () => _restore(d),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _t('v2r_restore_invoice_hint'),
+                  style: v2Style(12, color: AccountsV2Colors.mut),
+                ),
+              ],
             ],
           ),
         );
@@ -1049,6 +1097,16 @@ class _InvoiceDrawerState extends State<_InvoiceDrawer> {
 
   static double _d(YorksAccountsDecimal? value) =>
       value == null ? 0 : v2Number(value.canonicalText);
+
+  /// A cancelled invoice that no revision replaced. The server re-checks the
+  /// rest (claim cap, contract revision) and names the reason if it refuses.
+  bool _canRestore(YorksAccountsInvoiceDetailProjection d) =>
+      widget.onRestoreInvoice != null &&
+      widget.capabilities.manageClientInvoices &&
+      d.invoice.status == YorksAccountsInvoiceStatus.cancelled &&
+      !widget.all.any(
+        (x) => x.inv.replacesReference == d.invoice.invoiceReference,
+      );
 
   bool _canCancel(YorksAccountsInvoiceDetailProjection d) =>
       widget.onCancelInvoice != null &&
@@ -2354,7 +2412,20 @@ class _ChequeDialogState extends State<_ChequeDialog>
 
 /// Captures the required reason for revising an issued invoice (R.n).
 class _ReviseDialog extends StatefulWidget {
-  const _ReviseDialog({required this.language, this.onSubmit});
+  const _ReviseDialog({
+    required this.language,
+    this.onSubmit,
+    this.titleKey = 'v2_inv_revise_title',
+    this.hintKey = 'v2_inv_revise_hint',
+    this.reasonKey = 'v2_inv_revise_reason',
+    this.confirmKey = 'v2_confirm',
+  });
+
+  /// The copy, so the same reason dialog serves Revise and Restore.
+  final String titleKey;
+  final String hintKey;
+  final String reasonKey;
+  final String confirmKey;
 
   /// Runs the command while the dialog stays open; null closes with the input.
   final AccountsV2DialogCommand<String>? onSubmit;
@@ -2384,13 +2455,13 @@ class _ReviseDialogState extends State<_ReviseDialog>
   Widget build(BuildContext context) {
     final valid = _reason.text.trim().isNotEmpty;
     return submitDialog(
-      title: Text(_t('v2_inv_revise_title')),
+      title: Text(_t(widget.titleKey)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _t('v2_inv_revise_hint'),
+            _t(widget.hintKey),
             style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -2401,14 +2472,14 @@ class _ReviseDialogState extends State<_ReviseDialog>
             maxLines: 3,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: _t('v2_inv_revise_reason'),
+              labelText: _t(widget.reasonKey),
               border: const OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t(widget.confirmKey),
         onConfirm: valid
             ? () => submit(_reason.text.trim(), widget.onSubmit)
             : null,

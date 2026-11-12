@@ -71,6 +71,7 @@ class AccountsV2ClaimsTab extends StatefulWidget {
     this.onIssue,
     this.onMarkChecked,
     this.onCancelClaim,
+    this.onRestoreClaim,
     this.onPreviewInvoice,
     this.onUpdateCell,
     this.onUploadEvidence,
@@ -97,6 +98,9 @@ class AccountsV2ClaimsTab extends StatefulWidget {
 
   /// Deletes (cancels) a draft claim; it stays in History.
   final YorksReopenClaimAction? onCancelClaim;
+
+  /// Restores a deleted claim; null hides the Deleted claims list.
+  final YorksReopenClaimAction? onRestoreClaim;
 
   /// Renders the invoice this claim would produce; null on success or an error.
   final Future<String?> Function(String claimId)? onPreviewInvoice;
@@ -965,6 +969,50 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
     );
   }
 
+  /// Deleted claims, newest first.
+  List<YorksAccountsClaimSummary> get _deletedClaims => [
+    for (final c in widget.claims)
+      if (c.status == 'cancelled') c,
+  ];
+
+  /// Lists deleted claims; Restore asks why and brings one back as it was.
+  Future<void> _openDeleted() async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final restored = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _DeletedClaimsDialog(
+        claims: _deletedClaims,
+        language: widget.language,
+        onRestore: (claim) async {
+          final done = await showDialog<String>(
+            context: dialogContext,
+            builder: (_) => _ReasonDialog(
+              title: _t('v2r_restore_claim'),
+              label: _t('v2r_restore_reason'),
+              language: widget.language,
+              confirmKey: 'v2r_restore_claim',
+              onSubmit: (reason) async => accountsV2RestoreFailure(
+                await widget.onRestoreClaim!(
+                  claimId: claim.claimId,
+                  expectedVersion: claim.recordVersion,
+                  reason: reason,
+                ),
+              ),
+            ),
+          );
+          if (done != null && dialogContext.mounted) {
+            Navigator.of(dialogContext).pop(true);
+          }
+        },
+      ),
+    );
+    if (restored == true && mounted) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(_t('v2r_claim_restored'))),
+      );
+    }
+  }
+
   Future<void> _issue() async {
     final id = _claimId;
     if (id == null) return;
@@ -1323,11 +1371,21 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
       onChanged: widget.onSelectClaim == null || _saving ? null : _selectClaim,
     );
     final actions = _claimActions();
+    final deleted = _deletedClaims;
     final newButton = !_hasDraft && !_newClaim && _canStart
         ? AccountsV2Button(
             label: _t('v2p_new_claim'),
             icon: 'plus',
             onPressed: _startNewClaim,
+          )
+        : null;
+    final deletedButton = widget.onRestoreClaim != null && deleted.isNotEmpty
+        ? AccountsV2Button(
+            key: const ValueKey('accounts-v2-deleted-claims'),
+            label: '${_t('v2r_deleted_claims')} (${deleted.length})',
+            icon: 'history',
+            kind: AccountsV2ButtonKind.ghost,
+            onPressed: _openDeleted,
           )
         : null;
     final actionRow = Wrap(
@@ -1343,13 +1401,15 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             picker,
-            if (newButton != null || actions.isNotEmpty) ...[
+            if (newButton != null ||
+                deletedButton != null ||
+                actions.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 alignment: WrapAlignment.end,
-                children: [?newButton, ...actions],
+                children: [?newButton, ?deletedButton, ...actions],
               ),
             ],
           ],
@@ -1362,6 +1422,10 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         children: [
           picker,
           if (newButton != null) ...[const SizedBox(width: 10), newButton],
+          if (deletedButton != null) ...[
+            const SizedBox(width: 10),
+            deletedButton,
+          ],
           const SizedBox(width: 10),
           Expanded(
             child: Align(
@@ -3424,6 +3488,7 @@ class _ReasonDialog extends StatefulWidget {
     required this.title,
     required this.label,
     required this.language,
+    this.confirmKey = 'v2_confirm',
     this.onSubmit,
   });
 
@@ -3433,6 +3498,9 @@ class _ReasonDialog extends StatefulWidget {
   final String title;
   final String label;
   final AppLanguage language;
+
+  /// The confirm button's copy (names the action where it can).
+  final String confirmKey;
 
   @override
   State<_ReasonDialog> createState() => _ReasonDialogState();
@@ -3470,7 +3538,7 @@ class _ReasonDialogState extends State<_ReasonDialog>
         ),
       ),
       actions: submitActions(
-        confirmLabel: _t('v2_confirm'),
+        confirmLabel: _t(widget.confirmKey),
         onConfirm: valid
             ? () => submit(_controller.text.trim(), widget.onSubmit)
             : null,
@@ -3581,6 +3649,95 @@ class _IssueDialogState extends State<_IssueDialog>
               }
             : null,
       ),
+    );
+  }
+}
+
+/// The deleted claims, each with what it was and a Restore button.
+class _DeletedClaimsDialog extends StatelessWidget {
+  const _DeletedClaimsDialog({
+    required this.claims,
+    required this.language,
+    required this.onRestore,
+  });
+
+  final List<YorksAccountsClaimSummary> claims;
+  final AppLanguage language;
+  final Future<void> Function(YorksAccountsClaimSummary claim) onRestore;
+
+  String _t(String key) => accountsV2Text(language, key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_t('v2r_deleted_claims')),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _t('v2r_deleted_claims_hint'),
+              style: v2Style(12.5, color: AccountsV2Colors.mut),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: claims.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final c = claims[i];
+                  final period = [
+                    v2Month(c.periodEnd ?? c.periodStart),
+                    if (c.grossExVat != null)
+                      v2Money(v2Number(c.grossExVat!.canonicalText)),
+                  ].join(' · ');
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                c.reference,
+                                style: v2Style(13, weight: FontWeight.w700),
+                              ),
+                              Text(
+                                period,
+                                style: v2Style(12, color: AccountsV2Colors.mut),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        AccountsV2Button(
+                          key: ValueKey(
+                            'accounts-v2-restore-claim-${c.claimId}',
+                          ),
+                          label: _t('v2r_restore'),
+                          icon: 'history',
+                          size: AccountsV2ButtonSize.small,
+                          onPressed: () => onRestore(c),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('v2i_close')),
+        ),
+      ],
     );
   }
 }

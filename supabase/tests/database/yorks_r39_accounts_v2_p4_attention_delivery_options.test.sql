@@ -87,7 +87,7 @@ select ok((select payload->'upload_targets' @> '[{"entity_type":"accounts_baseli
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000003","role":"authenticated","app_metadata":{"role":"procurement","app_user_id":"usr-local-procurement"}}',true);
 select lives_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, 'Procurement may list delivery options');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated","app_metadata":{"role":"project_engineer","app_user_id":"usr-local-pe"}}',true);
-select throws_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, '42501', null, 'Project Engineer may not list delivery options');
+select lives_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, 'Project Engineer member may list delivery options (11 November 2026)');
 select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated","app_metadata":{"role":"site_engineer","app_user_id":"usr-local-se"}}',true);
 select throws_ok($$select public.v1_list_supplier_bill_delivery_options('39d19000-0000-4000-8000-000000000001')$$, '42501', null, 'Site Engineer may not list delivery options');
 reset role;

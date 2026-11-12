@@ -286,8 +286,14 @@ select ok(
     '39010000-0000-4000-8000-000000000001',
     'confirm_billing_progress'
   )
-  and not public.v1_accounts_has_project_scope(
+  -- Owner decision of 11 November 2026: a PE member holds every Accounts key.
+  and public.v1_accounts_has_project_scope(
     '10000000-0000-4000-8000-000000000001',
+    '39010000-0000-4000-8000-000000000001',
+    'manage_client_invoices'
+  )
+  and not public.v1_accounts_has_project_scope(
+    '10000000-0000-4000-8000-000000000002',
     '39010000-0000-4000-8000-000000000001',
     'manage_client_invoices'
   )
