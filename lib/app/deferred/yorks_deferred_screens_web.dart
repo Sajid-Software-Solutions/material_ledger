@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../core/widgets/yorks_deferred_screen.dart';
 import '../../features/admin/presentation/screens/user_management_screen.dart'
     deferred as user_management;
-import '../../features/admin/presentation/screens/yorks_v1_configuration_screen.dart'
+import '../../features/configuration/presentation/configuration_screen.dart'
     deferred as configuration;
 import '../../features/admin/presentation/screens/yorks_v1_user_access_screen.dart'
     deferred as user_access;
@@ -53,9 +53,9 @@ Widget yorksInventoryImportScreen({
   ),
 );
 
-Widget yorksConfigurationScreen() => YorksDeferredScreen(
+Widget yorksConfigurationScreen({String? section}) => YorksDeferredScreen(
   load: configuration.loadLibrary,
-  builder: () => configuration.YorksV1ConfigurationScreen(),
+  builder: () => configuration.ConfigurationScreen(initialSection: section),
 );
 
 Widget yorksWorkforceAdministrationScreen() => YorksDeferredScreen(

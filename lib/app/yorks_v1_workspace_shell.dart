@@ -1030,10 +1030,11 @@ List<_YorksDestination> _destinationsFor(
       );
     }
     if (path == RoutePaths.yorksV1Configuration) {
-      return allows(
-        YorksV1CapabilityKeys.configurationView,
-        role == YorksV1Role.admin,
-      );
+      return role == YorksV1Role.pr ||
+          allows(
+            YorksV1CapabilityKeys.configurationView,
+            role == YorksV1Role.admin,
+          );
     }
     if (path == RoutePaths.rentals) {
       return allows(

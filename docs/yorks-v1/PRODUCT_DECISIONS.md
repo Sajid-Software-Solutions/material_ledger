@@ -2323,6 +2323,19 @@ day, never one alert per request. Releasing workers is a later request type.
 Full design: [`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md).
 Rollout flag: `YORKS_V1_WORKFORCE_CENTER` (default off).
 
+## 39. Configuration redesign (owner decision, 12 November 2026)
+
+Configuration becomes the place to set up the company and every module, and
+every control on it works. Admin edits every section; PR edits Workforce and
+Rentals; nobody else has access. Accounts default payment policy and billing
+stages (total 100%) and the default BOQ folders a new scope receives become
+Admin-editable for **new** records only. Settings that had no effect are
+removed from view; their rows are kept. Company contact and bank details are
+recognised as live (they print on invoices). This supersedes the R39 rule
+that the 90/10 policy and 10/50/30/5/5 stage defaults are code-frozen,
+for future baselines only. Plan:
+[`CONFIGURATION_REDESIGN_PLAN.md`](CONFIGURATION_REDESIGN_PLAN.md).
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
