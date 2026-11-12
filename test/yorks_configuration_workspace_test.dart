@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/configuration/application/configuration_workspace_providers.dart';
 import 'package:material_ledger/features/configuration/data/configuration_workspace_repository.dart';
 import 'package:material_ledger/features/configuration/presentation/configuration_screen.dart';
@@ -428,6 +429,45 @@ void main() {
       contains('v1_wf_list_public_holidays'),
     );
     expect(workspaceReads, 1);
+  });
+
+  testWidgets('weekly off days: Sunday by default, editable', (tester) async {
+    _size(tester, const Size(1366, 1000));
+    final rpc = _FakeRpc({
+      'v1_cfg_get_workspace': (_) => {
+        ..._workspace(),
+        'weekly_off_days': ['sunday'],
+      },
+      'v1_cfg_apply': (_) => {'version': 3, 'changes': 1},
+    });
+    await _pump(tester, rpc, section: 'workforce');
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('config-off-day-sunday')),
+        matching: find.byType(AccountsV2Icon),
+      ),
+      findsOneWidget,
+    );
+    await _tap(tester, find.byKey(const ValueKey('config-off-day-friday')));
+    expect(find.text('1 unsaved changes'), findsOneWidget);
+    await _tap(tester, find.byKey(const ValueKey('config-review')));
+    expect(find.text('Sun  →  Fri, Sun'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('config-reason')),
+      'Friday is also off on site',
+    );
+    await tester.tap(find.byKey(const ValueKey('config-save')));
+    await tester.pumpAndSettle();
+    final sent = rpc.calls.lastWhere((c) => c.$1 == 'v1_cfg_apply').$2;
+    expect(sent['p_section'], 'workforce');
+    expect(sent['p_changes'], [
+      {
+        'kind': 'setting',
+        'key': 'workforce.weekly_off_days',
+        'value': ['friday', 'sunday'],
+      },
+    ]);
   });
 
   testWidgets('Access explains every role', (tester) async {
