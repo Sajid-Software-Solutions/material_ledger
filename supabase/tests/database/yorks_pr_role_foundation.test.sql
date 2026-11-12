@@ -238,6 +238,14 @@ select is(
   'pr',
   'The live claim resolves to the exact PR role'
 );
+select lives_ok(
+  $$select public.v1_rental_assert_admin()$$,
+  'PR passes the Rentals operator guard'
+);
+select ok(
+  public.v1_get_rental_portfolio() is not null,
+  'PR reads the rental portfolio'
+);
 
 select set_config(
   'request.jwt.claims',
@@ -247,6 +255,11 @@ select set_config(
 select ok(
   not public.v1_user_configuration_actor(),
   'A Site Engineer does not operate the user configuration gateway'
+);
+select throws_ok(
+  $$select public.v1_rental_assert_admin()$$,
+  '42501', 'V1_RENTAL_ADMIN_REQUIRED',
+  'A Site Engineer is still refused Rentals'
 );
 reset role;
 
