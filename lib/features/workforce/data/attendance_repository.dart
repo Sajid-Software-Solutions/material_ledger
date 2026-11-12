@@ -31,6 +31,16 @@ final class YorksAttendanceRepository {
         await _invoke('v1_wf_get_overview', {'p_month': month}),
       );
 
+  Future<List<AttendanceConfirmationDue>> confirmationsDue() async {
+    final json = await _invoke('v1_wf_get_confirmations_due', const {});
+    return [
+      for (final row in (json['due'] as List? ?? const []))
+        AttendanceConfirmationDue.fromJson(
+          Map<String, dynamic>.from(row as Map),
+        ),
+    ];
+  }
+
   Future<List<AttendanceCrew>> listCrews() async {
     final json = await _invoke('v1_wf_list_crews', const {});
     return [

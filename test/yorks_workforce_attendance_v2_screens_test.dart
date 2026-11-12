@@ -176,7 +176,11 @@ final class _FakeRpc implements YorksWorkforceRpcClient {
     required Map<String, Object?> parameters,
   }) async {
     calls.add((functionName, parameters));
-    final handler = handlers[functionName];
+    final handler =
+        handlers[functionName] ??
+        (functionName == 'v1_wf_get_confirmations_due'
+            ? (_) => {'due': <Object>[]}
+            : null);
     if (handler == null) throw StateError('unexpected $functionName');
     return handler(parameters);
   }
@@ -550,6 +554,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a month waiting for confirmation comes first, one tap away', (
+    tester,
+  ) async {
+    _size(tester, const Size(360, 800));
+    String? openedMonth;
+    final rpc = _FakeRpc({
+      'v1_wf_get_confirmations_due': (_) => {
+        'due': [
+          {
+            'crew_id': _crewId,
+            'crew_name': 'Sweihan site crew',
+            'month': '2026-10-01',
+            'last_day': '2026-10-31',
+            'overdue': true,
+            'missing_days': 2,
+          },
+        ],
+      },
+      'v1_wf_get_overview': (params) {
+        openedMonth = params['p_month'] as String?;
+        return {
+          'today': _today,
+          'month': params['p_month'] ?? '2026-11-01',
+          'crews': [
+            {..._crew(access: _access(confirm: true)), 'month': _month()},
+          ],
+          'feed': <Object>[],
+        };
+      },
+      'v1_wf_get_month_sheet': (_) => {
+        'crew': _crew(),
+        'month': _month(),
+        'workers': <Object>[],
+        'sheets': <Object>[],
+        'holidays': <Object>[],
+        'can_export': false,
+      },
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1Workforce);
+    final banner = find.byKey(const ValueKey('attendance-confirmations-due'));
+    expect(banner, findsOneWidget);
+    expect(
+      find.text('October 2026 is waiting for your confirmation'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Sweihan site crew (2 days not entered)'),
+      findsOneWidget,
+    );
+    // Shown above everything else on the page.
+    expect(
+      tester.getTopLeft(banner).dy,
+      lessThan(tester.getTopLeft(find.text('Earlier days not entered')).dy),
+    );
+    await tester.tap(find.byKey(const ValueKey('attendance-confirm-now')));
+    await tester.pumpAndSettle();
+    expect(openedMonth, '2026-10-01', reason: 'opens on the waiting month');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Everyone present can be undone', (tester) async {
     _size(tester, const Size(360, 800));
     final rpc = _FakeRpc({
@@ -824,6 +888,37 @@ void main() {
         {'v1_wf_get_overview': (_) => overview()},
         RoutePaths.yorksV1Workforce,
         'phone_overview',
+      );
+    });
+    testWidgets('phone overview with a month waiting', (tester) async {
+      await shot(
+        tester,
+        const Size(360, 800),
+        {
+          'v1_wf_get_overview': (_) => overview(),
+          'v1_wf_get_confirmations_due': (_) => {
+            'due': [
+              {
+                'crew_id': _crewId,
+                'crew_name': 'Sweihan site crew',
+                'month': '2026-10-01',
+                'last_day': '2026-10-31',
+                'overdue': true,
+                'missing_days': 0,
+              },
+              {
+                'crew_id': 'c2',
+                'crew_name': 'Nexus DF3W crew',
+                'month': '2026-10-01',
+                'last_day': '2026-10-31',
+                'overdue': true,
+                'missing_days': 1,
+              },
+            ],
+          },
+        },
+        RoutePaths.yorksV1Workforce,
+        'phone_overview_due',
       );
     });
     testWidgets('desktop overview', (tester) async {

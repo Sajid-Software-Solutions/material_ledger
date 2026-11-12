@@ -18,7 +18,11 @@ import 'attendance_common.dart';
 import 'attendance_dialogs.dart';
 
 class AttendanceConfirmScreen extends ConsumerStatefulWidget {
-  const AttendanceConfirmScreen({super.key});
+  const AttendanceConfirmScreen({super.key, this.initialMonth});
+
+  /// `YYYY-MM-01` from a reminder or the banner; otherwise the month waiting
+  /// longest for this person, or the current month.
+  final String? initialMonth;
 
   @override
   ConsumerState<AttendanceConfirmScreen> createState() =>
@@ -30,10 +34,25 @@ class _AttendanceConfirmScreenState
   /// `YYYY-MM-01`, or null for the current month. Last month stays one tap
   /// away so a month can still be confirmed in the first days after it ends.
   String? _month;
+  bool _picked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _month = widget.initialMonth;
+    _picked = widget.initialMonth != null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final language = attendanceLanguage(ref);
+    if (!_picked) {
+      // Open on the month waiting longest, as the reminder would.
+      final due = ref
+          .watch(yorksAttendanceConfirmationsDueProvider)
+          .valueOrNull;
+      if (due != null && due.isNotEmpty) _month = due.first.month;
+    }
     final overview = ref.watch(yorksAttendanceOverviewProvider(_month));
     return overview.when(
       loading: () => AttendanceLoadState(language: language),
@@ -77,8 +96,10 @@ class _AttendanceConfirmScreenState
               options: [
                 for (final month in months) (month, attendanceMonthYear(month)),
               ],
-              onChanged: (month) =>
-                  setState(() => _month = month == current ? null : month),
+              onChanged: (month) => setState(() {
+                _picked = true;
+                _month = month == current ? null : month;
+              }),
             ),
           ],
           children: [
@@ -284,6 +305,7 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
   void _finished(String message) {
     attendanceToast(context, message);
     ref.invalidate(yorksAttendanceOverviewProvider(null));
+    ref.invalidate(yorksAttendanceConfirmationsDueProvider);
     widget.onChanged();
   }
 

@@ -15,6 +15,7 @@ import '../../../../shared/models/yorks_v1_attendance_strings.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
+import '../../application/attendance_providers.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 
@@ -625,4 +626,84 @@ String attendanceRowSummary(
       '${formatAttendanceTime(row.start)} – ${formatAttendanceTime(row.finish)}';
   if (row.breakStart == null) return range;
   return '$range · ${AS.t(AS.breakRange, language, {'a': formatAttendanceTime(row.breakStart), 'b': formatAttendanceTime(row.breakFinish)})}';
+}
+
+/// The month-end priority: shown first on Workforce pages to anyone with a
+/// crew month waiting for their confirmation, with one tap to confirm.
+class AttendanceConfirmationsBanner extends ConsumerWidget {
+  const AttendanceConfirmationsBanner({
+    super.key,
+    required this.due,
+    required this.onConfirm,
+  });
+
+  /// What is waiting (never empty: the page leaves the banner out instead).
+  final List<AttendanceConfirmationDue> due;
+
+  /// Opens Month confirmation on `YYYY-MM-01`.
+  final ValueChanged<String> onConfirm;
+
+  /// The banner for a page, or nothing when no month is waiting.
+  static List<Widget> forPage(
+    WidgetRef ref, {
+    required ValueChanged<String> onConfirm,
+  }) {
+    final due =
+        ref.watch(yorksAttendanceConfirmationsDueProvider).valueOrNull ??
+        const <AttendanceConfirmationDue>[];
+    return [
+      if (due.isNotEmpty)
+        AttendanceConfirmationsBanner(due: due, onConfirm: onConfirm),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = attendanceLanguage(ref);
+    final month = due.first.month;
+    final items = due.where((d) => d.month == month).toList();
+    final overdue = items.first.overdue;
+    final crews = [
+      for (final item in items)
+        item.missingDays == 1
+            ? AS.t(AS.dueMissingOne, language, {'crew': item.crewName})
+            : item.missingDays > 1
+            ? AS.t(AS.dueMissing, language, {
+                'crew': item.crewName,
+                'n': item.missingDays,
+              })
+            : item.crewName,
+    ].join(', ');
+    return Semantics(
+      liveRegion: true,
+      child: AccountsV2Note(
+        key: const ValueKey('attendance-confirmations-due'),
+        tone: overdue ? AccountsV2NoteTone.bad : AccountsV2NoteTone.warn,
+        trailing: AccountsV2Button(
+          key: const ValueKey('attendance-confirm-now'),
+          label: AS.t(AS.confirmNow, language),
+          icon: 'shield',
+          kind: AccountsV2ButtonKind.primary,
+          size: AccountsV2ButtonSize.small,
+          onPressed: () => onConfirm(month),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AS.t(overdue ? AS.dueOverdue : AS.dueToday, language, {
+                'month': attendanceMonthYear(month),
+              }),
+              style: v2Style(13.5, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              AS.t(AS.dueCrews, language, {'crews': crews}),
+              style: v2Style(12.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

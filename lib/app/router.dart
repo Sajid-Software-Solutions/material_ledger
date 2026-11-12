@@ -2266,9 +2266,11 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceConfirm,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            const _WorkforceScreenSwitch(
-              attendanceV2: AttendanceConfirmScreen(),
-              legacy: YorksWorkforceOverviewScreen(),
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceConfirmScreen(
+                initialMonth: state.uri.queryParameters['month'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
             ),
           ),
         ),

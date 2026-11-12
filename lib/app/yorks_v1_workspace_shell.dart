@@ -18,6 +18,7 @@ import '../shared/models/yorks_v1_permission_management.dart';
 import '../shared/models/yorks_v1_permission_strings.dart';
 import '../shared/models/yorks_v1_project_strings.dart';
 import '../shared/models/yorks_v1_role.dart';
+import '../features/workforce/application/attendance_providers.dart';
 import '../shared/models/yorks_v1_attendance_strings.dart';
 import '../shared/models/yorks_v1_shell_strings.dart';
 import '../shared/models/yorks_v1_team_chat_strings.dart';
@@ -172,11 +173,19 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
           selectedIcon: Icons.fact_check,
           path: RoutePaths.yorksV1WorkforceAttendance,
         ),
-        const _YorksDestination(
+        _YorksDestination(
           label: AttendanceStrings.monthConfirmation,
           icon: Icons.verified_outlined,
           selectedIcon: Icons.verified,
           path: RoutePaths.yorksV1WorkforceConfirm,
+          // Months waiting for this person's confirmation, as the prototype's
+          // badge on Month confirmation.
+          badgeCount:
+              ref
+                  .watch(yorksAttendanceConfirmationsDueProvider)
+                  .valueOrNull
+                  ?.length ??
+              0,
         ),
         const _YorksDestination(
           label: AttendanceStrings.monthlySheets,
@@ -3075,6 +3084,36 @@ class _YorksWorkspaceSections extends StatelessWidget {
                 ? YorksV1ShellStrings.overview
                 : section.label)
             .active(language);
+    // A count of items waiting on this person (e.g. months to confirm).
+    Widget withBadge(_YorksDestination section, Widget child) {
+      if (section.badgeCount <= 0) return child;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: child),
+          const SizedBox(width: 6),
+          Container(
+            key: ValueKey('workspace-section-badge-${section.path}'),
+            constraints: const BoxConstraints(minWidth: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '${section.badgeCount}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Material(
       key: const ValueKey('workspace-internal-sections'),
       color: AppColors.workspaceChrome,
@@ -3095,9 +3134,9 @@ class _YorksWorkspaceSections extends StatelessWidget {
                     for (final section in sections)
                       DropdownMenuItem(
                         value: section.path,
-                        child: Text(
-                          label(section),
-                          overflow: TextOverflow.ellipsis,
+                        child: withBadge(
+                          section,
+                          Text(label(section), overflow: TextOverflow.ellipsis),
                         ),
                       ),
                   ],
@@ -3129,7 +3168,7 @@ class _YorksWorkspaceSections extends StatelessWidget {
                           }
                         },
                         icon: Icon(section.icon, size: 18),
-                        label: Text(label(section)),
+                        label: withBadge(section, Text(label(section))),
                       ),
                     ),
                 ],

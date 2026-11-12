@@ -32,14 +32,16 @@ class AttendanceOverviewScreen extends ConsumerWidget {
       data: (data) => _OverviewBody(
         overview: data,
         language: language,
-        onRefresh: () async =>
-            ref.invalidate(yorksAttendanceOverviewProvider(null)),
+        onRefresh: () async {
+          ref.invalidate(yorksAttendanceOverviewProvider(null));
+          ref.invalidate(yorksAttendanceConfirmationsDueProvider);
+        },
       ),
     );
   }
 }
 
-class _OverviewBody extends StatelessWidget {
+class _OverviewBody extends ConsumerWidget {
   const _OverviewBody({
     required this.overview,
     required this.language,
@@ -77,7 +79,7 @@ class _OverviewBody extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final today = overview.today;
     final crews = overview.crews;
     final enteredToday = crews.where((c) {
@@ -126,6 +128,15 @@ class _OverviewBody extends StatelessWidget {
           ),
       ],
       children: [
+        ...AttendanceConfirmationsBanner.forPage(
+          ref,
+          onConfirm: (month) => context.go(
+            Uri(
+              path: RoutePaths.yorksV1WorkforceConfirm,
+              queryParameters: {'month': month},
+            ).toString(),
+          ),
+        ),
         AccountsV2KpiRow(
           children: [
             AccountsV2KpiCard(

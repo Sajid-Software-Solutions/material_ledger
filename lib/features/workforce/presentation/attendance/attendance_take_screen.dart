@@ -168,6 +168,15 @@ class _DayView extends ConsumerWidget {
       subtitle: AS.t(intro, language),
       onRefresh: state.dirty ? null : controller.load,
       children: [
+        ...AttendanceConfirmationsBanner.forPage(
+          ref,
+          onConfirm: (month) => context.go(
+            Uri(
+              path: RoutePaths.yorksV1WorkforceConfirm,
+              queryParameters: {'month': month},
+            ).toString(),
+          ),
+        ),
         _DayHeader(
           crews: crews,
           day: day,

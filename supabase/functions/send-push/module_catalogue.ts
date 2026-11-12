@@ -354,19 +354,35 @@ export const moduleEvents: Record<string, {title: Record<string,string>; body: R
   },
   "workforce_attendance_month_ready": {
     "title": {
-      "en": "Month ready to confirm",
-      "ar": "الشهر جاهز للتأكيد",
-      "ur": "مہینہ تصدیق کے لیے تیار",
-      "hi": "माह पुष्टि के लिए तैयार"
+      "en": "Attendance ready to confirm",
+      "ar": "الحضور جاهز للتأكيد",
+      "ur": "حاضری تصدیق کے لیے تیار",
+      "hi": "उपस्थिति पुष्टि के लिए तैयार"
     },
     "body": {
-      "en": "Today is the last day of the month. Check your crew’s attendance and confirm the month.",
-      "ar": "اليوم آخر يوم في الشهر. راجع حضور طاقمك وأكد الشهر.",
-      "ur": "آج مہینے کا آخری دن ہے۔ اپنے عملے کی حاضری دیکھیں اور مہینے کی تصدیق کریں۔",
-      "hi": "आज माह का अंतिम दिन है। अपने दल की उपस्थिति देखें और माह की पुष्टि करें।"
+      "en": "Today is the last day of the month. Check your crews' attendance and confirm the month so it locks.",
+      "ar": "اليوم آخر يوم في الشهر. راجع حضور طواقمك وأكد الشهر ليُقفل.",
+      "ur": "آج مہینے کا آخری دن ہے۔ اپنے عملے کی حاضری دیکھیں اور مہینے کی تصدیق کریں تاکہ وہ مقفل ہو جائے۔",
+      "hi": "आज माह का अंतिम दिन है। अपने दलों की उपस्थिति देखें और माह की पुष्टि करें ताकि वह लॉक हो जाए।"
     },
     "destination": "timesheets",
     "urgent": false
+  },
+  "workforce_attendance_month_overdue": {
+    "title": {
+      "en": "Attendance confirmation overdue",
+      "ar": "تأكيد الحضور متأخر",
+      "ur": "حاضری کی تصدیق میں تاخیر",
+      "hi": "उपस्थिति पुष्टि में देरी"
+    },
+    "body": {
+      "en": "A month has ended and your crews' attendance is not confirmed yet. Confirm it so PR and Accounts can use it.",
+      "ar": "انتهى شهر ولم يُؤكَّد حضور طواقمك بعد. أكّده ليتمكن العلاقات العامة والحسابات من استخدامه.",
+      "ur": "مہینہ ختم ہو گیا اور آپ کے عملے کی حاضری کی تصدیق ابھی نہیں ہوئی۔ تصدیق کریں تاکہ پی آر اور اکاؤنٹس اسے استعمال کر سکیں۔",
+      "hi": "माह समाप्त हो गया और आपके दलों की उपस्थिति की अभी पुष्टि नहीं हुई। पुष्टि करें ताकि पीआर और अकाउंट्स इसका उपयोग कर सकें।"
+    },
+    "destination": "timesheets",
+    "urgent": true
   },
   "rental_completeness_review": {
     "title": {
