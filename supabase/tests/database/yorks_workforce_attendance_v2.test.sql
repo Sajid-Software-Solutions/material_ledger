@@ -61,6 +61,13 @@ select
   '10000000-0000-4000-8000-000000000004'
 from generate_series(1, 4) n;
 
+select set_config('wf.tomorrow', (public.v1_wf_today() + 1)::text, true);
+select set_config(
+  'wf.next_month',
+  (date_trunc('month', public.v1_wf_today()) + interval '1 month')::date::text,
+  true
+);
+
 -- Calendar and hours ----------------------------------------------------------
 
 select is(public.v1_wf_day_type('2026-11-01'), 'holiday', 'Sunday is a rest day');
@@ -136,7 +143,7 @@ select lives_ok(
   'A Site Engineer on the project picks the crew workers'
 );
 select is(
-  (public.v1_wf_crew_json(current_setting('wf.crew')::uuid)
+  (public.v1_wf_get_crew(current_setting('wf.crew')::uuid)
     ->> 'member_count')::integer,
   3,
   'The crew has three members'
@@ -145,26 +152,27 @@ select is(
 -- Access matrix -------------------------------------------------------------------
 
 select ok(
-  (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'take')::boolean
-  and not (public.v1_wf_crew_access(current_setting('wf.crew')::uuid)
+  ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'take')::boolean
+  and not ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
     ->> 'confirm')::boolean,
   'Site Engineer member: takes attendance, cannot confirm'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
 select ok(
-  (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'take')::boolean
-  and (public.v1_wf_crew_access(current_setting('wf.crew')::uuid)
+  ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'take')::boolean
+  and ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
     ->> 'confirm')::boolean,
   'Project Engineer member: takes attendance and confirms'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000009', 'senior_mechanical_engineer');
 select ok(
-  (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'confirm')::boolean,
+  ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'confirm')::boolean,
   'An organization-wide engineer confirms any crew'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000003', 'procurement');
-select ok(
-  not (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'view')::boolean,
+select throws_ok(
+  format($$select public.v1_wf_get_crew(%L::uuid)$$, current_setting('wf.crew')),
+  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
   'Procurement has no attendance access'
 );
 select throws_ok(
@@ -175,15 +183,15 @@ select throws_ok(
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000013', 'accountant');
 select ok(
-  (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'view')::boolean
-  and not (public.v1_wf_crew_access(current_setting('wf.crew')::uuid)
+  ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'view')::boolean
+  and not ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
     ->> 'take')::boolean,
   'Accountant reads every crew and cannot take attendance'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
 select ok(
-  (public.v1_wf_crew_access(current_setting('wf.crew')::uuid) ->> 'manage')::boolean
-  and (public.v1_wf_crew_access(current_setting('wf.crew')::uuid)
+  ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'manage')::boolean
+  and ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
     ->> 'officer')::boolean,
   'PR manages every crew'
 );
@@ -193,10 +201,10 @@ select ok(
 select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
 select throws_ok(
   format(
-    $$select public.v1_wf_save_day(%L::uuid, public.v1_wf_today() + 1,
+    $$select public.v1_wf_save_day(%L::uuid, %L::date,
         '[{"worker_id":"5a020000-0000-4000-8000-000000000001","status":"A"}]'::jsonb,
         0, null, '5a030000-0000-4000-8000-000000000020')$$,
-    current_setting('wf.crew')
+    current_setting('wf.crew'), current_setting('wf.tomorrow')
   ),
   '22023', 'V1_WORKFORCE_FUTURE_DATE',
   'A future day cannot be entered'
@@ -363,11 +371,13 @@ select lives_ok(
     current_setting('wf.crew')),
   'The Project Engineer asks about a day'
 );
+reset role;
 select is(
   public.v1_wf_day_state(current_setting('wf.crew')::uuid, '2026-08-03'),
   'question',
   'The day shows an open question'
 );
+set local role authenticated;
 select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
 select lives_ok(
   format($$select public.v1_wf_answer_day(%L::uuid, date '2026-08-03',
@@ -376,11 +386,13 @@ select lives_ok(
     current_setting('wf.crew')),
   'The Site Engineer answers'
 );
+reset role;
 select is(
   public.v1_wf_day_state(current_setting('wf.crew')::uuid, '2026-08-03'),
   'entered',
   'The day is entered again once answered'
 );
+set local role authenticated;
 
 -- Month confirmation ---------------------------------------------------------------
 
@@ -403,8 +415,7 @@ select throws_ok(
 select throws_ok(
   format($$select public.v1_wf_confirm_month(%L::uuid, %L::date,
       '5a030000-0000-4000-8000-000000000041')$$,
-    current_setting('wf.crew'),
-    (date_trunc('month', public.v1_wf_today()) + interval '1 month')::date),
+    current_setting('wf.crew'), current_setting('wf.next_month')),
   '55000', 'V1_WORKFORCE_MONTH_NOT_ENDED',
   'A month cannot be confirmed before its last day'
 );
@@ -440,12 +451,16 @@ begin
   return v_count;
 end;
 $$;
+-- The helper reads the internal calendar, so it runs as the owner while the
+-- Site Engineer's identity stays the actor of every save.
+reset role;
 select ok(
   pg_temp.fill_month(
     current_setting('wf.crew')::uuid, current_setting('wf.prev_month')::date
   ) > 15,
   'Every working day of last month is entered'
 );
+set local role authenticated;
 
 select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
 select lives_ok(
@@ -490,12 +505,14 @@ select lives_ok(
     current_setting('wf.crew'), current_setting('wf.prev_month')),
   'PR reopens the month with a reason'
 );
+reset role;
 select ok(
   not public.v1_wf_month_locked(
     current_setting('wf.crew')::uuid, current_setting('wf.prev_month')::date
   ),
   'The reopened month is editable again'
 );
+set local role authenticated;
 
 -- Reads ----------------------------------------------------------------------------
 
@@ -518,6 +535,40 @@ select ok(
 select ok(
   jsonb_array_length(public.v1_wf_get_overview(null) -> 'feed') > 0,
   'The overview feed lists recent entries'
+);
+
+select pg_temp.act('10000000-0000-4000-8000-000000000003', 'procurement');
+select throws_ok(
+  $$select public.v1_wf_list_workers()$$,
+  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
+  'Procurement cannot read the worker list'
+);
+
+-- A per-person deny still removes a right the role would give.
+reset role;
+insert into public.v1_permission_assignments (
+  auth_user_id, capability_key, effect, scope_kind, origin, reason,
+  changed_by_auth_user_id
+) values (
+  '10000000-0000-4000-8000-000000000002', 'workforce.attendance.maintain',
+  'deny', 'organization', 'permission_management', 'Attendance deny test',
+  '10000000-0000-4000-8000-000000000004'
+);
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select ok(
+  not ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
+    ->> 'take')::boolean,
+  'An explicit deny removes the Site Engineer''s attendance right'
+);
+reset role;
+select ok(
+  not exists (
+    select 1 from public.v1_permission_role_defaults
+    where role_name in ('project_engineer', 'site_engineer', 'accountant')
+      and capability_key like 'workforce.%' and is_granted
+  ),
+  'Attendance V2 changes no engineering or Accountant role template'
 );
 
 reset role;

@@ -699,9 +699,14 @@ select throws_ok(
   'Only one current organization effect can exist per user and capability'
 );
 
+-- Senior Mechanical Engineer and PR are the other seeded permission
+-- managers; with both inactive, Admin is the final one.
 update public.v1_profiles
 set is_active = false
-where auth_user_id = '10000000-0000-4000-8000-000000000009';
+where auth_user_id in (
+  '10000000-0000-4000-8000-000000000009',
+  '10000000-0000-4000-8000-000000000014'
+);
 
 set local role authenticated;
 select set_config(

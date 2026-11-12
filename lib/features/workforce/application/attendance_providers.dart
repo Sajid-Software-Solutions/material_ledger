@@ -47,6 +47,12 @@ final yorksAttendanceCrewDetailProvider = FutureProvider.autoDispose
           ref.watch(yorksAttendanceRepositoryProvider).getCrew(crewId),
     );
 
+final yorksAttendanceHolidaysProvider = FutureProvider.autoDispose
+    .family<AttendanceHolidays, int>(
+      (ref, year) =>
+          ref.watch(yorksAttendanceRepositoryProvider).listHolidays(year),
+    );
+
 final yorksAttendanceWorkersProvider =
     FutureProvider.autoDispose<List<AttendanceWorker>>(
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listWorkers(),
@@ -100,6 +106,18 @@ final class AttendanceDayEditState {
   final bool dirty;
 
   bool get holiday => day?.holiday ?? false;
+
+  /// Rows on this device that differ from the server's day.
+  bool get hasLocalChanges {
+    final saved = day?.rows ?? const <AttendanceRow>[];
+    if (saved.length != rows.length) return true;
+    final byId = {for (final row in saved) row.worker.id: row};
+    for (final row in rows) {
+      final other = byId[row.worker.id];
+      if (other == null || !row.sameEntry(other)) return true;
+    }
+    return false;
+  }
 
   int get presentCount =>
       rows.where((row) => row.status == AttendanceStatus.present).length;
@@ -345,6 +363,35 @@ final class AttendanceDayController
     ]);
   }
 
+  /// Puts back rows saved before a one-tap change (Undo).
+  void restoreRows(List<AttendanceRow> rows) => _writeDraft(rows);
+
+  /// After a conflict: load the day someone else saved, keep this person's
+  /// entries on top of it and save against the new version.
+  Future<void> reloadKeepingMine() async {
+    final mine = state.rows;
+    try {
+      final day = await _repository.getDay(crewId: key.crewId, date: key.date);
+      if (!mounted) return;
+      final byId = {for (final row in mine) row.worker.id: row};
+      final merged = [
+        for (final row in day.rows) byId.remove(row.worker.id) ?? row,
+        // Workers added for the day on this device stay too.
+        ...byId.values.where((row) => !row.isMember),
+      ];
+      state = AttendanceDayEditState(day: day, rows: merged, loading: false);
+      _writeDraft(merged);
+    } on YorksV1DomainException catch (error) {
+      if (mounted) state = state.copyWith(error: error);
+    }
+  }
+
+  /// After a conflict: drop this device's entries and show the saved day.
+  Future<void> useTheirs() async {
+    _preferences.remove(_draftKey);
+    await load();
+  }
+
   void discard() {
     _preferences.remove(_draftKey);
     final day = state.day;
@@ -442,3 +489,16 @@ String attendanceMonthOf(String iso) => '${iso.substring(0, 7)}-01';
 
 /// Today's date on this device, used only before the server answers.
 String attendanceLocalToday() => attendanceIso(DateTime.now());
+
+/// Dates of [crewId] with entries kept on this device and not yet saved.
+Set<String> attendanceDraftDates(
+  SharedPreferences preferences, {
+  required String actorId,
+  required String crewId,
+}) {
+  final prefix = 'yorks.attendance.draft.v1.$actorId.$crewId.';
+  return {
+    for (final key in preferences.getKeys())
+      if (key.startsWith(prefix)) key.substring(prefix.length),
+  };
+}

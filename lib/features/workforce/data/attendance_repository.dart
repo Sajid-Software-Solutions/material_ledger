@@ -152,6 +152,23 @@ final class YorksAttendanceRepository {
     ];
   }
 
+  Future<AttendanceHolidays> listHolidays(int year) async =>
+      AttendanceHolidays.fromJson(
+        await _invoke('v1_wf_list_public_holidays', {'p_year': year}),
+      );
+
+  Future<AttendanceHolidays> saveHoliday({
+    required String date,
+    String? name,
+    bool remove = false,
+  }) async => AttendanceHolidays.fromJson(
+    await _invoke('v1_wf_save_public_holiday', {
+      'p_holiday_date': date,
+      'p_holiday_name': name,
+      'p_remove': remove,
+    }),
+  );
+
   Future<AttendanceCrew> saveCrew({
     required Map<String, Object?> payload,
     required int expectedVersion,

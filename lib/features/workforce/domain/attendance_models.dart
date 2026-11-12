@@ -701,3 +701,26 @@ final class AttendanceMonthSheet {
   final Map<String, String> holidays;
   final bool canExport;
 }
+
+/// A year's public holidays and whether this person may change them.
+final class AttendanceHolidays {
+  const AttendanceHolidays({
+    required this.year,
+    required this.canManage,
+    required this.holidays,
+  });
+
+  factory AttendanceHolidays.fromJson(Map<String, dynamic> json) =>
+      AttendanceHolidays(
+        year: _i(json['year']),
+        canManage: _b(json['can_manage']),
+        holidays: [
+          for (final row in _maps(json['holidays']))
+            (date: _s(row['date']), name: _s(row['name'])),
+        ],
+      );
+
+  final int year;
+  final bool canManage;
+  final List<({String date, String name})> holidays;
+}

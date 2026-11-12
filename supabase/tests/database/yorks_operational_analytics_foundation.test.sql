@@ -34,7 +34,7 @@ select ok(
 select is(
   (select count(*) from public.v1_permission_role_defaults
    where capability_key in ('analytics.view', 'analytics.export')),
-  18::bigint,
+  20::bigint,
   'Every Analytics capability has one default for each exact role'
 );
 

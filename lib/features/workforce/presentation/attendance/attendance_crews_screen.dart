@@ -15,6 +15,7 @@ import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
+import 'attendance_dialogs.dart';
 
 class AttendanceCrewsScreen extends ConsumerWidget {
   const AttendanceCrewsScreen({super.key});
@@ -99,6 +100,7 @@ class AttendanceCrewsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          _HolidaysCard(language: language),
         ],
       ),
     );
@@ -246,28 +248,17 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
     final language = _language;
     final elsewhere = worker.crewId != null && worker.crewId != widget.crew?.id;
     if (elsewhere) {
-      final move = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          content: Text(
-            AS.t(AS.moveWorker, language, {
-              'name': worker.name,
-              'crew': worker.crewName,
-            }),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(AS.t(AS.cancel, language)),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(AS.t(AS.move, language)),
-            ),
-          ],
-        ),
+      final move = await showAttendanceCommandDialog(
+        context,
+        language: language,
+        title: AS.t(AS.move, language),
+        body: AS.t(AS.moveWorker, language, {
+          'name': worker.name,
+          'crew': worker.crewName,
+        }),
+        confirmLabel: AS.t(AS.move, language),
       );
-      if (move != true) return;
+      if (move == null) return;
     }
     setState(() {
       _removed.remove(worker.id);
@@ -468,6 +459,159 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
             icon: _saving ? 'clock' : 'check',
             onPressed: valid && !_saving ? _save : null,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Public holidays for this year. Everyone sees them; Admin and PR add and
+/// remove them. A holiday inside a confirmed month is refused by the server.
+class _HolidaysCard extends ConsumerWidget {
+  const _HolidaysCard({required this.language});
+
+  final AppLanguage language;
+
+  Future<void> _add(BuildContext context, WidgetRef ref, int year) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(year - 1),
+      lastDate: DateTime(year + 1, 12, 31),
+      helpText: AS.t(AS.holidayDate, language),
+    );
+    if (picked == null || !context.mounted) return;
+    final date = attendanceIso(picked);
+    final name = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: AS.t(AS.addHoliday, language),
+      summary: attendanceFullDate(date),
+      fieldLabel: AS.t(AS.holidayName, language),
+      confirmLabel: AS.t(AS.save, language),
+      command: (text) async {
+        try {
+          await ref
+              .read(yorksAttendanceRepositoryProvider)
+              .saveHoliday(date: date, name: text);
+          return null;
+        } catch (error) {
+          return error;
+        }
+      },
+    );
+    if (name != null) ref.invalidate(yorksAttendanceHolidaysProvider(year));
+  }
+
+  Future<void> _remove(
+    BuildContext context,
+    WidgetRef ref,
+    int year,
+    ({String date, String name}) holiday,
+  ) async {
+    final done = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: AS.t(AS.remove, language),
+      body: AS.t(AS.holidayRemoveQuestion, language, {
+        'name': holiday.name,
+        'date': attendanceFullDate(holiday.date),
+      }),
+      confirmLabel: AS.t(AS.remove, language),
+      destructive: true,
+      command: (_) async {
+        try {
+          await ref
+              .read(yorksAttendanceRepositoryProvider)
+              .saveHoliday(date: holiday.date, remove: true);
+          return null;
+        } catch (error) {
+          return error;
+        }
+      },
+    );
+    if (done != null) ref.invalidate(yorksAttendanceHolidaysProvider(year));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final year = DateTime.now().year;
+    final async = ref.watch(yorksAttendanceHolidaysProvider(year));
+    final data = async.valueOrNull;
+    return AccountsV2Panel(
+      key: const ValueKey('attendance-holidays-card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(
+            title: '${AS.t(AS.holidays, language)} · $year',
+            icon: 'clock',
+            subtitle: AS.t(AS.holidaysSub, language),
+            actions: [
+              if (data?.canManage ?? false)
+                AccountsV2Button(
+                  key: const ValueKey('attendance-add-holiday'),
+                  label: AS.t(AS.addHoliday, language),
+                  icon: 'plus',
+                  size: AccountsV2ButtonSize.small,
+                  onPressed: () => _add(context, ref, year),
+                ),
+            ],
+          ),
+          if (async.hasError)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+              child: Text(
+                attendanceErrorText(async.error, language),
+                style: v2Style(13, color: AccountsV2Colors.bad),
+              ),
+            )
+          else if (data == null)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (data.holidays.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+              child: Text(
+                AS.t(AS.noHolidays, language),
+                style: v2Style(13, color: AccountsV2Colors.mut),
+              ),
+            )
+          else
+            for (final holiday in data.holidays)
+              Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: AccountsV2Colors.line2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 170,
+                      child: Text(
+                        attendanceLongDate(holiday.date),
+                        style: v2Style(13, weight: FontWeight.w600),
+                      ),
+                    ),
+                    Expanded(child: Text(holiday.name, style: v2Style(13))),
+                    if (data.canManage)
+                      IconButton(
+                        tooltip: AS.t(AS.remove, language),
+                        onPressed: () => _remove(context, ref, year, holiday),
+                        icon: const Icon(Icons.delete_outline_rounded),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
         ],
       ),
     );

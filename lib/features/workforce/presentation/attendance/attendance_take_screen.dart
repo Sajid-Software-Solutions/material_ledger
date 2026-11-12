@@ -12,12 +12,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/providers/yorks_v1_identity_provider.dart';
+import '../../../accounts/presentation/v2/accounts_v2_safety.dart'
+    show AccountsV2AlertDialog;
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
+import 'attendance_dialogs.dart';
 import 'attendance_row_editor.dart';
 
 class AttendanceTakeScreen extends ConsumerStatefulWidget {
@@ -163,7 +168,21 @@ class _DayView extends ConsumerWidget {
       subtitle: AS.t(intro, language),
       onRefresh: state.dirty ? null : controller.load,
       children: [
-        _DayHeader(crews: crews, day: day, language: language, onOpen: onOpen),
+        _DayHeader(
+          crews: crews,
+          day: day,
+          language: language,
+          onOpen: onOpen,
+          dirty: state.hasLocalChanges && day.editable,
+          drafts: {
+            ...attendanceDraftDates(
+              ref.read(sharedPreferencesProvider),
+              actorId: ref.read(yorksV1AuthUserIdProvider) ?? 'anonymous',
+              crewId: crew.id,
+            ),
+            if (state.hasLocalChanges && day.editable) day.date,
+          },
+        ),
         ..._banners(context, ref, state, controller),
         if (day.editable)
           _Toolbar(
@@ -191,13 +210,29 @@ class _DayView extends ConsumerWidget {
         AccountsV2Note(
           tone: AccountsV2NoteTone.bad,
           trailing: state.error?.code.name == 'conflict'
-              ? AccountsV2Button(
-                  label: AS.t(AS.reload, language),
-                  size: AccountsV2ButtonSize.small,
-                  onPressed: () {
-                    controller.discard();
-                    controller.load();
-                  },
+              ? Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    AccountsV2Button(
+                      key: const ValueKey('attendance-keep-mine'),
+                      label: AS.t(AS.keepMine, language),
+                      size: AccountsV2ButtonSize.small,
+                      kind: AccountsV2ButtonKind.primary,
+                      onPressed: () async {
+                        await controller.reloadKeepingMine();
+                        if (context.mounted) {
+                          attendanceToast(context, AS.t(AS.keptMine, language));
+                        }
+                      },
+                    ),
+                    AccountsV2Button(
+                      key: const ValueKey('attendance-use-theirs'),
+                      label: AS.t(AS.useTheirs, language),
+                      size: AccountsV2ButtonSize.small,
+                      onPressed: controller.useTheirs,
+                    ),
+                  ],
                 )
               : null,
           child: Text(attendanceErrorText(state.error, language)),
@@ -302,10 +337,14 @@ class _DayHeader extends StatelessWidget {
     required this.day,
     required this.language,
     required this.onOpen,
+    this.drafts = const {},
+    this.dirty = false,
   });
 
   final List<AttendanceCrew> crews;
   final AttendanceDay day;
+  final Set<String> drafts;
+  final bool dirty;
   final AppLanguage language;
   final void Function(String crewId, String date) onOpen;
 
@@ -328,8 +367,38 @@ class _DayHeader extends StatelessWidget {
             AttendanceDayStrip(
               days: day.month.days,
               selected: day.date,
+              drafts: drafts,
               onSelect: (date) => onOpen(day.crew.id, date),
             ),
+            if (drafts.any((d) => d != day.date)) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    AS.t(AS.unsavedDays, language),
+                    style: v2Style(12.5, weight: FontWeight.w600),
+                  ),
+                  for (final date in (drafts.toList()..sort()))
+                    if (date != day.date)
+                      ActionChip(
+                        key: ValueKey('attendance-draft-$date'),
+                        label: Text(attendanceShortDate(date)),
+                        labelStyle: v2Style(
+                          12,
+                          weight: FontWeight.w600,
+                          color: AccountsV2Colors.warn,
+                        ),
+                        backgroundColor: AccountsV2Colors.warn50,
+                        side: BorderSide.none,
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
+                        onPressed: () => onOpen(day.crew.id, date),
+                      ),
+                ],
+              ),
+            ],
             if (missing.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(
@@ -394,10 +463,15 @@ class _DayHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                AccountsV2Chip(
-                  attendanceDayStateLabel(dayState).active(language),
-                  tone: attendanceDayStateTone(dayState),
-                ),
+                dirty
+                    ? AccountsV2Chip(
+                        AS.t(AS.unsavedDay, language),
+                        tone: AccountsV2ChipTone.warn,
+                      )
+                    : AccountsV2Chip(
+                        attendanceDayStateLabel(dayState).active(language),
+                        tone: attendanceDayStateTone(dayState),
+                      ),
               ],
             ),
           ],
@@ -582,13 +656,16 @@ class _Toolbar extends ConsumerWidget {
       ),
     );
     if (result == null || !context.mounted) return;
+    final before = controller.current.rows;
     controller.applyShift(result.$1, result.$2);
-    attendanceToast(
+    showAttendanceUndo(
       context,
-      AS.t(AS.shiftToast, language, {
+      language: language,
+      message: AS.t(AS.shiftToast, language, {
         'start': formatAttendanceTime(result.$1),
         'finish': formatAttendanceTime(result.$2),
       }),
+      onUndo: () => controller.restoreRows(before),
     );
   }
 
@@ -606,13 +683,16 @@ class _Toolbar extends ConsumerWidget {
           }),
           icon: 'copy',
           onPressed: () async {
+            final before = controller.current.rows;
             final ok = await controller.copyFrom(previous);
             if (ok && context.mounted) {
-              attendanceToast(
+              showAttendanceUndo(
                 context,
-                AS.t(AS.copiedToast, language, {
+                language: language,
+                message: AS.t(AS.copiedToast, language, {
                   'date': attendanceShortDate(previous),
                 }),
+                onUndo: () => controller.restoreRows(before),
               );
             }
           },
@@ -625,8 +705,14 @@ class _Toolbar extends ConsumerWidget {
           onPressed: state.unmarkedCount == 0
               ? null
               : () {
+                  final before = controller.current.rows;
                   controller.everyonePresent();
-                  attendanceToast(context, AS.t(AS.everyoneToast, language));
+                  showAttendanceUndo(
+                    context,
+                    language: language,
+                    message: AS.t(AS.undoEveryone, language),
+                    onUndo: () => controller.restoreRows(before),
+                  );
                 },
         ),
       AccountsV2Button(
@@ -855,7 +941,7 @@ class _ShiftDialogState extends State<_ShiftDialog> {
         start.minutes != null &&
         finish.minutes != null &&
         finish.minutes! > start.minutes!;
-    return AlertDialog(
+    return AccountsV2AlertDialog(
       title: Text(AS.t(AS.shiftTitle, language)),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
@@ -964,7 +1050,19 @@ class _WorkerList extends StatelessWidget {
                   : controller.setStatus(state.rows[i].worker.id, status),
               onRemove: state.rows[i].isMember
                   ? null
-                  : () => controller.removeDayOnly(state.rows[i].worker.id),
+                  : () {
+                      final before = controller.current.rows;
+                      final name = state.rows[i].worker.name;
+                      controller.removeDayOnly(state.rows[i].worker.id);
+                      showAttendanceUndo(
+                        context,
+                        language: language,
+                        message: AS.t(AS.removedForDay, language, {
+                          'name': name,
+                        }),
+                        onUndo: () => controller.restoreRows(before),
+                      );
+                    },
             ),
         ],
       ),
@@ -1025,17 +1123,28 @@ class _WorkerCard extends StatelessWidget {
                 color: selected ? Colors.transparent : AccountsV2Colors.lineS,
               ),
             ),
-            child: InkWell(
-              key: key == null ? null : ValueKey(key),
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => onStatus(status),
-              child: Center(
-                child: Text(
-                  label,
-                  style: v2Style(
-                    13,
-                    weight: FontWeight.w700,
-                    color: selected ? Colors.white : AccountsV2Colors.ink2,
+            child: Semantics(
+              button: true,
+              selected: selected,
+              label: status == null
+                  ? AS.t(AS.moreStatuses, language, {'name': row.worker.name})
+                  : AS.t(AS.markAs, language, {
+                      'name': row.worker.name,
+                      'status': attendanceStatusLabel(status).active(language),
+                    }),
+              excludeSemantics: true,
+              child: InkWell(
+                key: key == null ? null : ValueKey(key),
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => onStatus(status),
+                child: Center(
+                  child: Text(
+                    label,
+                    style: v2Style(
+                      13,
+                      weight: FontWeight.w700,
+                      color: selected ? Colors.white : AccountsV2Colors.ink2,
+                    ),
                   ),
                 ),
               ),
@@ -1220,41 +1329,46 @@ class _Footer extends ConsumerWidget {
     return parts.join(' · ');
   }
 
-  Future<String?> _askReason(BuildContext context, AttendanceDay day) =>
-      showDialog<String>(
-        context: context,
-        builder: (context) => AttendanceTextDialog(
-          title: AS.t(AS.reasonTitle, language, {
-            'date': attendanceShortDate(day.date),
-          }),
-          body: AS.t(AS.reasonBody, language, {'by': day.enteredBy ?? ''}),
-          label: AS.t(AS.reasonLabel, language),
-          confirm: AS.t(AS.saveChanges, language),
-          language: language,
-        ),
-      );
-
   Future<void> _save(BuildContext context, WidgetRef ref) async {
     final day = state.day!;
-    String? reason;
+    AttendanceDay? saved;
     if (day.changeNeedsReason) {
-      reason = await _askReason(context, day);
+      // The dialog stays open while the server decides and shows a refusal
+      // inside it, with the reason still typed.
+      final reason = await showAttendanceCommandDialog(
+        context,
+        language: language,
+        title: AS.t(AS.reasonTitle, language, {
+          'date': attendanceShortDate(day.date),
+        }),
+        summary: _summary,
+        body: AS.t(AS.reasonBody, language, {'by': day.enteredBy ?? ''}),
+        fieldLabel: AS.t(AS.reasonLabel, language),
+        confirmLabel: AS.t(AS.saveChanges, language),
+        command: (text) async {
+          saved = await controller.save(changeReason: text);
+          return saved == null ? controller.current.error : null;
+        },
+      );
       if (reason == null) return;
+    } else {
+      saved = await controller.save();
     }
-    final saved = await controller.save(changeReason: reason);
-    if (saved == null || !context.mounted) return;
+    final result = saved;
+    if (result == null || !context.mounted) return;
+    final savedDay = result;
     ref.invalidate(yorksAttendanceOverviewProvider(null));
-    final next = saved.month.missingDays
-        .where((d) => d != saved.date)
+    final next = savedDay.month.missingDays
+        .where((d) => d != savedDay.date)
         .firstOrNull;
     attendanceToast(
       context,
       next == null || day.saved
           ? AS.t(AS.savedToast, language, {
-              'date': attendanceShortDate(saved.date),
+              'date': attendanceShortDate(savedDay.date),
             })
           : AS.t(AS.savedNextToast, language, {
-              'date': attendanceShortDate(saved.date),
+              'date': attendanceShortDate(savedDay.date),
               'next': attendanceShortDate(next),
             }),
     );
@@ -1262,7 +1376,7 @@ class _Footer extends ConsumerWidget {
       context.go(
         Uri(
           path: RoutePaths.yorksV1WorkforceAttendance,
-          queryParameters: {'crew': saved.crew.id, 'date': next},
+          queryParameters: {'crew': savedDay.crew.id, 'date': next},
         ).toString(),
       );
     }
@@ -1270,21 +1384,19 @@ class _Footer extends ConsumerWidget {
 
   Future<void> _ask(BuildContext context) async {
     final day = state.day!;
-    final text = await showDialog<String>(
-      context: context,
-      builder: (context) => AttendanceTextDialog(
-        title: AS.t(AS.askTitle, language, {
-          'date': attendanceShortDate(day.date),
-        }),
-        body: AS.t(AS.askBody, language, {'by': day.enteredBy ?? ''}),
-        label: AS.t(AS.askQuestion, language),
-        confirm: AS.t(AS.send, language),
-        language: language,
-      ),
+    final text = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: AS.t(AS.askTitle, language, {
+        'date': attendanceShortDate(day.date),
+      }),
+      body: AS.t(AS.askBody, language, {'by': day.enteredBy ?? ''}),
+      fieldLabel: AS.t(AS.askQuestion, language),
+      confirmLabel: AS.t(AS.send, language),
+      command: (text) async =>
+          await controller.ask(text) ? null : controller.current.error,
     );
-    if (text == null) return;
-    final ok = await controller.ask(text);
-    if (ok && context.mounted) {
+    if (text != null && context.mounted) {
       attendanceToast(context, AS.t(AS.sentToast, language));
     }
   }
@@ -1384,74 +1496,5 @@ class _Footer extends ConsumerWidget {
       );
     }
     return AccountsV2Panel(child: panel);
-  }
-}
-
-/// A short free-text dialog (reason, question). Returns the trimmed text.
-class AttendanceTextDialog extends StatefulWidget {
-  const AttendanceTextDialog({
-    super.key,
-    required this.title,
-    required this.body,
-    required this.label,
-    required this.confirm,
-    required this.language,
-  });
-
-  final String title;
-  final String body;
-  final String label;
-  final String confirm;
-  final AppLanguage language;
-
-  @override
-  State<AttendanceTextDialog> createState() => _AttendanceTextDialogState();
-}
-
-class _AttendanceTextDialogState extends State<AttendanceTextDialog> {
-  final _text = TextEditingController();
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = _text.text.trim().isNotEmpty;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.body, style: v2Style(13, color: AccountsV2Colors.mut)),
-            const SizedBox(height: 12),
-            AccountsV2TextField(
-              key: const ValueKey('attendance-text-dialog-field'),
-              label: widget.label,
-              controller: _text,
-              onChanged: (_) => setState(() {}),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(AS.t(AS.cancel, widget.language)),
-        ),
-        FilledButton(
-          key: const ValueKey('attendance-text-dialog-confirm'),
-          onPressed: ready
-              ? () => Navigator.of(context).pop(_text.text.trim())
-              : null,
-          child: Text(widget.confirm),
-        ),
-      ],
-    );
   }
 }

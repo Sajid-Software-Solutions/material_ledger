@@ -42,19 +42,7 @@ select ok(
   ),
   'No PR default grant falls outside the PR boundary'
 );
-select ok(
-  jsonb_path_exists(
-    public.v1_get_user_admin_options(null) -> 'assignable_exact_roles',
-    '$[*] ? (@ == "pr")'
-  ) or exists (
-    select 1
-    from jsonb_array_elements(
-      public.v1_get_user_admin_options(null) -> 'assignable_exact_roles'
-    ) element
-    where element ->> 'role' = 'pr' or element #>> '{}' = 'pr'
-  ),
-  'The Create user role picker offers PR'
-);
+
 
 -- Project fixture ----------------------------------------------------------------
 
@@ -219,7 +207,7 @@ select ok(
   'A Site Engineer still has no User Management'
 );
 
-set local role authenticated;
+-- Internal helpers are checked as the owner under the PR identity.
 select set_config(
   'request.jwt.claims',
   '{"sub":"10000000-0000-4000-8000-000000000014","role":"authenticated","app_metadata":{"role":"pr","app_user_id":"usr-local-pr"}}',
@@ -228,6 +216,19 @@ select set_config(
 select ok(
   public.v1_user_configuration_actor(),
   'PR operates the protected user configuration gateway'
+);
+select ok(
+  jsonb_path_exists(
+    public.v1_get_user_admin_options(null) -> 'assignable_exact_roles',
+    '$[*] ? (@ == "pr")'
+  ) or exists (
+    select 1
+    from jsonb_array_elements(
+      public.v1_get_user_admin_options(null) -> 'assignable_exact_roles'
+    ) element
+    where element ->> 'role' = 'pr' or element #>> '{}' = 'pr'
+  ),
+  'The Create user role picker offers PR (seen by PR itself)'
 );
 select ok(
   public.v1_accounts_portfolio_role_allowed(),
@@ -261,7 +262,6 @@ select throws_ok(
   '42501', 'V1_RENTAL_ADMIN_REQUIRED',
   'A Site Engineer is still refused Rentals'
 );
-reset role;
 
 select * from finish();
 rollback;

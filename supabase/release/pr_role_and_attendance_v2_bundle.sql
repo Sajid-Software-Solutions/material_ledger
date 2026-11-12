@@ -541,55 +541,38 @@ alter table public.v1_rental_receipts
 
 
 -- ---------------------------------------------------------------------------
--- 0. Accountant may read Workforce and export monthly sheets.
+-- 0. Capability rule. Attendance V2 access comes from role and project
+--    membership, like Material Requests, so no role template changes and the
+--    T03-T10 commands keep their per-person grants. Admin and PR hold the
+--    Workforce keys by default and are checked through the resolver; for
+--    everyone else an explicit per-person deny of the key still removes the
+--    right.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.v1_accountant_may_hold_capability(
-  p_capability_key text
-)
+create or replace function public.v1_wf_allowed(p_capability_key text)
 returns boolean
 language sql
-immutable
-strict
+stable
+security definer
 set search_path = ''
 as $$
-  select public.v1_accounts_is_capability_key(p_capability_key)
-    or p_capability_key in (
-      'worker_records.view', 'worker_records.manage',
-      'workforce.view', 'workforce.reports.export'
-    );
+  select case
+    when public.v1_current_exact_role() in ('admin', 'pr') then
+      public.v1_current_user_has_capability(p_capability_key, null)
+    else not exists (
+      select 1
+      from public.v1_permission_assignments assignment
+      where assignment.auth_user_id = auth.uid()
+        and assignment.capability_key = p_capability_key
+        and assignment.effect = 'deny'
+        and assignment.origin = 'permission_management'
+        and assignment.scope_kind = 'organization'
+        and assignment.effective_from <= clock_timestamp()
+        and (assignment.effective_until is null
+          or assignment.effective_until > clock_timestamp())
+    )
+  end;
 $$;
-
--- Role defaults for the attendance model. Admin and PR already hold every
--- Workforce key.
-update public.v1_permission_role_defaults role_default
-set is_granted = true,
-    updated_at = clock_timestamp()
-where (role_default.role_name, role_default.capability_key) in (
-  select role_name, capability_key
-  from unnest(array[
-    'project_engineer', 'site_engineer', 'senior_mechanical_engineer',
-    'project_manager', 'workshop_in_charge', 'document_controller'
-  ]::text[]) role_name
-  cross join unnest(array[
-    'workforce.view', 'workforce.attendance.maintain'
-  ]::text[]) capability_key
-  union all
-  select role_name, capability_key
-  from unnest(array[
-    'project_engineer', 'senior_mechanical_engineer', 'project_manager',
-    'workshop_in_charge', 'document_controller'
-  ]::text[]) role_name
-  cross join unnest(array[
-    'workforce.timesheets.final_approve', 'workforce.teams.manage',
-    'workforce.reports.export'
-  ]::text[]) capability_key
-  union all
-  select 'accountant', capability_key
-  from unnest(array[
-    'workforce.view', 'workforce.reports.export'
-  ]::text[]) capability_key
-);
 
 -- ---------------------------------------------------------------------------
 -- 1. Tables.
@@ -1021,30 +1004,26 @@ begin
       v_officer or v_global or v_role = 'accountant'
       or (v_role in ('project_engineer', 'site_engineer') and v_member)
     )
-    and public.v1_current_user_has_capability('workforce.view', null);
+    and public.v1_wf_allowed('workforce.view');
   v_take := v_view
     and (
       v_officer or v_global
       or (v_role in ('project_engineer', 'site_engineer') and v_member)
     )
-    and public.v1_current_user_has_capability(
-      'workforce.attendance.maintain', null
-    );
+    and public.v1_wf_allowed('workforce.attendance.maintain');
   v_confirm := v_view
     and v_profile.needs_confirmation
     and (
       v_role = 'admin' or v_global
       or (v_role = 'project_engineer' and v_pe_member)
     )
-    and public.v1_current_user_has_capability(
-      'workforce.timesheets.final_approve', null
-    );
+    and public.v1_wf_allowed('workforce.timesheets.final_approve');
   v_manage := v_view
     and (
       v_officer or v_global
       or (v_role = 'project_engineer' and v_pe_member)
     )
-    and public.v1_current_user_has_capability('workforce.teams.manage', null);
+    and public.v1_wf_allowed('workforce.teams.manage');
 
   return jsonb_build_object(
     'view', v_view,
@@ -1696,9 +1675,7 @@ begin
       from public.v1_workforce_public_holidays holiday
       where holiday.holiday_date between v_month and v_last
     ), '[]'::jsonb),
-    'can_export', public.v1_current_user_has_capability(
-      'workforce.reports.export', null
-    )
+    'can_export', public.v1_wf_allowed('workforce.reports.export')
   );
 end;
 $$;
@@ -1734,11 +1711,16 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- Only people who take attendance or manage crews see the worker list.
   if auth.uid() is null
     or not public.v1_current_actor_is_active()
-    or not public.v1_current_user_has_capability(
-      'workforce.attendance.maintain', null
-    ) then
+    or not (
+      public.v1_current_exact_role() in (
+        'admin', 'pr', 'project_engineer', 'site_engineer'
+      )
+      or public.v1_wf_role_is_global(public.v1_current_exact_role())
+    )
+    or not public.v1_wf_allowed('workforce.attendance.maintain') then
     raise exception 'V1_WORKFORCE_CREW_ACCESS_DENIED' using errcode = '42501';
   end if;
   return jsonb_build_object(
@@ -1764,13 +1746,18 @@ begin
   if auth.uid() is null or not public.v1_current_actor_is_active() then
     raise exception 'V1_ACTIVE_ACTOR_REQUIRED' using errcode = '42501';
   end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'date', holiday.holiday_date, 'name', holiday.holiday_name
-    ) order by holiday.holiday_date)
-    from public.v1_workforce_public_holidays holiday
-    where extract(year from holiday.holiday_date) = p_year
-  ), '[]'::jsonb);
+  return jsonb_build_object(
+    'year', p_year,
+    'can_manage', public.v1_current_exact_role() in ('admin', 'pr')
+      and public.v1_wf_allowed('workforce.configuration.manage'),
+    'holidays', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'date', holiday.holiday_date, 'name', holiday.holiday_name
+      ) order by holiday.holiday_date)
+      from public.v1_workforce_public_holidays holiday
+      where extract(year from holiday.holiday_date) = p_year
+    ), '[]'::jsonb)
+  );
 end;
 $$;
 
@@ -1862,7 +1849,7 @@ begin
           or member.effective_to > clock_timestamp())
     ) into v_pe_member;
   end if;
-  if not public.v1_current_user_has_capability('workforce.teams.manage', null)
+  if not public.v1_wf_allowed('workforce.teams.manage')
     or not (
       v_role in ('admin', 'pr')
       or public.v1_wf_role_is_global(v_role)
@@ -2041,9 +2028,7 @@ begin
   if auth.uid() is null
     or not public.v1_current_actor_is_active()
     or public.v1_current_exact_role() not in ('admin', 'pr')
-    or not public.v1_current_user_has_capability(
-      'workforce.configuration.manage', null
-    ) then
+    or not public.v1_wf_allowed('workforce.configuration.manage') then
     raise exception 'V1_WORKFORCE_CREW_ACCESS_DENIED' using errcode = '42501';
   end if;
   if p_holiday_date is null then
@@ -2703,9 +2688,7 @@ declare
   v_existing jsonb;
   v_project uuid;
 begin
-  if not public.v1_current_user_has_capability(
-    'workforce.periods.reopen', null
-  ) then
+  if not public.v1_wf_allowed('workforce.periods.reopen') then
     raise exception 'V1_WORKFORCE_CREW_ACCESS_DENIED' using errcode = '42501';
   end if;
   v_existing := public.v1_idempotency_get_or_claim(
@@ -2951,6 +2934,7 @@ declare
 begin
   foreach v_signature in array array[
     'v1_wf_today()',
+    'v1_wf_allowed(text)',
     'v1_wf_day_type(date)',
     'v1_wf_compute_minutes(text,integer,integer,integer,integer,text)',
     'v1_wf_role_is_global(text)',

@@ -139,10 +139,23 @@ String attendanceErrorText(Object? error, AppLanguage language) {
   return AS.t(pick(), language);
 }
 
+/// Attendance messages float clear of the sticky Save bar (about 140px on a
+/// phone, 120px on a wider screen).
+EdgeInsets attendanceSnackMargin(BuildContext context) {
+  final phone = MediaQuery.sizeOf(context).width <= 640;
+  return EdgeInsets.fromLTRB(12, 0, 12, phone ? 150 : 130);
+}
+
 void attendanceToast(BuildContext context, String message) {
   ScaffoldMessenger.maybeOf(context)
     ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: attendanceSnackMargin(context),
+      ),
+    );
 }
 
 // ─── Page frame ──────────────────────────────────────────────────────────────
@@ -430,11 +443,15 @@ class AttendanceDayStrip extends StatefulWidget {
     required this.days,
     required this.selected,
     required this.onSelect,
+    this.drafts = const {},
   });
 
   final List<({String date, AttendanceDayState state, bool holiday})> days;
   final String? selected;
   final ValueChanged<String> onSelect;
+
+  /// Days with entries kept on this device and not yet saved.
+  final Set<String> drafts;
 
   @override
   State<AttendanceDayStrip> createState() => _AttendanceDayStripState();
@@ -488,6 +505,7 @@ class _AttendanceDayStripState extends State<AttendanceDayStrip> {
           final day = widget.days[index];
           final selected = day.date == widget.selected;
           final future = day.state == AttendanceDayState.future;
+          final draft = widget.drafts.contains(day.date);
           final date = attendanceDate(day.date);
           return Semantics(
             button: true,
@@ -509,7 +527,10 @@ class _AttendanceDayStripState extends State<AttendanceDayStrip> {
                   border: Border.all(
                     color: selected
                         ? AccountsV2Colors.pri
+                        : draft
+                        ? AccountsV2Colors.warn
                         : AccountsV2Colors.line,
+                    width: draft && !selected ? 1.6 : 1,
                   ),
                 ),
                 child: Opacity(

@@ -15,7 +15,7 @@ import '../../data/attendance_repository.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
-import 'attendance_take_screen.dart' show AttendanceTextDialog;
+import 'attendance_dialogs.dart';
 
 class AttendanceConfirmScreen extends ConsumerStatefulWidget {
   const AttendanceConfirmScreen({super.key});
@@ -196,45 +196,41 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
     ).toString(),
   );
 
+  /// The crew, month and totals the confirmer is about to lock.
+  String get _summary {
+    final month = widget.month;
+    return '${widget.crew.name} · ${attendanceMonthYear(month.month)} · '
+        '${AS.t(AS.daysOf, _language, {'a': month.daysEntered, 'b': month.workDaysSoFar})} '
+        '${AS.t(AS.daysEnteredLabel, _language)} · '
+        '${AS.t(AS.otHours, _language, {'h': formatAttendanceHours(month.normalOvertimeMinutes, zeroAsDash: true)})} · '
+        '${AS.t(AS.holHours, _language, {'h': formatAttendanceHours(month.holidayOvertimeMinutes, zeroAsDash: true)})}';
+  }
+
   Future<void> _confirm() async {
     final language = _language;
     final monthName = attendanceMonthName(widget.month.month);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          AS.t(AS.confirmMonthButton, language, {'month': monthName}),
-        ),
-        content: Text(
-          AS.t(AS.confirmMonthQuestion, language, {
-            'month': monthName,
-            'crew': widget.crew.name,
-          }),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AS.t(AS.cancel, language)),
-          ),
-          FilledButton(
-            key: const ValueKey('attendance-confirm-month-yes'),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(
-              AS.t(AS.confirmMonthButton, language, {'month': monthName}),
+    final done = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: AS.t(AS.confirmMonthButton, language, {'month': monthName}),
+      summary: _summary,
+      body: AS.t(AS.confirmMonthQuestion, language, {
+        'month': monthName,
+        'crew': widget.crew.name,
+      }),
+      confirmLabel: AS.t(AS.confirmMonthButton, language, {'month': monthName}),
+      command: (_) => _command(
+        () => ref
+            .read(yorksAttendanceRepositoryProvider)
+            .confirmMonth(
+              crewId: widget.crew.id,
+              month: widget.month.month,
+              idempotencyKey: YorksAttendanceRepository.newKey(),
             ),
-          ),
-        ],
       ),
     );
-    if (ok != true || !mounted) return;
-    await _run(
-      () => ref
-          .read(yorksAttendanceRepositoryProvider)
-          .confirmMonth(
-            crewId: widget.crew.id,
-            month: widget.month.month,
-            idempotencyKey: YorksAttendanceRepository.newKey(),
-          ),
+    if (done == null || !mounted) return;
+    _finished(
       AS.t(AS.confirmedToast, language, {
         'crew': widget.crew.name,
         'month': monthName,
@@ -245,51 +241,50 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
   Future<void> _reopen() async {
     final language = _language;
     final monthName = attendanceMonthName(widget.month.month);
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (context) => AttendanceTextDialog(
-        title: AS.t(AS.reopen, language),
-        body: AS.t(AS.reopenQuestion, language, {
-          'month': monthName,
-          'crew': widget.crew.name,
-        }),
-        label: AS.t(AS.reasonLabel, language),
-        confirm: AS.t(AS.reopen, language),
-        language: language,
+    final reason = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: AS.t(AS.reopen, language),
+      summary: _summary,
+      body: AS.t(AS.reopenQuestion, language, {
+        'month': monthName,
+        'crew': widget.crew.name,
+      }),
+      fieldLabel: AS.t(AS.reasonLabel, language),
+      confirmLabel: AS.t(AS.reopen, language),
+      destructive: true,
+      command: (text) => _command(
+        () => ref
+            .read(yorksAttendanceRepositoryProvider)
+            .reopenMonth(
+              crewId: widget.crew.id,
+              month: widget.month.month,
+              reason: text,
+              idempotencyKey: YorksAttendanceRepository.newKey(),
+            ),
       ),
     );
     if (reason == null || !mounted) return;
-    await _run(
-      () => ref
-          .read(yorksAttendanceRepositoryProvider)
-          .reopenMonth(
-            crewId: widget.crew.id,
-            month: widget.month.month,
-            reason: reason,
-            idempotencyKey: YorksAttendanceRepository.newKey(),
-          ),
-      AS.t(AS.reopenedToast, language, {'month': monthName}),
-    );
+    _finished(AS.t(AS.reopenedToast, language, {'month': monthName}));
   }
 
-  Future<void> _run(
-    Future<AttendanceMonth> Function() command,
-    String success,
-  ) async {
+  /// Runs a month command for the dialog: null when the server confirmed.
+  Future<Object?> _command(Future<AttendanceMonth> Function() run) async {
     setState(() => _busy = true);
     try {
-      await command();
-      if (!mounted) return;
-      attendanceToast(context, success);
-      ref.invalidate(yorksAttendanceOverviewProvider(null));
-      widget.onChanged();
+      await run();
+      return null;
     } catch (error) {
-      if (mounted) {
-        attendanceToast(context, attendanceErrorText(error, _language));
-      }
+      return error;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _finished(String message) {
+    attendanceToast(context, message);
+    ref.invalidate(yorksAttendanceOverviewProvider(null));
+    widget.onChanged();
   }
 
   @override

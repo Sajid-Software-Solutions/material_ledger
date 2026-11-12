@@ -111,45 +111,56 @@ class _AttendanceSheetsScreenState
         final files = ref.read(yorksV1DocumentFileServiceProvider);
         final sheet = sheetAsync.valueOrNull;
 
-        return AttendancePage(
-          language: language,
-          title: AS.t(AS.monthlySheets, language),
-          subtitle: AS.t(AS.sheetsIntro, language),
-          readOnly: readOnly,
-          onRefresh: () async => ref.invalidate(
-            yorksAttendanceMonthSheetProvider((crewId: crew.id, month: month)),
-          ),
-          actions: [
-            if (sheet != null) ...[
-              AccountsV2Button(
-                key: const ValueKey('attendance-sheet-print'),
-                label: AS.t(AS.print, language),
-                icon: _busy ? 'clock' : 'print',
-                onPressed: _busy
-                    ? null
-                    : () => _file(
+        final phone = MediaQuery.sizeOf(context).width <= 640;
+        final fileActions = <Widget>[
+          if (sheet != null) ...[
+            AccountsV2Button(
+              key: const ValueKey('attendance-sheet-print'),
+              label: AS.t(AS.print, language),
+              icon: _busy ? 'clock' : 'print',
+              onPressed: _busy
+                  ? null
+                  : () => _file(
+                      sheet,
+                      () => service.printPdf(
                         sheet,
-                        () => service.printPdf(
+                        workers: _selectedWorkers(sheet),
+                      ),
+                      language,
+                    ),
+            ),
+            AccountsV2Button(
+              key: const ValueKey('attendance-sheet-pdf'),
+              label: AS.t(AS.savePdf, language),
+              icon: 'pdf',
+              onPressed: _busy
+                  ? null
+                  : () => _file(sheet, () async {
+                      final saved = await files.saveDocument(
+                        bytes: await service.buildPdf(
                           sheet,
                           workers: _selectedWorkers(sheet),
                         ),
-                        language,
-                      ),
-              ),
+                        fileName: '${service.fileStem(sheet)}.pdf',
+                        mimeType: YorksAttendanceSheetService.pdfMimeType,
+                      );
+                      if (saved && context.mounted) {
+                        attendanceToast(context, AS.t(AS.fileSaved, language));
+                      }
+                    }, language),
+            ),
+            if (sheet.canExport)
               AccountsV2Button(
-                key: const ValueKey('attendance-sheet-pdf'),
-                label: AS.t(AS.savePdf, language),
-                icon: 'pdf',
+                key: const ValueKey('attendance-sheet-excel'),
+                label: AS.t(AS.exportExcel, language),
+                icon: 'sheet',
                 onPressed: _busy
                     ? null
                     : () => _file(sheet, () async {
                         final saved = await files.saveDocument(
-                          bytes: await service.buildPdf(
-                            sheet,
-                            workers: _selectedWorkers(sheet),
-                          ),
-                          fileName: '${service.fileStem(sheet)}.pdf',
-                          mimeType: YorksAttendanceSheetService.pdfMimeType,
+                          bytes: service.buildExcel(sheet),
+                          fileName: '${service.fileStem(sheet)}.xlsx',
+                          mimeType: YorksAttendanceSheetService.xlsxMimeType,
                         );
                         if (saved && context.mounted) {
                           attendanceToast(
@@ -159,30 +170,23 @@ class _AttendanceSheetsScreenState
                         }
                       }, language),
               ),
-              if (sheet.canExport)
-                AccountsV2Button(
-                  key: const ValueKey('attendance-sheet-excel'),
-                  label: AS.t(AS.exportExcel, language),
-                  icon: 'sheet',
-                  onPressed: _busy
-                      ? null
-                      : () => _file(sheet, () async {
-                          final saved = await files.saveDocument(
-                            bytes: service.buildExcel(sheet),
-                            fileName: '${service.fileStem(sheet)}.xlsx',
-                            mimeType: YorksAttendanceSheetService.xlsxMimeType,
-                          );
-                          if (saved && context.mounted) {
-                            attendanceToast(
-                              context,
-                              AS.t(AS.fileSaved, language),
-                            );
-                          }
-                        }, language),
-                ),
-            ],
           ],
+        ];
+        return AttendancePage(
+          language: language,
+          title: AS.t(AS.monthlySheets, language),
+          subtitle: AS.t(AS.sheetsIntro, language),
+          readOnly: readOnly,
+          onRefresh: () async => ref.invalidate(
+            yorksAttendanceMonthSheetProvider((crewId: crew.id, month: month)),
+          ),
+          actions: phone ? const [] : fileActions,
           children: [
+            if (phone && fileActions.isNotEmpty)
+              AccountsV2ReportActions(
+                title: AS.t(AS.reports, language),
+                actions: fileActions,
+              ),
             AccountsV2Panel(
               child: Padding(
                 padding: const EdgeInsets.all(14),

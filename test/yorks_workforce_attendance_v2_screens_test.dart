@@ -13,14 +13,17 @@ import 'package:material_ledger/features/workforce/application/attendance_provid
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_confirm_screen.dart';
+import 'package:material_ledger/features/workforce/presentation/attendance/attendance_crews_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_project_portfolio_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import 'support/accounts_v2_golden_fonts.dart';
 
@@ -463,7 +466,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('The month locks'), findsOneWidget);
     await tester.tap(
-      find.byKey(const ValueKey('attendance-confirm-month-yes')),
+      find.byKey(const ValueKey('attendance-text-dialog-confirm')),
     );
     await tester.pumpAndSettle();
     expect(confirmed, 1);
@@ -544,6 +547,174 @@ void main() {
     );
     expect(find.text('7 PM'), findsOneWidget);
     expect(find.text('4'), findsWidgets, reason: '4 h normal overtime');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Everyone present can be undone', (tester) async {
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_crews': (_) => _crews(_access()),
+      'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+      'v1_wf_get_day': (_) => _day(),
+    });
+    await _pump(
+      tester,
+      rpc,
+      '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+    );
+    final everyone = find.byKey(const ValueKey('attendance-everyone-present'));
+    await tester.ensureVisible(everyone);
+    await tester.pumpAndSettle();
+    await tester.tap(everyone);
+    await tester.pumpAndSettle();
+    expect(find.text('Not marked'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('attendance-undo')));
+    await tester.pumpAndSettle();
+    expect(find.text('Not marked'), findsNWidgets(2));
+    expect(find.text('Not saved yet'), findsNothing);
+  });
+
+  testWidgets('a refused change keeps the reason dialog open with the reason', (
+    tester,
+  ) async {
+    _size(tester, const Size(360, 800));
+    final enteredRows = [
+      {'worker_id': 'w1', 'status': 'A', 'worker': _worker('w1', 'Gul Zaman')},
+      {
+        'worker_id': 'w2',
+        'status': 'A',
+        'worker': _worker('w2', 'Waqar Ahmed'),
+      },
+    ];
+    final rpc = _FakeRpc({
+      'v1_wf_list_crews': (_) => _crews(_access(confirm: true)),
+      'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+      'v1_wf_get_day': (_) => _day(
+        saved: true,
+        enteredByMe: false,
+        rows: enteredRows,
+        access: _access(confirm: true),
+      ),
+      'v1_wf_save_day': (_) => throw const PostgrestException(
+        message: 'V1_WORKFORCE_MONTH_LOCKED',
+        code: '55000',
+      ),
+    });
+    await _pump(
+      tester,
+      rpc,
+      '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+    );
+    final pill = find.byKey(const ValueKey('attendance-pill-p-w2'));
+    await tester.ensureVisible(pill);
+    await tester.pumpAndSettle();
+    await tester.tap(pill);
+    await tester.pumpAndSettle();
+    expect(find.text('Not saved yet'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('attendance-save-day')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('attendance-text-dialog-field')),
+      'Came after lunch',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('attendance-text-dialog-confirm')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('attendance-dialog-error')),
+      findsOneWidget,
+    );
+    expect(find.text('This month is confirmed and locked.'), findsWidgets);
+    expect(find.text('Came after lunch'), findsOneWidget);
+  });
+
+  testWidgets('after a conflict, Keep my entries saves on the new version', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 900));
+    var version = 0;
+    final saves = <Map<String, Object?>>[];
+    final rpc = _FakeRpc({
+      'v1_wf_list_crews': (_) => _crews(_access()),
+      'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+      'v1_wf_get_day': (_) => {..._day(), 'record_version': version},
+      'v1_wf_save_day': (params) {
+        saves.add(params);
+        if (saves.length == 1) {
+          version = 1; // someone else saved first
+          throw const PostgrestException(
+            message: 'V1_WORKFORCE_DAY_VERSION_CONFLICT',
+            code: '40001',
+          );
+        }
+        return _day(saved: true);
+      },
+    });
+    await _pump(
+      tester,
+      rpc,
+      '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+    );
+    await tester.tap(find.byKey(const ValueKey('attendance-everyone-present')));
+    await tester.pump(const Duration(seconds: 9));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('attendance-save-day')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('attendance-keep-mine')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('attendance-keep-mine')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('attendance-save-day')));
+    await tester.pumpAndSettle();
+    expect(saves, hasLength(2));
+    expect(saves.last['p_expected_version'], 1);
+    expect((saves.last['p_rows'] as List).map((r) => (r as Map)['status']), [
+      'P',
+      'P',
+    ], reason: 'my entries were kept on top of the saved day');
+  });
+
+  testWidgets('Admin and PR manage public holidays on the Crews page', (
+    tester,
+  ) async {
+    _size(tester, const Size(1280, 900));
+    final rpc = _FakeRpc({
+      'v1_wf_list_crews': (_) => _crews(_access(officer: true)),
+      'v1_wf_list_public_holidays': (_) => {
+        'year': DateTime.now().year,
+        'can_manage': true,
+        'holidays': [
+          {'date': '${DateTime.now().year}-12-02', 'name': 'National Day'},
+        ],
+      },
+    });
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(preferences),
+          yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+          yorksAttendanceRepositoryProvider.overrideWithValue(
+            YorksAttendanceRepository(
+              featureFlags: _flags,
+              connectivity: const _Online(),
+              rpcClient: rpc,
+            ),
+          ),
+          yorksV1ProjectPortfolioProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(home: Scaffold(body: AttendanceCrewsScreen())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('National Day'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('attendance-add-holiday')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

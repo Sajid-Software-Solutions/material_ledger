@@ -1218,6 +1218,127 @@ abstract final class AttendanceStrings {
     hi: 'शीट पर दिखने वाला स्थान',
   );
 
+  static const saving = _T(
+    en: 'Saving…',
+    ar: 'جارٍ الحفظ…',
+    ur: 'محفوظ ہو رہا ہے…',
+    hi: 'सहेजा जा रहा है…',
+  );
+  static const undo = _T(
+    en: 'Undo',
+    ar: 'تراجع',
+    ur: 'واپس کریں',
+    hi: 'पूर्ववत करें',
+  );
+  static const needText = _T(
+    en: 'Type the {field} first.',
+    ar: 'اكتب {field} أولًا.',
+    ur: 'پہلے {field} لکھیں۔',
+    hi: 'पहले {field} लिखें।',
+  );
+  static const keepMine = _T(
+    en: 'Keep my entries',
+    ar: 'احتفظ بإدخالاتي',
+    ur: 'میرے اندراج رکھیں',
+    hi: 'मेरी प्रविष्टियाँ रखें',
+  );
+  static const useTheirs = _T(
+    en: 'Use the saved day',
+    ar: 'استخدم اليوم المحفوظ',
+    ur: 'محفوظ دن استعمال کریں',
+    hi: 'सहेजा दिन उपयोग करें',
+  );
+  static const keptMine = _T(
+    en: 'Your entries are on top of the saved day. Check them, then save.',
+    ar: 'إدخالاتك فوق اليوم المحفوظ. راجعها ثم احفظ.',
+    ur: 'آپ کے اندراج محفوظ دن پر ہیں۔ انہیں دیکھیں، پھر محفوظ کریں۔',
+    hi: 'आपकी प्रविष्टियाँ सहेजे दिन पर हैं। जाँचें, फिर सहेजें।',
+  );
+  static const undoEveryone = _T(
+    en: 'Everyone not yet marked is present on the usual shift.',
+    ar: 'كل من لم يُحدد بعد حاضر في الوردية المعتادة.',
+    ur: 'جو درج نہیں تھے وہ معمول کی شفٹ پر حاضر ہیں۔',
+    hi: 'जो अचिह्नित थे वे सामान्य शिफ्ट पर उपस्थित हैं।',
+  );
+  static const unsavedDay = _T(
+    en: 'Not saved yet',
+    ar: 'لم يُحفظ بعد',
+    ur: 'ابھی محفوظ نہیں',
+    hi: 'अभी सहेजा नहीं',
+  );
+  static const unsavedDays = _T(
+    en: 'Days with entries on this device, not saved yet:',
+    ar: 'أيام بها إدخالات على هذا الجهاز ولم تُحفظ بعد:',
+    ur: 'اس ڈیوائس پر اندراج والے دن، ابھی محفوظ نہیں:',
+    hi: 'इस डिवाइस पर प्रविष्टियों वाले दिन, अभी सहेजे नहीं:',
+  );
+  static const removedForDay = _T(
+    en: '{name} taken off this day.',
+    ar: 'أُزيل {name} من هذا اليوم.',
+    ur: '{name} اس دن سے ہٹایا گیا۔',
+    hi: '{name} इस दिन से हटाया गया।',
+  );
+  static const markAs = _T(
+    en: 'Mark {name} as {status}',
+    ar: 'تحديد {name} كـ {status}',
+    ur: '{name} کو {status} درج کریں',
+    hi: '{name} को {status} चिह्नित करें',
+  );
+  static const moreStatuses = _T(
+    en: 'Leave, rest day and times for {name}',
+    ar: 'الإجازة ويوم الراحة والأوقات لـ {name}',
+    ur: '{name} کے لیے چھٹی، آرام کا دن اور اوقات',
+    hi: '{name} के लिए अवकाश, विश्राम दिवस और समय',
+  );
+  static const holidays = _T(
+    en: 'Public holidays',
+    ar: 'العطل الرسمية',
+    ur: 'سرکاری چھٹیاں',
+    hi: 'सार्वजनिक अवकाश',
+  );
+  static const holidaysSub = _T(
+    en: 'Every hour worked on these days counts as holiday overtime, like Sundays.',
+    ar: 'كل ساعة عمل في هذه الأيام تُحسب عملًا إضافيًا في عطلة، مثل أيام الأحد.',
+    ur: 'ان دنوں کا ہر گھنٹہ اتوار کی طرح چھٹی کا اوور ٹائم ہے۔',
+    hi: 'इन दिनों का हर घंटा रविवार की तरह अवकाश ओवरटाइम है।',
+  );
+  static const addHoliday = _T(
+    en: 'Add holiday',
+    ar: 'إضافة عطلة',
+    ur: 'چھٹی شامل کریں',
+    hi: 'अवकाश जोड़ें',
+  );
+  static const holidayName = _T(
+    en: 'Holiday name',
+    ar: 'اسم العطلة',
+    ur: 'چھٹی کا نام',
+    hi: 'अवकाश का नाम',
+  );
+  static const holidayDate = _T(
+    en: 'Date',
+    ar: 'التاريخ',
+    ur: 'تاریخ',
+    hi: 'तारीख',
+  );
+  static const holidayRemoveQuestion = _T(
+    en: 'Remove {name} on {date}? Hours on that day count as normal time again.',
+    ar: 'إزالة {name} في {date}؟ تُحسب ساعات ذلك اليوم وقتًا عاديًا مجددًا.',
+    ur: '{date} کو {name} ہٹائیں؟ اس دن کے گھنٹے پھر عام وقت شمار ہوں گے۔',
+    hi: '{date} को {name} हटाएँ? उस दिन के घंटे फिर सामान्य समय गिने जाएँगे।',
+  );
+  static const noHolidays = _T(
+    en: 'No public holidays this year yet.',
+    ar: 'لا توجد عطل رسمية هذا العام بعد.',
+    ur: 'اس سال ابھی کوئی سرکاری چھٹی نہیں۔',
+    hi: 'इस वर्ष अभी कोई सार्वजनिक अवकाश नहीं।',
+  );
+  static const reports = _T(
+    en: 'Print and export',
+    ar: 'الطباعة والتصدير',
+    ur: 'پرنٹ اور ایکسپورٹ',
+    hi: 'प्रिंट और निर्यात',
+  );
+
   // ─── Errors ────────────────────────────────────────────────────────────────
   static const errOffline = _T(
     en: 'You are offline. Connect to save; your entries stay on this device.',

@@ -37,14 +37,21 @@ select ok(
      and role_default.role_name = 'admin'
      and role_default.is_granted
      and role_default.can_delegate) = 12
+  -- PR (section 37) holds every Workforce key; it delegates only view and
+  -- attendance maintenance.
+  and (select count(*)
+   from public.v1_permission_role_defaults role_default
+   where public.v1_workforce_is_capability_key(role_default.capability_key)
+     and role_default.role_name = 'pr'
+     and role_default.is_granted) = 12
   and not exists (
     select 1
     from public.v1_permission_role_defaults role_default
     where public.v1_workforce_is_capability_key(role_default.capability_key)
-      and role_default.role_name <> 'admin'
+      and role_default.role_name not in ('admin', 'pr')
       and (role_default.is_granted or role_default.can_delegate)
   ),
-  'Only Admin receives the built-in Workforce ceiling; delegation remains explicit and audited'
+  'Only Admin and PR receive the built-in Workforce ceiling; delegation remains explicit and audited'
 );
 
 select ok(
