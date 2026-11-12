@@ -109,6 +109,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workforceAttendanceV2 = featureFlags.workforceAttendanceV2;
     final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled = !isAccountant && featureFlags.teamChat;
@@ -149,6 +150,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
@@ -457,6 +459,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                               companyRequestsEnabled: companyRequestsEnabled,
                               accountsEnabled: accountsEnabled,
                               workforceEnabled: workforceEnabled,
+                              workforceAttendanceV2: workforceAttendanceV2,
                               workerRecordsEnabled: workerRecordsEnabled,
                               analyticsEnabled: analyticsEnabled,
                             ),
@@ -684,6 +687,7 @@ List<_YorksDestination> _mobileDestinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workforceAttendanceV2 = false,
   bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
@@ -695,6 +699,7 @@ List<_YorksDestination> _mobileDestinationsFor(
     companyRequestsEnabled: companyRequestsEnabled,
     accountsEnabled: accountsEnabled,
     workforceEnabled: workforceEnabled,
+    workforceAttendanceV2: workforceAttendanceV2,
     workerRecordsEnabled: workerRecordsEnabled,
     analyticsEnabled: analyticsEnabled,
   );
@@ -818,6 +823,7 @@ List<_YorksDestination> _destinationsFor(
   bool companyRequestsEnabled = false,
   bool accountsEnabled = false,
   bool workforceEnabled = false,
+  bool workforceAttendanceV2 = false,
   bool workerRecordsEnabled = false,
   bool analyticsEnabled = false,
 }) {
@@ -987,8 +993,19 @@ List<_YorksDestination> _destinationsFor(
           canViewDestination;
     }
     if (path == RoutePaths.yorksV1Workforce) {
+      // Attendance and crew requests come from role and project membership,
+      // like Material Requests (PRODUCT_DECISIONS 37): engineers and the
+      // Accountant reach Workforce without a Workforce role grant, unless a
+      // person is explicitly denied. The server checks every call.
+      final byRole =
+          workforceAttendanceV2 &&
+          (role?.reachesWorkforceByRole ?? false) &&
+          permissionState?.snapshot
+                  ?.capability(YorksV1CapabilityKeys.workforceView)
+                  ?.authoritativeSource !=
+              YorksV1PermissionEffectiveSource.explicitDeny;
       return workforceEnabled &&
-          allows(YorksV1CapabilityKeys.workforceView, false);
+          (byRole || allows(YorksV1CapabilityKeys.workforceView, false));
     }
     if (path == RoutePaths.yorksV1WorkforceAdministration) {
       return workforceEnabled &&
@@ -1488,6 +1505,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
     final companyRequestsEnabled = featureFlags.companyMaterialRequests;
     final accountsEnabled = featureFlags.accounts;
     final workforceEnabled = featureFlags.workforce;
+    final workforceAttendanceV2 = featureFlags.workforceAttendanceV2;
     final workerRecordsEnabled = featureFlags.workerRecords;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled =
@@ -1513,6 +1531,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
@@ -1525,6 +1544,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       companyRequestsEnabled: companyRequestsEnabled,
       accountsEnabled: accountsEnabled,
       workforceEnabled: workforceEnabled,
+      workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       analyticsEnabled: analyticsEnabled,
     ).map((destination) => destination.path).whereType<String>().toSet();

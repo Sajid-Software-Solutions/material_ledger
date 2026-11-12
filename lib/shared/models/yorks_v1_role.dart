@@ -58,6 +58,18 @@ enum YorksV1Role {
   /// to the server-side intersection of base role and dated membership.
   bool get canSetProjectState => isEngineering || this == admin;
 
+  /// Roles that reach Workforce attendance and crew requests by role and
+  /// project membership (PRODUCT_DECISIONS 37), as the server's
+  /// `v1_wf_allowed` does. Admin and PR hold the Workforce keys instead.
+  bool get reachesWorkforceByRole =>
+      this == siteEngineer ||
+      this == projectEngineer ||
+      this == seniorMechanicalEngineer ||
+      this == projectManager ||
+      this == workshopInCharge ||
+      this == documentController ||
+      this == accountant;
+
   /// User Configuration is a separately approved organization-level control.
   /// It does not imply access to unrelated Admin screens or commercial data.
   bool get canConfigureUsers =>

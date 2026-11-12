@@ -97,6 +97,7 @@ import '../features/workforce/presentation/attendance/attendance_take_screen.dar
 import '../features/workforce/presentation/requests/crew_request_assign_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_detail_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_form_screen.dart';
+import '../features/workforce/presentation/requests/crew_request_register_screen.dart';
 import '../shared/models/app_config.dart';
 import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
@@ -231,6 +232,7 @@ abstract final class RoutePaths {
   static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
   static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
   static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
+  static const String yorksV1WorkforceRequests = '/yorks/workforce/requests';
   static const String yorksV1WorkforceRequestNew =
       '/yorks/workforce/requests/new';
   static const String yorksV1WorkforceRequest =
@@ -824,6 +826,7 @@ bool? _isYorksV1RouteAllowedForRole(
   YorksV1HybridPermissionResolver? permissionResolver, {
   bool companyMaterialRequestsEnabled = false,
   bool accountsWorkspaceV2Enabled = false,
+  bool workforceAttendanceV2Enabled = false,
 }) {
   final path = uri.path;
   if (path == RoutePaths.yorksV1Calculators ||
@@ -909,6 +912,11 @@ bool? _isYorksV1RouteAllowedForRole(
         YorksV1CapabilityKeys.workforceTeamsManage,
         YorksV1CapabilityKeys.workforceConfigurationManage,
       ]);
+    }
+    // Attendance and crew requests: by role and project membership, like
+    // Material Requests; the server checks every call (PRODUCT_DECISIONS 37).
+    if (workforceAttendanceV2Enabled && role.reachesWorkforceByRole) {
+      return true;
     }
     return _hybridRouteAllows(
       permissionResolver,
@@ -1227,6 +1235,7 @@ GoRouter createAppRouter({
   bool yorksV1AccountsEnabled = false,
   bool yorksV1AccountsWorkspaceV2Enabled = false,
   bool yorksV1WorkforceEnabled = false,
+  bool yorksV1WorkforceAttendanceV2Enabled = false,
   bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1AnalyticsEnabled = false,
   YorksV1Role? yorksV1Role,
@@ -1489,6 +1498,7 @@ GoRouter createAppRouter({
         yorksV1PermissionResolver,
         companyMaterialRequestsEnabled: yorksV1CompanyMaterialRequestsEnabled,
         accountsWorkspaceV2Enabled: yorksV1AccountsWorkspaceV2Enabled,
+        workforceAttendanceV2Enabled: yorksV1WorkforceAttendanceV2Enabled,
       );
       if (yorksV1RouteAllowed == false) {
         return _yorksV1ProjectFallbackPath();
@@ -2278,6 +2288,14 @@ GoRouter createAppRouter({
               ),
               legacy: const YorksWorkforceOverviewScreen(),
             ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceRequests,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const _WorkforceCenterGate(child: CrewRequestRegisterScreen()),
           ),
         ),
       if (yorksV1WorkforceEnabled)
