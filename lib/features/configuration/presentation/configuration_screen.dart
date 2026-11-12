@@ -12,11 +12,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/app_language.dart';
 import '../../../shared/models/app_strings.dart';
+import '../../../shared/models/yorks_v1_audit_strings.dart';
 import '../../../shared/models/yorks_v1_configuration_v2_strings.dart';
 import '../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_configuration_provider.dart';
 import '../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
+import '../../workforce/presentation/attendance/attendance_crews_screen.dart'
+    show AttendanceHolidaysCard;
 import '../../workforce/presentation/attendance/attendance_common.dart'
     show
         AS,
@@ -98,10 +101,35 @@ const _configPath = '/yorks/configuration';
   ),
 };
 
-List<ConfigSection> _visibleSections(ConfigWorkspace workspace) =>
-    workspace.isAdmin
-    ? ConfigSection.values
-    : const [ConfigSection.workforce, ConfigSection.rentals];
+/// Sections in their groups, in reading order.
+const _groups = <(TranslatableString, List<ConfigSection>)>[
+  (CS.navStart, [ConfigSection.checklist]),
+  (CS.navCompany, [ConfigSection.company, ConfigSection.numbering]),
+  (
+    CS.navOperations,
+    [
+      ConfigSection.projects,
+      ConfigSection.requests,
+      ConfigSection.inventory,
+      ConfigSection.workforce,
+      ConfigSection.rentals,
+    ],
+  ),
+  (CS.navFinance, [ConfigSection.accounts]),
+  (
+    CS.navSystem,
+    [ConfigSection.notifications, ConfigSection.access, ConfigSection.history],
+  ),
+];
+
+List<ConfigSection> _visibleSections(ConfigWorkspace workspace) => [
+  for (final (_, sections) in _groups)
+    for (final section in sections)
+      if (workspace.isAdmin ||
+          section == ConfigSection.workforce ||
+          section == ConfigSection.rentals)
+        section,
+];
 
 /// How many checklist items need attention.
 int _attentionCount(ConfigWorkspace workspace) {
@@ -322,75 +350,89 @@ class _SectionNav extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final section in sections)
-            Builder(
-              builder: (context) {
-                final copy = _sectionCopy(section);
-                final active = section == selected;
-                return Semantics(
-                  selected: active,
-                  button: true,
-                  child: InkWell(
-                    key: ValueKey('config-nav-${section.wire}'),
-                    onTap: () => onSelect(section),
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 52),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: active ? AccountsV2Colors.pri50 : null,
-                        border: const Border(
-                          top: BorderSide(color: AccountsV2Colors.line2),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          AccountsV2Icon(
-                            copy.icon,
-                            size: 18,
-                            color: active
-                                ? AccountsV2Colors.pri
-                                : AccountsV2Colors.ink2,
+          for (final (group, members) in _groups)
+            if (members.any(sections.contains)) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                child: Text(
+                  CS.t(group, language).toUpperCase(),
+                  style: v2Style(
+                    10.5,
+                    weight: FontWeight.w700,
+                    color: AccountsV2Colors.mut2,
+                  ),
+                ),
+              ),
+              for (final section in members.where(sections.contains))
+                Builder(
+                  builder: (context) {
+                    final copy = _sectionCopy(section);
+                    final active = section == selected;
+                    return Semantics(
+                      selected: active,
+                      button: true,
+                      child: InkWell(
+                        key: ValueKey('config-nav-${section.wire}'),
+                        onTap: () => onSelect(section),
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 52),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  CS.t(copy.title, language),
-                                  style: v2Style(
-                                    13.5,
-                                    weight: FontWeight.w600,
-                                    color: active
-                                        ? AccountsV2Colors.pri
-                                        : AccountsV2Colors.ink,
-                                  ),
-                                ),
-                                Text(
-                                  CS.t(copy.sub, language),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: v2Style(
-                                    11.5,
-                                    color: AccountsV2Colors.mut,
-                                  ),
-                                ),
-                              ],
+                          decoration: BoxDecoration(
+                            color: active ? AccountsV2Colors.pri50 : null,
+                            border: const Border(
+                              top: BorderSide(color: AccountsV2Colors.line2),
                             ),
                           ),
-                          if (section == ConfigSection.checklist &&
-                              attention > 0)
-                            AccountsV2TabBadge('$attention', bad: true),
-                        ],
+                          child: Row(
+                            children: [
+                              AccountsV2Icon(
+                                copy.icon,
+                                size: 18,
+                                color: active
+                                    ? AccountsV2Colors.pri
+                                    : AccountsV2Colors.ink2,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      CS.t(copy.title, language),
+                                      style: v2Style(
+                                        13.5,
+                                        weight: FontWeight.w600,
+                                        color: active
+                                            ? AccountsV2Colors.pri
+                                            : AccountsV2Colors.ink,
+                                      ),
+                                    ),
+                                    Text(
+                                      CS.t(copy.sub, language),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: v2Style(
+                                        11.5,
+                                        color: AccountsV2Colors.mut,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (section == ConfigSection.checklist &&
+                                  attention > 0)
+                                AccountsV2TabBadge('$attention', bad: true),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+            ],
         ],
       ),
     );
@@ -664,22 +706,16 @@ class _SectionBodyState extends ConsumerState<_SectionBody> {
 
   List<Widget> _workforce(BuildContext context) {
     final language = _language;
-    final checks = _workspace.checks;
     return [
+      AttendanceHolidaysCard(
+        key: const ValueKey('config-workforce-holidays'),
+        language: language,
+        onChanged: () => refreshConfiguration(ref),
+      ),
       AccountsV2Panel(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Row(
-              key: const ValueKey('config-workforce-holidays'),
-              title: CS.t(CS.holidays, language),
-              detail:
-                  '${CS.t(CS.holidaysHint, language)} · ${checks.holidaysThisYear == 0 ? CS.t(CS.chkHolidaysNone, language) : CS.t(CS.chkHolidaysCount, language, {'n': checks.holidaysThisYear})}',
-              trailing: _LinkButton(
-                label: CS.t(CS.open, language),
-                path: '/yorks/workforce/crews',
-              ),
-            ),
             _Row(
               key: const ValueKey('config-workforce-admin'),
               title: CS.t(CS.shiftsLocations, language),
@@ -720,6 +756,44 @@ class _SectionBodyState extends ConsumerState<_SectionBody> {
                 path: '/users',
               ),
             ),
+          ],
+        ),
+      ),
+      AccountsV2Panel(
+        key: const ValueKey('config-roles'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AccountsV2CardHead(
+              title: CS.t(CS.rolesTitle, language),
+              icon: 'usercog',
+              subtitle: CS.t(CS.rolesSub, language),
+            ),
+            for (final (role, line) in [
+              ('admin', CS.roleAdmin),
+              ('senior_mechanical_engineer', CS.roleSme),
+              ('project_manager', CS.roleGlobalEngineer),
+              ('project_engineer', CS.rolePe),
+              ('site_engineer', CS.roleSe),
+              ('procurement', CS.roleProcurement),
+              ('accountant', CS.roleAccountant),
+              ('pr', CS.rolePr),
+            ])
+              _Row(
+                title: role == 'project_manager'
+                    ? CS.t(CS.roleGlobalEngineer, language).split(':').first
+                    : YorksV1AuditStrings.roleLabel(role, language),
+                detail: role == 'project_manager'
+                    ? _capitalize(
+                        CS
+                            .t(line, language)
+                            .split(':')
+                            .skip(1)
+                            .join(':')
+                            .trim(),
+                      )
+                    : CS.t(line, language),
+              ),
           ],
         ),
       ),
@@ -2574,3 +2648,6 @@ class _HistorySection extends ConsumerWidget {
 /// Opens a section from elsewhere in the app.
 String configurationPath(ConfigSection section) =>
     '$_configPath?section=${section.wire}';
+
+String _capitalize(String text) =>
+    text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);

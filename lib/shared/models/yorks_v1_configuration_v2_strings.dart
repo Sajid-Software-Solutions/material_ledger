@@ -40,6 +40,100 @@ abstract final class ConfigStrings {
     hi: 'केवल देखें',
   );
 
+  // ─── Navigation groups ─────────────────────────────────────────────────────
+  static const navStart = _T(
+    en: 'Start here',
+    ar: 'ابدأ هنا',
+    ur: 'یہاں سے شروع کریں',
+    hi: 'यहाँ से शुरू करें',
+  );
+  static const navCompany = _T(
+    en: 'Company',
+    ar: 'الشركة',
+    ur: 'کمپنی',
+    hi: 'कंपनी',
+  );
+  static const navOperations = _T(
+    en: 'Operations',
+    ar: 'العمليات',
+    ur: 'آپریشنز',
+    hi: 'संचालन',
+  );
+  static const navFinance = _T(
+    en: 'Finance',
+    ar: 'المالية',
+    ur: 'مالیات',
+    hi: 'वित्त',
+  );
+  static const navSystem = _T(
+    en: 'System',
+    ar: 'النظام',
+    ur: 'سسٹم',
+    hi: 'सिस्टम',
+  );
+
+  // ─── Roles at a glance ─────────────────────────────────────────────────────
+  static const rolesTitle = _T(
+    en: 'Roles at a glance',
+    ar: 'الأدوار باختصار',
+    ur: 'کردار ایک نظر میں',
+    hi: 'भूमिकाएँ एक नज़र में',
+  );
+  static const rolesSub = _T(
+    en: 'What each role can do. Change a person\'s role or add individual permissions in User Management.',
+    ar: 'ما يستطيع كل دور فعله. غيّر دور الشخص أو أضف صلاحيات فردية من إدارة المستخدمين.',
+    ur: 'ہر کردار کیا کر سکتا ہے۔ کسی کا کردار بدلنے یا انفرادی اجازتیں دینے کے لیے یوزر مینجمنٹ استعمال کریں۔',
+    hi: 'हर भूमिका क्या कर सकती है। किसी की भूमिका बदलने या व्यक्तिगत अनुमतियाँ देने के लिए उपयोगकर्ता प्रबंधन का उपयोग करें।',
+  );
+  static const roleAdmin = _T(
+    en: 'Everything, including Configuration and audited corrections.',
+    ar: 'كل شيء، بما في ذلك الإعدادات والتصحيحات المدققة.',
+    ur: 'سب کچھ، بشمول ترتیبات اور آڈٹ شدہ تصحیحات۔',
+    hi: 'सब कुछ, कॉन्फ़िगरेशन और ऑडिट किए गए सुधार सहित।',
+  );
+  static const roleSme = _T(
+    en: 'Every project; approves for any project; manages users; views stock.',
+    ar: 'كل المشاريع؛ يعتمد لأي مشروع؛ يدير المستخدمين؛ يطّلع على المخزون.',
+    ur: 'ہر پروجیکٹ؛ کسی بھی پروجیکٹ کے لیے منظوری؛ صارفین کا انتظام؛ اسٹاک دیکھنا۔',
+    hi: 'हर प्रोजेक्ट; किसी भी प्रोजेक्ट के लिए स्वीकृति; उपयोगकर्ता प्रबंधन; स्टॉक देखना।',
+  );
+  static const roleGlobalEngineer = _T(
+    en: 'Project Manager, Workshop In-Charge, Document Controller: every project, approves like a Project Engineer.',
+    ar: 'مدير المشروع ومسؤول الورشة ومراقب المستندات: كل المشاريع، ويعتمدون كمهندس المشروع.',
+    ur: 'پروجیکٹ مینیجر، ورکشاپ انچارج، دستاویز کنٹرولر: ہر پروجیکٹ، پروجیکٹ انجینئر کی طرح منظوری۔',
+    hi: 'प्रोजेक्ट मैनेजर, वर्कशॉप इंचार्ज, दस्तावेज़ नियंत्रक: हर प्रोजेक्ट, प्रोजेक्ट इंजीनियर की तरह स्वीकृति।',
+  );
+  static const rolePe = _T(
+    en: 'Their projects: BOQ, team, requests, approvals, receipts, returns, attendance confirmation.',
+    ar: 'مشاريعه: جداول الكميات والفريق والطلبات والاعتمادات والاستلام والإرجاع وتأكيد الحضور.',
+    ur: 'اپنے پروجیکٹس: BOQ، ٹیم، درخواستیں، منظوریاں، وصولی، واپسی، حاضری کی تصدیق۔',
+    hi: 'अपने प्रोजेक्ट: BOQ, टीम, अनुरोध, स्वीकृतियाँ, प्राप्ति, वापसी, उपस्थिति पुष्टि।',
+  );
+  static const roleSe = _T(
+    en: 'Their projects: BOQ, requests, receipts, returns, attendance and crew requests.',
+    ar: 'مشاريعه: جداول الكميات والطلبات والاستلام والإرجاع والحضور وطلبات الطواقم.',
+    ur: 'اپنے پروجیکٹس: BOQ، درخواستیں، وصولی، واپسی، حاضری اور عملے کی درخواستیں۔',
+    hi: 'अपने प्रोजेक्ट: BOQ, अनुरोध, प्राप्ति, वापसी, उपस्थिति और क्रू अनुरोध।',
+  );
+  static const roleProcurement = _T(
+    en: 'Arranges requests, keeps stock, dispatches and confirms returns. Never approves its own arrangement.',
+    ar: 'يرتّب الطلبات ويحفظ المخزون ويرسل ويؤكد الإرجاع. لا يعتمد ترتيبه بنفسه أبدًا.',
+    ur: 'درخواستوں کی ترتیب، اسٹاک، ڈسپیچ اور واپسی کی تصدیق۔ اپنی ترتیب کبھی خود منظور نہیں کرتا۔',
+    hi: 'अनुरोधों की व्यवस्था, स्टॉक, प्रेषण और वापसी की पुष्टि। अपनी व्यवस्था कभी खुद स्वीकृत नहीं करता।',
+  );
+  static const roleAccountant = _T(
+    en: 'Project Accounts: claims, certification, receipts, cheques and supplier bills. Reads Workforce.',
+    ar: 'حسابات المشاريع: المطالبات والاعتماد والمقبوضات والشيكات وفواتير الموردين. يطّلع على القوى العاملة.',
+    ur: 'پروجیکٹ اکاؤنٹس: کلیمز، تصدیق، وصولیاں، چیک اور سپلائر بلز۔ افرادی قوت دیکھ سکتا ہے۔',
+    hi: 'प्रोजेक्ट लेखा: दावे, प्रमाणन, प्राप्तियाँ, चेक और आपूर्तिकर्ता बिल। कार्यबल देख सकता है।',
+  );
+  static const rolePr = _T(
+    en: 'People and HR: users, worker records, Workforce, leave, crew request assignment and Rentals. Reads projects and Accounts.',
+    ar: 'الأفراد والموارد البشرية: المستخدمون وسجلات العمال والقوى العاملة والإجازات وتعيين طلبات الطواقم والإيجارات. يطّلع على المشاريع والحسابات.',
+    ur: 'افراد اور ایچ آر: صارفین، ورکر ریکارڈز، افرادی قوت، رخصت، عملے کی درخواستوں کی تقرری اور کرایے۔ پروجیکٹس اور اکاؤنٹس دیکھ سکتا ہے۔',
+    hi: 'लोग और एचआर: उपयोगकर्ता, वर्कर रिकॉर्ड, कार्यबल, अवकाश, क्रू अनुरोध सौंपना और किराया। प्रोजेक्ट और लेखा देख सकता है।',
+  );
+
   // ─── Section names and lines ───────────────────────────────────────────────
   static const secChecklist = _T(
     en: 'Setup checklist',

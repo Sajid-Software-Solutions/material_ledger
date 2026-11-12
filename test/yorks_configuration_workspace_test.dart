@@ -10,6 +10,10 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ledger/features/configuration/application/configuration_workspace_providers.dart';
 import 'package:material_ledger/features/configuration/data/configuration_workspace_repository.dart';
 import 'package:material_ledger/features/configuration/presentation/configuration_screen.dart';
+import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
+import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
+import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
+import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -160,6 +164,26 @@ final class _FakeRpc implements ConfigRpcClient {
   }
 }
 
+final class _FakeWorkforceRpc implements YorksWorkforceRpcClient {
+  final holidays = <Map<String, Object?>>[];
+  final calls = <(String, Map<String, Object?>)>[];
+
+  @override
+  Future<Map<String, dynamic>> invoke({
+    required String functionName,
+    required Map<String, Object?> parameters,
+  }) async {
+    calls.add((functionName, parameters));
+    if (functionName == 'v1_wf_save_public_holiday') {
+      holidays.add({
+        'date': parameters['p_holiday_date'],
+        'name': parameters['p_holiday_name'],
+      });
+    }
+    return {'year': 2026, 'can_manage': true, 'holidays': holidays};
+  }
+}
+
 final class _Online implements ConnectivityService {
   const _Online();
   @override
@@ -175,7 +199,12 @@ void _size(WidgetTester tester, Size size) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> _pump(WidgetTester tester, _FakeRpc rpc, {String? section}) async {
+Future<void> _pump(
+  WidgetTester tester,
+  _FakeRpc rpc, {
+  String? section,
+  _FakeWorkforceRpc? workforce,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -201,6 +230,25 @@ Future<void> _pump(WidgetTester tester, _FakeRpc rpc, {String? section}) async {
           ConfigWorkspaceRepository(
             connectivity: const _Online(),
             rpcClient: rpc,
+          ),
+        ),
+        yorksAttendanceRepositoryProvider.overrideWithValue(
+          YorksAttendanceRepository(
+            featureFlags: const YorksV1FeatureFlags(
+              foundation: true,
+              projects: true,
+              boq: true,
+              excel: true,
+              requests: true,
+              arrangement: true,
+              logistics: true,
+              returnsDocuments: true,
+              documents: true,
+              workforce: true,
+              workforceAttendanceV2: true,
+            ),
+            connectivity: const _Online(),
+            rpcClient: workforce ?? _FakeWorkforceRpc(),
           ),
         ),
       ],
@@ -357,12 +405,55 @@ void main() {
     expect(find.byKey(const ValueKey('config-nav-accounts')), findsNothing);
   });
 
+  testWidgets('public holidays are entered right in Configuration', (
+    tester,
+  ) async {
+    _size(tester, const Size(1366, 1000));
+    var workspaceReads = 0;
+    final workforce = _FakeWorkforceRpc();
+    final rpc = _FakeRpc({
+      'v1_cfg_get_workspace': (_) {
+        workspaceReads++;
+        return _workspace();
+      },
+    });
+    await _pump(tester, rpc, section: 'workforce', workforce: workforce);
+
+    expect(
+      find.byKey(const ValueKey('config-workforce-holidays')),
+      findsOneWidget,
+    );
+    expect(
+      workforce.calls.map((c) => c.$1),
+      contains('v1_wf_list_public_holidays'),
+    );
+    expect(workspaceReads, 1);
+  });
+
+  testWidgets('Access explains every role', (tester) async {
+    _size(tester, const Size(1366, 1200));
+    final rpc = _FakeRpc({'v1_cfg_get_workspace': (_) => _workspace()});
+    await _pump(tester, rpc, section: 'access');
+
+    expect(find.byKey(const ValueKey('config-roles')), findsOneWidget);
+    expect(find.text('Procurement'), findsWidgets);
+    expect(
+      find.textContaining('Never approves its own arrangement'),
+      findsOneWidget,
+    );
+    // Groups in the navigation.
+    expect(find.text('OPERATIONS'), findsOneWidget);
+    expect(find.text('FINANCE'), findsOneWidget);
+  });
+
   for (final (name, section) in [
     ('sections', null),
     ('company', 'company'),
     ('requests', 'requests'),
     ('accounts', 'accounts'),
     ('numbering', 'numbering'),
+    ('workforce', 'workforce'),
+    ('access', 'access'),
   ]) {
     testWidgets('the $name page fits a 360px phone', (tester) async {
       _size(tester, const Size(360, 800));
@@ -410,6 +501,17 @@ void main() {
     });
     testWidgets('phone accounts', (tester) async {
       await shot(tester, const Size(360, 800), 'accounts', 'phone_accounts');
+    });
+    testWidgets('desktop workforce', (tester) async {
+      await shot(
+        tester,
+        const Size(1366, 900),
+        'workforce',
+        'desktop_workforce',
+      );
+    });
+    testWidgets('desktop access', (tester) async {
+      await shot(tester, const Size(1366, 1100), 'access', 'desktop_access');
     });
     testWidgets('phone company', (tester) async {
       await shot(tester, const Size(360, 800), 'company', 'phone_company');
