@@ -6125,13 +6125,13 @@ abstract final class YorksV1AccountsStrings {
     },
     'v2c_block_project_has_no_buildings': {
       'en':
-          "This project has no buildings yet. Add its buildings in Edit project → Buildings, then split the contract between them here.",
+          "This project has no buildings yet. Add its buildings in Edit project › Buildings, then split the contract between them here.",
       'ar':
-          "لا توجد مبانٍ لهذا المشروع بعد. أضف المباني من تعديل المشروع ← المباني، ثم وزّع العقد عليها هنا.",
+          "لا توجد مبانٍ لهذا المشروع بعد. أضف المباني من تعديل المشروع ‹ المباني، ثم وزّع العقد عليها هنا.",
       'ur':
-          "اس پروجیکٹ میں ابھی کوئی عمارت نہیں۔ پروجیکٹ میں ترمیم → عمارتیں میں شامل کریں، پھر یہاں کنٹریکٹ تقسیم کریں۔",
+          "اس پروجیکٹ میں ابھی کوئی عمارت نہیں۔ پروجیکٹ میں ترمیم › عمارتیں میں شامل کریں، پھر یہاں کنٹریکٹ تقسیم کریں۔",
       'hi':
-          "इस प्रोजेक्ट में अभी कोई इमारत नहीं है। प्रोजेक्ट संपादित करें → इमारतें में जोड़ें, फिर यहाँ अनुबंध बाँटें।",
+          "इस प्रोजेक्ट में अभी कोई इमारत नहीं है। प्रोजेक्ट संपादित करें › इमारतें में जोड़ें, फिर यहाँ अनुबंध बाँटें।",
     },
     'v2c_block_add_building': {
       'en':
@@ -6726,10 +6726,10 @@ abstract final class YorksV1AccountsStrings {
       'hi': "अनुबंध का चालान",
     },
     'v2p_before_after': {
-      'en': "Before → after this claim",
-      'ar': "قبل ← بعد هذه المطالبة",
-      'ur': "اس کلیم سے پہلے ← بعد",
-      'hi': "इस क्लेम से पहले → बाद",
+      'en': "Before › after this claim",
+      'ar': "قبل ‹ بعد هذه المطالبة",
+      'ur': "اس کلیم سے پہلے ‹ بعد",
+      'hi': "इस क्लेम से पहले › बाद",
     },
     'v2p_kpi_site': {
       'en': "Site records",
@@ -7052,10 +7052,10 @@ abstract final class YorksV1AccountsStrings {
       'hi': "इस चरण के लिए कोई आइटम नहीं",
     },
     'v2p_no_items_body': {
-      'en': "Add them in Contract → item breakdown.",
-      'ar': "أضفها في العقد ← تفصيل البنود.",
-      'ur': "انہیں معاہدہ ← آئٹم تفصیل میں شامل کریں۔",
-      'hi': "उन्हें अनुबंध → आइटम विवरण में जोड़ें।",
+      'en': "Add them in Contract › item breakdown.",
+      'ar': "أضفها في العقد ‹ تفصيل البنود.",
+      'ur': "انہیں معاہدہ ‹ آئٹم تفصیل میں شامل کریں۔",
+      'hi': "उन्हें अनुबंध › आइटम विवरण में जोड़ें।",
     },
     'v2p_claim_details': {
       'en': "Claim details",
@@ -7552,10 +7552,10 @@ abstract final class YorksV1AccountsStrings {
       'hi': "क्लियर हो",
     },
     'v2i_pdc_sub_c': {
-      'en': ": In hand → Deposited → Cleared (or Bounced).",
-      'ar': ": بالحوزة ← مودع ← مصروف (أو مرتجع).",
-      'ur': ": ہاتھ میں ← جمع شدہ ← کلیئر (یا باؤنس)۔",
-      'hi': ": हाथ में → जमा → क्लियर (या बाउंस)।",
+      'en': ": In hand › Deposited › Cleared (or Bounced).",
+      'ar': ": بالحوزة ‹ مودع ‹ مصروف (أو مرتجع).",
+      'ur': ": ہاتھ میں ‹ جمع شدہ ‹ کلیئر (یا باؤنس)۔",
+      'hi': ": हाथ में › जमा › क्लियर (या बाउंस)।",
     },
     'v2i_p_no': {
       'en': "Cheque no.",
@@ -8206,10 +8206,10 @@ abstract final class YorksV1AccountsStrings {
       'hi': "चालान {ref} जारी किया गया",
     },
     'v2h_t_invoice_replaced': {
-      'en': "{ref} revised → {new}",
-      'ar': "عُدّلت {ref} ← {new}",
-      'ur': "{ref} میں ترمیم ← {new}",
-      'hi': "{ref} संशोधित → {new}",
+      'en': "{ref} revised › {new}",
+      'ar': "عُدّلت {ref} ‹ {new}",
+      'ur': "{ref} میں ترمیم ‹ {new}",
+      'hi': "{ref} संशोधित › {new}",
     },
     'v2h_t_certified': {
       'en': "{ref} certified",
@@ -9367,6 +9367,25 @@ abstract final class YorksV1AccountsStrings {
       'ar': "ملف مرفق",
       'ur': "منسلک فائل",
       'hi': "संलग्न फ़ाइल",
+    },
+    'v2c_bar_unsaved': {
+      'en': "Unsaved changes",
+      'ar': "تغييرات غير محفوظة",
+      'ur': "غیر محفوظ تبدیلیاں",
+      'hi': "असहेजे बदलाव",
+    },
+    'v2c_bar_to_fix': {
+      'en': "Unsaved changes · {n} to fix before saving (see above)",
+      'ar': "تغييرات غير محفوظة · {n} للإصلاح قبل الحفظ (انظر أعلاه)",
+      'ur':
+          "غیر محفوظ تبدیلیاں · محفوظ کرنے سے پہلے {n} درست کریں (اوپر دیکھیں)",
+      'hi': "असहेजे बदलाव · सहेजने से पहले {n} ठीक करें (ऊपर देखें)",
+    },
+    'v2c_bar_failed': {
+      'en': "Not saved. The reason is shown above.",
+      'ar': "لم يُحفظ. السبب موضح أعلاه.",
+      'ur': "محفوظ نہیں ہوا۔ وجہ اوپر دکھائی گئی ہے۔",
+      'hi': "सहेजा नहीं गया। कारण ऊपर दिखाया गया है।",
     },
   };
 

@@ -176,6 +176,7 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
           else
             AccountsV2Table(
               minWidth: 960,
+              phoneCards: true,
               columns: [
                 AccountsV2Column(_t('v2i_p_no'), width: 120),
                 AccountsV2Column(_t('v2i_c_invoice'), width: 140),
@@ -183,7 +184,12 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
                 AccountsV2Column(_t('v2i_p_received'), width: 120),
                 AccountsV2Column(_t('v2i_p_date'), width: 130),
                 AccountsV2Column(_t('v2i_p_amount'), width: 130, numeric: true),
-                AccountsV2Column(_t('v2i_c_status'), width: 120, center: true),
+                AccountsV2Column(
+                  _t('v2i_c_status'),
+                  width: 120,
+                  center: true,
+                  cardBadge: true,
+                ),
                 if (_showAction)
                   AccountsV2Column(
                     _t('v2i_p_action'),
@@ -417,9 +423,9 @@ class AccountsV2PdcRegisterCard extends StatelessWidget {
               );
             }
           },
-          child: const SizedBox(
-            width: 32,
-            height: 30,
+          child: SizedBox(
+            width: AccountsV2Breakpoints.isPhone(context) ? 44 : 32,
+            height: AccountsV2Breakpoints.isPhone(context) ? 44 : 30,
             child: Center(
               child: AccountsV2Icon(
                 'dots',
@@ -586,7 +592,7 @@ class _PdcTransitionDialogState extends State<_PdcTransitionDialog>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${widget.pdc.chequeNumber} → '
+            '${widget.pdc.chequeNumber} › '
             '${accountsV2Text(widget.language, _statusKey(widget.target))}',
             style: AppTypography.bodyMedium.copyWith(color: AppColors.ink),
           ),

@@ -356,45 +356,48 @@ class _YorksAccountsWorkspaceV2ScreenState
     final phone = AccountsV2Breakpoints.isPhone(context);
     return ColoredBox(
       color: AccountsV2Colors.bg,
-      child: SingleChildScrollView(
-        padding: phone
-            ? const EdgeInsets.fromLTRB(14, 12, 14, 50)
-            : const EdgeInsets.fromLTRB(18, 16, 18, 56),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SubBar(
-              selected: _tab,
-              language: language,
-              badges: {
-                if (drafts.has(YorksAccountsDraftSection.contract))
-                  YorksAccountsWorkspaceV2Tab.contract: unsaved
-                else if (setupToFix > 0)
-                  YorksAccountsWorkspaceV2Tab.contract: ('$setupToFix', true),
-                if (drafts.has(YorksAccountsDraftSection.claimsPrefix))
-                  YorksAccountsWorkspaceV2Tab.claims: unsaved
-                else if (badges.claimsDraft)
-                  YorksAccountsWorkspaceV2Tab.claims: (
-                    accountsV2Text(language, 'v2_badge_draft'),
-                    false,
-                  ),
-                if (overdueInvoices > 0)
-                  YorksAccountsWorkspaceV2Tab.invoices: (
-                    '$overdueInvoices',
-                    true,
-                  ),
-                if ((badges.supplierCount ?? 0) > 0)
-                  YorksAccountsWorkspaceV2Tab.supplierBills: (
-                    '${badges.supplierCount}',
-                    false,
-                  ),
-              },
-              actions: _tabActions(language),
-              onSelected: _select,
-            ),
-            const SizedBox(height: accountsV2Gap),
-            _buildBody(language),
-          ],
+      // Save bars sit below the scrolling page, always in reach.
+      child: AccountsV2BottomBarHost(
+        child: SingleChildScrollView(
+          padding: phone
+              ? const EdgeInsets.fromLTRB(14, 12, 14, 50)
+              : const EdgeInsets.fromLTRB(18, 16, 18, 56),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SubBar(
+                selected: _tab,
+                language: language,
+                badges: {
+                  if (drafts.has(YorksAccountsDraftSection.contract))
+                    YorksAccountsWorkspaceV2Tab.contract: unsaved
+                  else if (setupToFix > 0)
+                    YorksAccountsWorkspaceV2Tab.contract: ('$setupToFix', true),
+                  if (drafts.has(YorksAccountsDraftSection.claimsPrefix))
+                    YorksAccountsWorkspaceV2Tab.claims: unsaved
+                  else if (badges.claimsDraft)
+                    YorksAccountsWorkspaceV2Tab.claims: (
+                      accountsV2Text(language, 'v2_badge_draft'),
+                      false,
+                    ),
+                  if (overdueInvoices > 0)
+                    YorksAccountsWorkspaceV2Tab.invoices: (
+                      '$overdueInvoices',
+                      true,
+                    ),
+                  if ((badges.supplierCount ?? 0) > 0)
+                    YorksAccountsWorkspaceV2Tab.supplierBills: (
+                      '${badges.supplierCount}',
+                      false,
+                    ),
+                },
+                actions: _tabActions(language),
+                onSelected: _select,
+              ),
+              const SizedBox(height: accountsV2Gap),
+              _buildBody(language),
+            ],
+          ),
         ),
       ),
     );

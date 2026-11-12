@@ -343,7 +343,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('${t('v2p_retention_held')} 10%'), findsOneWidget);
-      expect(find.text('− AED 5,000.00'), findsOneWidget);
+      expect(find.text('– AED 5,000.00'), findsOneWidget);
       expect(find.text(t('v2p_after_retention')), findsOneWidget);
       expect(find.text('AED 47,500.00'), findsOneWidget);
     });
@@ -560,7 +560,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(_input(0), '120');
       await tester.pumpAndSettle();
-      expect(find.textContaining('120.0% ⚠'), findsOneWidget);
+      expect(find.textContaining('120.0% !'), findsOneWidget);
       await _tap(tester, _button(t('v2p_add_file')));
       await tester.tap(find.text('site.pdf').last);
       await tester.pumpAndSettle();

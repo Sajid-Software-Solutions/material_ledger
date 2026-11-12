@@ -1,7 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/accounts/domain/accounts_decimal.dart';
@@ -20,7 +18,10 @@ import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_hi
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_invoices_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_summary_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_supplier_tab.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
+
+import 'support/accounts_v2_golden_fonts.dart';
 
 const _en = AppLanguage.english;
 
@@ -591,7 +592,7 @@ Widget _supplierTab() => AccountsV2SupplierTab(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUpAll(_loadGoldenFonts);
+  setUpAll(loadAccountsV2GoldenFonts);
 
   final tabs = <String, Widget Function()>{
     'summary': _summaryTab,
@@ -665,6 +666,68 @@ void main() {
     });
   }
 
+  // Phones: unsaved edits keep Discard and Save at the bottom of the screen
+  // while the form scrolls above them.
+  testWidgets('accounts v2 phone contract save bar', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: AccountsV2BottomBarHost(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(14),
+              child: _contractTab(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '17500000');
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('accounts-v2-contract-save-bar')),
+      findsOneWidget,
+    );
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/accounts_v2/phone_contract_save_bar.png'),
+    );
+  });
+
+  // Phones: the reports open from one button as a sheet, so the figures stay
+  // on the first screen.
+  testWidgets('accounts v2 phone reports sheet', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(14),
+              child: _invoicesTab(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('accounts-v2-reports-menu')));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/accounts_v2/phone_reports_sheet.png'),
+    );
+  });
+
   // A refused command keeps its dialog open with the reason inside.
   for (final vp in viewports.entries) {
     testWidgets('accounts v2 dialog refusal ${vp.key}', (tester) async {
@@ -712,30 +775,4 @@ void main() {
       );
     });
   }
-}
-
-Future<void> _loadGoldenFonts() async {
-  final nexus = FontLoader('NexusSans')
-    ..addFont(rootBundle.load('assets/fonts/NotoSans-Regular.ttf'))
-    ..addFont(rootBundle.load('assets/fonts/NotoSans-Bold.ttf'));
-  final arabic = FontLoader('NotoSansArabic')
-    ..addFont(rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'));
-  final cache = _flutterCacheDirectory();
-  final icons = await File(
-    '${cache.path}/artifacts/material_fonts/MaterialIcons-Regular.otf',
-  ).readAsBytes();
-  final materialIcons = FontLoader('MaterialIcons')
-    ..addFont(Future.value(ByteData.sublistView(icons)));
-  await Future.wait([nexus.load(), arabic.load(), materialIcons.load()]);
-}
-
-Directory _flutterCacheDirectory() {
-  var directory = File(Platform.resolvedExecutable).parent;
-  for (var level = 0; level < 8; level++) {
-    if (directory.path.endsWith('${Platform.pathSeparator}cache')) {
-      return directory;
-    }
-    directory = directory.parent;
-  }
-  throw StateError('Could not locate the Flutter cache from the test runner');
 }

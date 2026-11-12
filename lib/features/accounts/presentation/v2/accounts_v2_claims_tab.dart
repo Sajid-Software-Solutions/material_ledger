@@ -1566,7 +1566,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             icon: 'spark',
             label: _t('v2p_kpi_contract_invoiced'),
             value: contract > 0
-                ? '${v2Pct(before / contract * 100)} → '
+                ? '${v2Pct(before / contract * 100)} › '
                       '${v2Pct((before + gross) / contract * 100)}'
                 : '—',
             caption: _t('v2p_before_after'),
@@ -1666,6 +1666,12 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         ),
       ],
     );
+    if (AccountsV2Breakpoints.isPhone(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: AccountsV2PhoneFilters(selects: selects, trailing: toggles),
+      );
+    }
     if (narrow) {
       return Padding(
         padding: const EdgeInsets.only(top: 6),
@@ -1714,7 +1720,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             tone: _error != null || invalid || periodReversed
                 ? AccountsV2NoteTone.bad
                 : AccountsV2NoteTone.warn,
-            trailing: phone ? null : _saveButtons(canSave),
+
             // Whatever keeps Save unavailable is named here.
             child: Text(
               _error ??
@@ -1789,36 +1795,69 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
                 ),
             ],
           ),
-          if (phone) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: _saveButtons(canSave),
-            ),
-          ],
+          // Discard and Save live in the bar at the bottom of the screen,
+          // in reach while progress is typed further down.
+          AccountsV2BottomBar(child: _actionBar(canSave)),
         ],
       ),
     );
   }
 
-  Widget _saveButtons(bool canSave) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      AccountsV2Button(
-        label: _t('v2c_discard'),
-        size: AccountsV2ButtonSize.small,
-        onPressed: _saving ? null : _discard,
+  Widget _actionBar(bool canSave) {
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final status = Text(
+      _error != null ? _t('v2c_bar_failed') : _t('v2c_bar_unsaved'),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: v2Style(
+        13,
+        weight: FontWeight.w600,
+        color: _error != null ? AccountsV2Colors.bad : AccountsV2Colors.ink2,
       ),
-      AccountsV2Button(
-        label: _saving ? _t('v2c_saving') : _t('v2p_save_progress'),
-        icon: 'check',
-        kind: AccountsV2ButtonKind.primary,
-        size: AccountsV2ButtonSize.small,
-        onPressed: canSave ? _save : null,
-      ),
-    ],
-  );
+    );
+    final discard = AccountsV2Button(
+      label: _t('v2c_discard'),
+      size: AccountsV2ButtonSize.small,
+      block: phone,
+      onPressed: _saving ? null : _discard,
+    );
+    final save = AccountsV2Button(
+      label: _saving ? _t('v2c_saving') : _t('v2p_save_progress'),
+      icon: 'check',
+      kind: AccountsV2ButtonKind.primary,
+      size: AccountsV2ButtonSize.small,
+      block: phone,
+      onPressed: canSave ? _save : null,
+    );
+    return KeyedSubtree(
+      key: const ValueKey('accounts-v2-claims-save-bar'),
+      child: phone
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                status,
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: discard),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: save),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: status),
+                const SizedBox(width: 12),
+                discard,
+                const SizedBox(width: 8),
+                save,
+              ],
+            ),
+    );
+  }
 
   // ─── Workbench ────────────────────────────────────────────────────────────
 
@@ -2176,6 +2215,8 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         AccountsV2Table(
           boxed: true,
           minWidth: phone ? 640 : 0,
+          phoneCards: true,
+          cardTitle: v.cell.stageLabel ?? v.cell.stageKey,
           columns: columns,
           rows: [
             AccountsV2Row([
@@ -2184,7 +2225,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
               input,
               over
                   ? Text(
-                      '${v2Pct(_d(total))} ⚠',
+                      '${v2Pct(_d(total))} !',
                       style: v2Style(
                         12.5,
                         weight: FontWeight.w700,
@@ -2306,7 +2347,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
                 _DeliveredLine(
                   key: ValueKey('v2m_delivered_${i.item.stageItemId}'),
                   text:
-                      '${d.isShare ? '≈ ' : ''}'
+                      '${d.isShare ? '~ ' : ''}'
                       '${qty(_deliveredTarget(v, i)!)} ${_t('v2m_delivered')}'
                       '${d.lastDeliveryReference == null ? '' : ' · ${d.lastDeliveryReference}'}',
                   tooltip: d.isShare ? _t('v2m_share_hint') : null,
@@ -2335,7 +2376,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '${qty(toDate)} · ${v2Pct(pct, 0)}${over ? ' ⚠' : ''}',
+                '${qty(toDate)} · ${v2Pct(pct, 0)}${over ? ' !' : ''}',
                 style: over
                     ? v2Style(
                         12.5,
@@ -2419,6 +2460,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
         AccountsV2Table(
           boxed: true,
           minWidth: phone ? 640 : 0,
+          phoneCards: true,
           columns: columns,
           rows: rows,
           footer: _values
@@ -2627,7 +2669,7 @@ class _AccountsV2ClaimsTabState extends State<AccountsV2ClaimsTab> {
               AccountsV2LedgerRow(
                 label:
                     '${_t('v2p_retention_held')} ${v2Fmt(retentionPct, retentionPct % 1 == 0 ? 0 : 2)}%',
-                value: '− ${v2Money(retention)}',
+                value: '– ${v2Money(retention)}',
               ),
               AccountsV2LedgerRow(
                 label: _t('v2p_after_retention'),
@@ -2932,9 +2974,10 @@ class _WorkbenchRowState extends State<_WorkbenchRow> {
             mainAxisSize: MainAxisSize.min,
             children: [
               widget.title,
+              // Narrow screens wrap rather than cut an amount short.
               Text(
                 widget.subtitle,
-                maxLines: 1,
+                maxLines: narrow ? 3 : 1,
                 overflow: TextOverflow.ellipsis,
                 style: v2Style(12.5, color: AccountsV2Colors.ink2),
               ),
@@ -3120,8 +3163,8 @@ class _QtyCell extends StatelessWidget {
           child: Tooltip(
             message: maxTooltip,
             child: SizedBox(
-              width: 46,
-              height: 30,
+              width: AccountsV2Breakpoints.isPhone(context) ? 52 : 46,
+              height: AccountsV2Breakpoints.isPhone(context) ? 44 : 30,
               child: Material(
                 color: Colors.white,
                 shape: RoundedRectangleBorder(

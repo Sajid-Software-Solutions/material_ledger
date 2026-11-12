@@ -407,25 +407,26 @@ class _AccountsV2SupplierBillDrawerState
     );
   }
 
+  // As the invoice drawer: three across, stacked on a phone.
   Widget _stats(YorksAccountsSupplierBill bill) => AccountsV2Grid(
-    columns: 3,
+    columns: AccountsV2Breakpoints.isPhone(context) ? 1 : 3,
     gap: 10,
     children: [
       AccountsV2MiniStat(
         label: _t('v2sd_total'),
-        value: v2Money(_n(bill.totalInclVat)),
+        value: v2Fmt(_n(bill.totalInclVat)),
         caption: _t('v2sd_total_caption')
-            .replaceAll('{ex}', v2Money(_n(bill.exVatAmount)))
-            .replaceAll('{vat}', v2Money(_n(bill.vatAmount))),
+            .replaceAll('{ex}', v2Fmt(_n(bill.exVatAmount)))
+            .replaceAll('{vat}', v2Fmt(_n(bill.vatAmount))),
       ),
       AccountsV2MiniStat(
         label: _t('v2sd_paid'),
-        value: v2Money(_n(bill.paidAmount)),
+        value: v2Fmt(_n(bill.paidAmount)),
         caption: '',
       ),
       AccountsV2MiniStat(
         label: _t('v2sd_due'),
-        value: v2Money(_n(bill.outstandingAmount)),
+        value: v2Fmt(_n(bill.outstandingAmount)),
         caption: _t(
           'v2sd_due_caption',
         ).replaceAll('{date}', v2Date(bill.dueDate.postgresText)),
@@ -670,6 +671,7 @@ class _AccountsV2SupplierBillDrawerState
     return AccountsV2Table(
       boxed: true,
       minWidth: 520,
+      phoneCards: true,
       columns: [
         AccountsV2Column(_t('v2i_t_type'), width: 112),
         AccountsV2Column(_t('v2i_t_ref')),

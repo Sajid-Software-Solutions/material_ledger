@@ -1170,7 +1170,7 @@ class _CollectionsCard extends StatelessWidget {
                 if (cash != null) ...[
                   AccountsV2KeyValue(
                     label: t('v2_cash_paid_suppliers'),
-                    value: '− ${v2Money(v2Number(cash.paidToSuppliers))}',
+                    value: '– ${v2Money(v2Number(cash.paidToSuppliers))}',
                   ),
                   AccountsV2KeyValue(
                     label: t('v2o_net_cash'),
