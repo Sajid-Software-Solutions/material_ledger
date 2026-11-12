@@ -26,7 +26,7 @@ select ok(
 
 select is(
   (select count(*) from public.v1_permission_role_defaults),
-  (select count(*) * 9 from public.v1_capability_catalog),
+  (select count(*) * 10 from public.v1_capability_catalog),
   'The exact-role matrix covers every capability after Workforce is seeded'
 );
 

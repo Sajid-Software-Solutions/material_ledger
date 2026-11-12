@@ -60,6 +60,7 @@ final yorksV1CurrentRoleProvider = Provider<YorksV1Role?>((ref) {
       UserRole.engineer => YorksV1Role.projectEngineer,
       UserRole.procurement => YorksV1Role.procurement,
       UserRole.accountant => YorksV1Role.accountant,
+      UserRole.pr => YorksV1Role.pr,
       UserRole.admin => YorksV1Role.admin,
     };
   }

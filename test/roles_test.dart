@@ -8,8 +8,22 @@ void main() {
         UserRole.engineer,
         UserRole.procurement,
         UserRole.accountant,
+        UserRole.pr,
         UserRole.admin,
       ]);
+    });
+
+    test('PR runs people and rentals, never materials or commercials', () {
+      expect(UserRole.pr.canAccessMaterials, false);
+      expect(UserRole.pr.canSeeCost, false);
+      expect(UserRole.pr.canViewFinance, false);
+      expect(UserRole.pr.canAccessPeople, true);
+      expect(UserRole.pr.canWritePeople, true);
+      expect(UserRole.pr.canAccessRentals, true);
+      expect(UserRole.pr.canWriteRentals, true);
+      expect(UserRole.pr.canApproveLeave, true);
+      expect(UserRole.pr.canReceiveGoods, false);
+      expect(UserRole.pr.isAdmin, false);
     });
 
     test('cost visibility — Admin/Procurement only (FR-092)', () {

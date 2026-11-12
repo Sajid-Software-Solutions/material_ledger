@@ -19,7 +19,7 @@ select ok(
 select is(
   (select count(*)
    from public.v1_permission_role_defaults),
-  (select count(*) * 9 from public.v1_capability_catalog),
+  (select count(*) * 10 from public.v1_capability_catalog),
   'Every exact Yorks role has an explicit default for every catalog capability'
 );
 

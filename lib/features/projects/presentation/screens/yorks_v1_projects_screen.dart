@@ -101,6 +101,12 @@ class YorksV1OverviewScreen extends ConsumerWidget {
     if (role == YorksV1Role.accountant) {
       return _AccountantRolloutLockedState(language: language);
     }
+    // PR never reads Material Request, inventory or dispatch data. Its
+    // landing page is User Management; this card is only a stale-link
+    // fallback and subscribes to no technical provider.
+    if (role == YorksV1Role.pr) {
+      return _PrOverviewState(language: language);
+    }
     if (ref.watch(yorksV1FeatureFlagsProvider).roleOverviewV2) {
       return const YorksV1RoleOverviewDeferred();
     }
@@ -677,6 +683,18 @@ class _OverviewRoleProfile {
         _OverviewActionKind.returns,
       ],
     ),
+    YorksV1Role.pr => const _OverviewRoleProfile(
+      eyebrow: YorksV1ShellStrings.prWorkspace,
+      title: YorksV1ShellStrings.prHero,
+      description: YorksV1ShellStrings.prHeroDescription,
+      priorityTitle: YorksV1ShellStrings.prHero,
+      metrics: [_OverviewMetricKind.projects],
+      actions: [
+        _OverviewActionKind.users,
+        _OverviewActionKind.projects,
+        _OverviewActionKind.rentals,
+      ],
+    ),
     YorksV1Role.accountant => const _OverviewRoleProfile(
       eyebrow: YorksV1OverviewStrings.accountantRolloutTitle,
       title: YorksV1OverviewStrings.accountantRolloutTitle,
@@ -747,6 +765,64 @@ class _AccountantRolloutLockedState extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: AppTypography.bodyLarge.copyWith(
                       color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrOverviewState extends StatelessWidget {
+  const _PrOverviewState({required this.language});
+
+  final AppLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.surface,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: NexusSectionCard(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.groups_2_outlined,
+                    key: ValueKey('pr-overview-icon'),
+                    size: 44,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  BilingualText(
+                    english: YorksV1ShellStrings.prHero.primary,
+                    secondary: YorksV1ShellStrings.prHero.secondary(language),
+                    englishStyle: AppTypography.headlineSmall,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    YorksV1ShellStrings.prHeroDescription.active(language),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton.icon(
+                    key: const ValueKey('pr-overview-users'),
+                    onPressed: () => context.go(RoutePaths.users),
+                    icon: const Icon(Icons.manage_accounts_outlined),
+                    label: Text(
+                      YorksV1ShellStrings.userManagement.active(language),
                     ),
                   ),
                 ],

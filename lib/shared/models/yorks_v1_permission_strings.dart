@@ -332,6 +332,8 @@ abstract final class YorksV1PermissionStrings {
     'role.workshop_in_charge': 'Workshop In-Charge',
     'role.document_controller': 'Document Controller',
     'role.procurement': 'Procurement',
+    'role.accountant': 'Accountant',
+    'role.pr': 'PR',
     'role.admin': 'Admin',
   };
 
@@ -514,6 +516,8 @@ abstract final class YorksV1PermissionStrings {
       'role.workshop_in_charge': 'مسؤول الورشة',
       'role.document_controller': 'مراقب المستندات',
       'role.procurement': 'المشتريات',
+      'role.accountant': 'محاسب',
+      'role.pr': 'العلاقات العامة',
       'role.admin': 'المسؤول',
     },
     'ur': {
@@ -665,6 +669,8 @@ abstract final class YorksV1PermissionStrings {
       'role.workshop_in_charge': 'ورکشاپ انچارج',
       'role.document_controller': 'دستاویز کنٹرولر',
       'role.procurement': 'پروکیورمنٹ',
+      'role.accountant': 'اکاؤنٹنٹ',
+      'role.pr': 'پی آر',
       'role.admin': 'ایڈمن',
     },
     'hi': {
@@ -817,6 +823,8 @@ abstract final class YorksV1PermissionStrings {
       'role.workshop_in_charge': 'कार्यशाला प्रभारी',
       'role.document_controller': 'दस्तावेज़ नियंत्रक',
       'role.procurement': 'खरीद',
+      'role.accountant': 'लेखाकार',
+      'role.pr': 'पीआर',
       'role.admin': 'एडमिन',
     },
   };

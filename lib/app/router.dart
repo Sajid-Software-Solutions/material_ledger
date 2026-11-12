@@ -699,6 +699,31 @@ bool? _isAllowedForRole(
         path.startsWith('${RoutePaths.yorksV1CompanyMaterialRequests}/');
   }
 
+  // PR is a people role with read-only Projects/Accounts. Only its own
+  // office modules pass this compatibility layer; every `/yorks/` route then
+  // meets the exact V1 guard and the server capability boundary.
+  if (role == UserRole.pr) {
+    if (path == RoutePaths.users || path.startsWith('${RoutePaths.users}/')) {
+      return _hybridRouteAllows(
+        permissionResolver,
+        YorksV1CapabilityKeys.usersView,
+        legacyAllowed: true,
+      );
+    }
+    if (path.startsWith('/rentals')) {
+      return _hybridRouteAllows(
+        permissionResolver,
+        YorksV1CapabilityKeys.rentalsView,
+        legacyAllowed: true,
+      );
+    }
+    if (path == RoutePaths.leaveRequests) {
+      return resolveCapability(user, role, perms, RoleCapability.approveLeave);
+    }
+    if (path.startsWith('/people')) return canAccessPeople;
+    return path.startsWith('/yorks/');
+  }
+
   // Materials hub is an office tab; engineers use their own Browse instead.
   if (path == RoutePaths.materials) return role.usesAdminPanel;
 
@@ -1080,6 +1105,7 @@ bool _isYorksV1AnalyticsPath(String path) =>
 bool _canOpenAccountsPortfolio(YorksV1Role role) =>
     role == YorksV1Role.admin ||
     role == YorksV1Role.accountant ||
+    role == YorksV1Role.pr ||
     role == YorksV1Role.projectManager ||
     role == YorksV1Role.seniorMechanicalEngineer;
 
@@ -1200,6 +1226,8 @@ GoRouter createAppRouter({
       ? RoutePaths.login
       : yorksV1AccountsEnabled && yorksV1Role == YorksV1Role.accountant
       ? RoutePaths.yorksV1Accounts
+      : yorksV1Role == YorksV1Role.pr
+      ? RoutePaths.users
       : RoutePaths.engineerHome;
   return GoRouter(
     initialLocation: restoredLocation ?? initialLocation,
@@ -1262,6 +1290,7 @@ GoRouter createAppRouter({
         if (yorksV1AccountsEnabled && yorksV1Role == YorksV1Role.accountant) {
           return RoutePaths.yorksV1Accounts;
         }
+        if (yorksV1Role == YorksV1Role.pr) return RoutePaths.users;
         return RoutePaths.engineerHome;
       }
 
@@ -1291,6 +1320,17 @@ GoRouter createAppRouter({
           organizationSummary: true,
         );
         if (allowed == true) return RoutePaths.yorksV1Accounts;
+      }
+
+      // PR's work is people, not the technical Overview: its home is User
+      // Management, where the Users and Workers registers live.
+      if (path == RoutePaths.engineerHome && yorksV1Role == YorksV1Role.pr) {
+        final allowed = _hybridRouteAllows(
+          yorksV1PermissionResolver,
+          YorksV1CapabilityKeys.usersView,
+          legacyAllowed: true,
+        );
+        if (allowed == true) return RoutePaths.users;
       }
 
       // This is an experience-level guard only; the normalized V1 RPC/RLS

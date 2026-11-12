@@ -368,6 +368,7 @@ class _ProjectCreateFlowScreenState
         context.go(RoutePaths.procurement);
         return;
       case UserRole.accountant:
+      case UserRole.pr:
         context.go(RoutePaths.engineerHome);
         return;
       case UserRole.admin:

@@ -10,6 +10,10 @@ enum UserRole {
   engineer('Engineer', 'انجینئر', 'इंजीनियर'),
   procurement('Procurement', 'پروکیورمنٹ', 'खरीद'),
   accountant('Accountant', 'اکاؤنٹنٹ', 'लेखाकार'),
+
+  /// People and HR. Users, worker records, Workforce, People, leave and
+  /// Rentals; read-only Projects and Accounts through exact capabilities.
+  pr('PR', 'پی آر', 'पीआर'),
   admin('Admin', 'ایڈمن', 'एडमिन');
 
   const UserRole(this.label, this.labelUr, this.labelHi);
@@ -32,26 +36,30 @@ enum UserRole {
 
   /// Employee salary & documents are visible to Admin only. (Procurement runs
   /// HR operations but not compensation — widen here if that changes.)
-  bool get canSeeSalary => this == admin;
+  bool get canSeeSalary => this == admin || this == pr;
 
   /// Admin has read-all across every module (and the owner signs in here).
   bool get isAdmin => this == admin;
 
   // Module access -------------------------------------------------------
-  bool get canAccessMaterials => this != accountant;
-  bool get canAccessRentals => this == procurement || this == admin;
-  bool get canAccessPeople => this == procurement || this == admin;
+  bool get canAccessMaterials => this != accountant && this != pr;
+  bool get canAccessRentals =>
+      this == procurement || this == admin || this == pr;
+  bool get canAccessPeople =>
+      this == procurement || this == admin || this == pr;
 
   // Write access --------------------------------------------------------
-  bool get canWriteRentals => this == procurement || this == admin;
-  bool get canWritePeople => this == procurement || this == admin;
+  bool get canWriteRentals =>
+      this == procurement || this == admin || this == pr;
+  bool get canWritePeople => this == procurement || this == admin || this == pr;
 
   /// Record goods receipts into the store (procurement & admin).
   bool get canReceiveGoods => this == procurement || this == admin;
 
   /// Approve/reject engineer leave requests (procurement & admin). Engineers
   /// request their own leave; they never approve.
-  bool get canApproveLeave => this == procurement || this == admin;
+  bool get canApproveLeave =>
+      this == procurement || this == admin || this == pr;
 
   /// View the retired legacy finance/cost roll-up screen. Normalized Accounts
   /// uses exact server capabilities and never derives access from this getter.

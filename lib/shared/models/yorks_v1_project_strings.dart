@@ -2217,6 +2217,7 @@ abstract final class YorksV1ProjectStrings {
       'workshop_in_charge' => AppStrings.workshopInChargeRole,
       'document_controller' => AppStrings.documentControllerRole,
       'accountant' => AppStrings.accountantRole,
+      'pr' => AppStrings.prRole,
       'procurement' => procurementRole,
       'admin' => adminRole,
       _ => projectTeam,

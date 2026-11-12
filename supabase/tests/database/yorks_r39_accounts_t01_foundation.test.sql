@@ -53,8 +53,8 @@ select ok(
 
 select is(
   (select count(*) from public.v1_permission_role_defaults),
-  (select count(*) * 9 from public.v1_capability_catalog),
-  'The explicit role matrix covers all nine exact roles and every capability'
+  (select count(*) * 10 from public.v1_capability_catalog),
+  'The explicit role matrix covers all ten exact roles and every capability'
 );
 
 select ok(

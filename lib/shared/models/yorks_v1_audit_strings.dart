@@ -623,6 +623,7 @@ abstract final class YorksV1AuditStrings {
       'workshop_in_charge' => AppStrings.workshopInChargeRole,
       'document_controller' => AppStrings.documentControllerRole,
       'accountant' => AppStrings.accountantRole,
+      'pr' => AppStrings.prRole,
       'procurement' => const TranslatableString(
         en: 'Procurement',
         ar: 'المشتريات',

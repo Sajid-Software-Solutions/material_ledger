@@ -41,6 +41,24 @@ abstract final class YorksV1ShellStrings {
     ur: 'اکاؤنٹنٹ ورک اسپیس',
     hi: 'अकाउंटेंट कार्यस्थान',
   );
+  static const prWorkspace = TranslatableString(
+    en: 'PR workspace',
+    ar: 'مساحة عمل العلاقات العامة',
+    ur: 'پی آر ورک اسپیس',
+    hi: 'पीआर कार्यस्थान',
+  );
+  static const prHero = TranslatableString(
+    en: 'People and workforce',
+    ar: 'الموظفون والقوى العاملة',
+    ur: 'عملہ اور افرادی قوت',
+    hi: 'कर्मचारी और कार्यबल',
+  );
+  static const prHeroDescription = TranslatableString(
+    en: 'User accounts, workers, attendance and rental properties. Projects and Accounts are view only.',
+    ar: 'حسابات المستخدمين والعمال والحضور والعقارات المؤجرة. المشاريع والحسابات للعرض فقط.',
+    ur: 'یوزر اکاؤنٹس، ورکرز، حاضری اور کرائے کی پراپرٹیز۔ پراجیکٹس اور اکاؤنٹس صرف دیکھنے کے لیے ہیں۔',
+    hi: 'यूज़र अकाउंट, कर्मचारी, उपस्थिति और किराये की संपत्तियाँ। प्रोजेक्ट और अकाउंट्स केवल देखने के लिए हैं।',
+  );
   static const projectAccounts = TranslatableString(
     en: 'Project Accounts',
     ar: 'حسابات المشاريع',
