@@ -306,6 +306,70 @@ const notificationModuleEvents = <String, Map<String, Object>>{
     "destination": "timesheets",
     "urgent": false,
   },
+  "workforce_attendance_day_changed": {
+    "title": <String>[
+      "Attendance day changed",
+      "تم تغيير يوم الحضور",
+      "حاضری کا دن تبدیل ہوا",
+      "उपस्थिति का दिन बदला गया",
+    ],
+    "body": <String>[
+      "Someone changed a day you entered. Open it to see what changed and why.",
+      "غيّر شخص يومًا أدخلته. افتحه لترى ما تغيّر ولماذا.",
+      "کسی نے آپ کا درج کیا ہوا دن تبدیل کیا۔ کیا اور کیوں بدلا، دیکھنے کے لیے کھولیں۔",
+      "किसी ने आपका दर्ज किया दिन बदला। क्या और क्यों बदला, देखने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_attendance_question": {
+    "title": <String>[
+      "Question about attendance",
+      "سؤال عن الحضور",
+      "حاضری کے بارے میں سوال",
+      "उपस्थिति के बारे में प्रश्न",
+    ],
+    "body": <String>[
+      "Your Project Engineer asked about a day you entered. Open it to answer.",
+      "سأل مهندس المشروع عن يوم أدخلته. افتحه للإجابة.",
+      "پروجیکٹ انجینئر نے آپ کے درج کیے دن کے بارے میں پوچھا۔ جواب دینے کے لیے کھولیں۔",
+      "प्रोजेक्ट इंजीनियर ने आपके दर्ज दिन के बारे में पूछा। उत्तर देने के लिए खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_attendance_answered": {
+    "title": <String>[
+      "Attendance question answered",
+      "تمت الإجابة على سؤال الحضور",
+      "حاضری کے سوال کا جواب ملا",
+      "उपस्थिति प्रश्न का उत्तर मिला",
+    ],
+    "body": <String>[
+      "The attendance taker answered your question. Open the day to read it.",
+      "أجاب مسجل الحضور على سؤالك. افتح اليوم لقراءته.",
+      "حاضری لینے والے نے آپ کے سوال کا جواب دیا۔ پڑھنے کے لیے دن کھولیں۔",
+      "उपस्थिति लेने वाले ने आपके प्रश्न का उत्तर दिया। पढ़ने के लिए दिन खोलें।",
+    ],
+    "destination": "attendance",
+    "urgent": false,
+  },
+  "workforce_attendance_month_ready": {
+    "title": <String>[
+      "Month ready to confirm",
+      "الشهر جاهز للتأكيد",
+      "مہینہ تصدیق کے لیے تیار",
+      "माह पुष्टि के लिए तैयार",
+    ],
+    "body": <String>[
+      "Today is the last day of the month. Check your crew’s attendance and confirm the month.",
+      "اليوم آخر يوم في الشهر. راجع حضور طاقمك وأكد الشهر.",
+      "آج مہینے کا آخری دن ہے۔ اپنے عملے کی حاضری دیکھیں اور مہینے کی تصدیق کریں۔",
+      "आज माह का अंतिम दिन है। अपने दल की उपस्थिति देखें और माह की पुष्टि करें।",
+    ],
+    "destination": "timesheets",
+    "urgent": false,
+  },
   "rental_completeness_review": {
     "title": <String>[
       "Rental details need review",

@@ -271,6 +271,7 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_answer_day(p_team_id uuid, p_work_date date, p_answer text, p_idempotency_key uuid)'),
   ('v1_wf_ask_day(p_team_id uuid, p_work_date date, p_question text, p_idempotency_key uuid)'),
   ('v1_wf_confirm_month(p_team_id uuid, p_month date, p_idempotency_key uuid)'),
+  ('v1_wf_get_crew(p_team_id uuid)'),
   ('v1_wf_get_day(p_team_id uuid, p_work_date date)'),
   ('v1_wf_get_month_sheet(p_team_id uuid, p_month date)'),
   ('v1_wf_get_overview(p_month date)'),

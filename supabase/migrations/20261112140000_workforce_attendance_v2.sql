@@ -620,8 +620,16 @@ begin
     id, recipient_auth_user_id, event_code, entity_type, entity_id,
     project_id
   ) values (
-    gen_random_uuid(), p_recipient, p_event_code, p_entity_type, p_entity_id,
-    p_project_id
+    gen_random_uuid(), p_recipient,
+    case p_event_code
+      when 'workforce_attendance_day_changed'
+        then 'workforce_attendance_day_changed'
+      when 'workforce_attendance_question'
+        then 'workforce_attendance_question'
+      when 'workforce_attendance_answered'
+        then 'workforce_attendance_answered'
+    end,
+    p_entity_type, p_entity_id, p_project_id
   );
 end;
 $$;
@@ -1181,6 +1189,28 @@ begin
     'can_export', public.v1_current_user_has_capability(
       'workforce.reports.export', null
     )
+  );
+end;
+$$;
+
+-- One crew with its current members, for crew setup.
+create or replace function public.v1_wf_get_crew(p_team_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.v1_wf_assert_crew(p_team_id, 'view');
+  return public.v1_wf_crew_json(p_team_id) || jsonb_build_object(
+    'members', coalesce((
+      select jsonb_agg(public.v1_wf_worker_json(member.worker_id)
+        order by lower(worker.full_name))
+      from public.v1_workforce_crew_members member
+      join public.v1_workforce_workers worker on worker.id = member.worker_id
+      where member.team_id = p_team_id and member.removed_at is null
+    ), '[]'::jsonb)
   );
 end;
 $$;
@@ -2281,7 +2311,128 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 10. Grants.
+-- 10. Notification links. Attendance notifications open the crew day (or
+--     Month confirmation) through narrowly scoped wrappers that keep every
+--     other module's behaviour, in the same way the Rentals wrappers do.
+-- ---------------------------------------------------------------------------
+
+do $wrap$ begin
+  if to_regprocedure('public.v1_notification_module_route_before_attendance(public.v1_notifications)') is null then
+    alter function public.v1_push_notification_entity_allowed(public.v1_notifications) rename to v1_push_notification_entity_allowed_before_attendance;
+    alter function public.v1_notification_module_route(public.v1_notifications) rename to v1_notification_module_route_before_attendance;
+    alter function public.v1_notification_record_label(public.v1_notifications) rename to v1_notification_record_label_before_attendance;
+  end if;
+end; $wrap$;
+revoke all on function
+  public.v1_push_notification_entity_allowed_before_attendance(public.v1_notifications),
+  public.v1_notification_module_route_before_attendance(public.v1_notifications),
+  public.v1_notification_record_label_before_attendance(public.v1_notifications)
+  from public, anon, authenticated, service_role;
+
+create or replace function public.v1_wf_notification_is_attendance(
+  n public.v1_notifications
+)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select n.event_code like 'workforce_attendance_%'
+    and n.entity_type in ('workforce_day_sheet', 'workforce_crew');
+$$;
+
+create or replace function public.v1_push_notification_entity_allowed(
+  n public.v1_notifications
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if public.v1_wf_notification_is_attendance(n) then
+    return true;
+  end if;
+  return public.v1_push_notification_entity_allowed_before_attendance(n);
+end;
+$$;
+
+create or replace function public.v1_notification_module_route(
+  n public.v1_notifications
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_team uuid;
+  v_date date;
+begin
+  if public.v1_wf_notification_is_attendance(n) then
+    if n.entity_type = 'workforce_crew' then
+      return '/yorks/workforce/confirm';
+    end if;
+    select sheet.team_id, sheet.work_date into v_team, v_date
+    from public.v1_workforce_day_sheets sheet
+    where sheet.id = n.entity_id;
+    if v_team is null then
+      return '/yorks/workforce';
+    end if;
+    return '/yorks/workforce/attendance?crew=' || v_team::text
+      || '&date=' || to_char(v_date, 'YYYY-MM-DD');
+  end if;
+  return public.v1_notification_module_route_before_attendance(n);
+end;
+$$;
+
+create or replace function public.v1_notification_record_label(
+  n public.v1_notifications
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_label text;
+begin
+  if public.v1_wf_notification_is_attendance(n) then
+    if auth.uid() is distinct from n.recipient_auth_user_id then
+      return null;
+    end if;
+    if n.entity_type = 'workforce_crew' then
+      select team.team_name into v_label
+      from public.v1_workforce_teams team
+      where team.id = n.entity_id;
+    else
+      select team.team_name || ' · ' || to_char(sheet.work_date, 'DD Mon')
+      into v_label
+      from public.v1_workforce_day_sheets sheet
+      join public.v1_workforce_teams team on team.id = sheet.team_id
+      where sheet.id = n.entity_id;
+    end if;
+    return nullif(
+      left(btrim(regexp_replace(v_label, '[[:cntrl:]]', ' ', 'g')), 180),
+      ''
+    );
+  end if;
+  return public.v1_notification_record_label_before_attendance(n);
+end;
+$$;
+
+revoke all on function
+  public.v1_wf_notification_is_attendance(public.v1_notifications),
+  public.v1_push_notification_entity_allowed(public.v1_notifications),
+  public.v1_notification_module_route(public.v1_notifications),
+  public.v1_notification_record_label(public.v1_notifications)
+  from public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 11. Grants.
 -- ---------------------------------------------------------------------------
 
 do $grants$
@@ -2313,6 +2464,7 @@ begin
   end loop;
   foreach v_signature in array array[
     'v1_wf_list_crews()',
+    'v1_wf_get_crew(uuid)',
     'v1_wf_get_overview(date)',
     'v1_wf_get_day(uuid,date)',
     'v1_wf_get_month_sheet(uuid,date)',

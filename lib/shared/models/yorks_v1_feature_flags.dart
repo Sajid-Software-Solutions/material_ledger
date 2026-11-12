@@ -31,6 +31,7 @@ class YorksV1FeatureFlags {
     bool companyMaterialRequests = false,
     bool roleOverviewV2 = false,
     bool workerRecords = false,
+    bool workforceAttendanceV2 = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -49,7 +50,8 @@ class YorksV1FeatureFlags {
        _inventorySuppliers = inventorySuppliers,
        _companyMaterialRequests = companyMaterialRequests,
        _roleOverviewV2 = roleOverviewV2,
-       _workerRecords = workerRecords;
+       _workerRecords = workerRecords,
+       _workforceAttendanceV2 = workforceAttendanceV2;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -121,6 +123,10 @@ class YorksV1FeatureFlags {
       _workerRecords = const bool.fromEnvironment(
         'YORKS_V1_WORKER_RECORDS',
         defaultValue: false,
+      ),
+      _workforceAttendanceV2 = const bool.fromEnvironment(
+        'YORKS_V1_WORKFORCE_ATTENDANCE_V2',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -142,6 +148,7 @@ class YorksV1FeatureFlags {
   final bool _companyMaterialRequests;
   final bool _roleOverviewV2;
   final bool _workerRecords;
+  final bool _workforceAttendanceV2;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -212,6 +219,12 @@ class YorksV1FeatureFlags {
   /// database bundle is applied and the release gate passes. The server
   /// enforces `worker_records.*` regardless of this flag.
   bool get workerRecords => foundation && _workerRecords;
+
+  /// Workforce attendance from the approved prototype (crew days, month
+  /// confirmation, monthly sheets; PRODUCT_DECISIONS.md section 37). Replaces
+  /// the T03-T10 attendance and timesheet screens when on. Default off until
+  /// `supabase/release/workforce_attendance_v2_bundle.sql` is applied.
+  bool get workforceAttendanceV2 => workforce && _workforceAttendanceV2;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

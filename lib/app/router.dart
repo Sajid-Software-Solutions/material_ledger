@@ -88,6 +88,11 @@ import '../features/company_overview/presentation/company_analytics_screen.dart'
 import '../features/company_overview/domain/company_analytics_models.dart';
 import '../features/transactions/presentation/screens/transactions_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_crews_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
 import '../shared/models/app_config.dart';
 import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
@@ -219,6 +224,9 @@ abstract final class RoutePaths {
       '/yorks/workforce/attendance';
   static const String yorksV1WorkforceTimesheets =
       '/yorks/workforce/timesheets';
+  static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
+  static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
+  static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
   static const String yorksV1TeamChat = '/yorks/team-chat';
   static const String yorksV1TeamChatConversation =
       '/yorks/team-chat/:conversationId';
@@ -2247,7 +2255,45 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1Workforce,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            const YorksWorkforceOverviewScreen(),
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceOverviewScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceConfirm,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceConfirmScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceSheets,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceSheetsScreen(
+                initialCrewId: state.uri.queryParameters['crew'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceCrews,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceCrewsScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
           ),
         ),
       if (yorksV1WorkforceEnabled && workforceTeamWorkersEnabled)
@@ -2271,9 +2317,15 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceAttendance,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            yorksWorkforceAttendanceScreen(
-              initialTeamId: state.uri.queryParameters['team_id'],
-              initialWorkDate: state.uri.queryParameters['date'],
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceTakeScreen(
+                initialCrewId: state.uri.queryParameters['crew'],
+                initialDate: state.uri.queryParameters['date'],
+              ),
+              legacy: yorksWorkforceAttendanceScreen(
+                initialTeamId: state.uri.queryParameters['team_id'],
+                initialWorkDate: state.uri.queryParameters['date'],
+              ),
             ),
           ),
         ),
@@ -2282,8 +2334,11 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceTimesheets,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            yorksWorkforceTimesheetsScreen(
-              initialPeriodId: state.uri.queryParameters['period_id'],
+            _WorkforceScreenSwitch(
+              attendanceV2: const AttendanceConfirmScreen(),
+              legacy: yorksWorkforceTimesheetsScreen(
+                initialPeriodId: state.uri.queryParameters['period_id'],
+              ),
             ),
           ),
         ),
@@ -3096,4 +3151,23 @@ class _DeferredProcurementArrangementScreenState
       return const Center(child: CircularProgressIndicator());
     },
   );
+}
+
+/// Workforce routes open the prototype attendance screens when
+/// `YORKS_V1_WORKFORCE_ATTENDANCE_V2` is on, and the T03-T10 screens
+/// otherwise. Both read the same server-confirmed permission snapshot.
+class _WorkforceScreenSwitch extends ConsumerWidget {
+  const _WorkforceScreenSwitch({
+    required this.attendanceV2,
+    required this.legacy,
+  });
+
+  final Widget attendanceV2;
+  final Widget legacy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      ref.watch(yorksV1FeatureFlagsProvider).workforceAttendanceV2
+      ? attendanceV2
+      : legacy;
 }

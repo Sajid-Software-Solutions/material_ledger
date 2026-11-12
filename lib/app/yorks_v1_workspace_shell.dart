@@ -18,6 +18,7 @@ import '../shared/models/yorks_v1_permission_management.dart';
 import '../shared/models/yorks_v1_permission_strings.dart';
 import '../shared/models/yorks_v1_project_strings.dart';
 import '../shared/models/yorks_v1_role.dart';
+import '../shared/models/yorks_v1_attendance_strings.dart';
 import '../shared/models/yorks_v1_shell_strings.dart';
 import '../shared/models/yorks_v1_team_chat_strings.dart';
 import '../shared/models/yorks_v1_workspace_status.dart';
@@ -156,6 +157,44 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     // Workforce pages get theirs here.
     final sections = <_YorksDestination>[];
     if (location.startsWith(RoutePaths.yorksV1Workforce) &&
+        allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce) &&
+        featureFlags.workforceAttendanceV2) {
+      sections.addAll([
+        const _YorksDestination(
+          label: AttendanceStrings.overviewShort,
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard,
+          path: RoutePaths.yorksV1Workforce,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.attendanceShort,
+          icon: Icons.fact_check_outlined,
+          selectedIcon: Icons.fact_check,
+          path: RoutePaths.yorksV1WorkforceAttendance,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.monthConfirmation,
+          icon: Icons.verified_outlined,
+          selectedIcon: Icons.verified,
+          path: RoutePaths.yorksV1WorkforceConfirm,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.monthlySheets,
+          icon: Icons.description_outlined,
+          selectedIcon: Icons.description,
+          path: RoutePaths.yorksV1WorkforceSheets,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.crews,
+          icon: Icons.groups_outlined,
+          selectedIcon: Icons.groups,
+          path: RoutePaths.yorksV1WorkforceCrews,
+        ),
+        ...allDestinations.where(
+          (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
+        ),
+      ]);
+    } else if (location.startsWith(RoutePaths.yorksV1Workforce) &&
         allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce)) {
       sections.addAll([
         const _YorksDestination(

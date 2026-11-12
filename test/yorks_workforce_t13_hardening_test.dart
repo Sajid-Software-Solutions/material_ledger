@@ -22,7 +22,10 @@ void main() {
           .map((file) => file.path)
           .toList(growable: false);
 
-      expect(backendOwners, [
+      // Attendance V2 has its own repository over the same RPC client; it
+      // reads PostgrestException only to map server errors.
+      expect(backendOwners..sort(), [
+        'lib/features/workforce/data/attendance_repository.dart',
         'lib/features/workforce/data/workforce_repository.dart',
       ]);
       expect(
