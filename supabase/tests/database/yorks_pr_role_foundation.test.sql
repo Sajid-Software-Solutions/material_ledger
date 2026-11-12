@@ -213,6 +213,25 @@ select set_config(
   '{"sub":"10000000-0000-4000-8000-000000000014","role":"authenticated","app_metadata":{"role":"pr","app_user_id":"usr-local-pr"}}',
   true
 );
+-- Through row-level security, as the app reads it.
+set local role authenticated;
+select ok(
+  exists (
+    select 1 from public.v1_projects
+    where id = '3e010000-0000-4000-8000-000000000001'
+  ),
+  'PR reads the project register through row-level security'
+);
+select ok(
+  public.v1_project_readable('3e010000-0000-4000-8000-000000000001'),
+  'PR may read every project'
+);
+reset role;
+select is(
+  public.v1_user_project_access_basis('pr'),
+  'all_projects',
+  'User Management describes PR as seeing all projects'
+);
 select ok(
   public.v1_user_configuration_actor(),
   'PR operates the protected user configuration gateway'

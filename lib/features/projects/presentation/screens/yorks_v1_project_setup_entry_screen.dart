@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/web/stale_build_recovery.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/constants.dart';
@@ -11,7 +12,8 @@ import 'yorks_v1_project_create_flow_screen.dart' deferred as project_setup;
 typedef YorksV1ProjectSetupLibraryLoader = Future<void> Function();
 
 /// Asset loading only: no draft, ownership or server work happens here.
-Future<void> loadYorksV1ProjectSetupLibrary() => project_setup.loadLibrary();
+Future<void> loadYorksV1ProjectSetupLibrary() =>
+    loadOrRecover(project_setup.loadLibrary());
 
 final yorksV1ProjectSetupLibraryLoaderProvider =
     Provider<YorksV1ProjectSetupLibraryLoader>(
