@@ -111,6 +111,7 @@ TranslatableString _yorksV1RoleText(YorksV1Role role) => switch (role) {
   YorksV1Role.workshopInCharge => AppStrings.workshopInChargeRole,
   YorksV1Role.documentController => AppStrings.documentControllerRole,
   YorksV1Role.accountant => AppStrings.accountantRole,
+  YorksV1Role.pr => AppStrings.prRole,
   YorksV1Role.procurement => AppStrings.procurementRole,
   YorksV1Role.admin => AppStrings.adminRole,
 };

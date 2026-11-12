@@ -2078,6 +2078,7 @@ String _ownerName(
     UserRole.procurement => ProjectWorkspaceStrings.procurementTeam.primary,
     UserRole.engineer => ProjectWorkspaceStrings.engineeringTeam.primary,
     UserRole.accountant => AppStrings.accountantRole.primary,
+    UserRole.pr => AppStrings.prRole.primary,
     UserRole.admin => ProjectWorkspaceStrings.adminTeam.primary,
     null => ProjectWorkspaceStrings.noCurrentOwner.primary,
   };

@@ -64,7 +64,7 @@ snapshot upserts are not permitted for critical V1 transitions.
 
 Implement:
 
-1. Authentication, profiles, nine exact roles and project membership guards
+1. Authentication, profiles, ten exact roles and project membership guards
 2. Projects, buildings/Common scope and historical team membership
 3. Twenty-nine default BOQ groups plus custom groups
 4. Dynamic BOQ columns/rows and real Excel import/export
@@ -112,6 +112,11 @@ boundaries; do not destructively remove historical records.
   certification, PDC/payment and supplier-bill payment controls. Accountant is
   never a technical project member and inherits no Project, BOQ, MR, Dispatch,
   Receipt, Inventory, Return or team-management mutation authority.
+- **PR** — people and HR (owner decision, 12 November 2026,
+  `PRODUCT_DECISIONS.md` section 37). Full User Management (as Senior
+  Mechanical Engineer), Worker Records, Workforce, People/leave and Rentals;
+  read-only Projects and Accounts. PR is never a technical project member and
+  holds no project, BOQ, MR, stock, return or Accounts mutation authority.
 - **Senior Mechanical Engineer**, **Project Manager**, **Workshop In-Charge**
   and **Document Controller** — organization-wide
   Project Engineer roles. They can access every project and perform Project

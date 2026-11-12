@@ -84,21 +84,21 @@ select ok(
   jsonb_array_length(
     public.v1_get_user_admin_options(null)
       -> 'assignable_exact_roles'
-  ) = 9
+  ) = 10
   and (public.v1_get_user_admin_options(null)
     ->> 'can_assign_role')::boolean
   and not (public.v1_get_user_admin_options(null)
     ->> 'can_reset_password')::boolean
   and not (public.v1_get_user_admin_options(null)
     ->> 'can_manage_activation')::boolean,
-  'Create mode projects all nine Admin-assignable exact roles and no target actions'
+  'Create mode projects all ten Admin-assignable exact roles and no target actions'
 );
 
 select ok(
   jsonb_array_length(
     public.v1_get_user_admin_options('usr-local-site-engineer')
       -> 'assignable_exact_roles'
-  ) = 9
+  ) = 10
   and (public.v1_get_user_admin_options('usr-local-site-engineer')
     ->> 'can_reset_password')::boolean
   and (public.v1_get_user_admin_options('usr-local-site-engineer')

@@ -92,7 +92,7 @@ returns jsonb language sql stable as $$
 $$;
 
 select is(
-  (select jsonb_array_length(body -> 'users') from v1_upa_dir), 7,
+  (select jsonb_array_length(body -> 'users') from v1_upa_dir), 8,
   'Every mapped account is listed once'
 );
 select is(

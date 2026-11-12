@@ -5,6 +5,12 @@ create extension if not exists pgtap with schema extensions;
 set local search_path=public,extensions;
 select no_plan();
 
+-- This test is about batching one recipient's cohort. PR also receives
+-- rental reminders (PRODUCT_DECISIONS.md section 37); the seeded PR persona is
+-- set aside so the fixture keeps its two-batch shape.
+update public.v1_profiles set is_active = false
+where auth_user_id = '10000000-0000-4000-8000-000000000014';
+
 insert into public.v1_rental_properties(id,unit_code,property_name,property_type,location,occupancy_state,created_by_auth_user_id,updated_by_auth_user_id)
 values('bd100000-0000-4000-8000-000000000001','RN-COHORT','Rental cohort review fixture','shop','Dubai','occupied',
  '10000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000004');

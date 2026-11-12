@@ -8,6 +8,31 @@ Approved Workforce source: 30 August 2026
 Source fingerprint:
 `3914f3ec6740b5986724ae8dbc44b70f9944ec580fedfd3a526b3605866bf613`
 
+## Attendance V2 — the approved prototype (12 November 2026)
+
+`PRODUCT_DECISIONS.md` section 37 replaces the T03–T10 attendance experience
+and its separate-actor monthly approval chain. Behind
+`YORKS_V1_WORKFORCE_ATTENDANCE_V2` (default off), Workforce opens the
+prototype screens: Overview, Take attendance, Month confirmation, Monthly
+sheets and Crews. Production held no attendance when this was decided; the
+T03–T10 tables, rows and commands are kept and are not migrated.
+
+| Part | V2 contract |
+|---|---|
+| Crew | A Workforce team plus `v1_workforce_crew_profiles` (project or workshop, usual shift and break, whether its month needs confirmation) and current members in `v1_workforce_crew_members` (one crew per worker). |
+| Day | `v1_wf_save_day` saves a whole crew day atomically (≤500 rows, expected version, idempotency key). Every current member must be marked; a worker can also be added for one day. A worker is on one crew sheet per date. Future dates are refused (Asia/Dubai). |
+| Hours | Server-computed by `v1_wf_compute_minutes`: only Present counts; worked = Out − In − break; a working day pays up to 8 h as normal time and the rest as normal overtime; every hour on a Sunday or `v1_workforce_public_holidays` date is holiday overtime. No overnight shifts. |
+| Changes | Changing a day someone else entered needs a reason; every changed row is logged append-only in `v1_workforce_day_changes` and the original taker is notified. |
+| Questions | A confirmer may ask one open question per day; the taker answers it. Both sides are notified. |
+| Holidays | Admin and PR keep the public-holiday calendar on the Crews page; a holiday inside a confirmed month is refused. |
+| Month | A confirmer confirms from the month's last day once every working day is entered; that locks the month. Workshop crews need no confirmation. Only Admin or PR reopen, with a reason. Confirmers on the project are reminded on the last day. |
+| Access | Decided by role and dated project membership, like Material Requests: Site/Project Engineers on the crew's project take attendance; that project's Project Engineer, the organization-wide engineers and Admin confirm; Admin and PR manage everything; Accountant reads every crew and exports. No role template changes, so the T03–T10 commands keep their per-person grants. Admin and PR go through the capability resolver; for everyone else an explicit per-person deny of the matching `workforce.*` key removes the right (`v1_wf_allowed`). |
+| Reports | The monthly sheet is the paper DAILY TIME SHEET (print/PDF per worker) plus an Excel register for holders of `workforce.reports.export`. |
+
+Attendance V2 still carries no pay, passport or licence field. Release:
+`supabase/release/pr_role_and_attendance_v2_bundle.sql`; rollback:
+`supabase/release/attendance_v2_rollback.sql` (keeps every table and row).
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

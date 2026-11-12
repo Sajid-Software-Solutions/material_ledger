@@ -9,6 +9,7 @@ import 'package:material_ledger/shared/models/yorks_v1_overview_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project_portfolio.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
+import 'package:material_ledger/shared/models/yorks_v1_shell_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_logistics.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
@@ -161,6 +162,17 @@ void main() {
           findsOneWidget,
           reason: role.claimValue,
         );
+        if (role == YorksV1Role.pr) {
+          expect(
+            find.byKey(const ValueKey('pr-overview-icon')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('role-overview-metrics')),
+            findsNothing,
+          );
+          continue;
+        }
         if (role == YorksV1Role.accountant) {
           expect(
             find.byKey(const ValueKey('accountant-rollout-locked-icon')),
@@ -468,6 +480,7 @@ String _roleTitle(YorksV1Role role) => switch (role) {
     'Arrange, approve and dispatch without over-supplying.',
   YorksV1Role.accountant =>
     YorksV1OverviewStrings.accountantRolloutTitle.primary,
+  YorksV1Role.pr => YorksV1ShellStrings.prHero.primary,
 };
 
 final _projects = <YorksV1ProjectPortfolioItem>[

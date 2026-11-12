@@ -1,6 +1,7 @@
 const USER_CONFIGURATION_ROLES = new Set([
   "admin",
   "senior_mechanical_engineer",
+  "pr",
 ]);
 
 /// Exact server-controlled roles allowed to operate the protected user

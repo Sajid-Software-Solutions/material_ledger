@@ -2130,7 +2130,8 @@ team, inside User Management.
   family and do not depend on `workforce.view`.
   - Admin holds both and may delegate them. Accountant holds both.
   - PR staff have no role of their own: Admin grants the capability per
-    person in User Access. No tenth role is added.
+    person in User Access. No tenth role is added. *Superseded by section
+    37: PR is now the tenth exact role and holds both keys by default.*
   - Every other role, including Senior Mechanical Engineer, has neither by
     default.
   - **Narrow exception to the R39 Accountant boundary.** R39 makes
@@ -2252,6 +2253,58 @@ both in the audit trail with before and after snapshots, and History shows
 "Invoice restored" or "Claim restored". Migration
 `20261112100000_accounts_restore_cancelled_invoice_claim.sql`, applied by hand
 through `supabase/release/accounts_restore_bundle.sql`.
+
+## 37. PR role and Workforce attendance from the prototype (owner decision, 12 November 2026)
+
+The owner approved two linked changes. They supersede the "no tenth role"
+line of section 33 and the multi-actor monthly approval chain of the Workforce
+contract (section 24); nothing else in those sections is reopened.
+
+**PR — the tenth exact role (claim `pr`, canonical `pr`).** PR looks after
+the company's people.
+
+- **Full:** User Management exactly as Senior Mechanical Engineer (create
+  users, change roles and project access, reset passwords, activate and
+  deactivate), Worker Records (`worker_records.view/manage`), every Workforce
+  capability, People/HR and leave approval, and Rentals.
+- **Read only:** every Project (project register, BOQ and documents) and its
+  Accounts (`view_project_accounts`, `view_project_commercial_values`,
+  `export_accounts_registers`).
+- **Never:** a technical project member, nor any project, BOQ, Material
+  Request, dispatch, receipt, return, inventory, configuration or Accounts
+  mutation. `v1_pr_may_hold_capability` is the hard boundary in the
+  permission resolver and the assignment guard, in the same way as the
+  Accountant boundary.
+- Like Senior Mechanical Engineer, PR may assign any role, including Admin.
+  PR is itself a protected manager-level account for everyone else.
+- PR's landing page is User Management.
+
+**Workforce attendance follows the approved prototype**
+(`designs/workforce-attendance-prototype.html`). Access mirrors Material
+Requests:
+
+- Site Engineer, Project Engineer and Workshop In-Charge take attendance for
+  crews on projects where they have dated membership. Organization-wide
+  engineers (Senior Mechanical Engineer, Project Manager, Document Controller,
+  Workshop In-Charge) take attendance for, see and confirm any crew. Admin and
+  PR see and manage everything. Accountant sees every crew and exports the
+  monthly sheets read only.
+- There is no daily approval. A Project Engineer on the crew's project (or an
+  organization-wide engineer, or Admin) watches entries as they are saved,
+  may change a saved day only with a reason, and may ask the attendance taker
+  a question.
+- On the last day of the month the confirmer is reminded. Confirm unlocks
+  once every working day of the month is entered, and it locks the month.
+  Workshop crews need no confirmation. Only Admin or PR may reopen a
+  confirmed month, with a reason.
+- Hours follow the paper DAILY TIME SHEET: a normal day is 8 hours, hours
+  above 8 on a working day are normal overtime, and every hour worked on a
+  Sunday or calendar public holiday is holiday overtime.
+- Production held no attendance when this was decided, so the earlier T03–T10
+  monthly approval screens are retired without migrating records. Their
+  tables stay in place, empty, and are never dropped.
+
+Attendance still carries no pay field; salary lives only in Worker Records.
 
 ## Procurement preparation refinement — October 2026
 

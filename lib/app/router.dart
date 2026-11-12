@@ -88,6 +88,11 @@ import '../features/company_overview/presentation/company_analytics_screen.dart'
 import '../features/company_overview/domain/company_analytics_models.dart';
 import '../features/transactions/presentation/screens/transactions_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_crews_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
 import '../shared/models/app_config.dart';
 import '../shared/models/app_user.dart';
 import '../shared/models/role_permissions.dart';
@@ -219,6 +224,9 @@ abstract final class RoutePaths {
       '/yorks/workforce/attendance';
   static const String yorksV1WorkforceTimesheets =
       '/yorks/workforce/timesheets';
+  static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
+  static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
+  static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
   static const String yorksV1TeamChat = '/yorks/team-chat';
   static const String yorksV1TeamChatConversation =
       '/yorks/team-chat/:conversationId';
@@ -699,6 +707,31 @@ bool? _isAllowedForRole(
         path.startsWith('${RoutePaths.yorksV1CompanyMaterialRequests}/');
   }
 
+  // PR is a people role with read-only Projects/Accounts. Only its own
+  // office modules pass this compatibility layer; every `/yorks/` route then
+  // meets the exact V1 guard and the server capability boundary.
+  if (role == UserRole.pr) {
+    if (path == RoutePaths.users || path.startsWith('${RoutePaths.users}/')) {
+      return _hybridRouteAllows(
+        permissionResolver,
+        YorksV1CapabilityKeys.usersView,
+        legacyAllowed: true,
+      );
+    }
+    if (path.startsWith('/rentals')) {
+      return _hybridRouteAllows(
+        permissionResolver,
+        YorksV1CapabilityKeys.rentalsView,
+        legacyAllowed: true,
+      );
+    }
+    if (path == RoutePaths.leaveRequests) {
+      return resolveCapability(user, role, perms, RoleCapability.approveLeave);
+    }
+    if (path.startsWith('/people')) return canAccessPeople;
+    return path.startsWith('/yorks/');
+  }
+
   // Materials hub is an office tab; engineers use their own Browse instead.
   if (path == RoutePaths.materials) return role.usesAdminPanel;
 
@@ -1080,6 +1113,7 @@ bool _isYorksV1AnalyticsPath(String path) =>
 bool _canOpenAccountsPortfolio(YorksV1Role role) =>
     role == YorksV1Role.admin ||
     role == YorksV1Role.accountant ||
+    role == YorksV1Role.pr ||
     role == YorksV1Role.projectManager ||
     role == YorksV1Role.seniorMechanicalEngineer;
 
@@ -1200,6 +1234,8 @@ GoRouter createAppRouter({
       ? RoutePaths.login
       : yorksV1AccountsEnabled && yorksV1Role == YorksV1Role.accountant
       ? RoutePaths.yorksV1Accounts
+      : yorksV1Role == YorksV1Role.pr
+      ? RoutePaths.users
       : RoutePaths.engineerHome;
   return GoRouter(
     initialLocation: restoredLocation ?? initialLocation,
@@ -1262,6 +1298,7 @@ GoRouter createAppRouter({
         if (yorksV1AccountsEnabled && yorksV1Role == YorksV1Role.accountant) {
           return RoutePaths.yorksV1Accounts;
         }
+        if (yorksV1Role == YorksV1Role.pr) return RoutePaths.users;
         return RoutePaths.engineerHome;
       }
 
@@ -1291,6 +1328,17 @@ GoRouter createAppRouter({
           organizationSummary: true,
         );
         if (allowed == true) return RoutePaths.yorksV1Accounts;
+      }
+
+      // PR's work is people, not the technical Overview: its home is User
+      // Management, where the Users and Workers registers live.
+      if (path == RoutePaths.engineerHome && yorksV1Role == YorksV1Role.pr) {
+        final allowed = _hybridRouteAllows(
+          yorksV1PermissionResolver,
+          YorksV1CapabilityKeys.usersView,
+          legacyAllowed: true,
+        );
+        if (allowed == true) return RoutePaths.users;
       }
 
       // This is an experience-level guard only; the normalized V1 RPC/RLS
@@ -2207,7 +2255,45 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1Workforce,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            const YorksWorkforceOverviewScreen(),
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceOverviewScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceConfirm,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceConfirmScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceSheets,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceSheetsScreen(
+                initialCrewId: state.uri.queryParameters['crew'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceCrews,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            const _WorkforceScreenSwitch(
+              attendanceV2: AttendanceCrewsScreen(),
+              legacy: YorksWorkforceOverviewScreen(),
+            ),
           ),
         ),
       if (yorksV1WorkforceEnabled && workforceTeamWorkersEnabled)
@@ -2231,9 +2317,15 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceAttendance,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            yorksWorkforceAttendanceScreen(
-              initialTeamId: state.uri.queryParameters['team_id'],
-              initialWorkDate: state.uri.queryParameters['date'],
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendanceTakeScreen(
+                initialCrewId: state.uri.queryParameters['crew'],
+                initialDate: state.uri.queryParameters['date'],
+              ),
+              legacy: yorksWorkforceAttendanceScreen(
+                initialTeamId: state.uri.queryParameters['team_id'],
+                initialWorkDate: state.uri.queryParameters['date'],
+              ),
             ),
           ),
         ),
@@ -2242,8 +2334,11 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceTimesheets,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
-            yorksWorkforceTimesheetsScreen(
-              initialPeriodId: state.uri.queryParameters['period_id'],
+            _WorkforceScreenSwitch(
+              attendanceV2: const AttendanceConfirmScreen(),
+              legacy: yorksWorkforceTimesheetsScreen(
+                initialPeriodId: state.uri.queryParameters['period_id'],
+              ),
             ),
           ),
         ),
@@ -3056,4 +3151,23 @@ class _DeferredProcurementArrangementScreenState
       return const Center(child: CircularProgressIndicator());
     },
   );
+}
+
+/// Workforce routes open the prototype attendance screens when
+/// `YORKS_V1_WORKFORCE_ATTENDANCE_V2` is on, and the T03-T10 screens
+/// otherwise. Both read the same server-confirmed permission snapshot.
+class _WorkforceScreenSwitch extends ConsumerWidget {
+  const _WorkforceScreenSwitch({
+    required this.attendanceV2,
+    required this.legacy,
+  });
+
+  final Widget attendanceV2;
+  final Widget legacy;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      ref.watch(yorksV1FeatureFlagsProvider).workforceAttendanceV2
+      ? attendanceV2
+      : legacy;
 }

@@ -16,11 +16,12 @@ reference data, not payroll.
 
 | Capability | Allows | Default holders |
 |---|---|---|
-| `worker_records.view` | Read the register, a record and photos | Admin, Accountant |
-| `worker_records.manage` | Create and edit a record, set a photo, import a sheet | Admin, Accountant |
+| `worker_records.view` | Read the register, a record and photos | Admin, Accountant, PR |
+| `worker_records.manage` | Create and edit a record, set a photo, import a sheet | Admin, Accountant, PR |
 
-Admin may grant either capability to one person in User Access; that is how
-PR staff receive it.
+Admin may grant either capability to one person in User Access. PR holds
+both by default since the PR role was added (`PRODUCT_DECISIONS.md`
+section 37).
 
 Accountant is otherwise an Accounts-only role (R39). The migration widens
 that rule by exactly these two keys through

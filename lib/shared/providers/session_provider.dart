@@ -113,6 +113,7 @@ UserRole? userRoleFromAppMetadata(Map<String, dynamic> appMetadata) {
     YorksV1Role.workshopInCharge ||
     YorksV1Role.documentController => UserRole.engineer,
     YorksV1Role.accountant => UserRole.accountant,
+    YorksV1Role.pr => UserRole.pr,
     YorksV1Role.procurement => UserRole.procurement,
     YorksV1Role.admin => UserRole.admin,
     null => null,
@@ -443,6 +444,7 @@ class AuthController {
       YorksV1Role.workshopInCharge ||
       YorksV1Role.documentController => 'project_engineer',
       YorksV1Role.accountant => 'accountant',
+      YorksV1Role.pr => 'pr',
       YorksV1Role.procurement => 'procurement',
       YorksV1Role.admin => 'admin',
     };

@@ -166,6 +166,7 @@ YorksRoleOverviewSpec buildYorksRoleOverviewSpec(
     YorksV1Role.admin => b.admin(),
     YorksV1Role.projectEngineer ||
     YorksV1Role.accountant ||
+    YorksV1Role.pr ||
     null => b.projectEngineer(),
   };
 }

@@ -254,6 +254,7 @@ String _roleLabel(String? wireRole, AppLanguage language) =>
       YorksV1Role.workshopInCharge => AppStrings.workshopInChargeRole,
       YorksV1Role.documentController => AppStrings.documentControllerRole,
       YorksV1Role.accountant => AppStrings.accountantRole,
+      YorksV1Role.pr => AppStrings.prRole,
       YorksV1Role.procurement => AppStrings.procurementRole,
       YorksV1Role.admin => AppStrings.adminRole,
       null => null,

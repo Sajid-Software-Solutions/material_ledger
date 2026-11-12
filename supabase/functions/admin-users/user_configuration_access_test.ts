@@ -5,9 +5,10 @@ import {
   canUseLegacyUserAdministration,
 } from "./user_configuration_access.ts";
 
-Deno.test("only Admin and Senior Mechanical Engineer configure users", () => {
+Deno.test("only Admin, Senior Mechanical Engineer and PR configure users", () => {
   assertEquals(canConfigureUsers("admin"), true);
   assertEquals(canConfigureUsers("senior_mechanical_engineer"), true);
+  assertEquals(canConfigureUsers("pr"), true);
   assertEquals(canConfigureUsers("project_manager"), false);
   assertEquals(canConfigureUsers("project_engineer"), false);
   assertEquals(canConfigureUsers("procurement"), false);
@@ -21,6 +22,7 @@ Deno.test("legacy administration is exact-Admin and explicitly enabled", () => {
     canUseLegacyUserAdministration("senior_mechanical_engineer", "true"),
     false,
   );
+  assertEquals(canUseLegacyUserAdministration("pr", "true"), false);
   assertEquals(canUseLegacyUserAdministration("admin", undefined), false);
   assertEquals(canUseLegacyUserAdministration("admin", "TRUE"), false);
 });

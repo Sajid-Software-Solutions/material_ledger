@@ -18,6 +18,7 @@ import '../shared/models/yorks_v1_permission_management.dart';
 import '../shared/models/yorks_v1_permission_strings.dart';
 import '../shared/models/yorks_v1_project_strings.dart';
 import '../shared/models/yorks_v1_role.dart';
+import '../shared/models/yorks_v1_attendance_strings.dart';
 import '../shared/models/yorks_v1_shell_strings.dart';
 import '../shared/models/yorks_v1_team_chat_strings.dart';
 import '../shared/models/yorks_v1_workspace_status.dart';
@@ -156,6 +157,44 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     // Workforce pages get theirs here.
     final sections = <_YorksDestination>[];
     if (location.startsWith(RoutePaths.yorksV1Workforce) &&
+        allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce) &&
+        featureFlags.workforceAttendanceV2) {
+      sections.addAll([
+        const _YorksDestination(
+          label: AttendanceStrings.overviewShort,
+          icon: Icons.dashboard_outlined,
+          selectedIcon: Icons.dashboard,
+          path: RoutePaths.yorksV1Workforce,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.attendanceShort,
+          icon: Icons.fact_check_outlined,
+          selectedIcon: Icons.fact_check,
+          path: RoutePaths.yorksV1WorkforceAttendance,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.monthConfirmation,
+          icon: Icons.verified_outlined,
+          selectedIcon: Icons.verified,
+          path: RoutePaths.yorksV1WorkforceConfirm,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.monthlySheets,
+          icon: Icons.description_outlined,
+          selectedIcon: Icons.description,
+          path: RoutePaths.yorksV1WorkforceSheets,
+        ),
+        const _YorksDestination(
+          label: AttendanceStrings.crews,
+          icon: Icons.groups_outlined,
+          selectedIcon: Icons.groups,
+          path: RoutePaths.yorksV1WorkforceCrews,
+        ),
+        ...allDestinations.where(
+          (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
+        ),
+      ]);
+    } else if (location.startsWith(RoutePaths.yorksV1Workforce) &&
         allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce)) {
       sections.addAll([
         const _YorksDestination(
@@ -767,6 +806,7 @@ List<_YorksDestination> _destinationsFor(
   final accountsOfficeEligible =
       role == YorksV1Role.admin ||
       role == YorksV1Role.accountant ||
+      role == YorksV1Role.pr ||
       role == YorksV1Role.projectManager ||
       role == YorksV1Role.seniorMechanicalEngineer;
   // Accounts is one destination for Admin, Project Manager and Senior
@@ -913,6 +953,7 @@ List<_YorksDestination> _destinationsFor(
       final structurallyEligible =
           role == YorksV1Role.admin ||
           role == YorksV1Role.accountant ||
+          role == YorksV1Role.pr ||
           role == YorksV1Role.projectManager ||
           role == YorksV1Role.seniorMechanicalEngineer;
       final canViewAccounts = allows(
@@ -979,7 +1020,7 @@ List<_YorksDestination> _destinationsFor(
     if (path == RoutePaths.rentals) {
       return allows(
         YorksV1CapabilityKeys.rentalsView,
-        role == YorksV1Role.admin,
+        role == YorksV1Role.admin || role == YorksV1Role.pr,
       );
     }
     if (path == RoutePaths.users) {
@@ -1215,6 +1256,31 @@ List<_YorksDestination> _legacyDestinationsFor(
         ),
     ],
     YorksV1Role.accountant => [shared.first],
+    YorksV1Role.pr => [
+      shared.first,
+      _YorksDestination(
+        label: YorksV1ShellStrings.projects,
+        icon: Icons.account_tree_outlined,
+        selectedIcon: Icons.account_tree_rounded,
+        path: RoutePaths.yorksV1Projects,
+        suffix: YorksV1ShellStrings.viewOnly,
+      ),
+      if (teamChatEnabled) shared.last,
+      _YorksDestination(
+        label: YorksV1ShellStrings.rentalProperties,
+        icon: Icons.apartment_outlined,
+        selectedIcon: Icons.apartment_rounded,
+        path: RoutePaths.rentals,
+        group: YorksV1ShellStrings.administration,
+      ),
+      _YorksDestination(
+        label: YorksV1ShellStrings.userManagement,
+        icon: Icons.manage_accounts_outlined,
+        selectedIcon: Icons.manage_accounts_rounded,
+        path: RoutePaths.users,
+        group: YorksV1ShellStrings.administration,
+      ),
+    ],
     YorksV1Role.procurement => [
       shared.first,
       shared[2],
@@ -2969,6 +3035,7 @@ TranslatableString _roleCopy(YorksV1Role? role) => switch (role) {
   YorksV1Role.workshopInCharge => AppStrings.workshopInChargeRole,
   YorksV1Role.documentController => AppStrings.documentControllerRole,
   YorksV1Role.accountant => AppStrings.accountantRole,
+  YorksV1Role.pr => AppStrings.prRole,
   YorksV1Role.procurement => AppStrings.procurementRole,
   YorksV1Role.admin => AppStrings.adminRole,
   null => YorksV1ShellStrings.account,
@@ -2982,6 +3049,7 @@ TranslatableString _workspaceCopy(YorksV1Role? role) => switch (role) {
   YorksV1Role.workshopInCharge ||
   YorksV1Role.documentController => YorksV1ShellStrings.engineerWorkspace,
   YorksV1Role.accountant => YorksV1ShellStrings.accountantWorkspace,
+  YorksV1Role.pr => YorksV1ShellStrings.prWorkspace,
   YorksV1Role.procurement => YorksV1ShellStrings.procurementWorkspace,
   YorksV1Role.admin => YorksV1ShellStrings.managementWorkspace,
   null => YorksV1ShellStrings.operationalWorkspace,

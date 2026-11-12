@@ -14,7 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('Yorks V1 role claims', () {
-    test('accepts only the nine exact server-controlled role claims', () {
+    test('accepts only the ten exact server-controlled role claims', () {
       expect(
         YorksV1Role.fromServerClaim('project_engineer'),
         YorksV1Role.projectEngineer,
@@ -27,6 +27,12 @@ void main() {
         YorksV1Role.fromServerClaim('senior_mechanical_engineer'),
         YorksV1Role.seniorMechanicalEngineer,
       );
+      expect(YorksV1Role.fromServerClaim('pr'), YorksV1Role.pr);
+      expect(YorksV1Role.pr.canConfigureUsers, isTrue);
+      expect(YorksV1Role.pr.isEngineering, isFalse);
+      expect(YorksV1Role.pr.canCreateProject, isFalse);
+      expect(YorksV1Role.pr.canCreateMaterialRequest, isFalse);
+      expect(YorksV1Role.pr.canBrowseInventory, isFalse);
       expect(
         YorksV1Role.fromServerClaim('project_manager'),
         YorksV1Role.projectManager,

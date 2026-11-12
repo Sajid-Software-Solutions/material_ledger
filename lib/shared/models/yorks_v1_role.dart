@@ -11,6 +11,10 @@ enum YorksV1Role {
   workshopInCharge('workshop_in_charge'),
   documentController('document_controller'),
   accountant('accountant'),
+
+  /// People and HR: users, worker records, Workforce and Rentals, with
+  /// read-only Projects and Accounts. Never a technical project member.
+  pr('pr'),
   procurement('procurement'),
   admin('admin');
 
@@ -57,7 +61,7 @@ enum YorksV1Role {
   /// User Configuration is a separately approved organization-level control.
   /// It does not imply access to unrelated Admin screens or commercial data.
   bool get canConfigureUsers =>
-      this == admin || this == seniorMechanicalEngineer;
+      this == admin || this == seniorMechanicalEngineer || this == pr;
 
   /// These organization-wide roles share Project Engineer workflow authority.
   /// The trusted database maps each exact claim to

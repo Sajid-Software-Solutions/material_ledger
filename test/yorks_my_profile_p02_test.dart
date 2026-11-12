@@ -332,6 +332,7 @@ String _roleLabel(YorksV1Role role) => switch (role) {
   YorksV1Role.workshopInCharge => AppStrings.workshopInChargeRole.primary,
   YorksV1Role.documentController => AppStrings.documentControllerRole.primary,
   YorksV1Role.accountant => AppStrings.accountantRole.primary,
+  YorksV1Role.pr => AppStrings.prRole.primary,
   YorksV1Role.procurement => AppStrings.procurementRole.primary,
   YorksV1Role.admin => AppStrings.adminRole.primary,
 };

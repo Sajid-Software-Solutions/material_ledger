@@ -43,6 +43,7 @@ operator_company_material_requests_flag="${YORKS_V1_COMPANY_MATERIAL_REQUESTS:-}
 operator_role_overview_v2_flag="${YORKS_V1_ROLE_OVERVIEW_V2:-}"
 operator_workforce_flag="${YORKS_V1_WORKFORCE:-}"
 operator_worker_records_flag="${YORKS_V1_WORKER_RECORDS:-}"
+operator_attendance_v2_flag="${YORKS_V1_WORKFORCE_ATTENDANCE_V2:-}"
 operator_analytics_flag="${YORKS_V1_ANALYTICS:-}"
 operator_posthog_enabled="${POSTHOG_ENABLED:-}"
 operator_posthog_project_token="${POSTHOG_PROJECT_TOKEN:-}"
@@ -78,6 +79,7 @@ role_overview_v2_flag="${operator_role_overview_v2_flag:-${YORKS_V1_ROLE_OVERVIE
 workforce_flag="${operator_workforce_flag:-${YORKS_V1_WORKFORCE:-false}}"
 # Worker Records (employment record in User Management) is default-off.
 worker_records_flag="${operator_worker_records_flag:-${YORKS_V1_WORKER_RECORDS:-false}}"
+attendance_v2_flag="${operator_attendance_v2_flag:-${YORKS_V1_WORKFORCE_ATTENDANCE_V2:-false}}"
 analytics_flag="${operator_analytics_flag:-${YORKS_V1_ANALYTICS:-false}}"
 posthog_enabled="${operator_posthog_enabled:-${POSTHOG_ENABLED:-false}}"
 posthog_project_token="${operator_posthog_project_token:-${POSTHOG_PROJECT_TOKEN:-}}"
@@ -183,6 +185,13 @@ case "$worker_records_flag" in
   true|false) ;;
   *)
     echo "YORKS_V1_WORKER_RECORDS must be true or false." >&2
+    exit 64
+    ;;
+esac
+case "$attendance_v2_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_WORKFORCE_ATTENDANCE_V2 must be true or false." >&2
     exit 64
     ;;
 esac
@@ -303,6 +312,7 @@ r35_defines=(
   "--dart-define=YORKS_V1_ROLE_OVERVIEW_V2=${role_overview_v2_flag}"
   "--dart-define=YORKS_V1_WORKFORCE=${workforce_flag}"
   "--dart-define=YORKS_V1_WORKER_RECORDS=${worker_records_flag}"
+  "--dart-define=YORKS_V1_WORKFORCE_ATTENDANCE_V2=${attendance_v2_flag}"
   "--dart-define=YORKS_V1_ANALYTICS=${analytics_flag}"
   "--dart-define=POSTHOG_ENABLED=${posthog_enabled}"
   "--dart-define=POSTHOG_PROJECT_TOKEN=${posthog_project_token}"
@@ -322,6 +332,7 @@ echo "Yorks Company Material Requests rollout: ${company_material_requests_flag}
 echo "Yorks Role Overview V2 rollout: ${role_overview_v2_flag}" >&2
 echo "Yorks Workforce rollout: ${workforce_flag}" >&2
 echo "Yorks Worker Records rollout: ${worker_records_flag}" >&2
+echo "Yorks Workforce attendance V2 rollout: ${attendance_v2_flag}" >&2
 echo "Yorks Analytics rollout: retired (requested ${analytics_flag})" >&2
 echo "Yorks PostHog telemetry: ${posthog_enabled}" >&2
 

@@ -35,15 +35,15 @@ select is(
   (select array_agg(role_name order by role_name)
    from public.v1_permission_role_defaults
    where capability_key = 'worker_records.view' and is_granted),
-  array['accountant', 'admin']::text[],
-  'Only Admin and Accountant hold worker record access by default'
+  array['accountant', 'admin', 'pr']::text[],
+  'Only Admin, Accountant and PR hold worker record access by default'
 );
 select is(
   (select array_agg(role_name order by role_name)
    from public.v1_permission_role_defaults
    where capability_key = 'worker_records.manage' and can_delegate),
-  array['admin']::text[],
-  'Only Admin may delegate worker record access'
+  array['admin', 'pr']::text[],
+  'Only Admin and PR may delegate worker record access'
 );
 
 -- Accountant boundary: only the two worker record keys are added -----------------

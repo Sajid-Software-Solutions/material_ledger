@@ -758,6 +758,7 @@ abstract final class YorksV1ProfileStrings {
       language,
     ),
     YorksV1Role.accountant => AppStrings.accountantRole.active(language),
+    YorksV1Role.pr => AppStrings.prRole.active(language),
     YorksV1Role.procurement => AppStrings.procurementRole.active(language),
     YorksV1Role.admin => AppStrings.adminRole.active(language),
   };

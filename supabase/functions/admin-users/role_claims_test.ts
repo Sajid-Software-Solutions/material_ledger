@@ -7,12 +7,13 @@ import {
   provisionableRoles,
 } from "./role_claims.ts";
 
-Deno.test("all nine exact V1 roles are accepted as primary claims", () => {
+Deno.test("all ten exact V1 roles are accepted as primary claims", () => {
   for (
     const role of [
       "admin",
       "procurement",
       "accountant",
+      "pr",
       "project_engineer",
       "site_engineer",
       "senior_mechanical_engineer",

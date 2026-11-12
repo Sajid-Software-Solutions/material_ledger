@@ -23,6 +23,9 @@ export const DEFAULT_CAPS: Readonly<Record<string, readonly string[]>> = {
   // legacy shell claims empty so provisioning cannot manufacture technical,
   // inventory or general finance access for Accountant.
   accountant: [],
+  // PR's people, Workforce, Rentals and read-only access resolves through
+  // protected Postgres capabilities, never through legacy shell claims.
+  pr: [],
   project_engineer: [],
   site_engineer: [],
   senior_mechanical_engineer: [],

@@ -93,6 +93,14 @@ with personas(
       'accountant',
       'usr-local-accountant',
       '[]'::jsonb
+    ),
+    (
+      '10000000-0000-4000-8000-000000000014'::uuid,
+      'pr@yorks.local.test',
+      'Local PR',
+      'pr',
+      'usr-local-pr',
+      '[]'::jsonb
     )
 )
 insert into auth.users (
@@ -175,6 +183,10 @@ with personas(auth_user_id, email) as (
     (
       '10000000-0000-4000-8000-000000000013'::uuid,
       'accountant@yorks.local.test'
+    ),
+    (
+      '10000000-0000-4000-8000-000000000014'::uuid,
+      'pr@yorks.local.test'
     )
 )
 insert into auth.identities (
