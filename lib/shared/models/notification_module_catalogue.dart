@@ -356,19 +356,35 @@ const notificationModuleEvents = <String, Map<String, Object>>{
   },
   "workforce_attendance_month_ready": {
     "title": <String>[
-      "Month ready to confirm",
-      "الشهر جاهز للتأكيد",
-      "مہینہ تصدیق کے لیے تیار",
-      "माह पुष्टि के लिए तैयार",
+      "Attendance ready to confirm",
+      "الحضور جاهز للتأكيد",
+      "حاضری تصدیق کے لیے تیار",
+      "उपस्थिति पुष्टि के लिए तैयार",
     ],
     "body": <String>[
-      "Today is the last day of the month. Check your crew’s attendance and confirm the month.",
-      "اليوم آخر يوم في الشهر. راجع حضور طاقمك وأكد الشهر.",
-      "آج مہینے کا آخری دن ہے۔ اپنے عملے کی حاضری دیکھیں اور مہینے کی تصدیق کریں۔",
-      "आज माह का अंतिम दिन है। अपने दल की उपस्थिति देखें और माह की पुष्टि करें।",
+      "Today is the last day of the month. Check your crews' attendance and confirm the month so it locks.",
+      "اليوم آخر يوم في الشهر. راجع حضور طواقمك وأكد الشهر ليُقفل.",
+      "آج مہینے کا آخری دن ہے۔ اپنے عملے کی حاضری دیکھیں اور مہینے کی تصدیق کریں تاکہ وہ مقفل ہو جائے۔",
+      "आज माह का अंतिम दिन है। अपने दलों की उपस्थिति देखें और माह की पुष्टि करें ताकि वह लॉक हो जाए।",
     ],
     "destination": "timesheets",
     "urgent": false,
+  },
+  "workforce_attendance_month_overdue": {
+    "title": <String>[
+      "Attendance confirmation overdue",
+      "تأكيد الحضور متأخر",
+      "حاضری کی تصدیق میں تاخیر",
+      "उपस्थिति पुष्टि में देरी",
+    ],
+    "body": <String>[
+      "A month has ended and your crews' attendance is not confirmed yet. Confirm it so PR and Accounts can use it.",
+      "انتهى شهر ولم يُؤكَّد حضور طواقمك بعد. أكّده ليتمكن العلاقات العامة والحسابات من استخدامه.",
+      "مہینہ ختم ہو گیا اور آپ کے عملے کی حاضری کی تصدیق ابھی نہیں ہوئی۔ تصدیق کریں تاکہ پی آر اور اکاؤنٹس اسے استعمال کر سکیں۔",
+      "माह समाप्त हो गया और आपके दलों की उपस्थिति की अभी पुष्टि नहीं हुई। पुष्टि करें ताकि पीआर और अकाउंट्स इसका उपयोग कर सकें।",
+    ],
+    "destination": "timesheets",
+    "urgent": true,
   },
   "rental_completeness_review": {
     "title": <String>[

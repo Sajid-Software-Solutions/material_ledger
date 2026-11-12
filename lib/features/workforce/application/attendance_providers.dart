@@ -36,6 +36,13 @@ final yorksAttendanceOverviewProvider = FutureProvider.autoDispose
           .getOverview(month: month),
     );
 
+/// Crew months waiting for the signed-in person's confirmation (the month
+/// ended, or ends today). Empty for people who do not confirm.
+final yorksAttendanceConfirmationsDueProvider =
+    FutureProvider.autoDispose<List<AttendanceConfirmationDue>>(
+      (ref) => ref.watch(yorksAttendanceRepositoryProvider).confirmationsDue(),
+    );
+
 final yorksAttendanceCrewsProvider =
     FutureProvider.autoDispose<List<AttendanceCrew>>(
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listCrews(),

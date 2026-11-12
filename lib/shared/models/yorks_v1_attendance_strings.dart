@@ -267,10 +267,10 @@ abstract final class AttendanceStrings {
     hi: '{month} की पुष्टि',
   );
   static const kpiNotified = _T(
-    en: 'Reviewers are notified on {date}',
-    ar: 'يُبلَّغ المراجعون في {date}',
-    ur: 'جائزہ لینے والوں کو {date} کو اطلاع ملے گی',
-    hi: 'समीक्षकों को {date} को सूचना मिलेगी',
+    en: 'Reviewers are reminded from {date} until confirmed',
+    ar: 'يُذكَّر المراجعون من {date} حتى التأكيد',
+    ur: 'جائزہ لینے والوں کو {date} سے تصدیق تک یاد دہانی ہوگی',
+    hi: 'समीक्षकों को {date} से पुष्टि तक याद दिलाया जाएगा',
   );
   static const kpiNotifiedToday = _T(
     en: 'Reviewers notified today',
@@ -1337,6 +1337,43 @@ abstract final class AttendanceStrings {
     ar: 'الطباعة والتصدير',
     ur: 'پرنٹ اور ایکسپورٹ',
     hi: 'प्रिंट और निर्यात',
+  );
+
+  static const dueToday = _T(
+    en: '{month} ends today — confirm your crews’ attendance',
+    ar: 'ينتهي {month} اليوم — أكد حضور طواقمك',
+    ur: '{month} آج ختم ہو رہا ہے — اپنے عملے کی حاضری کی تصدیق کریں',
+    hi: '{month} आज समाप्त — अपने दलों की उपस्थिति की पुष्टि करें',
+  );
+  static const dueOverdue = _T(
+    en: '{month} is waiting for your confirmation',
+    ar: '{month} بانتظار تأكيدك',
+    ur: '{month} آپ کی تصدیق کا منتظر ہے',
+    hi: '{month} आपकी पुष्टि की प्रतीक्षा में है',
+  );
+  static const dueCrews = _T(
+    en: 'Waiting: {crews}. Confirming locks the month for PR and Accounts.',
+    ar: 'بالانتظار: {crews}. التأكيد يقفل الشهر للعلاقات العامة والحسابات.',
+    ur: 'منتظر: {crews}۔ تصدیق سے مہینہ پی آر اور اکاؤنٹس کے لیے مقفل ہو جاتا ہے۔',
+    hi: 'प्रतीक्षा में: {crews}। पुष्टि से माह पीआर और अकाउंट्स के लिए लॉक होता है।',
+  );
+  static const dueMissing = _T(
+    en: '{crew} ({n} days not entered)',
+    ar: '{crew} ({n} أيام غير مُدخلة)',
+    ur: '{crew} ({n} دن درج نہیں)',
+    hi: '{crew} ({n} दिन दर्ज नहीं)',
+  );
+  static const dueMissingOne = _T(
+    en: '{crew} (1 day not entered)',
+    ar: '{crew} (يوم واحد غير مُدخل)',
+    ur: '{crew} (1 دن درج نہیں)',
+    hi: '{crew} (1 दिन दर्ज नहीं)',
+  );
+  static const confirmNow = _T(
+    en: 'Confirm now',
+    ar: 'أكّد الآن',
+    ur: 'ابھی تصدیق کریں',
+    hi: 'अभी पुष्टि करें',
   );
 
   // ─── Errors ────────────────────────────────────────────────────────────────

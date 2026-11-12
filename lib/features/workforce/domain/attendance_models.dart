@@ -724,3 +724,36 @@ final class AttendanceHolidays {
   final bool canManage;
   final List<({String date, String name})> holidays;
 }
+
+/// A crew month waiting for this person's confirmation.
+final class AttendanceConfirmationDue {
+  const AttendanceConfirmationDue({
+    required this.crewId,
+    required this.crewName,
+    required this.month,
+    required this.lastDay,
+    required this.overdue,
+    required this.missingDays,
+  });
+
+  factory AttendanceConfirmationDue.fromJson(Map<String, dynamic> json) =>
+      AttendanceConfirmationDue(
+        crewId: _s(json['crew_id']),
+        crewName: _s(json['crew_name']),
+        month: _s(json['month']),
+        lastDay: _s(json['last_day']),
+        overdue: _b(json['overdue']),
+        missingDays: _i(json['missing_days']),
+      );
+
+  final String crewId;
+  final String crewName;
+  final String month;
+  final String lastDay;
+
+  /// The month ended before today.
+  final bool overdue;
+
+  /// Working days still not entered (confirming waits for these).
+  final int missingDays;
+}

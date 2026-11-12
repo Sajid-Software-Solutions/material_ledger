@@ -2293,7 +2293,9 @@ Requests:
   organization-wide engineer, or Admin) watches entries as they are saved,
   may change a saved day only with a reason, and may ask the attendance taker
   a question.
-- On the last day of the month the confirmer is reminded. Confirm unlocks
+- On the last day of the month, and every morning after it until the month
+  is confirmed, the confirmer is reminded; the waiting month is shown first
+  in Workforce with one tap to confirm. Confirm unlocks
   once every working day of the month is entered, and it locks the month.
   Workshop crews need no confirmation. Only Admin or PR may reopen a
   confirmed month, with a reason.
