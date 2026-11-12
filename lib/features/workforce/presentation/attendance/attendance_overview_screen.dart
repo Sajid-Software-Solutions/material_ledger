@@ -19,6 +19,7 @@ import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 import '../../domain/crew_request_models.dart';
 import '../requests/crew_request_common.dart';
+import '../requests/crew_request_kit.dart';
 import 'attendance_common.dart';
 
 /// Views of the Workforce Center.
@@ -662,70 +663,31 @@ class _RequestsCardState extends State<_RequestsCard> {
                     )
                   : null,
             )
-          else
-            AccountsV2Table(
-              phoneCards: true,
-              minWidth: 1040,
-              columns: [
-                AccountsV2Column(CRS.t(CRS.colRequest, language), flex: 3),
-                AccountsV2Column(CRS.t(CRS.colPeople, language), flex: 3),
-                AccountsV2Column(CRS.t(CRS.colNeeded, language), width: 150),
-                AccountsV2Column(CRS.t(CRS.colState, language), width: 210),
-                AccountsV2Column(CRS.t(CRS.colNext, language), width: 170),
-                AccountsV2Column(
-                  CRS.t(CRS.colLastUpdate, language),
-                  width: 190,
+          else ...[
+            for (final request in rows)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                child: CrewRequestCard(
+                  key: ValueKey('crew-request-row-${request.id}'),
+                  request: request,
+                  language: language,
+                  onOpen: () => context.go(crewRequestPath(request.id)),
                 ),
-              ],
-              rows: [
-                for (final request in rows)
-                  AccountsV2Row(
-                    key: ValueKey('crew-request-row-${request.id}'),
-                    onTap: () => context.go(crewRequestPath(request.id)),
-                    [
-                      AccountsV2CellStack(
-                        primary: request.number,
-                        secondary: crewRequestWhere(request, language),
-                      ),
-                      AccountsV2CellStack(
-                        primary: crewRequestPeople(request),
-                        secondary: CRS.t(CRS.assignedOf, language, {
-                          'a': request.assignedCount,
-                          'b': request.requestedCount,
-                        }),
-                      ),
-                      Text(
-                        crewRequestDates(request, language),
-                        style: v2Style(13),
-                      ),
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: CrewRequestStateChip(
-                          request: request,
-                          language: language,
-                        ),
-                      ),
-                      Text(
-                        crewRequestNextStep(request, language),
-                        style: v2Style(
-                          13,
-                          weight: request.access.mine
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          color: request.access.mine
-                              ? AccountsV2Colors.pri
-                              : AccountsV2Colors.ink,
-                        ),
-                      ),
-                      AccountsV2CellStack(
-                        primary: request.lastActor.name,
-                        secondary:
-                            '${crewRequestRole(request.lastActor.role, language)} · ${attendanceStamp(request.updatedAt)}',
-                      ),
-                    ],
-                  ),
-              ],
+              ),
+          ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: AccountsV2Button(
+                key: const ValueKey('workforce-center-open-register'),
+                label: CRS.t(CRS.openAll, language),
+                icon: 'list',
+                onPressed: () =>
+                    context.go(RoutePaths.yorksV1WorkforceRequests),
+              ),
             ),
+          ),
         ],
       ),
     );

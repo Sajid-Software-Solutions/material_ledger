@@ -9,16 +9,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/constants.dart';
+import '../../../../core/widgets/yorks_mobile_ui.dart';
 import '../../../../shared/models/app_language.dart';
-import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
 import '../../data/attendance_repository.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
 import '../../domain/crew_request_models.dart';
-import '../attendance/attendance_common.dart';
+import '../attendance/attendance_common.dart'
+    show AS, AttendanceAvatar, attendanceLanguage, attendanceToast;
 import 'crew_request_common.dart';
+import 'crew_request_kit.dart';
 
 class CrewRequestAssignScreen extends ConsumerWidget {
   const CrewRequestAssignScreen({super.key, required this.requestId});
@@ -32,37 +35,36 @@ class CrewRequestAssignScreen extends ConsumerWidget {
     final options = ref.watch(yorksCrewRequestOptionsProvider);
     final error = request.error ?? options.error;
     if (error != null) {
-      return AttendanceLoadState(
-        language: language,
-        error: error,
-        onRetry: () {
-          ref.invalidate(yorksCrewRequestProvider(requestId));
-          ref.invalidate(yorksCrewRequestOptionsProvider);
-        },
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        body: CrMessage(
+          icon: Icons.cloud_off_outlined,
+          message: crewRequestErrorText(error, language),
+          action: AS.t(AS.retry, language),
+          onPressed: () {
+            ref.invalidate(yorksCrewRequestProvider(requestId));
+            ref.invalidate(yorksCrewRequestOptionsProvider);
+          },
+        ),
       );
     }
     final loadedRequest = request.valueOrNull;
     final loadedOptions = options.valueOrNull;
     if (loadedRequest == null || loadedOptions == null) {
-      return AttendanceLoadState(language: language);
+      return const Scaffold(
+        backgroundColor: AppColors.surface,
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
     if (!loadedRequest.access.fulfil) {
-      return AttendancePage(
-        language: language,
-        title: loadedRequest.number,
-        children: [
-          AccountsV2Panel(
-            child: AccountsV2Empty(
-              icon: 'shield',
-              title: crewRequestNextStep(loadedRequest, language),
-              action: AccountsV2Button(
-                label: AS.t(AS.retry, language),
-                icon: 'undo',
-                onPressed: () => context.go(crewRequestPath(requestId)),
-              ),
-            ),
-          ),
-        ],
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        body: CrMessage(
+          icon: Icons.lock_outline_rounded,
+          message: crewRequestNextStep(loadedRequest, language),
+          action: CRS.t(CRS.open, language),
+          onPressed: () => context.go(crewRequestPath(requestId)),
+        ),
       );
     }
     return _AssignForm(
@@ -303,138 +305,248 @@ class _AssignFormState extends ConsumerState<_AssignForm> {
     final language = _language;
     final crews = _crews;
     final chosen = _chosenCount;
-    return AttendancePage(
-      language: language,
-      eyebrow: CRS.t(CRS.back, language),
-      title: CRS.t(CRS.assignTitle, language, {'number': _request.number}),
-      subtitle:
-          '${crewRequestWhere(_request, language)} · ${crewRequestDates(_request, language)}',
-      actions: [
-        AccountsV2Button(
-          label: AS.t(AS.cancel, language),
-          onPressed: _busy
-              ? null
-              : () => context.go(crewRequestPath(_request.id)),
-        ),
-      ],
+    final phone =
+        MediaQuery.sizeOf(context).width < AppSpacing.stackedBreakpoint;
+    final crewCard = CrCard(
+      key: const ValueKey('crew-request-assign-crew'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(CRS.t(CRS.joinCrew, language), style: AppTypography.titleSmall),
+          const SizedBox(height: AppSpacing.sm),
+          if (crews.isNotEmpty) ...[
+            YorksMobileSegmentedControl<bool>(
+              key: const ValueKey('crew-request-assign-mode'),
+              selected: _newCrew,
+              enabled: !_busy,
+              options: [
+                YorksMobileSegmentOption(
+                  value: false,
+                  label: CRS.t(CRS.existingCrew, language),
+                ),
+                YorksMobileSegmentOption(
+                  value: true,
+                  label: CRS.t(CRS.newCrew, language),
+                ),
+              ],
+              onSelected: (value) {
+                _newCrew = value;
+                _changed();
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (!_newCrew)
+            DropdownButtonFormField<String>(
+              key: const ValueKey('crew-request-assign-crew-select'),
+              initialValue: _crewId,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: CRS.t(CRS.crewLabel, language),
+              ),
+              items: [
+                for (final crew in crews)
+                  DropdownMenuItem(value: crew.id, child: Text(crew.name)),
+              ],
+              onChanged: _busy
+                  ? null
+                  : (value) {
+                      _crewId = value;
+                      _changed();
+                    },
+            )
+          else ...[
+            TextField(
+              key: const ValueKey('crew-request-assign-crew-name'),
+              controller: _crewName,
+              enabled: !_busy,
+              onChanged: (_) => _changed(),
+              decoration: InputDecoration(
+                labelText: CRS.t(CRS.newCrewName, language),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('crew-request-assign-start'),
+                    controller: _shiftStart,
+                    enabled: !_busy,
+                    onChanged: (_) => _changed(),
+                    decoration: InputDecoration(
+                      labelText: CRS.t(CRS.shiftStarts, language),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('crew-request-assign-finish'),
+                    controller: _shiftFinish,
+                    enabled: !_busy,
+                    onChanged: (_) => _changed(),
+                    decoration: InputDecoration(
+                      labelText: CRS.t(CRS.shiftEnds, language),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+    final saveButton = FilledButton.icon(
+      key: const ValueKey('crew-request-assign-save'),
+      onPressed: _busy ? null : _save,
+      icon: _busy
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.check_rounded),
+      label: Text(
+        _busy
+            ? AS.t(AS.saving, language)
+            : chosen > 0
+            ? CRS.t(CRS.saveAssign, language, {'n': chosen})
+            : CRS.t(CRS.saveDecisions, language),
+      ),
+    );
+    final body = ListView(
+      key: const ValueKey('crew-request-assign'),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
-        AccountsV2Note(
-          child: Text(CRS.t(CRS.assignIntro, language), style: v2Style(13)),
-        ),
-        AccountsV2Panel(
-          key: const ValueKey('crew-request-assign-crew'),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  CRS.t(CRS.joinCrew, language),
-                  style: v2Style(12.5, weight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                if (crews.isNotEmpty)
-                  CrewRequestToggle<bool>(
-                    key: const ValueKey('crew-request-assign-mode'),
-                    options: [
-                      (false, CRS.t(CRS.existingCrew, language)),
-                      (true, CRS.t(CRS.newCrew, language)),
-                    ],
-                    selected: _newCrew,
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            _newCrew = value;
-                            _changed();
-                          },
-                  ),
-                const SizedBox(height: 10),
-                if (!_newCrew)
-                  AccountsV2Select<String?>(
-                    key: const ValueKey('crew-request-assign-crew-select'),
-                    label: CRS.t(CRS.crewLabel, language),
-                    value: _crewId,
-                    options: [
-                      if (_crewId == null) (null, '—'),
-                      for (final crew in crews) (crew.id, crew.name),
-                    ],
-                    onChanged: _busy
-                        ? null
-                        : (value) {
-                            _crewId = value;
-                            _changed();
-                          },
+                if (phone)
+                  YorksMobilePageTitle(
+                    eyebrow: _request.number,
+                    title: CRS.t(CRS.assignWorkers, language),
+                    description: CRS.t(CRS.assignIntro, language),
                   )
-                else
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      AccountsV2TextField(
-                        key: const ValueKey('crew-request-assign-crew-name'),
-                        label: CRS.t(CRS.newCrewName, language),
-                        controller: _crewName,
-                        enabled: !_busy,
-                        width: 320,
-                        onChanged: (_) => _changed(),
-                      ),
-                      AccountsV2TextField(
-                        key: const ValueKey('crew-request-assign-start'),
-                        label: CRS.t(CRS.shiftStarts, language),
-                        controller: _shiftStart,
-                        enabled: !_busy,
-                        width: 140,
-                        onChanged: (_) => _changed(),
-                      ),
-                      AccountsV2TextField(
-                        key: const ValueKey('crew-request-assign-finish'),
-                        label: CRS.t(CRS.shiftEnds, language),
-                        controller: _shiftFinish,
-                        enabled: !_busy,
-                        width: 140,
-                        onChanged: (_) => _changed(),
-                      ),
-                    ],
+                else ...[
+                  Text(
+                    CRS.t(CRS.assignTitle, language, {
+                      'number': _request.number,
+                    }),
+                    style: AppTypography.headlineSmall.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    CRS.t(CRS.assignIntro, language),
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '${crewRequestWhere(_request, language)} · ${crewRequestDates(_request, language)}',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                crewCard,
+                const SizedBox(height: AppSpacing.md),
+                for (final line in _request.lines) ...[
+                  _LineCard(
+                    key: ValueKey('crew-request-assign-line-${line.id}'),
+                    line: line,
+                    choice: _choices[line.id]!,
+                    free: _free(line),
+                    language: language,
+                    enabled: !_busy,
+                    onChanged: _changed,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                if (_error != null)
+                  Semantics(
+                    liveRegion: true,
+                    child: YorksMobileCallout(
+                      key: const ValueKey('crew-request-assign-error'),
+                      icon: Icons.error_outline_rounded,
+                      title: _error!,
+                      message: '',
+                      warning: true,
+                    ),
                   ),
               ],
             ),
           ),
         ),
-        for (final line in _request.lines)
-          _LineCard(
-            key: ValueKey('crew-request-assign-line-${line.id}'),
-            line: line,
-            choice: _choices[line.id]!,
-            free: _free(line),
-            language: language,
-            enabled: !_busy,
-            onChanged: _changed,
-          ),
-        if (_error != null)
-          Semantics(
-            liveRegion: true,
-            child: AccountsV2Note(
-              key: const ValueKey('crew-request-assign-error'),
-              tone: AccountsV2NoteTone.bad,
-              child: Text(_error!, style: v2Style(13)),
-            ),
-          ),
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: AccountsV2Button(
-            key: const ValueKey('crew-request-assign-save'),
-            label: _busy
-                ? AS.t(AS.saving, language)
-                : chosen > 0
-                ? CRS.t(CRS.saveAssign, language, {'n': chosen})
-                : CRS.t(CRS.saveDecisions, language),
-            icon: 'check',
-            kind: AccountsV2ButtonKind.primary,
-            size: AccountsV2ButtonSize.large,
-            onPressed: _busy ? null : _save,
-          ),
-        ),
       ],
+    );
+    return Scaffold(
+      backgroundColor: phone ? AppColors.mobileSurface : AppColors.surface,
+      body: Column(
+        children: [
+          if (phone)
+            YorksMobileAppBar(
+              title: CRS.t(CRS.assignWorkers, language),
+              leading: YorksMobileIconButton(
+                key: const ValueKey('crew-request-assign-back'),
+                icon: Icons.arrow_back_rounded,
+                tooltip: CRS.t(CRS.backAction, language),
+                onPressed: () {
+                  if (!_busy) context.go(crewRequestPath(_request.id));
+                },
+              ),
+            ),
+          Expanded(child: body),
+          if (phone)
+            YorksMobileStickyActions(
+              summary: CRS.t(CRS.assignedOf, language, {
+                'a': _request.assignedCount + chosen,
+                'b': _request.requestedCount,
+              }),
+              children: [saveButton],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceContainerLowest,
+                border: Border(top: BorderSide(color: AppColors.line)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      CRS.t(CRS.assignedOf, language, {
+                        'a': _request.assignedCount + chosen,
+                        'b': _request.requestedCount,
+                      }),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => context.go(crewRequestPath(_request.id)),
+                    child: Text(AS.t(AS.cancel, language)),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  saveButton,
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -462,56 +574,105 @@ class _LineCard extends StatelessWidget {
     final total = line.assigned.length + choice.chosen.length;
     final remaining = line.quantity - total;
     final complete = line.short == 0;
-    return AccountsV2Panel(
+    return CrCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AccountsV2CardHead(
-            title: '${line.quantity} × ${line.trade}',
-            icon: 'users',
-            subtitle: complete
-                ? CRS.t(CRS.lineComplete, language)
-                : CRS.t(CRS.chosenOf, language, {
-                    'a': total,
-                    'b': line.quantity,
-                  }),
-          ),
-          if (line.note != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-              child: Text(
-                '“${line.note}”',
-                style: v2Style(12.5, color: AccountsV2Colors.mut),
-              ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: AppColors.blueContainer,
+                  child: Text(
+                    '${line.lineNumber}',
+                    style: AppTypography.labelMedium.copyWith(
+                      color: AppColors.blue,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${line.quantity} × ${line.trade}',
+                        style: AppTypography.titleSmall,
+                      ),
+                      if (line.note != null)
+                        Text(
+                          line.note!,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                CrPill(
+                  label: complete
+                      ? CRS.t(CRS.lineComplete, language)
+                      : CRS.t(CRS.chosenOf, language, {
+                          'a': total,
+                          'b': line.quantity,
+                        }),
+                  color: complete || remaining == 0
+                      ? AppColors.success
+                      : AppColors.blue,
+                  background: complete || remaining == 0
+                      ? AppColors.successContainer
+                      : AppColors.blueContainer,
+                ),
+              ],
             ),
+          ),
           if (line.assigned.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
               child: Text(
                 CRS.t(CRS.alreadyAssigned, language, {
                   'names': line.assigned.map((a) => a.name).join(', '),
                 }),
-                style: v2Style(12.5),
+                style: AppTypography.bodySmall,
               ),
             ),
           if (!complete) ...[
+            const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-              child: AccountsV2TextField(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: TextField(
                 key: ValueKey('crew-request-assign-search-${line.id}'),
-                label: CRS.t(CRS.searchWorkers, language),
                 controller: choice.search,
-                search: true,
                 enabled: enabled,
                 onChanged: (_) => onChanged(),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: CRS.t(CRS.searchWorkers, language),
+                ),
               ),
             ),
             if (free.isEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.md,
+                ),
                 child: Text(
                   CRS.t(CRS.noFreeWorkers, language),
-                  style: v2Style(12.5, color: AccountsV2Colors.mut),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.muted,
+                  ),
                 ),
               )
             else
@@ -523,7 +684,6 @@ class _LineCard extends StatelessWidget {
                     key: ValueKey(
                       'crew-request-assign-worker-${line.id}-${worker.id}',
                     ),
-                    dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: choice.chosen.contains(worker.id),
                     onChanged:
@@ -540,41 +700,36 @@ class _LineCard extends StatelessWidget {
                             onChanged();
                           },
                     secondary: AttendanceAvatar(initials: worker.initials),
-                    title: Text(worker.name, style: v2Style(13.5)),
+                    title: Text(worker.name, style: AppTypography.bodyLarge),
                     subtitle: Text(
                       [
                         worker.number,
                         worker.designation,
                         worker.company,
                       ].where((part) => part.isNotEmpty).join(' · '),
-                      style: v2Style(12, color: AccountsV2Colors.mut),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.muted,
+                      ),
                     ),
                   ),
                 ),
             if (remaining > 0)
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '${total > 0 ? CRS.t(CRS.decisionPartial, language) : CRS.t(CRS.decisionCannot, language)} · ${CRS.t(CRS.whyShort, language)}',
-                      style: v2Style(12.5, weight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 6),
-                    AccountsV2TextField(
-                      key: ValueKey('crew-request-assign-reason-${line.id}'),
-                      label: CRS.t(CRS.reasonLabel, language),
-                      controller: choice.reason,
-                      enabled: enabled,
-                      onChanged: (_) {
-                        choice.decision = total > 0
-                            ? CrewRequestLineDecision.partial
-                            : CrewRequestLineDecision.cannotProvide;
-                        onChanged();
-                      },
-                    ),
-                  ],
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: TextField(
+                  key: ValueKey('crew-request-assign-reason-${line.id}'),
+                  controller: choice.reason,
+                  enabled: enabled,
+                  onChanged: (_) {
+                    choice.decision = total > 0
+                        ? CrewRequestLineDecision.partial
+                        : CrewRequestLineDecision.cannotProvide;
+                    onChanged();
+                  },
+                  decoration: InputDecoration(
+                    labelText:
+                        '${total > 0 ? CRS.t(CRS.decisionPartial, language) : CRS.t(CRS.decisionCannot, language)} · ${CRS.t(CRS.whyShort, language)}',
+                  ),
                 ),
               ),
           ],

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
@@ -15,6 +16,8 @@ import 'package:material_ledger/features/workforce/presentation/attendance/atten
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_assign_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_detail_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_form_screen.dart';
+import 'package:material_ledger/features/workforce/presentation/requests/crew_request_register_screen.dart';
+import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
@@ -287,6 +290,10 @@ Future<GoRouter> _pump(
         ),
       ),
       GoRoute(
+        path: RoutePaths.yorksV1WorkforceRequests,
+        builder: (_, _) => const Scaffold(body: CrewRequestRegisterScreen()),
+      ),
+      GoRoute(
         path: RoutePaths.yorksV1WorkforceRequestNew,
         builder: (_, state) => Scaffold(
           body: CrewRequestFormScreen(
@@ -334,7 +341,7 @@ Future<GoRouter> _pump(
           ),
         ),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();
@@ -386,7 +393,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('3 × Duct fitter, 2 × Helper'), findsOneWidget);
-    expect(find.text('0 of 5 assigned'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('workforce-center-open-register')),
+      findsOneWidget,
+    );
 
     await _tap(
       tester,
@@ -466,7 +476,7 @@ void main() {
 
     expect(
       find.text(
-        'The Project Engineer approves it, then PR assigns the workers.',
+        "Goes to the project's Project Engineer for approval, then PR assigns the workers.",
       ),
       findsOneWidget,
     );
@@ -605,11 +615,128 @@ void main() {
     ]);
   });
 
+  test('engineers and the Accountant reach Workforce by role', () {
+    for (final role in [
+      YorksV1Role.siteEngineer,
+      YorksV1Role.projectEngineer,
+      YorksV1Role.seniorMechanicalEngineer,
+      YorksV1Role.projectManager,
+      YorksV1Role.workshopInCharge,
+      YorksV1Role.documentController,
+      YorksV1Role.accountant,
+    ]) {
+      expect(role.reachesWorkforceByRole, isTrue, reason: role.name);
+    }
+    for (final role in [
+      YorksV1Role.procurement,
+      YorksV1Role.admin,
+      YorksV1Role.pr,
+    ]) {
+      expect(role.reachesWorkforceByRole, isFalse, reason: role.name);
+    }
+  });
+
+  testWidgets('the register starts on My work, searches and opens', (
+    tester,
+  ) async {
+    _size(tester, const Size(390, 844));
+    final rpc = _FakeRpc({
+      'v1_wf_list_requests': (_) => _register([
+        _request(
+          state: 'returned',
+          owner: 'requester',
+          access: _requestAccess(resubmit: true, cancel: true),
+          reason: 'Split by level',
+        ),
+        {
+          ..._request(state: 'fulfilled', owner: 'none'),
+          'id': '7c000000-0000-4000-8000-000000000009',
+          'number': 'CRQ-2026-0009',
+          'project_ref': 'YRA-400',
+          'project_name': 'Ruwais',
+        },
+      ]),
+      'v1_wf_get_request': (_) => _request(),
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1WorkforceRequests);
+
+    expect(find.text('Crew Requests'), findsOneWidget);
+    expect(find.text('My work · 1'), findsOneWidget);
+    expect(find.text('CRQ-2026-0001'), findsOneWidget);
+    expect(find.text('CRQ-2026-0009'), findsNothing);
+    expect(find.text('Requester · Fix and resubmit'), findsNothing);
+
+    await _tap(tester, find.byKey(const ValueKey('crew-register-all')));
+    expect(find.text('CRQ-2026-0009'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-register-search')),
+      'ruwais',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('CRQ-2026-0001'), findsNothing);
+    expect(find.text('CRQ-2026-0009'), findsOneWidget);
+
+    await _tap(
+      tester,
+      find.byKey(
+        const ValueKey(
+          'crew-request-card-7c000000-0000-4000-8000-000000000009',
+        ),
+      ),
+    );
+    expect(rpc.calls.map((c) => c.$1), contains('v1_wf_get_request'));
+  });
+
+  testWidgets('on a phone a Site Engineer goes Details, People, Review, Send', (
+    tester,
+  ) async {
+    _size(tester, const Size(390, 844));
+    final rpc = _FakeRpc({
+      'v1_wf_request_options': (_) => _options(),
+      'v1_wf_submit_request': (_) => _request(),
+      'v1_wf_get_request': (_) => _request(),
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1WorkforceRequestNew);
+
+    expect(find.text('Who needs workers?'), findsOneWidget);
+    await _tap(tester, find.byKey(const ValueKey('crew-request-continue')));
+    expect(find.text('Which people do you need?'), findsOneWidget);
+    // Review waits for a trade and how many.
+    final review = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('crew-request-review')),
+    );
+    expect(review.onPressed, isNull);
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-trade-0')),
+      'Duct fitter',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-quantity-0')),
+      '4',
+    );
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-review')));
+    expect(find.text('Review and send'), findsOneWidget);
+    expect(find.text('4 × Duct fitter'), findsOneWidget);
+    expect(rpc.calls.map((c) => c.$1), isNot(contains('v1_wf_submit_request')));
+
+    await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
+    final payload =
+        rpc.calls
+                .lastWhere((c) => c.$1 == 'v1_wf_submit_request')
+                .$2['p_payload']
+            as Map<String, Object?>;
+    expect(payload['lines'], [
+      {'trade': 'Duct fitter', 'quantity': 4},
+    ]);
+  });
+
   for (final (name, location) in [
     ('center', RoutePaths.yorksV1Workforce),
     ('requests', '${RoutePaths.yorksV1Workforce}?view=requests'),
     ('detail', '/yorks/workforce/requests/$_requestId'),
     ('form', RoutePaths.yorksV1WorkforceRequestNew),
+    ('register', RoutePaths.yorksV1WorkforceRequests),
     ('assign', '/yorks/workforce/requests/$_requestId/assign'),
   ]) {
     testWidgets('the $name page fits a 360px phone', (tester) async {
@@ -733,6 +860,22 @@ void main() {
         const Size(1280, 1000),
         RoutePaths.yorksV1WorkforceRequestNew,
         'desktop_form',
+      );
+    });
+    testWidgets('phone register', (tester) async {
+      await shot(
+        tester,
+        const Size(360, 800),
+        RoutePaths.yorksV1WorkforceRequests,
+        'phone_register',
+      );
+    });
+    testWidgets('phone request form', (tester) async {
+      await shot(
+        tester,
+        const Size(360, 800),
+        RoutePaths.yorksV1WorkforceRequestNew,
+        'phone_form',
       );
     });
     testWidgets('phone assign', (tester) async {

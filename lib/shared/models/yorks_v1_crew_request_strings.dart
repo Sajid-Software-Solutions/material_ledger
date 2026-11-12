@@ -912,4 +912,274 @@ abstract final class CrewRequestStrings {
     ur: 'کوئی فارغ کارکن نہیں ملا۔ ورکر ریکارڈز میں کارکن شامل کریں، یا لائن کو وجہ کے ساتھ نشان زد کریں۔',
     hi: 'कोई खाली कामगार नहीं मिला। वर्कर रिकॉर्ड्स में कामगार जोड़ें, या पंक्ति को कारण सहित चिह्नित करें।',
   );
+
+  // ─── Material Request style flow ───────────────────────────────────────────
+  static const stepDetails = _T(
+    en: 'Details',
+    ar: 'التفاصيل',
+    ur: 'تفصیلات',
+    hi: 'विवरण',
+  );
+  static const stepPeople = _T(
+    en: 'People',
+    ar: 'الأشخاص',
+    ur: 'افراد',
+    hi: 'लोग',
+  );
+  static const stepReview = _T(
+    en: 'Review',
+    ar: 'المراجعة',
+    ur: 'جائزہ',
+    hi: 'समीक्षा',
+  );
+  static const eyebrow = _T(
+    en: 'Crew request',
+    ar: 'طلب طاقم',
+    ur: 'عملے کی درخواست',
+    hi: 'क्रू अनुरोध',
+  );
+  static const detailsPrompt = _T(
+    en: 'Who needs workers?',
+    ar: 'من يحتاج إلى عمال؟',
+    ur: 'کسے کارکن چاہییں؟',
+    hi: 'किसे कामगार चाहिए?',
+  );
+  static const detailsDescription = _T(
+    en: 'Choose the project, the work and when the people are needed.',
+    ar: 'اختر المشروع والعمل ومتى يلزم الأشخاص.',
+    ur: 'پروجیکٹ، کام اور افراد کب درکار ہیں منتخب کریں۔',
+    hi: 'प्रोजेक्ट, काम और लोग कब चाहिए चुनें।',
+  );
+  static const peoplePrompt = _T(
+    en: 'Which people do you need?',
+    ar: 'ما الأشخاص الذين تحتاجهم؟',
+    ur: 'آپ کو کون سے افراد چاہییں؟',
+    hi: 'आपको कौन से लोग चाहिए?',
+  );
+  static const peopleDescription = _T(
+    en: 'Add each trade and how many. Add a note for anything special.',
+    ar: 'أضف كل مهنة والعدد. أضف ملاحظة لأي متطلب خاص.',
+    ur: 'ہر ہنر اور تعداد شامل کریں۔ کسی خاص بات کے لیے نوٹ لکھیں۔',
+    hi: 'हर ट्रेड और संख्या जोड़ें। किसी खास बात के लिए टिप्पणी लिखें।',
+  );
+  static const reviewPrompt = _T(
+    en: 'Review and send',
+    ar: 'المراجعة والإرسال',
+    ur: 'جائزہ لیں اور بھیجیں',
+    hi: 'समीक्षा करें और भेजें',
+  );
+  static const reviewDescription = _T(
+    en: 'Check the request and who approves it before sending.',
+    ar: 'تحقق من الطلب ومن يعتمده قبل الإرسال.',
+    ur: 'بھیجنے سے پہلے درخواست اور منظور کنندہ کو دیکھ لیں۔',
+    hi: 'भेजने से पहले अनुरोध और स्वीकृतकर्ता जाँच लें।',
+  );
+  static const continueAction = _T(
+    en: 'Continue',
+    ar: 'متابعة',
+    ur: 'جاری رکھیں',
+    hi: 'जारी रखें',
+  );
+  static const backAction = _T(en: 'Back', ar: 'رجوع', ur: 'واپس', hi: 'वापस');
+  static const reviewAction = _T(
+    en: 'Review',
+    ar: 'مراجعة',
+    ur: 'جائزہ',
+    hi: 'समीक्षा',
+  );
+  static const ready = _T(en: 'Ready', ar: 'جاهز', ur: 'تیار', hi: 'तैयार');
+  static const required = _T(
+    en: 'Required',
+    ar: 'مطلوب',
+    ur: 'درکار',
+    hi: 'आवश्यक',
+  );
+  static const rowWhere = _T(
+    en: 'Project and dates',
+    ar: 'المشروع والتواريخ',
+    ur: 'پروجیکٹ اور تاریخیں',
+    hi: 'प्रोजेक्ट और तारीखें',
+  );
+  static const rowPeople = _T(
+    en: 'People needed',
+    ar: 'الأشخاص المطلوبون',
+    ur: 'درکار افراد',
+    hi: 'आवश्यक लोग',
+  );
+  static const rowRoute = _T(
+    en: 'Approval route',
+    ar: 'مسار الاعتماد',
+    ur: 'منظوری کا راستہ',
+    hi: 'स्वीकृति मार्ग',
+  );
+  static const routeToPe = _T(
+    en: 'Goes to the project\'s Project Engineer for approval, then PR assigns the workers.',
+    ar: 'يذهب إلى مهندس المشروع للاعتماد، ثم يعيّن قسم العلاقات العامة العمال.',
+    ur: 'پروجیکٹ انجینئر کی منظوری کے بعد پی آر کارکن مقرر کرے گا۔',
+    hi: 'प्रोजेक्ट इंजीनियर की स्वीकृति के बाद पीआर कामगार सौंपेगा।',
+  );
+  static const routeAuto = _T(
+    en: 'Approved when you send it; PR assigns the workers.',
+    ar: 'يُعتمد عند الإرسال؛ ويعيّن قسم العلاقات العامة العمال.',
+    ur: 'بھیجتے ہی منظور؛ پی آر کارکن مقرر کرے گا۔',
+    hi: 'भेजते ही स्वीकृत; पीआर कामगार सौंपेगा।',
+  );
+  static const requestSummary = _T(
+    en: 'Request summary',
+    ar: 'ملخص الطلب',
+    ur: 'درخواست کا خلاصہ',
+    hi: 'अनुरोध सारांश',
+  );
+  static const completeRequest = _T(
+    en: 'Complete your request',
+    ar: 'أكمل طلبك',
+    ur: 'اپنی درخواست مکمل کریں',
+    hi: 'अपना अनुरोध पूरा करें',
+  );
+  static const completeRequestMessage = _T(
+    en: 'Send unlocks when the project, dates and people are ready.',
+    ar: 'يتاح الإرسال عند تجهيز المشروع والتواريخ والأشخاص.',
+    ur: 'پروجیکٹ، تاریخیں اور افراد تیار ہونے پر بھیجنا ممکن ہوگا۔',
+    hi: 'प्रोजेक्ट, तारीखें और लोग तैयार होने पर भेज सकेंगे।',
+  );
+  static const peopleCount = _T(
+    en: '{n} people',
+    ar: '{n} أشخاص',
+    ur: '{n} افراد',
+    hi: '{n} लोग',
+  );
+  static const registerTitle = _T(
+    en: 'Crew Requests',
+    ar: 'طلبات الطواقم',
+    ur: 'عملے کی درخواستیں',
+    hi: 'क्रू अनुरोध',
+  );
+  static const searchHint = _T(
+    en: 'Search number, project or trade',
+    ar: 'ابحث بالرقم أو المشروع أو المهنة',
+    ur: 'نمبر، پروجیکٹ یا ہنر تلاش کریں',
+    hi: 'संख्या, प्रोजेक्ट या ट्रेड खोजें',
+  );
+  static const filterMyWork = _T(
+    en: 'My work',
+    ar: 'عملي',
+    ur: 'میرا کام',
+    hi: 'मेरा काम',
+  );
+  static const filterOpen = _T(
+    en: 'Open',
+    ar: 'مفتوحة',
+    ur: 'کھلی',
+    hi: 'खुले',
+  );
+  static const filterAll = _T(en: 'All', ar: 'الكل', ur: 'سب', hi: 'सभी');
+  static const filterFinished = _T(
+    en: 'Finished',
+    ar: 'منتهية',
+    ur: 'مکمل',
+    hi: 'पूर्ण',
+  );
+  static const noMatches = _T(
+    en: 'No crew requests here.',
+    ar: 'لا توجد طلبات طواقم هنا.',
+    ur: 'یہاں عملے کی کوئی درخواست نہیں۔',
+    hi: 'यहाँ कोई क्रू अनुरोध नहीं।',
+  );
+  static const stageRequested = _T(
+    en: 'Requested',
+    ar: 'مطلوب',
+    ur: 'درخواست',
+    hi: 'अनुरोधित',
+  );
+  static const stageApproval = _T(
+    en: 'Approval',
+    ar: 'الاعتماد',
+    ur: 'منظوری',
+    hi: 'स्वीकृति',
+  );
+  static const stageAssigning = _T(
+    en: 'Assigning workers',
+    ar: 'تعيين العمال',
+    ur: 'کارکنوں کی تقرری',
+    hi: 'कामगार सौंपना',
+  );
+  static const stageDone = _T(en: 'Done', ar: 'منتهٍ', ur: 'مکمل', hi: 'पूर्ण');
+  static const stageOf = _T(
+    en: 'Stage {a} of {b}',
+    ar: 'المرحلة {a} من {b}',
+    ur: 'مرحلہ {a} از {b}',
+    hi: 'चरण {a} / {b}',
+  );
+  static const progressTitle = _T(
+    en: 'Request progress',
+    ar: 'تقدم الطلب',
+    ur: 'درخواست کی پیش رفت',
+    hi: 'अनुरोध की प्रगति',
+  );
+  static const withLabel = _T(
+    en: 'With',
+    ar: 'لدى',
+    ur: 'کس کے پاس',
+    hi: 'किसके पास',
+  );
+  static const info = _T(
+    en: 'Request information',
+    ar: 'معلومات الطلب',
+    ur: 'درخواست کی معلومات',
+    hi: 'अनुरोध जानकारी',
+  );
+  static const requestInformation = _T(
+    en: 'Request information',
+    ar: 'معلومات الطلب',
+    ur: 'درخواست کی معلومات',
+    hi: 'अनुरोध जानकारी',
+  );
+  static const peopleSection = _T(
+    en: 'People needed',
+    ar: 'الأشخاص المطلوبون',
+    ur: 'درکار افراد',
+    hi: 'आवश्यक लोग',
+  );
+  static const readyToSend = _T(
+    en: 'Ready to send',
+    ar: 'جاهز للإرسال',
+    ur: 'بھیجنے کے لیے تیار',
+    hi: 'भेजने के लिए तैयार',
+  );
+  static const completeBeforeSending = _T(
+    en: 'Complete the project, dates and at least one trade to send.',
+    ar: 'أكمل المشروع والتواريخ ومهنة واحدة على الأقل للإرسال.',
+    ur: 'بھیجنے کے لیے پروجیکٹ، تاریخیں اور کم از کم ایک ہنر مکمل کریں۔',
+    hi: 'भेजने के लिए प्रोजेक्ट, तारीखें और कम से कम एक ट्रेड पूरा करें।',
+  );
+  static const openAll = _T(
+    en: 'Open all crew requests',
+    ar: 'فتح كل طلبات الطواقم',
+    ur: 'عملے کی تمام درخواستیں کھولیں',
+    hi: 'सभी क्रू अनुरोध खोलें',
+  );
+  static const lineNumber = _T(
+    en: 'Trade {n}',
+    ar: 'المهنة {n}',
+    ur: 'ہنر {n}',
+    hi: 'ट्रेड {n}',
+  );
+  static const decideTitle = _T(
+    en: 'Review and decide',
+    ar: 'المراجعة واتخاذ القرار',
+    ur: 'جائزہ لیں اور فیصلہ کریں',
+    hi: 'समीक्षा करें और निर्णय लें',
+  );
+  static const currentOwner = _T(
+    en: 'Current owner: {name}',
+    ar: 'المسؤول الحالي: {name}',
+    ur: 'موجودہ ذمہ دار: {name}',
+    hi: 'वर्तमान ज़िम्मेदार: {name}',
+  );
+  static const assignedPeople = _T(
+    en: 'Assigned',
+    ar: 'المعيّنون',
+    ur: 'مقرر',
+    hi: 'सौंपे गए',
+  );
 }
