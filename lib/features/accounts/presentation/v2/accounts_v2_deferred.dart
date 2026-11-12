@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../../../core/web/stale_build_recovery.dart';
 
 import 'accounts_v2_common.dart';
 import 'yorks_accounts_workspace_v2_screen.dart' deferred as workspace;
@@ -65,12 +66,12 @@ class _WorkspaceLoaderState extends State<_WorkspaceLoader> {
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= workspace.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(workspace.loadLibrary());
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = workspace.loadLibrary();
+      _load = _sharedLoad = loadOrRecover(workspace.loadLibrary());
     });
   }
 

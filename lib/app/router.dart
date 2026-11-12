@@ -1,4 +1,5 @@
 import '../shared/providers/yorks_v1_procurement_progress_provider.dart';
+import '../core/web/stale_build_recovery.dart';
 import '../shared/providers/yorks_v1_inventory_stock_command_provider.dart';
 import '../shared/providers/yorks_v1_inventory_workbook_provider.dart';
 import '../shared/controllers/yorks_v1_inventory_import_controller.dart';
@@ -2709,7 +2710,7 @@ class _DeferredRentalWorkspaceScreenState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= rental_workspace.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(rental_workspace.loadLibrary());
   }
 
   @override
@@ -2733,7 +2734,9 @@ class _DeferredRentalWorkspaceScreenState
               context,
             ).refreshIndicatorSemanticLabel,
             onPressed: () => setState(() {
-              _load = _sharedLoad = rental_workspace.loadLibrary();
+              _load = _sharedLoad = loadOrRecover(
+                rental_workspace.loadLibrary(),
+              );
             }),
           ),
         );
@@ -2761,7 +2764,7 @@ class _DeferredEngineerProfileScreenState
   Future<void>? _load;
 
   static Future<void> _startLoad() =>
-      engineer_profile.loadLibrary().then((_) => _loaded = true);
+      loadOrRecover(engineer_profile.loadLibrary()).then((_) => _loaded = true);
 
   @override
   void initState() {
@@ -2844,12 +2847,12 @@ class _DeferredMaterialReturnScreenState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= material_returns.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(material_returns.loadLibrary());
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = material_returns.loadLibrary();
+      _load = _sharedLoad = loadOrRecover(material_returns.loadLibrary());
     });
   }
 
@@ -2918,12 +2921,16 @@ class _DeferredCompanyMaterialRequestScreenState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= company_material_request.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(
+      company_material_request.loadLibrary(),
+    );
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = company_material_request.loadLibrary();
+      _load = _sharedLoad = loadOrRecover(
+        company_material_request.loadLibrary(),
+      );
     });
   }
 
@@ -2990,12 +2997,12 @@ class _DeferredCompanyAnalyticsScreenState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= company_analytics.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(company_analytics.loadLibrary());
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = company_analytics.loadLibrary();
+      _load = _sharedLoad = loadOrRecover(company_analytics.loadLibrary());
     });
   }
 
@@ -3123,7 +3130,9 @@ class _DeferredProcurementArrangementScreenState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= procurement_arrangement.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(
+      procurement_arrangement.loadLibrary(),
+    );
   }
 
   @override
@@ -3145,7 +3154,9 @@ class _DeferredProcurementArrangementScreenState
               context,
             ).refreshIndicatorSemanticLabel,
             onPressed: () => setState(() {
-              _load = _sharedLoad = procurement_arrangement.loadLibrary();
+              _load = _sharedLoad = loadOrRecover(
+                procurement_arrangement.loadLibrary(),
+              );
             }),
           ),
         );

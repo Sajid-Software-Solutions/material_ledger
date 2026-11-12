@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/constants.dart';
+import '../web/stale_build_recovery.dart';
 
 /// Shows a screen from a deferred library, loading its code on first use.
 ///
@@ -23,7 +24,14 @@ class YorksDeferredScreen extends StatefulWidget {
 }
 
 class _YorksDeferredScreenState extends State<YorksDeferredScreen> {
-  late Future<void> _loaded = widget.load();
+  late Future<void> _loaded = _load();
+
+  /// A failed download usually means this tab runs an earlier release; one
+  /// automatic reload fixes it. Otherwise the retry button stays.
+  Future<void> _load() => widget.load().catchError((Object error) {
+    recoverFromStaleBuild();
+    throw error;
+  });
 
   /// Builds directly when the library is already loaded. The runtime keeps
   /// one load future per library; listening to it again from a later zone
@@ -58,7 +66,7 @@ class _YorksDeferredScreenState extends State<YorksDeferredScreen> {
                   tooltip: MaterialLocalizations.of(
                     context,
                   ).refreshIndicatorSemanticLabel,
-                  onPressed: () => setState(() => _loaded = widget.load()),
+                  onPressed: () => setState(() => _loaded = _load()),
                 )
               : const CircularProgressIndicator(),
         ),

@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../../../core/web/stale_build_recovery.dart';
 
 import '../../../../core/constants/constants.dart';
 import 'yorks_v1_role_overview_screen.dart' deferred as overview;
@@ -12,7 +13,7 @@ Future<void>? _sharedLoad;
 /// Starts downloading the Overview while the app is still verifying the
 /// session and permissions, so Home does not wait for it afterwards.
 void prefetchYorksV1RoleOverview() {
-  _sharedLoad ??= overview.loadLibrary();
+  _sharedLoad ??= loadOrRecover(overview.loadLibrary());
 }
 
 class YorksV1RoleOverviewDeferred extends StatefulWidget {
@@ -30,12 +31,12 @@ class _YorksV1RoleOverviewDeferredState
   @override
   void initState() {
     super.initState();
-    _load = _sharedLoad ??= overview.loadLibrary();
+    _load = _sharedLoad ??= loadOrRecover(overview.loadLibrary());
   }
 
   void _retry() {
     setState(() {
-      _load = _sharedLoad = overview.loadLibrary();
+      _load = _sharedLoad = loadOrRecover(overview.loadLibrary());
     });
   }
 
