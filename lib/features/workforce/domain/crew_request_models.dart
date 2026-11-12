@@ -24,6 +24,7 @@ enum CrewRequestState {
   approved('approved'),
   partiallyFulfilled('partially_fulfilled'),
   fulfilled('fulfilled'),
+  completed('completed'),
   closed('closed'),
   rejected('rejected'),
   cancelled('cancelled');
@@ -36,12 +37,14 @@ enum CrewRequestState {
     orElse: () => CrewRequestState.submitted,
   );
 
-  /// Still moving: someone has a next step.
+  /// Still moving: someone has a next step. Workers on site stay open until
+  /// the request is finished.
   bool get isOpen =>
       this == submitted ||
       this == returned ||
       this == approved ||
-      this == partiallyFulfilled;
+      this == partiallyFulfilled ||
+      this == fulfilled;
 }
 
 /// Who holds the request now.
@@ -61,6 +64,7 @@ final class CrewRequestAccess {
     this.fulfil = false,
     this.cancel = false,
     this.resubmit = false,
+    this.finish = false,
   });
 
   factory CrewRequestAccess.fromJson(Map<String, dynamic>? json) =>
@@ -70,6 +74,7 @@ final class CrewRequestAccess {
         fulfil: json?['fulfil'] == true,
         cancel: json?['cancel'] == true,
         resubmit: json?['resubmit'] == true,
+        finish: json?['finish'] == true,
       );
 
   final bool view;
@@ -78,7 +83,11 @@ final class CrewRequestAccess {
   final bool cancel;
   final bool resubmit;
 
-  /// The signed-in person has the next step.
+  /// Work done: finish the request and release its workers.
+  final bool finish;
+
+  /// The signed-in person has the next step. Finishing waits on the work,
+  /// so it alone does not make the request theirs.
   bool get mine => decide || fulfil || resubmit;
 }
 
@@ -90,6 +99,35 @@ final class CrewRequestPerson {
 
   final String name;
   final String role;
+}
+
+/// A worker asked for by name, with the crew they are on now (if any).
+final class CrewRequestNamedWorker {
+  const CrewRequestNamedWorker({
+    required this.id,
+    required this.name,
+    required this.number,
+    required this.designation,
+    this.crewId,
+    this.crewName,
+  });
+
+  factory CrewRequestNamedWorker.fromJson(Map<String, dynamic> json) =>
+      CrewRequestNamedWorker(
+        id: _s(json['id']),
+        name: _s(json['name']),
+        number: _s(json['number']),
+        designation: _s(json['designation']),
+        crewId: _ns(json['crew_id']),
+        crewName: _ns(json['crew_name']),
+      );
+
+  final String id;
+  final String name;
+  final String number;
+  final String designation;
+  final String? crewId;
+  final String? crewName;
 }
 
 final class CrewRequestAssignee {
@@ -147,6 +185,7 @@ final class CrewRequestLine {
     this.decision,
     this.decisionReason,
     this.assigned = const [],
+    this.worker,
   });
 
   factory CrewRequestLine.fromJson(Map<String, dynamic> json) =>
@@ -162,6 +201,11 @@ final class CrewRequestLine {
           for (final item in _list(json['assigned']))
             CrewRequestAssignee.fromJson(item),
         ],
+        worker: json['worker'] is Map
+            ? CrewRequestNamedWorker.fromJson(
+                Map<String, dynamic>.from(json['worker'] as Map),
+              )
+            : null,
       );
 
   final String id;
@@ -172,6 +216,14 @@ final class CrewRequestLine {
   final CrewRequestLineDecision? decision;
   final String? decisionReason;
   final List<CrewRequestAssignee> assigned;
+
+  /// Set when the requester asked for this person by name.
+  final CrewRequestNamedWorker? worker;
+
+  /// A named worker who is on another crew and not yet assigned here: the
+  /// requester and approver see a warning.
+  bool get namedOnOtherCrew =>
+      worker?.crewId != null && assigned.every((a) => a.workerId != worker!.id);
 
   int get short => (quantity - assigned.length).clamp(0, quantity);
 }
@@ -278,7 +330,11 @@ final class CrewRequest {
     assignedCount: _i(json['assigned_count']),
     trades: [
       for (final item in _list(json['trades']))
-        (trade: _s(item['trade']), quantity: _i(item['quantity'])),
+        (
+          trade: _s(item['trade']),
+          quantity: _i(item['quantity']),
+          workerName: _ns(item['worker_name']),
+        ),
     ],
     access: CrewRequestAccess.fromJson(
       json['access'] == null
@@ -318,7 +374,7 @@ final class CrewRequest {
   final bool overdue;
   final int requestedCount;
   final int assignedCount;
-  final List<({String trade, int quantity})> trades;
+  final List<({String trade, int quantity, String? workerName})> trades;
   final CrewRequestAccess access;
   final List<CrewRequestLine> lines;
   final List<CrewRequestEvent> events;
@@ -452,15 +508,21 @@ final class CrewRequestDraftLine {
     required this.trade,
     required this.quantity,
     this.note,
+    this.workerId,
   });
 
+  /// A designation, or the named worker's designation.
   final String trade;
   final int quantity;
   final String? note;
 
+  /// Set when a person is asked for by name (always one person).
+  final String? workerId;
+
   Map<String, Object?> toJson() => {
-    'trade': trade.trim(),
-    'quantity': quantity,
+    if (workerId != null) 'worker_id': workerId,
+    if (workerId == null || trade.trim().isNotEmpty) 'trade': trade.trim(),
+    'quantity': workerId == null ? quantity : 1,
     if (note != null && note!.trim().isNotEmpty) 'note': note!.trim(),
   };
 }

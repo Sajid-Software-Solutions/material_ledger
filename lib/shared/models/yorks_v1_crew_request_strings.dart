@@ -115,10 +115,10 @@ abstract final class CrewRequestStrings {
     hi: 'अभी कोई क्रू अनुरोध नहीं',
   );
   static const requestsEmptyBody = _T(
-    en: 'Ask for workers for a project. The Project Engineer approves and PR assigns them.',
-    ar: 'اطلب عمالًا لمشروع. يوافق مهندس المشروع ويعيّنهم قسم العلاقات العامة.',
-    ur: 'کسی پروجیکٹ کے لیے کارکن مانگیں۔ پروجیکٹ انجینئر منظور کرتا ہے اور پی آر مقرر کرتا ہے۔',
-    hi: 'किसी प्रोजेक्ट के लिए कामगार माँगें। प्रोजेक्ट इंजीनियर स्वीकृत करता है और पीआर उन्हें सौंपता है।',
+    en: 'Ask for workers by name or by trade. An approver assigns them, then you take attendance until the work is done.',
+    ar: 'اطلب عمالًا بالاسم أو بالمهنة. يعيّنهم المعتمِد، ثم تسجّل حضورهم حتى ينتهي العمل.',
+    ur: 'نام یا ہنر کے ذریعے کارکن مانگیں۔ منظور کنندہ انہیں مقرر کرے گا، پھر کام ختم ہونے تک آپ حاضری لیں۔',
+    hi: 'नाम या ट्रेड से कामगार माँगें। स्वीकृतकर्ता उन्हें सौंपेगा, फिर काम पूरा होने तक आप हाज़िरी लें।',
   );
   static const requestsSub = _T(
     en: 'Newest activity first',
@@ -227,10 +227,10 @@ abstract final class CrewRequestStrings {
     hi: 'आंशिक रूप से सौंपा',
   );
   static const stateFulfilled = _T(
-    en: 'Workers assigned',
-    ar: 'تم تعيين العمال',
-    ur: 'کارکن مقرر',
-    hi: 'कामगार सौंपे',
+    en: 'Workers on site',
+    ar: 'العمال في الموقع',
+    ur: 'کارکن سائٹ پر',
+    hi: 'कामगार साइट पर',
   );
   static const stateClosed = _T(en: 'Closed', ar: 'مغلق', ur: 'بند', hi: 'बंद');
   static const stateRejected = _T(
@@ -258,17 +258,17 @@ abstract final class CrewRequestStrings {
     hi: 'अनुरोधकर्ता',
   );
   static const ownerPr = _T(
-    en: 'PR',
-    ar: 'العلاقات العامة',
-    ur: 'پی آر',
-    hi: 'पीआर',
+    en: 'Approver or PR',
+    ar: 'المعتمِد أو العلاقات العامة',
+    ur: 'منظور کنندہ یا پی آر',
+    hi: 'स्वीकृतकर्ता या पीआर',
   );
   static const ownerNone = _T(en: '—', ar: '—', ur: '—', hi: '—');
   static const nextApprove = _T(
-    en: 'Approve or return',
-    ar: 'وافق أو أعد',
-    ur: 'منظور یا واپس کریں',
-    hi: 'स्वीकृत या वापस करें',
+    en: 'Approve and assign, or return',
+    ar: 'وافق وعيّن، أو أعد',
+    ur: 'منظور کر کے مقرر کریں، یا واپس کریں',
+    hi: 'स्वीकृत करके सौंपें, या वापस करें',
   );
   static const nextFix = _T(
     en: 'Fix and resubmit',
@@ -386,12 +386,17 @@ abstract final class CrewRequestStrings {
     ur: 'درکار افراد',
     hi: 'आवश्यक लोग',
   );
-  static const trade = _T(en: 'Trade', ar: 'المهنة', ur: 'ہنر', hi: 'ट्रेड');
+  static const trade = _T(
+    en: 'Name or trade',
+    ar: 'الاسم أو المهنة',
+    ur: 'نام یا ہنر',
+    hi: 'नाम या ट्रेड',
+  );
   static const tradeHint = _T(
-    en: 'Duct fitter',
-    ar: 'فنّي مجاري هواء',
-    ur: 'ڈکٹ فٹر',
-    hi: 'डक्ट फिटर',
+    en: 'Start typing a name or a trade',
+    ar: 'ابدأ بكتابة اسم أو مهنة',
+    ur: 'نام یا ہنر لکھنا شروع کریں',
+    hi: 'नाम या ट्रेड लिखना शुरू करें',
   );
   static const howMany = _T(
     en: 'How many',
@@ -406,10 +411,10 @@ abstract final class CrewRequestStrings {
     hi: 'टिप्पणी (वैकल्पिक)',
   );
   static const addTrade = _T(
-    en: 'Add another trade',
-    ar: 'أضف مهنة أخرى',
-    ur: 'ایک اور ہنر شامل کریں',
-    hi: 'एक और ट्रेड जोड़ें',
+    en: 'Add another person or trade',
+    ar: 'أضف شخصًا أو مهنة أخرى',
+    ur: 'ایک اور شخص یا ہنر شامل کریں',
+    hi: 'एक और व्यक्ति या ट्रेड जोड़ें',
   );
   static const remove = _T(
     en: 'Remove',
@@ -436,16 +441,16 @@ abstract final class CrewRequestStrings {
     hi: 'फिर भेजें',
   );
   static const approvedOnSubmitHint = _T(
-    en: 'You approve requests on this project, so it goes straight to PR.',
-    ar: 'أنت تعتمد طلبات هذا المشروع، لذا يذهب مباشرة إلى العلاقات العامة.',
-    ur: 'آپ اس پروجیکٹ کی درخواستیں منظور کرتے ہیں، اس لیے یہ سیدھی پی آر کو جائے گی۔',
-    hi: 'आप इस प्रोजेक्ट के अनुरोध स्वीकृत करते हैं, इसलिए यह सीधे पीआर को जाएगा।',
+    en: 'You approve requests on this project, so it is approved when you send it. Assign the workers next.',
+    ar: 'أنت تعتمد طلبات هذا المشروع، لذا يُعتمد عند الإرسال. عيّن العمال بعد ذلك.',
+    ur: 'آپ اس پروجیکٹ کی درخواستیں منظور کرتے ہیں، اس لیے بھیجتے ہی منظور ہو گی۔ اس کے بعد کارکن مقرر کریں۔',
+    hi: 'आप इस प्रोजेक्ट के अनुरोध स्वीकृत करते हैं, इसलिए भेजते ही स्वीकृत होगा। फिर कामगार सौंपें।',
   );
   static const waitsForApprovalHint = _T(
-    en: 'The Project Engineer approves it, then PR assigns the workers.',
-    ar: 'يعتمده مهندس المشروع، ثم يعيّن قسم العلاقات العامة العمال.',
-    ur: 'پروجیکٹ انجینئر منظور کرے گا، پھر پی آر کارکن مقرر کرے گا۔',
-    hi: 'प्रोजेक्ट इंजीनियर स्वीकृत करेगा, फिर पीआर कामगार सौंपेगा।',
+    en: 'The Project Engineer approves it and assigns the workers.',
+    ar: 'يعتمده مهندس المشروع ويعيّن العمال.',
+    ur: 'پروجیکٹ انجینئر منظور کرے گا اور کارکن مقرر کرے گا۔',
+    hi: 'प्रोजेक्ट इंजीनियर स्वीकृत करेगा और कामगार सौंपेगा।',
   );
   static const errNoLines = _T(
     en: 'Add at least one trade with how many people.',
@@ -688,10 +693,10 @@ abstract final class CrewRequestStrings {
     hi: '{number} स्वीकृत करें?',
   );
   static const approveBody = _T(
-    en: 'PR is asked to assign the workers.',
-    ar: 'سيُطلب من العلاقات العامة تعيين العمال.',
-    ur: 'پی آر سے کارکن مقرر کرنے کو کہا جائے گا۔',
-    hi: 'पीआर से कामगार सौंपने को कहा जाएगा।',
+    en: 'It waits for workers. You or PR can assign them later.',
+    ar: 'سينتظر العمال. يمكنك أنت أو العلاقات العامة تعيينهم لاحقًا.',
+    ur: 'یہ کارکنوں کا انتظار کرے گی۔ آپ یا پی آر بعد میں مقرر کر سکتے ہیں۔',
+    hi: 'यह कामगारों की प्रतीक्षा करेगा। आप या पीआर बाद में सौंप सकते हैं।',
   );
   static const returnTitle = _T(
     en: 'Return {number}?',
@@ -748,10 +753,10 @@ abstract final class CrewRequestStrings {
     hi: 'रहने दें',
   );
   static const approvedToast = _T(
-    en: 'Approved · PR has been asked to assign workers',
-    ar: 'تمت الموافقة · طُلب من العلاقات العامة تعيين العمال',
-    ur: 'منظور · پی آر سے کارکن مقرر کرنے کو کہا گیا',
-    hi: 'स्वीकृत · पीआर से कामगार सौंपने को कहा गया',
+    en: 'Approved · waiting for workers',
+    ar: 'تمت الموافقة · بانتظار العمال',
+    ur: 'منظور · کارکنوں کا انتظار',
+    hi: 'स्वीकृत · कामगारों की प्रतीक्षा',
   );
   static const returnedToast = _T(
     en: 'Returned to {name}',
@@ -957,10 +962,10 @@ abstract final class CrewRequestStrings {
     hi: 'आपको कौन से लोग चाहिए?',
   );
   static const peopleDescription = _T(
-    en: 'Add each trade and how many. Add a note for anything special.',
-    ar: 'أضف كل مهنة والعدد. أضف ملاحظة لأي متطلب خاص.',
-    ur: 'ہر ہنر اور تعداد شامل کریں۔ کسی خاص بات کے لیے نوٹ لکھیں۔',
-    hi: 'हर ट्रेड और संख्या जोड़ें। किसी खास बात के लिए टिप्पणी लिखें।',
+    en: 'Type a name to ask for a person, or a trade and how many.',
+    ar: 'اكتب اسمًا لطلب شخص بعينه، أو مهنة والعدد.',
+    ur: 'کسی شخص کے لیے نام لکھیں، یا ہنر اور تعداد۔',
+    hi: 'किसी व्यक्ति के लिए नाम लिखें, या ट्रेड और संख्या।',
   );
   static const reviewPrompt = _T(
     en: 'Review and send',
@@ -1013,16 +1018,16 @@ abstract final class CrewRequestStrings {
     hi: 'स्वीकृति मार्ग',
   );
   static const routeToPe = _T(
-    en: 'Goes to the project\'s Project Engineer for approval, then PR assigns the workers.',
-    ar: 'يذهب إلى مهندس المشروع للاعتماد، ثم يعيّن قسم العلاقات العامة العمال.',
-    ur: 'پروجیکٹ انجینئر کی منظوری کے بعد پی آر کارکن مقرر کرے گا۔',
-    hi: 'प्रोजेक्ट इंजीनियर की स्वीकृति के बाद पीआर कामगार सौंपेगा।',
+    en: 'Goes to the project\'s Project Engineer, who approves it and assigns the workers.',
+    ar: 'يذهب إلى مهندس المشروع ليعتمده ويعيّن العمال.',
+    ur: 'پروجیکٹ انجینئر کو جائے گی، جو منظور کر کے کارکن مقرر کرے گا۔',
+    hi: 'प्रोजेक्ट इंजीनियर को जाएगा, जो स्वीकृत करके कामगार सौंपेगा।',
   );
   static const routeAuto = _T(
-    en: 'Approved when you send it; PR assigns the workers.',
-    ar: 'يُعتمد عند الإرسال؛ ويعيّن قسم العلاقات العامة العمال.',
-    ur: 'بھیجتے ہی منظور؛ پی آر کارکن مقرر کرے گا۔',
-    hi: 'भेजते ही स्वीकृत; पीआर कामगार सौंपेगा।',
+    en: 'Approved when you send it; assign the workers next.',
+    ar: 'يُعتمد عند الإرسال؛ ثم عيّن العمال.',
+    ur: 'بھیجتے ہی منظور؛ پھر کارکن مقرر کریں۔',
+    hi: 'भेजते ही स्वीकृत; फिर कामगार सौंपें।',
   );
   static const requestSummary = _T(
     en: 'Request summary',
@@ -1043,10 +1048,10 @@ abstract final class CrewRequestStrings {
     hi: 'प्रोजेक्ट, तारीखें और लोग तैयार होने पर भेज सकेंगे।',
   );
   static const peopleCount = _T(
-    en: '{n} people',
-    ar: '{n} أشخاص',
-    ur: '{n} افراد',
-    hi: '{n} लोग',
+    en: 'People: {n}',
+    ar: 'الأشخاص: {n}',
+    ur: 'افراد: {n}',
+    hi: 'लोग: {n}',
   );
   static const registerTitle = _T(
     en: 'Crew Requests',
@@ -1098,12 +1103,17 @@ abstract final class CrewRequestStrings {
     hi: 'स्वीकृति',
   );
   static const stageAssigning = _T(
-    en: 'Assigning workers',
-    ar: 'تعيين العمال',
-    ur: 'کارکنوں کی تقرری',
-    hi: 'कामगार सौंपना',
+    en: 'Workers on site',
+    ar: 'العمال في الموقع',
+    ur: 'کارکن سائٹ پر',
+    hi: 'कामगार साइट पर',
   );
-  static const stageDone = _T(en: 'Done', ar: 'منتهٍ', ur: 'مکمل', hi: 'पूर्ण');
+  static const stageDone = _T(
+    en: 'Finished',
+    ar: 'منتهٍ',
+    ur: 'مکمل',
+    hi: 'पूर्ण',
+  );
   static const stageOf = _T(
     en: 'Stage {a} of {b}',
     ar: 'المرحلة {a} من {b}',
@@ -1147,10 +1157,10 @@ abstract final class CrewRequestStrings {
     hi: 'भेजने के लिए तैयार',
   );
   static const completeBeforeSending = _T(
-    en: 'Complete the project, dates and at least one trade to send.',
-    ar: 'أكمل المشروع والتواريخ ومهنة واحدة على الأقل للإرسال.',
-    ur: 'بھیجنے کے لیے پروجیکٹ، تاریخیں اور کم از کم ایک ہنر مکمل کریں۔',
-    hi: 'भेजने के लिए प्रोजेक्ट, तारीखें और कम से कम एक ट्रेड पूरा करें।',
+    en: 'Complete the project, dates and at least one person or trade to send.',
+    ar: 'أكمل المشروع والتواريخ وشخصًا أو مهنة واحدة على الأقل للإرسال.',
+    ur: 'بھیجنے کے لیے پروجیکٹ، تاریخیں اور کم از کم ایک شخص یا ہنر مکمل کریں۔',
+    hi: 'भेजने के लिए प्रोजेक्ट, तारीखें और कम से कम एक व्यक्ति या ट्रेड पूरा करें।',
   );
   static const openAll = _T(
     en: 'Open all crew requests',
@@ -1159,10 +1169,10 @@ abstract final class CrewRequestStrings {
     hi: 'सभी क्रू अनुरोध खोलें',
   );
   static const lineNumber = _T(
-    en: 'Trade {n}',
-    ar: 'المهنة {n}',
-    ur: 'ہنر {n}',
-    hi: 'ट्रेड {n}',
+    en: 'Line {n}',
+    ar: 'البند {n}',
+    ur: 'لائن {n}',
+    hi: 'पंक्ति {n}',
   );
   static const decideTitle = _T(
     en: 'Review and decide',
@@ -1181,5 +1191,164 @@ abstract final class CrewRequestStrings {
     ar: 'المعيّنون',
     ur: 'مقرر',
     hi: 'सौंपे गए',
+  );
+
+  // ─── By name, approve and assign, finish ───────────────────────────────────
+  static const stateCompleted = _T(
+    en: 'Finished',
+    ar: 'منتهٍ',
+    ur: 'مکمل',
+    hi: 'पूर्ण',
+  );
+  static const nextFinish = _T(
+    en: 'Take attendance · finish when the work is done',
+    ar: 'سجّل الحضور · أنهِ عند انتهاء العمل',
+    ur: 'حاضری لیں · کام ختم ہونے پر مکمل کریں',
+    hi: 'हाज़िरी लें · काम पूरा होने पर समाप्त करें',
+  );
+  static const suggestPeople = _T(
+    en: 'People',
+    ar: 'الأشخاص',
+    ur: 'افراد',
+    hi: 'लोग',
+  );
+  static const suggestTrades = _T(
+    en: 'Any worker with this trade',
+    ar: 'أي عامل بهذه المهنة',
+    ur: 'اس ہنر کا کوئی بھی کارکن',
+    hi: 'इस ट्रेड का कोई भी कामगार',
+  );
+  static const workerFree = _T(en: 'Free', ar: 'متاح', ur: 'فارغ', hi: 'खाली');
+  static const workerOnCrew = _T(
+    en: 'On {crew}',
+    ar: 'في {crew}',
+    ur: '{crew} میں',
+    hi: '{crew} में',
+  );
+  static const namedPerson = _T(
+    en: 'Asked for by name',
+    ar: 'مطلوب بالاسم',
+    ur: 'نام سے طلب',
+    hi: 'नाम से माँगा',
+  );
+  static const changePerson = _T(
+    en: 'Change',
+    ar: 'تغيير',
+    ur: 'تبدیل کریں',
+    hi: 'बदलें',
+  );
+  static const onCrewWarningTitle = _T(
+    en: '{name} is on {crew}',
+    ar: '{name} في {crew}',
+    ur: '{name} {crew} میں ہے',
+    hi: '{name} {crew} में है',
+  );
+  static const onCrewWarningBody = _T(
+    en: 'The approver sees this. If they approve, {name} moves to this request\'s crew.',
+    ar: 'يرى المعتمِد هذا. إذا وافق، ينتقل {name} إلى طاقم هذا الطلب.',
+    ur: 'منظور کنندہ یہ دیکھے گا۔ منظوری پر {name} اس درخواست کے عملے میں منتقل ہو جائے گا۔',
+    hi: 'स्वीकृतकर्ता यह देखेगा। स्वीकृति पर {name} इस अनुरोध के क्रू में चला जाएगा।',
+  );
+  static const onCrewApproverWarning = _T(
+    en: 'On {crew} · approving moves them here',
+    ar: 'في {crew} · الموافقة تنقله إلى هنا',
+    ur: '{crew} میں · منظوری انہیں یہاں منتقل کرے گی',
+    hi: '{crew} में · स्वीकृति उन्हें यहाँ ले आएगी',
+  );
+  static const notOnRecords = _T(
+    en: 'Not in Worker Records yet? Type the trade instead.',
+    ar: 'غير مسجّل في سجلات العمال؟ اكتب المهنة بدلًا من ذلك.',
+    ur: 'ورکر ریکارڈ میں نہیں؟ اس کی جگہ ہنر لکھیں۔',
+    hi: 'वर्कर रिकॉर्ड में नहीं? इसके बजाय ट्रेड लिखें।',
+  );
+  static const approveAndAssign = _T(
+    en: 'Approve and assign',
+    ar: 'وافق وعيّن',
+    ur: 'منظور کر کے مقرر کریں',
+    hi: 'स्वीकृत करें और सौंपें',
+  );
+  static const approveOnly = _T(
+    en: 'Approve only',
+    ar: 'موافقة فقط',
+    ur: 'صرف منظور کریں',
+    hi: 'केवल स्वीकृत करें',
+  );
+  static const approveAssignTitle = _T(
+    en: 'Approve and assign · {number}',
+    ar: 'الموافقة والتعيين · {number}',
+    ur: 'منظوری اور تقرری · {number}',
+    hi: 'स्वीकृति और सौंपना · {number}',
+  );
+  static const approveAssignIntro = _T(
+    en: 'Approving and assigning in one step. People asked for by name are ticked; untick anyone you do not want, or return the request.',
+    ar: 'الموافقة والتعيين في خطوة واحدة. الأشخاص المطلوبون بالاسم محدّدون؛ ألغِ تحديد من لا تريده أو أعد الطلب.',
+    ur: 'ایک ہی قدم میں منظوری اور تقرری۔ نام سے طلب کیے گئے افراد منتخب ہیں؛ جسے نہیں چاہتے اس کا نشان ہٹا دیں یا درخواست واپس کریں۔',
+    hi: 'एक ही चरण में स्वीकृति और सौंपना। नाम से माँगे गए लोग चुने हुए हैं; जिन्हें नहीं चाहते उनका निशान हटाएँ या अनुरोध वापस करें।',
+  );
+  static const saveApproveAssign = _T(
+    en: 'Approve and assign {n}',
+    ar: 'وافق وعيّن {n}',
+    ur: 'منظور کر کے {n} مقرر کریں',
+    hi: 'स्वीकृत करें और {n} सौंपें',
+  );
+  static const approvedAssignedToast = _T(
+    en: 'Approved · {n} assigned',
+    ar: 'تمت الموافقة · عُيّن {n}',
+    ur: 'منظور · {n} مقرر',
+    hi: 'स्वीकृत · {n} सौंपे',
+  );
+  static const movesFrom = _T(
+    en: 'Moves from {crew}',
+    ar: 'ينتقل من {crew}',
+    ur: '{crew} سے منتقل ہو گا',
+    hi: '{crew} से आएगा',
+  );
+  static const namedOnLine = _T(
+    en: 'Named on this request',
+    ar: 'مذكور بالاسم في هذا الطلب',
+    ur: 'اس درخواست میں نام سے',
+    hi: 'इस अनुरोध में नाम से',
+  );
+  static const takeAttendance = _T(
+    en: 'Take attendance',
+    ar: 'تسجيل الحضور',
+    ur: 'حاضری لیں',
+    hi: 'हाज़िरी लें',
+  );
+  static const finishRequest = _T(
+    en: 'Finish and release workers',
+    ar: 'إنهاء وإخلاء العمال',
+    ur: 'مکمل کریں اور کارکن فارغ کریں',
+    hi: 'समाप्त करें और कामगार मुक्त करें',
+  );
+  static const finishTitle = _T(
+    en: 'Finish {number}?',
+    ar: 'إنهاء {number}؟',
+    ur: '{number} مکمل کریں؟',
+    hi: '{number} समाप्त करें?',
+  );
+  static const finishBody = _T(
+    en: 'The work is done. The workers on this request leave {crew} and are free for other crews. Attendance already taken stays.',
+    ar: 'انتهى العمل. يغادر عمال هذا الطلب {crew} ويصبحون متاحين لطواقم أخرى. يبقى الحضور المسجّل.',
+    ur: 'کام ختم ہو گیا۔ اس درخواست کے کارکن {crew} چھوڑ دیں گے اور دوسرے عملوں کے لیے فارغ ہوں گے۔ لی گئی حاضری محفوظ رہے گی۔',
+    hi: 'काम पूरा हुआ। इस अनुरोध के कामगार {crew} छोड़ देंगे और दूसरे क्रू के लिए खाली होंगे। ली गई हाज़िरी बनी रहेगी।',
+  );
+  static const finishedToast = _T(
+    en: 'Finished · workers released',
+    ar: 'انتهى · تم إخلاء العمال',
+    ur: 'مکمل · کارکن فارغ',
+    hi: 'समाप्त · कामगार मुक्त',
+  );
+  static const evFinished = _T(
+    en: '{name} finished it · {n} released',
+    ar: 'أنهاه {name} · أُخلي {n}',
+    ur: '{name} نے مکمل کیا · {n} فارغ',
+    hi: '{name} ने समाप्त किया · {n} मुक्त',
+  );
+  static const evMoved = _T(
+    en: '{m} moved from another crew',
+    ar: 'نُقل {m} من طاقم آخر',
+    ur: '{m} دوسرے عملے سے منتقل',
+    hi: '{m} दूसरे क्रू से आए',
   );
 }

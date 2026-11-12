@@ -1,5 +1,5 @@
 -- Crew requests: by name or designation, approve and assign in one step,
--- finish when the work is done (owner, 14 November 2026; PRODUCT_DECISIONS
+-- finish when the work is done (owner, 13 November 2026; PRODUCT_DECISIONS
 -- section 40).
 --
 --   * A request line names a worker (one person) or a designation with how

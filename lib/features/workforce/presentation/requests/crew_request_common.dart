@@ -35,6 +35,10 @@ String crewRequestFixPath(String id) =>
       AccountsV2ChipTone.vio,
     ),
     CrewRequestState.fulfilled => (CRS.stateFulfilled, AccountsV2ChipTone.ok),
+    CrewRequestState.completed => (
+      CRS.stateCompleted,
+      AccountsV2ChipTone.neutral,
+    ),
     CrewRequestState.closed => (CRS.stateClosed, AccountsV2ChipTone.neutral),
     CrewRequestState.rejected => (CRS.stateRejected, AccountsV2ChipTone.bad),
     CrewRequestState.cancelled => (
@@ -65,6 +69,7 @@ String crewRequestNextStep(CrewRequest request, AppLanguage language) {
   if (request.access.decide) return CRS.t(CRS.nextApprove, language);
   if (request.access.resubmit) return CRS.t(CRS.nextFix, language);
   if (request.access.fulfil) return CRS.t(CRS.nextAssign, language);
+  if (request.access.finish) return CRS.t(CRS.nextFinish, language);
   if (!request.state.isOpen) return CRS.t(CRS.nextDone, language);
   return CRS.t(CRS.nextWaiting, language, {
     'who': crewRequestOwnerLabel(request, language),
@@ -81,8 +86,20 @@ String crewRequestWhere(CrewRequest request, AppLanguage language) {
   return ref == null || ref.isEmpty ? name : '$ref · $name';
 }
 
-String crewRequestPeople(CrewRequest request) =>
-    request.trades.map((t) => '${t.quantity} × ${t.trade}').join(', ');
+/// What is asked: a person by name, or a number of a trade.
+String crewRequestPeople(CrewRequest request) => request.trades
+    .map(
+      (t) => t.workerName == null
+          ? '${t.quantity} × ${t.trade}'
+          : t.trade.isEmpty
+          ? t.workerName!
+          : '${t.workerName} (${t.trade})',
+    )
+    .join(', ');
+
+/// The attendance screen for a crew.
+String crewAttendancePath(String crewId) =>
+    '/yorks/workforce/attendance?crew=${Uri.encodeQueryComponent(crewId)}';
 
 String crewRequestDates(CrewRequest request, AppLanguage language) {
   final from = attendanceShortDate(request.neededFrom);

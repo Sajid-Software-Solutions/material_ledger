@@ -306,11 +306,13 @@ class CrPill extends StatelessWidget {
 }
 
 /// Stage of the request on its four-step track: Requested, Approval,
-/// Assigning workers, Done.
+/// Workers on site, Finished.
 int crewRequestStage(CrewRequestState state) => switch (state) {
   CrewRequestState.submitted || CrewRequestState.returned => 1,
-  CrewRequestState.approved || CrewRequestState.partiallyFulfilled => 2,
-  CrewRequestState.fulfilled ||
+  CrewRequestState.approved ||
+  CrewRequestState.partiallyFulfilled ||
+  CrewRequestState.fulfilled => 2,
+  CrewRequestState.completed ||
   CrewRequestState.closed ||
   CrewRequestState.rejected ||
   CrewRequestState.cancelled => 3,
@@ -340,7 +342,9 @@ int crewRequestStage(CrewRequestState state) => switch (state) {
     color: AppColors.success,
     background: AppColors.successContainer,
   ),
-  CrewRequestState.closed || CrewRequestState.cancelled => (
+  CrewRequestState.completed ||
+  CrewRequestState.closed ||
+  CrewRequestState.cancelled => (
     color: AppColors.neutralText,
     background: AppColors.neutralContainer,
   ),

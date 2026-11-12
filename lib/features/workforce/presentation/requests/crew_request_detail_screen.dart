@@ -73,7 +73,7 @@ class _Detail extends ConsumerWidget {
       'approve' => (
         CRS.approveTitle,
         CRS.approveBody,
-        CRS.approve,
+        CRS.approveOnly,
         false,
         false,
       ),
@@ -180,6 +180,39 @@ class _Detail extends ConsumerWidget {
     if (done == null || !context.mounted) return;
     _refresh(ref);
     attendanceToast(context, CRS.t(CRS.closedToast, language));
+  }
+
+  Future<void> _finish(BuildContext context, WidgetRef ref) async {
+    final repository = ref.read(yorksAttendanceRepositoryProvider);
+    final key = YorksAttendanceRepository.newKey();
+    final done = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: CRS.t(CRS.finishTitle, language, {'number': request.number}),
+      body: CRS.t(CRS.finishBody, language, {
+        'crew': request.targetCrewName ?? CRS.t(CRS.eyebrow, language),
+      }),
+      summary: crewRequestPeople(request),
+      confirmLabel: CRS.t(CRS.finishRequest, language),
+      fieldLabel: CRS.t(CRS.reasonOptional, language),
+      fieldOptional: true,
+      command: (text) async {
+        try {
+          await repository.finishRequest(
+            requestId: request.id,
+            reason: text,
+            expectedVersion: request.recordVersion,
+            idempotencyKey: key,
+          );
+          return null;
+        } catch (error) {
+          return crewRequestErrorText(error, language);
+        }
+      },
+    );
+    if (done == null || !context.mounted) return;
+    _refresh(ref);
+    attendanceToast(context, CRS.t(CRS.finishedToast, language));
   }
 
   void _showInformation(BuildContext context) {
@@ -293,7 +326,7 @@ class _Detail extends ConsumerWidget {
   String _eventTitle(CrewRequestEvent event) {
     final values = {
       'name': event.actorName,
-      'n': event.detail['added'] ?? 0,
+      'n': event.detail['added'] ?? event.detail['released'] ?? 0,
       'crew': event.detail['crew_name'] ?? '',
     };
     final template = switch (event.type) {
@@ -308,9 +341,14 @@ class _Detail extends ConsumerWidget {
       'workers_assigned' when (event.detail['added'] ?? 0) == 0 =>
         CRS.evDecisions,
       'workers_assigned' => CRS.evAssigned,
+      'completed' => CRS.evFinished,
       _ => CRS.evClosed,
     };
-    return CRS.t(template, language, values);
+    final title = CRS.t(template, language, values);
+    final moved = event.detail['moved'];
+    return moved is List && moved.isNotEmpty
+        ? '$title · ${CRS.t(CRS.evMoved, language, {'m': moved.length})}'
+        : title;
   }
 
   @override
@@ -318,13 +356,22 @@ class _Detail extends ConsumerWidget {
     final access = request.access;
     final stage = crewRequestStage(request.state);
     final wide = MediaQuery.sizeOf(context).width >= 760;
+    final onSite =
+        request.targetCrewId != null &&
+        (request.state == CrewRequestState.partiallyFulfilled ||
+            request.state == CrewRequestState.fulfilled);
     final actions = <Widget>[
       if (access.decide) ...[
         FilledButton.icon(
+          key: const ValueKey('crew-request-approve-assign'),
+          onPressed: () => context.go(crewRequestAssignPath(request.id)),
+          icon: const Icon(Icons.how_to_reg_outlined),
+          label: Text(CRS.t(CRS.approveAndAssign, language)),
+        ),
+        OutlinedButton(
           key: const ValueKey('crew-request-approve'),
           onPressed: () => _decide(context, ref, 'approve'),
-          icon: const Icon(Icons.check_rounded),
-          label: Text(CRS.t(CRS.approve, language)),
+          child: Text(CRS.t(CRS.approveOnly, language)),
         ),
         OutlinedButton(
           key: const ValueKey('crew-request-return'),
@@ -350,6 +397,28 @@ class _Detail extends ConsumerWidget {
           child: Text(CRS.t(CRS.closeRemaining, language)),
         ),
       ],
+      if (onSite && (access.finish || access.fulfil))
+        OutlinedButton.icon(
+          key: const ValueKey('crew-request-take-attendance'),
+          onPressed: () =>
+              context.go(crewAttendancePath(request.targetCrewId!)),
+          icon: const Icon(Icons.fact_check_outlined),
+          label: Text(CRS.t(CRS.takeAttendance, language)),
+        ),
+      if (access.finish && access.fulfil)
+        OutlinedButton.icon(
+          key: const ValueKey('crew-request-finish'),
+          onPressed: () => _finish(context, ref),
+          icon: const Icon(Icons.flag_outlined),
+          label: Text(CRS.t(CRS.finishRequest, language)),
+        )
+      else if (access.finish)
+        FilledButton.icon(
+          key: const ValueKey('crew-request-finish'),
+          onPressed: () => _finish(context, ref),
+          icon: const Icon(Icons.flag_outlined),
+          label: Text(CRS.t(CRS.finishRequest, language)),
+        ),
       if (access.resubmit)
         FilledButton.icon(
           key: const ValueKey('crew-request-fix'),
@@ -660,10 +729,33 @@ class _PeopleCard extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                line.trade,
-                                style: AppTypography.titleSmall,
-                              ),
+                              child: line.worker == null
+                                  ? Text(
+                                      line.trade,
+                                      style: AppTypography.titleSmall,
+                                    )
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          line.worker!.name,
+                                          style: AppTypography.titleSmall,
+                                        ),
+                                        Text(
+                                          [
+                                            if (line.worker!.number.isNotEmpty)
+                                              line.worker!.number,
+                                            if (line.trade.isNotEmpty)
+                                              line.trade,
+                                          ].join(' · '),
+                                          style: AppTypography.bodySmall
+                                              .copyWith(
+                                                color: AppColors.inkSecondary,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                             ),
                             Text(
                               '${line.assigned.length} / ${line.quantity}',
@@ -682,6 +774,63 @@ class _PeopleCard extends StatelessWidget {
                               color: AppColors.muted,
                             ),
                           ),
+                        if (line.worker != null) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              CrPill(
+                                icon: Icons.badge_outlined,
+                                label: CRS.t(CRS.namedPerson, language),
+                                color: AppColors.blue,
+                                background: AppColors.blueContainer,
+                              ),
+                            ],
+                          ),
+                          if (line.namedOnOtherCrew &&
+                              request.state.isOpen &&
+                              request.state != CrewRequestState.returned) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              key: ValueKey(
+                                'crew-request-line-warning-${line.id}',
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.warningContainer,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 16,
+                                    color: AppColors.warning,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      CRS.t(
+                                        CRS.onCrewApproverWarning,
+                                        language,
+                                        {'crew': line.worker!.crewName ?? ''},
+                                      ),
+                                      style: AppTypography.labelMedium.copyWith(
+                                        color: AppColors.warning,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                         const SizedBox(height: 6),
                         if (line.assigned.isEmpty)
                           Text(

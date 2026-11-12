@@ -155,3 +155,32 @@ Each slice is behind `YORKS_V1_WORKFORCE_CENTER` until accepted; desktop and
    Project Engineers keep editing crew membership directly for now.
 4. PR assigns only free workers (on no crew). Moving a worker from another
    crew stays a crew edit.
+
+## 7. By name, approve and assign, finish (owner, 13 November 2026)
+
+Supersedes decisions 3 and 4 above; `PRODUCT_DECISIONS.md` section 40.
+
+- **Lines.** One field, "Name or trade", suggests people (number,
+  designation, Free or On *crew*) and trades as the requester types. Picking
+  a person makes the line for that one person (`worker_id`, quantity 1,
+  trade = their designation); the same person cannot be named twice. Typing a
+  trade keeps the "how many" field.
+- **Warning.** A named person on another crew shows "*Name* is on *crew*" to
+  the requester, "On *crew* · approving moves them here" to the approver on
+  the request, and "Moves from *crew*" on the assignment screen.
+- **Approve and assign.** The approver opens the assignment screen from
+  Submitted; named people are ticked and may be unticked. Saving sends
+  `approve: true` to `v1_wf_fulfil_request`, which approves (event
+  `approved` with `with_assignment`) and assigns in one transaction. A named
+  person on another crew is removed from it and joins this crew (`moved` in
+  the event). With nobody ticked it is Approve only; the existing Approve
+  dialog stays for the same purpose. Assigning later is open to the
+  approvers and to PR (Admin).
+- **States.** Submitted → Approved → Partially fulfilled / Workers on site
+  (`fulfilled`) → Finished (`completed`). Workers on site stays open; the
+  track reads Requested, Approval, Workers on site, Finished.
+- **Take attendance and finish.** While workers are on site the request
+  links to Take attendance for its crew. `v1_wf_finish_request` (requester or
+  an assigner, reason optional, expected version and idempotency key)
+  releases this request's crew memberships and records `completed` with the
+  number released. Attendance already taken is kept.

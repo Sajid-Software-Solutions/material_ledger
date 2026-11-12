@@ -2336,6 +2336,26 @@ that the 90/10 policy and 10/50/30/5/5 stage defaults are code-frozen,
 for future baselines only. Plan:
 [`CONFIGURATION_REDESIGN_PLAN.md`](CONFIGURATION_REDESIGN_PLAN.md).
 
+## 40. Crew requests by name, approve and assign, finish (owner decision, 13 November 2026)
+
+A crew request line asks for a **person by name** or for a **trade and how
+many**, in one field that suggests people and trades as the requester types.
+A named person is one person; their designation is recorded as the trade.
+When a named person is already on another crew, the requester is warned and
+the approver sees the same warning on the request and on the assignment;
+the approver may untick that person, return or reject the request. If the
+approver assigns them, they move to this request's crew (the only case
+where assignment moves a worker; every other worker must be free). The
+project's approver (Project Engineer, organization-wide engineer, Admin)
+**approves and assigns in one step**; Approve only remains for when no
+worker is ready, and PR keeps assigning later. Once workers are on site the
+requester takes attendance until the work is done, then **finishes** the
+request (or an assigner does): its workers leave the crew and the request is
+Finished. Attendance already taken is kept. This supersedes section 38's
+"PR assigns" and "releasing workers is a later request type", and decisions
+3 and 4 of the design note. Design:
+[`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md) section 7.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
