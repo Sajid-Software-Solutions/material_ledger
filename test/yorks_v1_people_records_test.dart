@@ -729,7 +729,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final (path, size, type) = stored.uploads.single;
-      expect(path, matches(RegExp('^people/$_workerId/[0-9a-f-]{36}\.pdf\$')));
+      expect(path, matches(RegExp('^people/$_workerId/[0-9a-f-]{36}\\.pdf\$')));
       expect(size, 2048);
       expect(type, 'application/pdf');
       final sent = rpc.callsTo('v1_people_add_attachment').single;
