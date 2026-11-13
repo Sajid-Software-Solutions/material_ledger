@@ -1204,6 +1204,18 @@ abstract final class AttendanceStrings {
     ur: 'ورکرز شامل کریں',
     hi: 'कर्मचारी जोड़ें',
   );
+  static const searchWorkers = _T(
+    en: 'Search by name or number',
+    ar: 'ابحث بالاسم أو الرقم',
+    ur: 'نام یا نمبر سے تلاش کریں',
+    hi: 'नाम या नंबर से खोजें',
+  );
+  static const addCount = _T(
+    en: 'Add {n}',
+    ar: 'إضافة {n}',
+    ur: '{n} شامل کریں',
+    hi: '{n} जोड़ें',
+  );
   static const remove = _T(
     en: 'Remove',
     ar: 'إزالة',

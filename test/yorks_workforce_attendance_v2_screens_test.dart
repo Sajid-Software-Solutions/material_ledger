@@ -883,6 +883,332 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('phone: quick, native and the same everywhere', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+
+    Map<String, Object?> poolWorker(String id, String name) => {
+      ..._worker(id, name),
+      'crew_id': null,
+      'crew_name': null,
+    };
+    Map<String, Object?> otherCrewWorker(String id, String name) => {
+      ..._worker(id, name),
+      'crew_id': 'c2',
+      'crew_name': 'Workshop crew',
+    };
+    final workers = [
+      _worker('w1', 'Gul Zaman'),
+      _worker('w2', 'Waqar Ahmed'),
+      poolWorker('w3', 'Sajid Khan'),
+      otherCrewWorker('w4', 'Noor Alam'),
+      poolWorker('w5', 'Imran Ali'),
+    ];
+    Map<String, FutureOr<Map<String, dynamic>> Function(Map<String, Object?>)>
+    day() => {
+      'v1_wf_list_crews': (_) => _crews(_access()),
+      'v1_wf_list_workers': (_) => {'workers': workers},
+      'v1_wf_get_day': (_) => _day(),
+    };
+    const dayAt =
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date';
+
+    testWidgets('each worker is one compact row with the pills beside it', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _FakeRpc(day()), dayAt);
+      final row = tester.getRect(
+        find.byKey(const ValueKey('attendance-row-w1')),
+      );
+      final pill = tester.getRect(
+        find.byKey(const ValueKey('attendance-pill-p-w1')),
+      );
+      final name = tester.getRect(find.text('Gul Zaman'));
+      expect(pill.height, greaterThanOrEqualTo(44));
+      expect(pill.top, lessThan(name.bottom + 24), reason: 'beside the name');
+      expect(row.height, lessThan(90));
+      // Every quick action is in sight on the narrowest phone.
+      for (final key in [
+        'attendance-everyone-present',
+        'attendance-copy-previous',
+        'attendance-shift',
+        'attendance-add-worker-open',
+      ]) {
+        final rect = tester.getRect(find.byKey(ValueKey(key)));
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(360));
+        expect(rect.height, greaterThanOrEqualTo(44));
+      }
+      expect(
+        find.textContaining('Enter your crew for today'),
+        findsNothing,
+        reason: 'the work starts near the top on a phone',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Add workers picks several from a sheet in one go', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _FakeRpc(day()), dayAt);
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-add-worker-open')),
+      );
+      await tester.pumpAndSettle();
+      // Crew members already on the day are not offered; the labour pool
+      // comes first.
+      expect(
+        find.byKey(const ValueKey('attendance-picker-worker-w1')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('attendance-picker-worker-w5')),
+            )
+            .dy,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey('attendance-picker-worker-w4')),
+              )
+              .dy,
+        ),
+      );
+      // Type and press Enter: the best match is ticked and the box clears
+      // for the next name.
+      await tester.enterText(
+        find.byKey(const ValueKey('attendance-picker-search')),
+        'sajid',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(
+                of: find.byKey(const ValueKey('attendance-picker-search')),
+                matching: find.byType(TextField),
+              ),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-picker-worker-w4')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Add 2'), findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_phone_add_workers.png'),
+      );
+      await tester.tap(find.byKey(const ValueKey('attendance-picker-add')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('attendance-row-w3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('attendance-row-w4')), findsOneWidget);
+      expect(find.text('Labour pool'), findsOneWidget);
+      expect(find.text('From Workshop crew'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the worker editor keeps Save & next in reach', (tester) async {
+      _size(tester, const Size(360, 640));
+      await _pump(tester, _FakeRpc(day()), dayAt);
+      await tester.tap(find.byKey(const ValueKey('attendance-pill-more-w1')));
+      await tester.pumpAndSettle();
+      final actions = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-actions')),
+      );
+      expect(actions.bottom, closeTo(640, 1), reason: 'pinned to the bottom');
+      // Entering a time box selects its time, so typing replaces it.
+      await tester.tap(find.byKey(const ValueKey('attendance-editor-in')));
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-in')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(field.controller!.selection.start, 0);
+      expect(field.controller!.selection.end, field.controller!.text.length);
+      expect(field.keyboardType.decimal, isTrue);
+      expect(field.textInputAction, TextInputAction.next);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_phone_editor.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    Future<_FakeRpc> pumpCrews(
+      WidgetTester tester,
+      Size size, {
+      List<Map<String, Object?>> members = const [],
+    }) async {
+      _size(tester, size);
+      final rpc = _FakeRpc({
+        'v1_wf_list_crews': (_) => _crews(_access(confirm: true)),
+        'v1_wf_list_public_holidays': (_) => {
+          'year': DateTime.now().year,
+          'can_manage': false,
+          'holidays': <Object>[],
+        },
+        'v1_wf_get_crew': (_) => {
+          ..._crew(access: _access(confirm: true)),
+          'members': members,
+        },
+        'v1_wf_list_workers': (_) => {'workers': workers},
+        'v1_wf_save_crew': (params) => {
+          ..._crew(access: _access(confirm: true)),
+          'record_version': 2,
+        },
+        'v1_wf_set_crew_members': (params) => _crew(),
+      });
+      SharedPreferences.setMockInitialValues({});
+      final preferences = await SharedPreferences.getInstance();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+            yorksAttendanceRepositoryProvider.overrideWithValue(
+              YorksAttendanceRepository(
+                featureFlags: _flags,
+                connectivity: const _Online(),
+                rpcClient: rpc,
+              ),
+            ),
+            yorksV1ProjectPortfolioProvider.overrideWith((ref) async => []),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: AttendanceCrewsScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return rpc;
+    }
+
+    testWidgets('a crew gets its workers from the same picker, saved once', (
+      tester,
+    ) async {
+      final rpc = await pumpCrews(
+        tester,
+        const Size(360, 800),
+        members: [_worker('w1', 'Gul Zaman'), _worker('w2', 'Waqar Ahmed')],
+      );
+      await tester.tap(find.byKey(ValueKey('attendance-crew-row-$_crewId')));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_phone_crew_editor.png'),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-crew-add-worker')),
+      );
+      await tester.pumpAndSettle();
+      // Members are not offered again.
+      expect(
+        find.byKey(const ValueKey('attendance-picker-worker-w2')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-picker-worker-w3')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-picker-worker-w4')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attendance-picker-add')));
+      await tester.pumpAndSettle();
+      // Noor Alam is on another crew: moving needs a yes.
+      expect(
+        find.text('Noor Alam is in Workshop crew. Move to this crew?'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-text-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('attendance-crew-member-w3')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-crew-member-w4')),
+        findsOneWidget,
+      );
+      expect(find.text('Members · 4'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('attendance-crew-save')));
+      await tester.pumpAndSettle();
+      final members = rpc.calls
+          .where((c) => c.$1 == 'v1_wf_set_crew_members')
+          .toList();
+      expect(members, hasLength(1));
+      expect(members.single.$2['p_add_worker_ids'], ['w3', 'w4']);
+      expect(members.single.$2['p_remove_worker_ids'], isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop: the same picker opens as a dialog', (tester) async {
+      await pumpCrews(
+        tester,
+        const Size(1280, 860),
+        members: [_worker('w1', 'Gul Zaman'), _worker('w2', 'Waqar Ahmed')],
+      );
+      await tester.tap(find.byKey(ValueKey('attendance-crew-row-$_crewId')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-crew-add-worker')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('attendance-picker-search')),
+        'noor',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-picker-worker-w4')),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_desktop_crew_picker.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the crew editor stays usable above the keyboard', (
+      tester,
+    ) async {
+      await pumpCrews(tester, const Size(360, 640));
+      await tester.tap(find.byKey(const ValueKey('attendance-new-crew')));
+      await tester.pumpAndSettle();
+      final shiftIn = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-crew-in')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(shiftIn.keyboardType.decimal, isTrue);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.showKeyboard(
+        find.byKey(const ValueKey('attendance-crew-name')),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'nothing overflows');
+      final save = tester.getRect(
+        find.byKey(const ValueKey('attendance-crew-save')),
+      );
+      expect(save.bottom, lessThanOrEqualTo(340), reason: 'above the keyboard');
+    });
+  });
+
   group('screenshots (desktop and 360px phone)', () {
     setUpAll(loadAccountsV2GoldenFonts);
 

@@ -12,10 +12,10 @@ import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
 import '../../data/attendance_repository.dart';
 import '../../domain/attendance_models.dart';
-import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
 import 'attendance_dialogs.dart';
+import 'attendance_inputs.dart';
 
 class AttendanceCrewsScreen extends ConsumerWidget {
   const AttendanceCrewsScreen({super.key});
@@ -155,7 +155,6 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
       widget.crew == null ? 780 : widget.crew!.breakFinish,
     ),
   );
-  final _search = TextEditingController();
   late String _kind = widget.crew?.kind ?? 'project';
   late String? _projectId = widget.crew?.projectId;
   late bool _needsConfirmation = widget.crew?.needsConfirmation ?? true;
@@ -175,7 +174,6 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
       _finish,
       _breakStart,
       _breakFinish,
-      _search,
     ]) {
       c.dispose();
     }
@@ -263,8 +261,26 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
     setState(() {
       _removed.remove(worker.id);
       if (!_added.any((w) => w.id == worker.id)) _added.add(worker);
-      _search.clear();
     });
+  }
+
+  Future<void> _pickWorkers(
+    List<AttendanceWorker> workers,
+    Set<String> memberIds,
+  ) async {
+    final picked = await showAttendanceWorkerPicker(
+      context,
+      language: _language,
+      title: AS.t(AS.addWorkers, _language),
+      workers: workers,
+      exclude: memberIds,
+    );
+    if (picked == null) return;
+    // One at a time: a worker on another crew is moved only once confirmed.
+    for (final worker in picked) {
+      if (!mounted) return;
+      await _add(worker);
+    }
   }
 
   @override
@@ -282,156 +298,179 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
       ..._added,
     ];
     final memberIds = {for (final m in members) m.id};
-    final hits = _search.text.trim().isEmpty || workers == null
-        ? const <AttendanceSearchHit<AttendanceWorker>>[]
-        : attendanceFuzzySearch(
-            _search.text,
-            workers.where((w) => !memberIds.contains(w.id)),
-            (w) => '${w.name} ${w.number}',
-          );
     final valid =
         _name.text.trim().isNotEmpty &&
         (_kind == 'workshop' || _projectId != null) &&
         parseAttendanceTime(_start.text).minutes != null &&
         parseAttendanceTime(_finish.text).minutes != null;
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final pad = phone ? 16.0 : 18.0;
 
+    final settings = <Widget>[
+      if (_error != null) ...[
+        AccountsV2Note(tone: AccountsV2NoteTone.bad, child: Text(_error!)),
+        const SizedBox(height: 10),
+      ],
+      AccountsV2TextField(
+        key: const ValueKey('attendance-crew-name'),
+        label: AS.t(AS.crewName, language),
+        controller: _name,
+        enabled: canEditSettings,
+        textInputAction: TextInputAction.next,
+        onChanged: (_) => setState(() {}),
+      ),
+      const SizedBox(height: 12),
+      SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          minimumSize: const Size(0, 44),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          textStyle: v2Style(13, weight: FontWeight.w600),
+          foregroundColor: AccountsV2Colors.ink2,
+          selectedForegroundColor: AccountsV2Colors.pri,
+          selectedBackgroundColor: AccountsV2Colors.pri50,
+          side: const BorderSide(color: AccountsV2Colors.lineS),
+        ),
+        segments: [
+          ButtonSegment(
+            value: 'project',
+            label: Text(AS.t(AS.crewKindProject, language)),
+          ),
+          ButtonSegment(
+            value: 'workshop',
+            label: Text(AS.t(AS.crewKindWorkshop, language)),
+          ),
+        ],
+        selected: {_kind},
+        onSelectionChanged: canEditSettings
+            ? (value) => setState(() {
+                _kind = value.first;
+                if (_kind == 'workshop') _needsConfirmation = false;
+              })
+            : null,
+      ),
+      const SizedBox(height: 12),
+      if (_kind == 'project')
+        AccountsV2Select<String?>(
+          key: const ValueKey('attendance-crew-project'),
+          label: AS.t(AS.projectLabel, language),
+          value: _projectId,
+          options: [
+            (null, '—'),
+            for (final item in projects ?? const [])
+              (
+                item.project.id,
+                '${item.project.reference} · ${item.project.name}',
+              ),
+          ],
+          onChanged: canEditSettings
+              ? (id) => setState(() => _projectId = id)
+              : null,
+        )
+      else
+        AccountsV2TextField(
+          label: AS.t(AS.workLabel, language),
+          controller: _label,
+          enabled: canEditSettings,
+        ),
+      const SizedBox(height: 16),
+      Text(
+        AS.t(AS.usualShift, language),
+        style: v2Style(12.5, weight: FontWeight.w600),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          for (final (i, (label, controller, key)) in [
+            (AS.colIn, _start, 'attendance-crew-in'),
+            (AS.colBreak, _breakStart, 'attendance-crew-break'),
+            (AS.colBack, _breakFinish, 'attendance-crew-back'),
+            (AS.colOut, _finish, 'attendance-crew-out'),
+          ].indexed) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: AttendanceTimeField(
+                key: ValueKey(key),
+                label: label.active(language),
+                controller: controller,
+                enabled: canEditSettings,
+                last: i == 3,
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ],
+      ),
+      if (_kind == 'project') ...[
+        const SizedBox(height: 4),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(AS.t(AS.needsConfirmation, language), style: v2Style(13)),
+          value: _needsConfirmation,
+          activeThumbColor: Colors.white,
+          activeTrackColor: AccountsV2Colors.pri,
+          onChanged: canEditSettings
+              ? (value) => setState(() => _needsConfirmation = value)
+              : null,
+        ),
+      ] else
+        const SizedBox(height: 12),
+      const Divider(height: 1, color: AccountsV2Colors.line),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${AS.t(AS.members, language)} · ${members.length}',
+              style: v2Style(14, weight: FontWeight.w700),
+            ),
+          ),
+          AccountsV2Button(
+            key: const ValueKey('attendance-crew-add-worker'),
+            label: AS.t(AS.addWorkers, language),
+            icon: 'plus',
+            size: AccountsV2ButtonSize.small,
+            onPressed: workers == null
+                ? null
+                : () => _pickWorkers(workers, memberIds),
+          ),
+        ],
+      ),
+      const SizedBox(height: 4),
+    ];
+
+    // One scroll for the settings and the members, with Save pinned below
+    // and lifted above the keyboard, so nothing is squeezed or hidden.
     return Padding(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_error != null) ...[
-            AccountsV2Note(tone: AccountsV2NoteTone.bad, child: Text(_error!)),
-            const SizedBox(height: 10),
-          ],
-          AccountsV2TextField(
-            key: const ValueKey('attendance-crew-name'),
-            label: AS.t(AS.crewName, language),
-            controller: _name,
-            enabled: canEditSettings,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(
-                value: 'project',
-                label: Text(AS.t(AS.crewKindProject, language)),
-              ),
-              ButtonSegment(
-                value: 'workshop',
-                label: Text(AS.t(AS.crewKindWorkshop, language)),
-              ),
-            ],
-            selected: {_kind},
-            onSelectionChanged: canEditSettings
-                ? (value) => setState(() {
-                    _kind = value.first;
-                    if (_kind == 'workshop') _needsConfirmation = false;
-                  })
-                : null,
-          ),
-          const SizedBox(height: 10),
-          if (_kind == 'project')
-            AccountsV2Select<String?>(
-              key: const ValueKey('attendance-crew-project'),
-              label: AS.t(AS.projectLabel, language),
-              value: _projectId,
-              options: [
-                (null, '—'),
-                for (final item in projects ?? const [])
-                  (
-                    item.project.id,
-                    '${item.project.reference} · ${item.project.name}',
-                  ),
-              ],
-              onChanged: canEditSettings
-                  ? (id) => setState(() => _projectId = id)
-                  : null,
-            )
-          else
-            AccountsV2TextField(
-              label: AS.t(AS.workLabel, language),
-              controller: _label,
-              enabled: canEditSettings,
-            ),
-          const SizedBox(height: 12),
-          Text(
-            AS.t(AS.usualShift, language),
-            style: v2Style(12.5, weight: FontWeight.w600),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              for (final (label, controller) in [
-                (AS.colIn, _start),
-                (AS.colBreak, _breakStart),
-                (AS.colBack, _breakFinish),
-                (AS.colOut, _finish),
-              ]) ...[
-                Expanded(
-                  child: AccountsV2TextField(
-                    label: label.active(language),
-                    controller: controller,
-                    enabled: canEditSettings,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-            ],
-          ),
-          if (_kind == 'project')
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                AS.t(AS.needsConfirmation, language),
-                style: v2Style(13),
-              ),
-              value: _needsConfirmation,
-              onChanged: canEditSettings
-                  ? (value) => setState(() => _needsConfirmation = value)
-                  : null,
-            ),
-          const SizedBox(height: 10),
-          Text(
-            '${AS.t(AS.members, language)} · ${members.length}',
-            style: v2Style(13, weight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          AccountsV2TextField(
-            key: const ValueKey('attendance-crew-add-worker'),
-            label: AS.t(AS.addWorkers, language),
-            controller: _search,
-            search: true,
-            onChanged: (_) => setState(() {}),
-          ),
-          for (final hit in hits)
-            ListTile(
-              dense: true,
-              minTileHeight: 44,
-              title: Text(hit.item.name, style: v2Style(13)),
-              subtitle: Text(
-                '${hit.item.number} · ${hit.item.designation} · ${hit.item.crewName ?? AS.t(AS.labourPool, language)}',
-                style: v2Style(11.5, color: AccountsV2Colors.mut),
-              ),
-              onTap: () => _add(hit.item),
-            ),
-          const SizedBox(height: 6),
           Expanded(
             child: ListView(
+              key: const ValueKey('attendance-crew-editor-scroll'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(pad, pad, pad, 12),
               children: [
+                ...settings,
                 for (final member in members)
                   ListTile(
+                    key: ValueKey('attendance-crew-member-${member.id}'),
                     dense: true,
-                    minTileHeight: 44,
+                    minTileHeight: 52,
+                    contentPadding: EdgeInsets.zero,
                     leading: AttendanceAvatar(
                       initials: member.initials,
-                      size: 30,
+                      size: 32,
                     ),
                     title: Row(
                       children: [
-                        Flexible(child: Text(member.name, style: v2Style(13))),
+                        Flexible(
+                          child: Text(
+                            member.name,
+                            style: v2Style(13.5, weight: FontWeight.w600),
+                          ),
+                        ),
                         if (crew != null) ...[
                           const SizedBox(width: 6),
                           CrewDocumentBadge(
@@ -444,11 +483,16 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
                     ),
                     subtitle: Text(
                       '${member.number} · ${member.designation}',
-                      style: v2Style(11.5, color: AccountsV2Colors.mut),
+                      style: v2Style(12, color: AccountsV2Colors.mut),
                     ),
                     trailing: IconButton(
+                      key: ValueKey('attendance-crew-remove-${member.id}'),
                       tooltip: AS.t(AS.remove, language),
                       icon: const Icon(Icons.close_rounded),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
                       onPressed: () => setState(() {
                         _added.removeWhere((w) => w.id == member.id);
                         if (detail?.members.any((m) => m.id == member.id) ??
@@ -461,15 +505,25 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          AccountsV2Button(
-            key: const ValueKey('attendance-crew-save'),
-            block: true,
-            kind: AccountsV2ButtonKind.primary,
-            size: AccountsV2ButtonSize.large,
-            label: AS.t(AS.save, language),
-            icon: _saving ? 'clock' : 'check',
-            onPressed: valid && !_saving ? _save : null,
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AccountsV2Colors.line)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(pad, 10, pad, 12),
+                child: AccountsV2Button(
+                  key: const ValueKey('attendance-crew-save'),
+                  block: true,
+                  kind: AccountsV2ButtonKind.primary,
+                  size: AccountsV2ButtonSize.large,
+                  label: AS.t(AS.save, language),
+                  icon: _saving ? 'clock' : 'check',
+                  onPressed: valid && !_saving ? _save : null,
+                ),
+              ),
+            ),
           ),
         ],
       ),
