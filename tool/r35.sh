@@ -45,6 +45,7 @@ operator_workforce_flag="${YORKS_V1_WORKFORCE:-}"
 operator_worker_records_flag="${YORKS_V1_WORKER_RECORDS:-}"
 operator_attendance_v2_flag="${YORKS_V1_WORKFORCE_ATTENDANCE_V2:-}"
 operator_workforce_center_flag="${YORKS_V1_WORKFORCE_CENTER:-}"
+operator_people_records_flag="${YORKS_V1_PEOPLE_RECORDS:-}"
 operator_analytics_flag="${YORKS_V1_ANALYTICS:-}"
 operator_posthog_enabled="${POSTHOG_ENABLED:-}"
 operator_posthog_project_token="${POSTHOG_PROJECT_TOKEN:-}"
@@ -82,6 +83,8 @@ workforce_flag="${operator_workforce_flag:-${YORKS_V1_WORKFORCE:-false}}"
 worker_records_flag="${operator_worker_records_flag:-${YORKS_V1_WORKER_RECORDS:-false}}"
 attendance_v2_flag="${operator_attendance_v2_flag:-${YORKS_V1_WORKFORCE_ATTENDANCE_V2:-false}}"
 workforce_center_flag="${operator_workforce_center_flag:-${YORKS_V1_WORKFORCE_CENTER:-false}}"
+# People records (staff, labour and their documents) is default-off.
+people_records_flag="${operator_people_records_flag:-${YORKS_V1_PEOPLE_RECORDS:-false}}"
 analytics_flag="${operator_analytics_flag:-${YORKS_V1_ANALYTICS:-false}}"
 posthog_enabled="${operator_posthog_enabled:-${POSTHOG_ENABLED:-false}}"
 posthog_project_token="${operator_posthog_project_token:-${POSTHOG_PROJECT_TOKEN:-}}"
@@ -204,6 +207,13 @@ case "$workforce_center_flag" in
     exit 64
     ;;
 esac
+case "$people_records_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_PEOPLE_RECORDS must be true or false." >&2
+    exit 64
+    ;;
+esac
 case "$analytics_flag" in
   true|false) ;;
   *)
@@ -323,6 +333,7 @@ r35_defines=(
   "--dart-define=YORKS_V1_WORKER_RECORDS=${worker_records_flag}"
   "--dart-define=YORKS_V1_WORKFORCE_ATTENDANCE_V2=${attendance_v2_flag}"
   "--dart-define=YORKS_V1_WORKFORCE_CENTER=${workforce_center_flag}"
+  "--dart-define=YORKS_V1_PEOPLE_RECORDS=${people_records_flag}"
   "--dart-define=YORKS_V1_ANALYTICS=${analytics_flag}"
   "--dart-define=POSTHOG_ENABLED=${posthog_enabled}"
   "--dart-define=POSTHOG_PROJECT_TOKEN=${posthog_project_token}"
@@ -344,6 +355,7 @@ echo "Yorks Workforce rollout: ${workforce_flag}" >&2
 echo "Yorks Worker Records rollout: ${worker_records_flag}" >&2
 echo "Yorks Workforce attendance V2 rollout: ${attendance_v2_flag}" >&2
 echo "Yorks Workforce Center rollout: ${workforce_center_flag}" >&2
+echo "Yorks People records rollout: ${people_records_flag}" >&2
 echo "Yorks Analytics rollout: retired (requested ${analytics_flag})" >&2
 echo "Yorks PostHog telemetry: ${posthog_enabled}" >&2
 

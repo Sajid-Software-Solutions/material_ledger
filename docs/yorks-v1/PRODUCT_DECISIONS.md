@@ -2369,6 +2369,23 @@ finishes it. A released worker cannot be released again, and a stale
 version is refused. Design:
 [`WORKFORCE_CENTER_DESIGN.md`](WORKFORCE_CENTER_DESIGN.md) section 8.
 
+## 42. People records for PR, Accountant and Admin (owner decision, 13 November 2026)
+
+PR, the Accountant and Admin keep the **staff and labour register** in the
+app instead of the Staff Documents & Passes spreadsheet: each person's visa,
+passport, labour card, ILOE, Emirates ID and CICPA/CMW site passes, with
+expiry status (expired, or expiring within 60 days), renewal history, Excel
+import of the tracker and Excel export in the same layout. A person is the
+same record as the Workforce worker, so crews, attendance and timesheets use
+it. The three roles view and manage by default through two new enforced
+capabilities (`people_records.view`, `people_records.manage`); no other role
+sees identity numbers or dates of birth. Engineers will see only an OK,
+expiring or expired status for their crew members. One daily summary goes to
+PR and Admin for anything expired or expiring within 60 days, only when
+something changed. Company documents (licences, vehicles, insurance, CICPA
+contracts) follow in a second slice and the daily summary and engineer
+status in a third. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md).
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

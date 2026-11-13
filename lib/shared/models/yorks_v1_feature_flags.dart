@@ -33,6 +33,7 @@ class YorksV1FeatureFlags {
     bool workerRecords = false,
     bool workforceAttendanceV2 = false,
     bool workforceCenter = false,
+    bool peopleRecords = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -53,7 +54,8 @@ class YorksV1FeatureFlags {
        _roleOverviewV2 = roleOverviewV2,
        _workerRecords = workerRecords,
        _workforceAttendanceV2 = workforceAttendanceV2,
-       _workforceCenter = workforceCenter;
+       _workforceCenter = workforceCenter,
+       _peopleRecords = peopleRecords;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -133,6 +135,10 @@ class YorksV1FeatureFlags {
       _workforceCenter = const bool.fromEnvironment(
         'YORKS_V1_WORKFORCE_CENTER',
         defaultValue: false,
+      ),
+      _peopleRecords = const bool.fromEnvironment(
+        'YORKS_V1_PEOPLE_RECORDS',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -156,6 +162,7 @@ class YorksV1FeatureFlags {
   final bool _workerRecords;
   final bool _workforceAttendanceV2;
   final bool _workforceCenter;
+  final bool _peopleRecords;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -238,6 +245,13 @@ class YorksV1FeatureFlags {
   /// Default off until `20261113150000_workforce_crew_requests.sql` is
   /// applied and the owner accepts it on staging.
   bool get workforceCenter => workforceAttendanceV2 && _workforceCenter;
+
+  /// People: staff and labour, their identity documents and site passes
+  /// (docs/yorks-v1/PEOPLE_RECORDS.md). Default off until
+  /// `20261114120000_people_records_foundation.sql` is applied and the owner
+  /// accepts it on staging. The server enforces `people_records.*`
+  /// regardless of this flag.
+  bool get peopleRecords => foundation && _peopleRecords;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

@@ -197,6 +197,10 @@ abstract final class YorksV1CapabilityKeys {
   static const workerRecordsView = 'worker_records.view';
   static const workerRecordsManage = 'worker_records.manage';
 
+  /// People records: staff and labour documents and gate passes.
+  static const peopleRecordsView = 'people_records.view';
+  static const peopleRecordsManage = 'people_records.manage';
+
   static const workforce = <String>{
     workforceView,
     workforceAttendanceMaintain,
@@ -331,6 +335,8 @@ abstract final class YorksV1CapabilityKeys {
     accountsExport,
     workerRecordsView,
     workerRecordsManage,
+    peopleRecordsView,
+    peopleRecordsManage,
     ...r39Accounts,
     ...workforce,
   };
