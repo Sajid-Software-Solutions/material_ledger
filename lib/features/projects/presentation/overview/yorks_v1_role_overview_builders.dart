@@ -6,6 +6,8 @@ import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
+import '../../../../shared/models/yorks_v1_company_documents.dart'
+    show CompanyAttentionItem, CompanyOverview;
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
 import '../../../../shared/models/yorks_v1_people.dart';
 import '../../../../shared/models/yorks_v1_project.dart';
@@ -16,6 +18,8 @@ import '../../../../shared/models/yorks_v1_audit_workspace.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/models/yorks_v1_role_overview_strings.dart';
+import '../../../company_documents/presentation/company_kit.dart'
+    show companyDaysText, companyDocumentIcon, companyDocumentLabel;
 import '../../../people_records/presentation/people_kit.dart'
     show peopleDate, peopleDaysText, peopleKindIcon, peopleKindLabel;
 import '../../../workforce/domain/crew_request_models.dart';
@@ -52,6 +56,7 @@ class YorksRoleOverviewInputs {
     this.auditLoading = false,
     this.people,
     this.crewRequests,
+    this.companyDocuments,
     this.canCreateProject = false,
     this.canCreateRequest = false,
     this.canBrowseInventory = false,
@@ -111,6 +116,9 @@ class YorksRoleOverviewInputs {
 
   /// PR: crew requests the signed-in person may see.
   final AsyncValue<CrewRequestRegister>? crewRequests;
+
+  /// PR: company licences, vehicles, insurance and contracts.
+  final AsyncValue<CompanyOverview>? companyDocuments;
   final bool canCreateProject;
   final bool canCreateRequest;
   final bool canBrowseInventory;
@@ -144,6 +152,8 @@ class YorksRoleOverviewNavigation {
     this.openPerson,
     this.openWorkforce,
     this.openCrewRequest,
+    this.openCompanyDocuments,
+    this.openCompanyRecord,
   });
 
   final void Function(YorksV1MaterialRequestSummary request) openRequest;
@@ -173,6 +183,8 @@ class YorksRoleOverviewNavigation {
   final void Function(String workerId)? openPerson;
   final VoidCallback? openWorkforce;
   final void Function(String requestId)? openCrewRequest;
+  final VoidCallback? openCompanyDocuments;
+  final void Function(String recordId)? openCompanyRecord;
 }
 
 /// Builds the Overview for the signed-in role.
@@ -2539,13 +2551,16 @@ class _Builder {
             target: 'rent',
           ),
       ],
-      left: [if (input.people != null) documentsAttention()],
+      left: [
+        if (input.people != null) documentsAttention(),
+        if (input.companyDocuments != null) companyAttention(),
+      ],
       right: [
         if (input.crewRequests != null) crewRequestList(waiting, register),
         if (input.rentals != null) rentalCard(),
       ],
       full: [prLinks()],
-      phoneOrder: const ['docs', 'crew', 'rent', 'links'],
+      phoneOrder: const ['docs', 'company', 'crew', 'rent', 'links'],
     );
   }
 
@@ -2592,6 +2607,56 @@ class _Builder {
             onTap: nav.openPerson == null
                 ? null
                 : () => nav.openPerson!(item.personId),
+          ),
+      ],
+    );
+  }
+
+  YorksOverviewListSection companyAttention() {
+    final overview = input.companyDocuments?.valueOrNull;
+    final items = overview?.attention ?? const <CompanyAttentionItem>[];
+    const limit = 6;
+    return YorksOverviewListSection(
+      id: 'company',
+      icon: Icons.business_center_outlined,
+      title: t(_S.companyAttention),
+      subtitle: t(_S.companyAttentionSub),
+      linkLabel: nav.openCompanyDocuments == null
+          ? null
+          : t(_S.openCompanyDocuments),
+      onLink: nav.openCompanyDocuments,
+      limit: limit,
+      load: _loadOf(input.companyDocuments),
+      onRetry: nav.retry,
+      emptyText: t(_S.noCompanyAttention),
+      footnote: items.length > limit
+          ? tf(_S.moreOnCompany, {'n': items.length - limit})
+          : null,
+      items: [
+        for (final item in items)
+          YorksOverviewListItem(
+            icon: companyDocumentIcon(item.document.kind),
+            tone: item.document.status == PeopleDocumentStatus.expired
+                ? YorksOverviewTone.red
+                : YorksOverviewTone.orange,
+            title: item.recordName,
+            detail: [
+              companyDocumentLabel(
+                item.document.kind,
+                lang,
+                label: item.document.label,
+              ),
+              if (item.owner != null) item.owner!,
+            ].join(' · '),
+            trailing: peopleDate(item.document.expiryDate),
+            trailingSub: companyDaysText(item.document.daysLeft, lang),
+            trailingEmphasis:
+                item.document.status == PeopleDocumentStatus.expired
+                ? YorksOverviewEmphasis.bad
+                : YorksOverviewEmphasis.warn,
+            onTap: nav.openCompanyRecord == null
+                ? null
+                : () => nav.openCompanyRecord!(item.recordId),
           ),
       ],
     );
@@ -2651,6 +2716,13 @@ class _Builder {
           label: t(_S.people),
           description: t(_S.peopleToolSub),
           onTap: nav.openPeople,
+        ),
+      if (nav.openCompanyDocuments != null)
+        YorksOverviewTool(
+          icon: Icons.business_center_outlined,
+          label: t(_S.companyDocuments),
+          description: t(_S.companyToolSub),
+          onTap: nav.openCompanyDocuments,
         ),
       if (nav.openWorkforce != null)
         YorksOverviewTool(

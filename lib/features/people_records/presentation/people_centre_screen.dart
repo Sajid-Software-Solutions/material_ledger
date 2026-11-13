@@ -17,6 +17,7 @@ import '../../../app/router.dart';
 import '../../../core/constants/constants.dart';
 import '../../../shared/models/app_language.dart';
 import '../../../shared/models/yorks_v1_people.dart';
+import '../../../shared/models/yorks_v1_shell_strings.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../../shared/providers/yorks_v1_feature_flags_provider.dart';
@@ -176,6 +177,7 @@ class _PeopleCentreScreenState extends ConsumerState<PeopleCentreScreen> {
               view: _view,
               onView: (view) => _setView(view),
               showWorkforce: flags.workforceAttendanceV2,
+              showCompany: flags.companyDocuments,
             ),
             const SizedBox(height: AppSpacing.md),
             overview.when(
@@ -397,12 +399,14 @@ class _ViewBar extends StatelessWidget {
     required this.view,
     required this.onView,
     required this.showWorkforce,
+    this.showCompany = false,
   });
 
   final AppLanguage language;
   final PeopleView view;
   final ValueChanged<PeopleView> onView;
   final bool showWorkforce;
+  final bool showCompany;
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +479,7 @@ class _ViewBar extends StatelessWidget {
         ),
       ),
     );
-    if (!showWorkforce) {
+    if (!showWorkforce && !showCompany) {
       return Align(alignment: AlignmentDirectional.centerStart, child: bar);
     }
     return Wrap(
@@ -484,18 +488,27 @@ class _ViewBar extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         bar,
-        OutlinedButton.icon(
-          key: const ValueKey('people-link-workforce'),
-          onPressed: () => context.go(RoutePaths.yorksV1Workforce),
-          icon: const Icon(Icons.groups_outlined, size: 18),
-          label: Text(PS.t(PS.linkWorkforce, language)),
-        ),
-        OutlinedButton.icon(
-          key: const ValueKey('people-link-timesheets'),
-          onPressed: () => context.go(RoutePaths.yorksV1WorkforceSheets),
-          icon: const Icon(Icons.calendar_view_month_outlined, size: 18),
-          label: Text(PS.t(PS.linkTimesheets, language)),
-        ),
+        if (showCompany)
+          OutlinedButton.icon(
+            key: const ValueKey('people-link-company'),
+            onPressed: () => context.go(RoutePaths.yorksV1CompanyDocuments),
+            icon: const Icon(Icons.business_center_outlined, size: 18),
+            label: Text(YorksV1ShellStrings.companyDocuments.active(language)),
+          ),
+        if (showWorkforce) ...[
+          OutlinedButton.icon(
+            key: const ValueKey('people-link-workforce'),
+            onPressed: () => context.go(RoutePaths.yorksV1Workforce),
+            icon: const Icon(Icons.groups_outlined, size: 18),
+            label: Text(PS.t(PS.linkWorkforce, language)),
+          ),
+          OutlinedButton.icon(
+            key: const ValueKey('people-link-timesheets'),
+            onPressed: () => context.go(RoutePaths.yorksV1WorkforceSheets),
+            icon: const Icon(Icons.calendar_view_month_outlined, size: 18),
+            label: Text(PS.t(PS.linkTimesheets, language)),
+          ),
+        ],
       ],
     );
   }

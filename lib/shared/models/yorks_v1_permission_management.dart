@@ -201,6 +201,10 @@ abstract final class YorksV1CapabilityKeys {
   static const peopleRecordsView = 'people_records.view';
   static const peopleRecordsManage = 'people_records.manage';
 
+  /// Company documents: licences, permits, vehicles, insurance, contracts.
+  static const companyDocumentsView = 'company_documents.view';
+  static const companyDocumentsManage = 'company_documents.manage';
+
   static const workforce = <String>{
     workforceView,
     workforceAttendanceMaintain,
@@ -337,6 +341,8 @@ abstract final class YorksV1CapabilityKeys {
     workerRecordsManage,
     peopleRecordsView,
     peopleRecordsManage,
+    companyDocumentsView,
+    companyDocumentsManage,
     ...r39Accounts,
     ...workforce,
   };

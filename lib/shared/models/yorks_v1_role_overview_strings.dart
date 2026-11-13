@@ -1732,6 +1732,49 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'यूनिट, लीज़, किराया और चेक',
   );
 
+  static const companyAttention = TranslatableString(
+    en: 'Company documents needing attention',
+    ar: 'مستندات الشركة التي تحتاج إلى متابعة',
+    ur: 'توجہ طلب کمپنی دستاویزات',
+    hi: 'ध्यान चाहने वाले कंपनी दस्तावेज़',
+  );
+  static const companyAttentionSub = TranslatableString(
+    en: 'Licences, vehicles, insurance and contracts expired or ending within 60 days.',
+    ar: 'الرخص والمركبات والتأمين والعقود المنتهية أو التي تنتهي خلال 60 يومًا.',
+    ur: 'لائسنس، گاڑیاں، انشورنس اور معاہدے جو ختم ہو چکے یا 60 دن میں ختم ہوں گے۔',
+    hi: 'लाइसेंस, वाहन, बीमा और अनुबंध जो समाप्त हो चुके या 60 दिनों में समाप्त होंगे।',
+  );
+  static const noCompanyAttention = TranslatableString(
+    en: 'No company document has expired or expires in the next 60 days.',
+    ar: 'لا يوجد مستند للشركة منتهٍ أو ينتهي خلال 60 يومًا.',
+    ur: 'کمپنی کی کوئی دستاویز ختم نہیں ہوئی اور نہ اگلے 60 دن میں ختم ہو رہی ہے۔',
+    hi: 'कंपनी का कोई दस्तावेज़ समाप्त नहीं हुआ और न अगले 60 दिनों में होगा।',
+  );
+  static const companyDocuments = TranslatableString(
+    en: 'Company documents',
+    ar: 'مستندات الشركة',
+    ur: 'کمپنی کی دستاویزات',
+    hi: 'कंपनी दस्तावेज़',
+  );
+  static const openCompanyDocuments = TranslatableString(
+    en: 'Open company documents',
+    ar: 'فتح مستندات الشركة',
+    ur: 'کمپنی دستاویزات کھولیں',
+    hi: 'कंपनी दस्तावेज़ खोलें',
+  );
+  static const companyToolSub = TranslatableString(
+    en: 'Licences, permits, vehicles, insurance and CICPA contracts',
+    ar: 'الرخص والتصاريح والمركبات والتأمين وعقود CICPA',
+    ur: 'لائسنس، پرمٹ، گاڑیاں، انشورنس اور CICPA معاہدے',
+    hi: 'लाइसेंस, परमिट, वाहन, बीमा और CICPA अनुबंध',
+  );
+  static const moreOnCompany = TranslatableString(
+    en: '{n} more in Company documents.',
+    ar: '{n} أخرى في مستندات الشركة.',
+    ur: 'کمپنی دستاویزات میں مزید {n}۔',
+    hi: 'कंपनी दस्तावेज़ों में {n} और।',
+  );
+
   // ─── Admin: rentals and activity ───────────────────────────────────────
   static const rentals = TranslatableString(
     en: 'Rentals',

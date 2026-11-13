@@ -65,6 +65,7 @@ explicit V7-to-V1 conflict resolution.
 | [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md) | Approved Workforce authority through independently accepted T13 plus the reinstated T14 staging contract, including RLS, rollout and rollback |
 | [`WORKER_RECORDS.md`](WORKER_RECORDS.md) | Worker employment records in User Management: capabilities, protected relations, release and rollback |
 | [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) | People records for PR, Accountant and Admin: documents, passes, expiry, tracker import/export |
+| [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) | Company documents: licences, permits, vehicles, insurance and CICPA contracts |
 | [`WORKFORCE_T13_HARDENING_EVIDENCE.md`](WORKFORCE_T13_HARDENING_EVIDENCE.md) | Accepted T13 security, race, scale, responsive, build and limitation evidence; no release action |
 | [`WORKFORCE_T14_STAGING_UAT_EVIDENCE.md`](WORKFORCE_T14_STAGING_UAT_EVIDENCE.md) | Reinstated T14 contract, initialized staging identity, 35-scenario witness matrix and current post-release deferral status |
 | [`WORKFORCE_PRODUCTION_RELEASE_EVIDENCE.md`](WORKFORCE_PRODUCTION_RELEASE_EVIDENCE.md) | Owner-exception production release: source, migration ledger, artifact/deployment hashes, live routes, rollback and explicit T14 boundary |

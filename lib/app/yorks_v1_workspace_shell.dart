@@ -112,6 +112,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
     final workforceAttendanceV2 = featureFlags.workforceAttendanceV2;
     final workerRecordsEnabled = featureFlags.workerRecords;
     final peopleRecordsEnabled = featureFlags.peopleRecords;
+    final companyDocumentsEnabled = featureFlags.companyDocuments;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled = !isAccountant && featureFlags.teamChat;
     // Protected Accounts and Workforce routes are explicit runtime consumers.
@@ -124,6 +125,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
             workforceEnabled ||
             workerRecordsEnabled ||
             peopleRecordsEnabled ||
+            companyDocumentsEnabled ||
             companyRequestsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
@@ -155,6 +157,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       peopleRecordsEnabled: peopleRecordsEnabled,
+      companyDocumentsEnabled: companyDocumentsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
     // Keep granular destinations for search and internal navigation while the
@@ -465,6 +468,7 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
                               workforceAttendanceV2: workforceAttendanceV2,
                               workerRecordsEnabled: workerRecordsEnabled,
                               peopleRecordsEnabled: peopleRecordsEnabled,
+                              companyDocumentsEnabled: companyDocumentsEnabled,
                               analyticsEnabled: analyticsEnabled,
                             ),
                             activePath: location,
@@ -647,6 +651,8 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
               location.startsWith(RoutePaths.yorksV1Workforce)) ||
           (path == RoutePaths.yorksV1People &&
               location.startsWith(RoutePaths.yorksV1People)) ||
+          (path == RoutePaths.yorksV1CompanyDocuments &&
+              location.startsWith(RoutePaths.yorksV1CompanyDocuments)) ||
           (path == RoutePaths.yorksV1Projects &&
               location.startsWith('/yorks/projects'))) {
         return destination;
@@ -696,6 +702,7 @@ List<_YorksDestination> _mobileDestinationsFor(
   bool workforceAttendanceV2 = false,
   bool workerRecordsEnabled = false,
   bool peopleRecordsEnabled = false,
+  bool companyDocumentsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final all = _destinationsFor(
@@ -709,6 +716,7 @@ List<_YorksDestination> _mobileDestinationsFor(
     workforceAttendanceV2: workforceAttendanceV2,
     workerRecordsEnabled: workerRecordsEnabled,
     peopleRecordsEnabled: peopleRecordsEnabled,
+    companyDocumentsEnabled: companyDocumentsEnabled,
     analyticsEnabled: analyticsEnabled,
   );
   _YorksDestination? path(String route) {
@@ -834,6 +842,7 @@ List<_YorksDestination> _destinationsFor(
   bool workforceAttendanceV2 = false,
   bool workerRecordsEnabled = false,
   bool peopleRecordsEnabled = false,
+  bool companyDocumentsEnabled = false,
   bool analyticsEnabled = false,
 }) {
   final accountsOfficeEligible =
@@ -929,6 +938,13 @@ List<_YorksDestination> _destinationsFor(
         selectedIcon: Icons.contact_page_rounded,
         path: RoutePaths.yorksV1People,
       ),
+    if (companyDocumentsEnabled)
+      _YorksDestination(
+        label: YorksV1ShellStrings.companyDocuments,
+        icon: Icons.business_center_outlined,
+        selectedIcon: Icons.business_center_rounded,
+        path: RoutePaths.yorksV1CompanyDocuments,
+      ),
     if (workforceEnabled)
       _YorksDestination(
         label: YorksV1ShellStrings.workforceAdministration,
@@ -985,6 +1001,7 @@ List<_YorksDestination> _destinationsFor(
         path != RoutePaths.yorksV1Calculators &&
         path != RoutePaths.yorksV1Workforce &&
         path != RoutePaths.yorksV1People &&
+        path != RoutePaths.yorksV1CompanyDocuments &&
         path != RoutePaths.users &&
         (path == null || !path.startsWith('${RoutePaths.yorksV1Accounts}/'))) {
       return false;
@@ -1023,6 +1040,11 @@ List<_YorksDestination> _destinationsFor(
               YorksV1PermissionEffectiveSource.explicitDeny;
       return workforceEnabled &&
           (byRole || allows(YorksV1CapabilityKeys.workforceView, false));
+    }
+    if (path == RoutePaths.yorksV1CompanyDocuments) {
+      // Licences, vehicles, insurance, contracts: PR, Accountant and Admin.
+      return companyDocumentsEnabled &&
+          allows(YorksV1CapabilityKeys.companyDocumentsView, false);
     }
     if (path == RoutePaths.yorksV1People) {
       // Staff and labour documents: PR, Accountant and Admin by default.
@@ -1157,6 +1179,7 @@ const _sidebarOrder = <String>[
   RoutePaths.yorksV1AccountsSupplierBills,
   RoutePaths.yorksV1AccountsDueSchedule,
   RoutePaths.yorksV1People,
+  RoutePaths.yorksV1CompanyDocuments,
   RoutePaths.yorksV1Workforce,
   RoutePaths.yorksV1MaterialRequests,
   RoutePaths.yorksV1Dispatches,
@@ -1531,6 +1554,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
     final workforceAttendanceV2 = featureFlags.workforceAttendanceV2;
     final workerRecordsEnabled = featureFlags.workerRecords;
     final peopleRecordsEnabled = featureFlags.peopleRecords;
+    final companyDocumentsEnabled = featureFlags.companyDocuments;
     final analyticsEnabled = featureFlags.analytics;
     final teamChatEnabled =
         role != YorksV1Role.accountant && featureFlags.teamChat;
@@ -1540,6 +1564,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
             workforceEnabled ||
             workerRecordsEnabled ||
             peopleRecordsEnabled ||
+            companyDocumentsEnabled ||
             analyticsEnabled) &&
         ref.watch(supabaseClientProvider) != null;
     final permissionState = connectedV1Permissions
@@ -1559,6 +1584,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       peopleRecordsEnabled: peopleRecordsEnabled,
+      companyDocumentsEnabled: companyDocumentsEnabled,
       analyticsEnabled: analyticsEnabled,
     );
     final primaryRoutes = _mobileDestinationsFor(
@@ -1573,6 +1599,7 @@ class YorksV1MobileMoreScreen extends ConsumerWidget {
       workforceAttendanceV2: workforceAttendanceV2,
       workerRecordsEnabled: workerRecordsEnabled,
       peopleRecordsEnabled: peopleRecordsEnabled,
+      companyDocumentsEnabled: companyDocumentsEnabled,
       analyticsEnabled: analyticsEnabled,
     ).map((destination) => destination.path).whereType<String>().toSet();
     final moreDestinations = _workspaceDestinations(all)

@@ -237,6 +237,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     yorksV1PeopleRecordsEnabled: ref
         .watch(yorksV1FeatureFlagsProvider)
         .peopleRecords,
+    yorksV1CompanyDocumentsEnabled: ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .companyDocuments,
     yorksV1AnalyticsEnabled: yorksV1AnalyticsEnabled,
     yorksV1Role: yorksV1Role,
     yorksV1PermissionResolver: connectedV1Permissions

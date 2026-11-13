@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/router.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
+import '../../../../shared/models/yorks_v1_company_documents.dart'
+    show CompanyOverview;
 import '../../../../shared/models/yorks_v1_people.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_project_portfolio.dart';
@@ -14,6 +16,7 @@ import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/permissions_provider.dart';
 import '../../../../shared/providers/yorks_v1_audit_provider.dart';
+import '../../../../shared/providers/yorks_v1_company_documents_provider.dart';
 import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../../shared/providers/yorks_v1_rental_provider.dart';
@@ -23,6 +26,8 @@ import '../../../../shared/providers/yorks_v1_logistics_provider.dart';
 import '../../../../shared/providers/yorks_v1_material_request_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/providers/yorks_v1_project_portfolio_provider.dart';
+import '../../../company_documents/presentation/company_kit.dart'
+    show companyPath, companyRecordPath;
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
 import '../../../people_records/presentation/people_kit.dart'
     show peopleNewPath, peoplePath, peoplePersonPath;
@@ -130,6 +135,14 @@ class _YorksV1RoleOverviewScreenState
           organizationSummary: true,
         );
     final needsCrewRequests = pr && flags.workforceCenter;
+    final canViewCompany =
+        pr &&
+        flags.companyDocuments &&
+        permissions.hybridAllows(
+          YorksV1CapabilityKeys.companyDocumentsView,
+          legacyAllowed: false,
+          organizationSummary: true,
+        );
 
     // Each role loads only the projections its cards use.
     final needsActive = switch (role) {
@@ -201,6 +214,9 @@ class _YorksV1RoleOverviewScreenState
     final crewRequests = needsCrewRequests
         ? ref.watch(yorksCrewRequestsProvider)
         : null;
+    final companyDocuments = canViewCompany
+        ? ref.watch(yorksV1CompanyOverviewProvider)
+        : null;
     final active = needsActive
         ? ref.watch(yorksV1MaterialRequestSummaryPageProvider(_activeQuery))
         : null;
@@ -244,7 +260,7 @@ class _YorksV1RoleOverviewScreenState
     final audit = admin ? ref.watch(yorksV1AuditControllerProvider) : null;
 
     final core = pr
-        ? <AsyncValue<Object?>>[?people, ?crewRequests]
+        ? <AsyncValue<Object?>>[?people, ?crewRequests, ?companyDocuments]
         : [projects, requests, myWork, exceptions];
     final ready = core.every((value) => value.hasValue || value.hasError);
     if (ready && _updatedAt == null) {
@@ -274,6 +290,7 @@ class _YorksV1RoleOverviewScreenState
       auditFailed: audit?.error != null && audit?.workspace == null,
       people: people,
       crewRequests: crewRequests,
+      companyDocuments: companyDocuments,
       canCreateProject: createProject.isVisible,
       canCreateRequest: createRequest.isVisible,
       canBrowseInventory: canBrowseInventory,
@@ -339,6 +356,12 @@ class _YorksV1RoleOverviewScreenState
       openCrewRequest: needsCrewRequests
           ? (id) => context.push(crewRequestPath(id))
           : null,
+      openCompanyDocuments: canViewCompany
+          ? () => context.go(companyPath)
+          : null,
+      openCompanyRecord: canViewCompany
+          ? (id) => context.push(companyRecordPath(id))
+          : null,
       retry: () => _refresh(
         includeActive: needsActive,
         includeDelivery: needsDelivery,
@@ -347,6 +370,7 @@ class _YorksV1RoleOverviewScreenState
         includeInventory: needsInventory,
         includePeople: canViewPeople,
         includeCrewRequests: needsCrewRequests,
+        includeCompany: canViewCompany,
         includeRentals: canAccessRentals,
         role: role,
         authUserId: authUserId,
@@ -370,6 +394,7 @@ class _YorksV1RoleOverviewScreenState
         includeInventory: needsInventory,
         includePeople: canViewPeople,
         includeCrewRequests: needsCrewRequests,
+        includeCompany: canViewCompany,
         includeRentals: canAccessRentals,
         role: role,
         authUserId: authUserId,
@@ -385,6 +410,7 @@ class _YorksV1RoleOverviewScreenState
     required bool includeInventory,
     required bool includePeople,
     required bool includeCrewRequests,
+    required bool includeCompany,
     required bool includeRentals,
     required YorksV1Role? role,
     required String? authUserId,
@@ -410,6 +436,10 @@ class _YorksV1RoleOverviewScreenState
       if (includeCrewRequests)
         ref.refresh<Future<CrewRequestRegister>>(
           yorksCrewRequestsProvider.future,
+        ),
+      if (includeCompany)
+        ref.refresh<Future<CompanyOverview>>(
+          yorksV1CompanyOverviewProvider.future,
         ),
       if (includeActive)
         ref.refresh(

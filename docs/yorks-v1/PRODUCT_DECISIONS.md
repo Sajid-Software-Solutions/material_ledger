@@ -2390,6 +2390,21 @@ something changed. Company documents (licences, vehicles, insurance, CICPA
 contracts) follow in a second slice and the daily summary and engineer
 status in a third. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md).
 
+## 43. Company documents (owner request, 13 November 2026)
+
+PR, the Accountant and Admin keep the company's own documents beside
+People: each company and branch's trade licence, establishment card,
+labour file and PRO cards; company certificates and permits (Civil
+Defence, ISO, ICV, CMW, CICPA registration and the like); vehicles with
+their registration, Asateel permit and CICPA pass; insurance policies; and
+CICPA contracts (LOA, job, people and vehicle counts). Each record keeps
+its documents with expiry status, renewal history, Excel import of the
+tracker's company sheets and Excel export. A sold vehicle or finished
+contract is archived with a reason, never deleted. Access is two new
+enforced capabilities (`company_documents.view`, `company_documents.manage`)
+for the same three roles. The PR Overview lists company documents that
+need attention. Design: [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md).
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

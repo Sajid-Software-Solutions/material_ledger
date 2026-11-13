@@ -14,7 +14,7 @@ document.
 | Slice | Contents | State |
 | --- | --- | --- |
 | 1 | People home, Staff and Labour registers, person record, person form, document add/correct/renew/end, Excel import and export, tracker data load | This change |
-| 2 | Company documents: trade licences and permits per entity, vehicles and vehicle passes, insurance policies, CICPA contracts | Next |
+| 2 | Company documents: trade licences and permits per entity, vehicles and vehicle passes, insurance policies, CICPA contracts | See [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) |
 | 3 | Daily expiry summary to PR and Admin, status-only chips for engineers on their crew, Workforce and Timesheets links from a person | Later |
 
 Until slice 2, the import reports insurance lines and vehicle passes found
