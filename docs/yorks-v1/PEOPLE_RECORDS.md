@@ -124,7 +124,10 @@ off) and `people_records.view`; new and edit also need
 ## Release and rollback
 
 1. Apply `20261114120000_people_records_foundation.sql` (additive,
-   repeatable).
+   repeatable), then `20261114130000_people_records_read_volatility.sql`.
+   The read functions must be volatile: PostgREST runs a STABLE function
+   read-only, and every People function first syncs the caller's profile,
+   which writes. A pgTAP check keeps every People entry point volatile.
 2. Load the tracker through `v1_people_import` as an Admin, from a
    reviewed script. The payload holds personal data and is never committed.
 3. Build with `YORKS_V1_PEOPLE_RECORDS=true`.

@@ -2277,7 +2277,11 @@ the company's people.
   Accountant boundary.
 - Like Senior Mechanical Engineer, PR may assign any role, including Admin.
   PR is itself a protected manager-level account for everyone else.
-- PR's landing page is User Management.
+- PR's landing page is its own Overview (13 November 2026; it was User
+  Management): documents expired or expiring within 60 days, crew requests
+  waiting for PR, the rental position and links to People, Workforce, User
+  Management and Rental Properties. It reads no Material Request or project
+  projection.
 
 **Workforce attendance follows the approved prototype**
 (`designs/workforce-attendance-prototype.html`). Access mirrors Material

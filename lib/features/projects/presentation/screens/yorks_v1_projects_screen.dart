@@ -101,11 +101,13 @@ class YorksV1OverviewScreen extends ConsumerWidget {
     if (role == YorksV1Role.accountant) {
       return _AccountantRolloutLockedState(language: language);
     }
-    // PR never reads Material Request, inventory or dispatch data. Its
-    // landing page is User Management; this card is only a stale-link
-    // fallback and subscribes to no technical provider.
+    // PR never reads Material Request, inventory or dispatch data. Its role
+    // Overview shows people, crews and rentals; without that rollout this
+    // card stands in and subscribes to no technical provider.
     if (role == YorksV1Role.pr) {
-      return _PrOverviewState(language: language);
+      return ref.watch(yorksV1FeatureFlagsProvider).roleOverviewV2
+          ? const YorksV1RoleOverviewDeferred()
+          : _PrOverviewState(language: language);
     }
     if (ref.watch(yorksV1FeatureFlagsProvider).roleOverviewV2) {
       return const YorksV1RoleOverviewDeferred();

@@ -8,12 +8,14 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/projects/presentation/overview/yorks_v1_role_overview_builders.dart';
 import 'package:material_ledger/features/projects/presentation/overview/yorks_v1_role_overview_layout.dart';
 import 'package:material_ledger/features/projects/presentation/overview/yorks_v1_role_overview_spec.dart';
+import 'package:material_ledger/features/workforce/domain/crew_request_models.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_audit_workspace.dart';
 import 'package:material_ledger/shared/models/yorks_v1_rental.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_logistics.dart';
 import 'package:material_ledger/shared/models/yorks_v1_material_request.dart';
+import 'package:material_ledger/shared/models/yorks_v1_people.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project.dart';
 import 'package:material_ledger/shared/models/yorks_v1_project_portfolio.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
@@ -201,6 +203,71 @@ void main() {
       );
     });
 
+    test('PR sees people, crews and rentals, and no request work', () {
+      final spec = _spec(YorksV1Role.pr);
+      expect(spec.kpis.map((k) => k.id), [
+        'people',
+        'expired',
+        'expiring',
+        'crew',
+        'leases',
+      ]);
+      expect(spec.kpis.firstWhere((k) => k.id == 'people').value, '134');
+      expect(spec.kpis.firstWhere((k) => k.id == 'expired').value, '6');
+      expect(spec.kpis.firstWhere((k) => k.id == 'crew').value, '1');
+      final ids = spec.allSections.map((s) => s.id).toSet();
+      expect(ids, {'docs', 'crew', 'rent', 'links'});
+      final docs =
+          spec.allSections.firstWhere((s) => s.id == 'docs')
+              as YorksOverviewListSection;
+      expect(docs.items.first.title, 'RAVI TEST KUMAR');
+      expect(docs.items.first.trailingEmphasis, YorksOverviewEmphasis.bad);
+      final crew =
+          spec.allSections.firstWhere((s) => s.id == 'crew')
+              as YorksOverviewListSection;
+      // Waiting for PR first; finished requests are left out.
+      expect(crew.items.map((i) => i.title.split(' · ').first), [
+        'CRQ-2026-0001',
+        'CRQ-2026-0002',
+      ]);
+      expect(crew.items.first.trailing, 'Waiting for you');
+    });
+
+    test('PR without People or Workforce still gets an Overview', () {
+      final spec = buildYorksRoleOverviewSpec(
+        YorksRoleOverviewInputs(
+          role: YorksV1Role.pr,
+          language: AppLanguage.english,
+          now: _now,
+          projects: const AsyncLoading(),
+          portfolio: const AsyncData([]),
+          requests: const AsyncLoading(),
+          myWork: const AsyncLoading(),
+          exceptions: const AsyncLoading(),
+        ),
+        YorksRoleOverviewNavigation(
+          openRequest: (_) {},
+          openRequests: () {},
+          openProjects: () {},
+          openProject: (_) {},
+          openUsers: () {},
+        ),
+      );
+      expect(spec.kpis, isEmpty);
+      expect(spec.allSections.map((s) => s.id), ['links']);
+    });
+
+    test('a failed People load is shown, not counted as zero', () {
+      final spec = _spec(YorksV1Role.pr, failed: true);
+      final people = spec.kpis.firstWhere((k) => k.id == 'people');
+      expect(people.value, '—');
+      expect(people.load, YorksOverviewLoad.error);
+      expect(
+        spec.allSections.firstWhere((s) => s.id == 'docs').load,
+        YorksOverviewLoad.error,
+      );
+    });
+
     test('every role builds a complete Overview', () {
       for (final role in YorksV1Role.values) {
         final spec = _spec(role);
@@ -255,6 +322,7 @@ void main() {
     YorksV1Role.workshopInCharge,
     YorksV1Role.documentController,
     YorksV1Role.admin,
+    YorksV1Role.pr,
   ]) {
     for (final view in [
       (name: 'desktop', size: const Size(1440, 1400)),
@@ -376,7 +444,11 @@ YorksRoleOverviewSpec _spec(
         ),
       ),
       drafts: AsyncData(_drafts),
-      rentals: role == YorksV1Role.admin ? AsyncData(_rentals) : null,
+      rentals: role == YorksV1Role.admin || role == YorksV1Role.pr
+          ? AsyncData(_rentals)
+          : null,
+      people: role == YorksV1Role.pr ? wrap(_people) : null,
+      crewRequests: role == YorksV1Role.pr ? wrap(_crewRegister) : null,
       audit: role == YorksV1Role.admin && !auditFailed ? _audit : null,
       auditFailed: role == YorksV1Role.admin && auditFailed,
       canCreateProject: role != YorksV1Role.procurement,
@@ -403,9 +475,103 @@ YorksRoleOverviewSpec _spec(
       openUsers: () {},
       openDuctSizer: () {},
       openEspCalculator: () {},
+      openRentals: role == YorksV1Role.pr ? () {} : null,
+      openPeople: () {},
+      newPerson: () {},
+      openPerson: (_) {},
+      openWorkforce: () {},
+      openCrewRequest: (_) {},
     ),
   );
 }
+
+final _people = PeopleOverview.fromJson({
+  'today': '2026-11-09',
+  'can_manage': true,
+  'counts': {
+    'total': 134,
+    'staff': 26,
+    'labour': 108,
+    'expired': 6,
+    'expiring': 27,
+    'no_visa': 22,
+  },
+  'companies': [
+    {'name': 'Example Cooling Services LLC', 'count': 90},
+  ],
+  'attention': [
+    for (final (i, kind, status, days) in [
+      (1, 'visa', 'expired', -12),
+      (2, 'emirates_id', 'expired', -3),
+      (3, 'cicpa_pass', 'expiring', 9),
+      (4, 'passport', 'expiring', 41),
+    ])
+      {
+        'document': {
+          'id': 'doc-$i',
+          'kind': kind,
+          'status': status,
+          'record_version': 1,
+          'expiry_date': status == 'expired' ? '2026-10-28' : '2026-12-01',
+          'days_left': days,
+        },
+        'person': {
+          'id': 'person-$i',
+          'number': 'WR-00010$i',
+          'name': const [
+            'RAVI TEST KUMAR',
+            'SAMI TEST ONE',
+            'NADIR TEST TWO',
+            'OMAR TEST THREE',
+          ][i - 1],
+          'company': 'Example Cooling Services LLC',
+          'category': 'labour',
+        },
+      },
+  ],
+});
+
+Map<String, Object?> _crewRequest(
+  String id,
+  String state, {
+  bool mine = false,
+}) => {
+  'id': id,
+  'number': 'CRQ-2026-000$id',
+  'state': state,
+  'crew_kind': 'project',
+  'project_id': 'p1',
+  'project_name': 'Sweihan',
+  'project_ref': 'YRA-321',
+  'needed_from': '2026-11-14',
+  'requested_by': {
+    'id': 'se-1',
+    'name': 'Imran Qureshi',
+    'role': 'site_engineer',
+  },
+  'last_actor': {'name': 'Imran Qureshi', 'role': 'site_engineer'},
+  'record_version': 1,
+  'owner': mine ? 'pr' : 'project_engineer',
+  'overdue': false,
+  'requested_count': 3,
+  'assigned_count': 0,
+  'trades': [
+    {'trade': 'Labour', 'quantity': 3},
+  ],
+  'access': {'view': true, 'fulfil': mine},
+  'lines': <Object>[],
+  'events': <Object>[],
+};
+
+final _crewRegister = CrewRequestRegister.fromJson({
+  'today': '2026-11-09',
+  'can_request': false,
+  'requests': [
+    _crewRequest('1', 'approved', mine: true),
+    _crewRequest('2', 'submitted'),
+    _crewRequest('3', 'completed'),
+  ],
+});
 
 const _names = {
   YorksV1Role.projectEngineer: 'Faisal Rahman',

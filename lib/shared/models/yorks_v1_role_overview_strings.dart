@@ -1580,6 +1580,158 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'पिछले 7 दिनों में कोई रिक्वेस्ट बंद नहीं हुई।',
   );
 
+  // ─── PR: people, crews and rentals ─────────────────────────────────────
+  static const prDescription = TranslatableString(
+    en: 'People, their documents and crews: what needs attention today.',
+    ar: 'الأفراد ومستنداتهم والطواقم: ما يحتاج إلى متابعة اليوم.',
+    ur: 'افراد، ان کی دستاویزات اور عملے: آج کس پر توجہ درکار ہے۔',
+    hi: 'लोग, उनके दस्तावेज़ और क्रू: आज किस पर ध्यान चाहिए।',
+  );
+  static const people = TranslatableString(
+    en: 'People',
+    ar: 'الأفراد',
+    ur: 'افراد',
+    hi: 'लोग',
+  );
+  static const openPeople = TranslatableString(
+    en: 'Open People',
+    ar: 'فتح الأفراد',
+    ur: 'افراد کھولیں',
+    hi: 'लोग खोलें',
+  );
+  static const addPerson = TranslatableString(
+    en: 'Add person',
+    ar: 'إضافة شخص',
+    ur: 'شخص شامل کریں',
+    hi: 'व्यक्ति जोड़ें',
+  );
+  static const kpiPeopleSub = TranslatableString(
+    en: '{s} staff · {l} labour',
+    ar: '{s} موظفون · {l} عمال',
+    ur: '{s} عملہ · {l} مزدور',
+    hi: '{s} स्टाफ़ · {l} मज़दूर',
+  );
+  static const kpiExpiredDocs = TranslatableString(
+    en: 'Expired documents',
+    ar: 'مستندات منتهية',
+    ur: 'ختم شدہ دستاویزات',
+    hi: 'समाप्त दस्तावेज़',
+  );
+  static const kpiExpiredDocsSub = TranslatableString(
+    en: 'People with an expired document',
+    ar: 'أشخاص لديهم مستند منتهٍ',
+    ur: 'جن کی کوئی دستاویز ختم ہو چکی',
+    hi: 'जिनका कोई दस्तावेज़ समाप्त है',
+  );
+  static const kpiExpiringDocs = TranslatableString(
+    en: 'Expiring soon',
+    ar: 'تنتهي قريبًا',
+    ur: 'جلد ختم',
+    hi: 'जल्द समाप्त',
+  );
+  static const kpiExpiringDocsSub = TranslatableString(
+    en: 'Within 60 days',
+    ar: 'خلال 60 يومًا',
+    ur: '60 دن کے اندر',
+    hi: '60 दिनों में',
+  );
+  static const kpiCrewRequests = TranslatableString(
+    en: 'Crew requests',
+    ar: 'طلبات الطواقم',
+    ur: 'عملے کی درخواستیں',
+    hi: 'क्रू अनुरोध',
+  );
+  static const kpiCrewRequestsSub = TranslatableString(
+    en: 'Waiting for you · {n} open',
+    ar: 'بانتظارك · {n} مفتوحة',
+    ur: 'آپ کے منتظر · {n} کھلی',
+    hi: 'आपकी प्रतीक्षा में · {n} खुले',
+  );
+  static const documentsAttention = TranslatableString(
+    en: 'Documents needing attention',
+    ar: 'مستندات تحتاج إلى متابعة',
+    ur: 'توجہ طلب دستاویزات',
+    hi: 'ध्यान चाहने वाले दस्तावेज़',
+  );
+  static const documentsAttentionSub = TranslatableString(
+    en: 'Expired first, then whatever ends in the next 60 days.',
+    ar: 'المنتهية أولًا، ثم ما ينتهي خلال 60 يومًا.',
+    ur: 'پہلے ختم شدہ، پھر جو اگلے 60 دن میں ختم ہوں۔',
+    hi: 'पहले समाप्त, फिर जो अगले 60 दिनों में समाप्त हों।',
+  );
+  static const noDocumentsAttention = TranslatableString(
+    en: 'No document has expired or expires in the next 60 days.',
+    ar: 'لا يوجد مستند منتهٍ أو ينتهي خلال 60 يومًا.',
+    ur: 'کوئی دستاویز ختم نہیں ہوئی اور نہ اگلے 60 دن میں ختم ہو رہی ہے۔',
+    hi: 'कोई दस्तावेज़ समाप्त नहीं हुआ और न अगले 60 दिनों में होगा।',
+  );
+  static const moreOnPeople = TranslatableString(
+    en: '{n} more on the People page.',
+    ar: '{n} أخرى في صفحة الأفراد.',
+    ur: 'افراد کے صفحے پر مزید {n}۔',
+    hi: 'लोग पेज पर {n} और।',
+  );
+  static const crewRequests = TranslatableString(
+    en: 'Crew requests',
+    ar: 'طلبات الطواقم',
+    ur: 'عملے کی درخواستیں',
+    hi: 'क्रू अनुरोध',
+  );
+  static const crewRequestsSub = TranslatableString(
+    en: 'Waiting for you first, then the rest still open.',
+    ar: 'بانتظارك أولًا، ثم بقية المفتوحة.',
+    ur: 'پہلے آپ کے منتظر، پھر باقی کھلی۔',
+    hi: 'पहले आपकी प्रतीक्षा वाले, फिर बाकी खुले।',
+  );
+  static const noCrewRequests = TranslatableString(
+    en: 'No crew request is open.',
+    ar: 'لا يوجد طلب طاقم مفتوح.',
+    ur: 'عملے کی کوئی درخواست کھلی نہیں۔',
+    hi: 'कोई क्रू अनुरोध खुला नहीं।',
+  );
+  static const openWorkforce = TranslatableString(
+    en: 'Open Workforce',
+    ar: 'فتح القوى العاملة',
+    ur: 'افرادی قوت کھولیں',
+    hi: 'कार्यबल खोलें',
+  );
+  static const quickLinks = TranslatableString(
+    en: 'Quick links',
+    ar: 'روابط سريعة',
+    ur: 'فوری روابط',
+    hi: 'त्वरित लिंक',
+  );
+  static const peopleToolSub = TranslatableString(
+    en: 'Staff, labour, documents and gate passes',
+    ar: 'الموظفون والعمال والمستندات وتصاريح البوابات',
+    ur: 'عملہ، مزدور، دستاویزات اور گیٹ پاس',
+    hi: 'स्टाफ़, मज़दूर, दस्तावेज़ और गेट पास',
+  );
+  static const workforce = TranslatableString(
+    en: 'Workforce',
+    ar: 'القوى العاملة',
+    ur: 'افرادی قوت',
+    hi: 'कार्यबल',
+  );
+  static const workforceToolSub = TranslatableString(
+    en: 'Crews, crew requests, attendance and timesheets',
+    ar: 'الطواقم وطلباتها والحضور وكشوف الدوام',
+    ur: 'عملے، درخواستیں، حاضری اور ٹائم شیٹس',
+    hi: 'क्रू, अनुरोध, हाज़िरी और टाइमशीट',
+  );
+  static const usersToolSub = TranslatableString(
+    en: 'Logins, roles and worker records',
+    ar: 'الحسابات والأدوار وسجلات العمال',
+    ur: 'لاگ ان، کردار اور ورکر ریکارڈ',
+    hi: 'लॉगिन, भूमिकाएँ और कर्मचारी रिकॉर्ड',
+  );
+  static const rentalsToolSub = TranslatableString(
+    en: 'Units, leases, rent and cheques',
+    ar: 'الوحدات والعقود والإيجار والشيكات',
+    ur: 'یونٹس، لیز، کرایہ اور چیک',
+    hi: 'यूनिट, लीज़, किराया और चेक',
+  );
+
   // ─── Admin: rentals and activity ───────────────────────────────────────
   static const rentals = TranslatableString(
     en: 'Rentals',
