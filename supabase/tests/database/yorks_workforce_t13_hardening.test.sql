@@ -297,6 +297,12 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_cancel_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_close_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_decide_request(p_request_id uuid, p_decision text, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
+  -- People records (PRODUCT_DECISIONS.md section 42) keeps staff and
+  -- labour as Workforce workers under its own people_records.* capabilities.
+  ('v1_people_list(p_query jsonb)'),
+  ('v1_people_overview()'),
+  ('v1_people_save_document(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
+  ('v1_people_save_person(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_fulfil_request(p_request_id uuid, p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_finish_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_list_requests()'),

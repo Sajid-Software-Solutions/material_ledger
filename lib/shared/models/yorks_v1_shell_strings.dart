@@ -23,6 +23,12 @@ abstract final class YorksV1ShellStrings {
     ur: 'ٹائم شیٹس',
     hi: 'टाइमशीट',
   );
+  static const people = TranslatableString(
+    en: 'People',
+    ar: 'الأفراد',
+    ur: 'افراد',
+    hi: 'लोग',
+  );
   static const workforceAdministration = TranslatableString(
     en: 'Workforce administration',
     ar: 'إدارة القوى العاملة',

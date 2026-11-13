@@ -33,6 +33,8 @@ select is(
     'material_requests.return_for_changes',
     'material_requests.submit',
     'material_requests.view',
+    'people_records.manage',
+    'people_records.view',
     'permissions.delegate',
     'permissions.manage',
     'permissions.view',

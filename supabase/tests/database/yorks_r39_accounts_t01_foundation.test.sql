@@ -65,10 +65,11 @@ select ok(
     where role_default.role_name = 'accountant'
       and role_default.is_granted
       and not public.v1_accounts_is_capability_key(catalog.capability_key)
-      -- PRODUCT_DECISIONS.md section 33: the only exception is the two
-      -- organization-wide worker record keys.
+      -- PRODUCT_DECISIONS.md sections 33 and 42: the only exceptions are
+      -- the organization-wide worker record and people record keys.
       and catalog.capability_key not in (
-        'worker_records.view', 'worker_records.manage'
+        'worker_records.view', 'worker_records.manage',
+        'people_records.view', 'people_records.manage'
       )
   ),
   'Accountant has no technical or non-Accounts role-template grant'
