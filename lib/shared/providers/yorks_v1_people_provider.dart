@@ -15,6 +15,7 @@ final yorksV1PeopleRepositoryProvider = Provider<YorksV1PeopleRepository>((
     featureFlags: ref.watch(yorksV1FeatureFlagsProvider),
     connectivity: ref.watch(connectivityProvider),
     client: client == null ? null : SupabaseYorksV1PeopleRpcClient(client),
+    files: client == null ? null : SupabaseYorksV1PeopleFileClient(client),
   );
 });
 
@@ -39,9 +40,27 @@ final yorksV1PeoplePersonProvider = FutureProvider.autoDispose
       return ref.watch(yorksV1PeopleRepositoryProvider).get(workerId);
     });
 
+/// One person's attachments.
+final yorksV1PeopleAttachmentsProvider = FutureProvider.autoDispose
+    .family<PeopleAttachments, String>((ref, workerId) {
+      ref.watch(yorksV1AuthUserIdProvider);
+      return ref.watch(yorksV1PeopleRepositoryProvider).attachments(workerId);
+    });
+
+/// How many attachments each person has, for the register.
+final yorksV1PeopleAttachmentCountsProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) {
+      ref.watch(yorksV1AuthUserIdProvider);
+      return ref.watch(yorksV1PeopleRepositoryProvider).attachmentCounts();
+    });
+
 /// After any write: the home, every register page and the record reload.
 void yorksV1RefreshPeople(WidgetRef ref, {String? workerId}) {
   ref.invalidate(yorksV1PeopleOverviewProvider);
   ref.invalidate(yorksV1PeopleListProvider);
-  if (workerId != null) ref.invalidate(yorksV1PeoplePersonProvider(workerId));
+  ref.invalidate(yorksV1PeopleAttachmentCountsProvider);
+  if (workerId != null) {
+    ref.invalidate(yorksV1PeoplePersonProvider(workerId));
+    ref.invalidate(yorksV1PeopleAttachmentsProvider(workerId));
+  }
 }

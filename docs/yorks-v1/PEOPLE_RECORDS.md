@@ -162,6 +162,41 @@ and the Crews page. pgTAP `yorks_crew_document_status.test.sql` covers the
 statuses, that no kind, number or date leaks, that a worker off the crew is
 excluded, that the engineer still cannot open People, and the role matrix.
 
+## Attachments
+
+Owner decision, 14 November 2026 (`PRODUCT_DECISIONS.md` section 47). Every
+labourer and staff member has an **Attachments** section on their record:
+copies of their passport, visa, Emirates ID, labour card, passes and any
+other paper (PDF, Word, Excel, JPG or PNG, up to 20 MB each).
+
+- **Who.** Everyone with `people_records.view` sees and opens them; holders
+  of `people_records.manage` (PR, Admin and the Accountant by default) add
+  and remove them. Engineers, Procurement and the Senior Mechanical Engineer
+  have neither, whatever path they know.
+- **Copy of.** A file may name which of the person's documents it copies
+  (current or ended). Each document row shows a paperclip with how many
+  copies it has and an Attach button that opens the dialog with that
+  document chosen. The register shows a paperclip and count beside each
+  person with files.
+- **Storage.** Private bucket `yorks-people-files`, at
+  `people/<worker id>/<attachment id>.<ext>`. Upload is allowed only for a
+  real person and only with `people_records.manage`; reading only for a
+  recorded, current attachment and only with `people_records.view`
+  (`v1_person_file_readable` / `v1_person_file_writable`). A recorded file is
+  never replaced. The attachment id comes from the idempotency key, so a
+  retry never stores a second copy. Size and type are read from storage.
+- **Opening.** A five-minute signed link, opened in a new tab or the
+  device's viewer.
+- **Removing** needs a reason: the attachment leaves the list and can no
+  longer be opened; the file, the row and the history are kept. Rows are
+  never deleted.
+- **History.** Adding and removing appear in the person's history.
+- **Commands.** `v1_people_list_attachments`, `v1_people_attachment_counts`,
+  `v1_people_add_attachment`, `v1_people_remove_attachment` (all volatile,
+  rechecking the capability). Migration
+  `20261114180000_people_attachments.sql`; rollback: drop the two storage
+  policies and revoke the four commands, keeping the bucket, table and files.
+
 ## Release and rollback
 
 1. Apply `20261114120000_people_records_foundation.sql` (additive,

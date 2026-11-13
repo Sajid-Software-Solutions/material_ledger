@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/people_records/presentation/people_centre_screen.dart';
+import 'package:material_ledger/features/people_records/presentation/person_attachments.dart';
 import 'package:material_ledger/features/people_records/presentation/person_form_screen.dart';
 import 'package:material_ledger/features/people_records/presentation/person_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_workbook.dart';
@@ -18,11 +19,13 @@ import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_people.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_boq_workbook_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_document_file_service_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_people_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_people_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
+import 'package:material_ledger/shared/services/yorks_v1_document_file_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_people_workbook.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -288,7 +291,88 @@ final class _Files implements YorksV1BoqWorkbookFileService {
   }
 }
 
+Map<String, Object?> _attachment({
+  String id = 'a-passport',
+  String? documentId = 'd-passport',
+  String? title,
+  String fileName = 'Passport copy.pdf',
+}) => {
+  'id': id,
+  'document_id': documentId,
+  'document_kind': documentId == null ? null : 'passport',
+  'document_number': documentId == null ? null : 'TP1000001',
+  'document_current': documentId != null,
+  'title': title,
+  'file_name': fileName,
+  'content_type': 'application/pdf',
+  'size_bytes': 245760,
+  'object_path': 'people/$_workerId/$id.pdf',
+  'uploaded_by': 'Test PR',
+  'uploaded_by_role': 'pr',
+  'uploaded_at': '2026-11-14T08:00:00Z',
+};
+
+Map<String, Object?> _attachments({
+  bool canManage = true,
+  List<Map<String, Object?>>? items,
+}) => {
+  'worker_id': _workerId,
+  'can_manage': canManage,
+  'attachments': items ?? [_attachment()],
+};
+
+/// Storage for attachments: records uploads, hands out links.
+final class _StoredFiles implements YorksV1PeopleFileClient {
+  final uploads = <(String, int, String)>[];
+  final links = <String>[];
+
+  @override
+  Future<void> upload(
+    String objectPath,
+    Uint8List bytes,
+    String contentType,
+  ) async => uploads.add((objectPath, bytes.length, contentType));
+
+  @override
+  Future<String> signedUrl(String objectPath, {required int seconds}) async {
+    links.add(objectPath);
+    return 'https://files.example.test/$objectPath?expires=$seconds';
+  }
+}
+
+/// The file picker: always the same fictional offer letter.
+final class _PickedDocument implements YorksV1DocumentFileService {
+  @override
+  Future<YorksV1SelectedDocument?> selectDocument() async =>
+      YorksV1SelectedDocument(
+        fileName: 'Offer letter.pdf',
+        mimeType: 'application/pdf',
+        bytes: Uint8List.fromList(List.filled(2048, 1)),
+      );
+
+  @override
+  Future<YorksV1SelectedDocument?> selectImage() async => null;
+
+  @override
+  Future<bool> saveDocument({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) async => false;
+}
+
 _FakeRpc _server({bool canManage = true}) => _FakeRpc({
+  'v1_people_list_attachments': (_) => _attachments(canManage: canManage),
+  'v1_people_attachment_counts': (_) => {
+    'counts': {_workerId: 1},
+  },
+  'v1_people_add_attachment': (_) => _attachments(
+    items: [
+      _attachment(id: 'a-new', fileName: 'Offer letter.pdf'),
+      _attachment(),
+    ],
+  ),
+  'v1_people_remove_attachment': (_) => _attachments(items: []),
   'v1_people_overview': (_) => _overview(canManage: canManage),
   'v1_people_list': (parameters) {
     final query = parameters['p_query'] as Map<String, Object?>;
@@ -322,6 +406,8 @@ Future<void> _pump(
   _FakeRpc rpc,
   String location, {
   _Files? files,
+  _StoredFiles? stored,
+  List<Uri>? opened,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -366,11 +452,17 @@ Future<void> _pump(
             featureFlags: _flags,
             connectivity: const _Online(),
             client: rpc,
+            files: stored ?? _StoredFiles(),
           ),
         ),
         yorksV1BoqWorkbookFileServiceProvider.overrideWithValue(
           files ?? _Files(),
         ),
+        yorksV1DocumentFileServiceProvider.overrideWithValue(_PickedDocument()),
+        peopleOpenLinkProvider.overrideWithValue((uri) async {
+          opened?.add(uri);
+          return true;
+        }),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
@@ -569,6 +661,202 @@ void main() {
         '784-1990-0000001-1',
       );
       expect(kinds[PeopleDocumentKind.cicpaPass]?.sites, 'Ruwais, Habshan');
+    });
+  });
+
+  group('attachments (PRODUCT_DECISIONS 47)', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+
+    Future<void> openPerson(WidgetTester tester) async {
+      final router = GoRouter.of(
+        tester.element(find.byKey(const ValueKey('people-centre'))),
+      );
+      router.go('/yorks/people/$_workerId');
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the record lists files and marks the documents they copy', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      await _pump(tester, _server(), RoutePaths.yorksV1People);
+      await openPerson(tester);
+      expect(
+        find.byKey(const ValueKey('people-attachment-a-passport')),
+        findsOneWidget,
+      );
+      expect(find.text('Passport · TP1000001'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('people-document-attached-d-passport')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('PR attaches a copy straight from the document', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      final rpc = _server();
+      final stored = _StoredFiles();
+      await _pump(tester, rpc, RoutePaths.yorksV1People, stored: stored);
+      await openPerson(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('people-document-attach-d-passport')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('people-attachment-dialog')),
+        findsOneWidget,
+      );
+      // Nothing to attach until a file is chosen.
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('people-attachment-save')),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('people-attachment-choose')));
+      await tester.pumpAndSettle();
+      expect(find.text('Offer letter.pdf'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('people-attachment-title')),
+        'Passport front page',
+      );
+      await tester.tap(find.byKey(const ValueKey('people-attachment-save')));
+      await tester.pumpAndSettle();
+
+      final (path, size, type) = stored.uploads.single;
+      expect(path, matches(RegExp('^people/$_workerId/[0-9a-f-]{36}\.pdf\$')));
+      expect(size, 2048);
+      expect(type, 'application/pdf');
+      final sent = rpc.callsTo('v1_people_add_attachment').single;
+      expect(sent['p_worker_id'], _workerId);
+      expect(sent['p_payload'], {
+        'object_path': path,
+        'file_name': 'Offer letter.pdf',
+        'document_id': 'd-passport',
+        'title': 'Passport front page',
+      });
+      expect(path, contains(sent['p_idempotency_key'] as String));
+      expect(
+        find.byKey(const ValueKey('people-attachment-dialog')),
+        findsNothing,
+      );
+      expect(find.text('Attachment added.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('opening a file asks storage for a short link', (tester) async {
+      _size(tester, const Size(1440, 1400));
+      final stored = _StoredFiles();
+      final opened = <Uri>[];
+      await _pump(
+        tester,
+        _server(),
+        RoutePaths.yorksV1People,
+        stored: stored,
+        opened: opened,
+      );
+      await openPerson(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('people-attachment-open-a-passport')),
+      );
+      await tester.pumpAndSettle();
+      expect(stored.links, ['people/$_workerId/a-passport.pdf']);
+      expect(opened.single.path, contains('a-passport.pdf'));
+    });
+
+    testWidgets('removing a file needs a reason', (tester) async {
+      _size(tester, const Size(1440, 1400));
+      final rpc = _server();
+      await _pump(tester, rpc, RoutePaths.yorksV1People);
+      await openPerson(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('people-attachment-remove-a-passport')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('attendance-text-dialog-field')),
+        'Scanned the wrong page',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-text-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      final sent = rpc.callsTo('v1_people_remove_attachment').single;
+      expect(sent['p_attachment_id'], 'a-passport');
+      expect(sent['p_reason'], 'Scanned the wrong page');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a reader sees and opens files but cannot add or remove', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      await _pump(tester, _server(canManage: false), RoutePaths.yorksV1People);
+      await openPerson(tester);
+      expect(
+        find.byKey(const ValueKey('people-attachment-a-passport')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('people-attachment-add')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('people-attachment-remove-a-passport')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('people-attachment-open-a-passport')),
+        findsOneWidget,
+      );
+    });
+
+    for (final (size, name) in [
+      (const Size(1440, 1000), 'desktop'),
+      (const Size(360, 800), 'phone'),
+    ]) {
+      testWidgets('the register shows a paperclip beside people ($name)', (
+        tester,
+      ) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _server(),
+          '${RoutePaths.yorksV1People}?view=labour',
+        );
+        expect(
+          find.byKey(const ValueKey('people-attached-$_workerId')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('the phone record shows the Attachments section', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _server(), RoutePaths.yorksV1People);
+      await openPerson(tester);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('people-attachment-a-passport')),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('people-person')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/people_records_phone_attachments.png'),
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 

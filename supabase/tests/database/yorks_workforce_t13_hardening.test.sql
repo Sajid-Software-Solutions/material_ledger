@@ -303,6 +303,11 @@ insert into t13_authenticated_rpc_inventory(signature) values
   -- People records (PRODUCT_DECISIONS.md section 42) keeps staff and
   -- labour as Workforce workers under its own people_records.* capabilities.
   ('v1_people_list(p_query jsonb)'),
+  -- Attachments for every person (PRODUCT_DECISIONS.md section 47).
+  ('v1_people_add_attachment(p_worker_id uuid, p_payload jsonb, p_idempotency_key uuid)'),
+  ('v1_people_attachment_counts()'),
+  ('v1_people_list_attachments(p_worker_id uuid)'),
+  ('v1_person_file_writable(p_bucket_id text, p_object_path text)'),
   ('v1_people_overview()'),
   ('v1_people_save_document(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_people_save_person(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),

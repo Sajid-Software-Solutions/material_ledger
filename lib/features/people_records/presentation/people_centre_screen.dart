@@ -25,6 +25,7 @@ import '../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../shared/services/yorks_v1_people_workbook.dart';
 import 'people_import_dialog.dart';
 import 'people_kit.dart';
+import 'person_attachments.dart';
 
 enum PeopleView { attention, staff, labour }
 
@@ -982,6 +983,10 @@ class _Register extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(yorksV1PeopleListProvider(query));
+    // A paperclip beside each person with files (PRODUCT_DECISIONS 47).
+    final attached =
+        ref.watch(yorksV1PeopleAttachmentCountsProvider).valueOrNull ??
+        const <String, int>{};
     return page.when(
       skipLoadingOnRefresh: true,
       loading: () => const Padding(
@@ -1012,14 +1017,22 @@ class _Register extends ConsumerWidget {
           children: [
             LayoutBuilder(
               builder: (context, constraints) => constraints.maxWidth >= 1040
-                  ? _RegisterTable(rows: data.rows, language: language)
+                  ? _RegisterTable(
+                      rows: data.rows,
+                      language: language,
+                      attached: attached,
+                    )
                   : Padding(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           for (final person in data.rows) ...[
-                            _PersonCard(person: person, language: language),
+                            _PersonCard(
+                              person: person,
+                              language: language,
+                              attached: attached[person.id] ?? 0,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                           ],
                         ],
@@ -1075,10 +1088,17 @@ class _Register extends ConsumerWidget {
 /// The register as a table: Person, Company, Profession, then one column
 /// per document.
 class _RegisterTable extends StatelessWidget {
-  const _RegisterTable({required this.rows, required this.language});
+  const _RegisterTable({
+    required this.rows,
+    required this.language,
+    this.attached = const {},
+  });
 
   final List<PeoplePerson> rows;
   final AppLanguage language;
+
+  /// Attachments per person, by worker id.
+  final Map<String, int> attached;
 
   static const _flex = [30, 18, 16, 11, 11, 11, 11, 11, 11];
 
@@ -1153,13 +1173,25 @@ class _RegisterTable extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          person.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.labelLarge.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                person.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.labelLarge.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            PeopleAttachmentCount(
+                              key: ValueKey('people-attached-${person.id}'),
+                              count: attached[person.id] ?? 0,
+                              language: language,
+                            ),
+                          ],
                         ),
                         Text(
                           [
@@ -1263,10 +1295,15 @@ class _PassesSummary extends StatelessWidget {
 
 /// The register as cards, for a phone or a narrow window.
 class _PersonCard extends StatelessWidget {
-  const _PersonCard({required this.person, required this.language});
+  const _PersonCard({
+    required this.person,
+    required this.language,
+    this.attached = 0,
+  });
 
   final PeoplePerson person;
   final AppLanguage language;
+  final int attached;
 
   @override
   Widget build(BuildContext context) {
@@ -1322,11 +1359,21 @@ class _PersonCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          person.number,
-                          style: AppTypography.labelMedium.copyWith(
-                            color: AppColors.blue,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              person.number,
+                              style: AppTypography.labelMedium.copyWith(
+                                color: AppColors.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            PeopleAttachmentCount(
+                              key: ValueKey('people-attached-${person.id}'),
+                              count: attached,
+                              language: language,
+                            ),
+                          ],
                         ),
                         Text(
                           person.name,

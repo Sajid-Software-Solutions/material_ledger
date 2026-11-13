@@ -176,6 +176,123 @@ final class PeopleHistoryEntry {
   final DateTime? at;
 }
 
+/// A file kept with a person: the copy of one of their documents (a
+/// passport, visa or Emirates ID scan), or any other paper.
+final class PeopleAttachment {
+  const PeopleAttachment({
+    required this.id,
+    required this.fileName,
+    required this.contentType,
+    required this.sizeBytes,
+    required this.objectPath,
+    this.documentId,
+    this.documentKind,
+    this.documentLabel,
+    this.documentNumber,
+    this.documentCurrent = false,
+    this.title,
+    this.uploadedBy = '',
+    this.uploadedByRole = '',
+    this.uploadedAt,
+  });
+
+  factory PeopleAttachment.fromJson(Map<String, dynamic> json) =>
+      PeopleAttachment(
+        id: _s(json['id']),
+        fileName: _s(json['file_name']),
+        contentType: _s(json['content_type']),
+        sizeBytes: _i(json['size_bytes']),
+        objectPath: _s(json['object_path']),
+        documentId: _ns(json['document_id']),
+        documentKind: json['document_kind'] == null
+            ? null
+            : PeopleDocumentKind.from(json['document_kind']),
+        documentLabel: _ns(json['document_label']),
+        documentNumber: _ns(json['document_number']),
+        documentCurrent: json['document_current'] == true,
+        title: _ns(json['title']),
+        uploadedBy: _s(json['uploaded_by']),
+        uploadedByRole: _s(json['uploaded_by_role']),
+        uploadedAt: _dt(json['uploaded_at']),
+      );
+
+  final String id;
+  final String fileName;
+  final String contentType;
+  final int sizeBytes;
+
+  /// Opened through a short-lived link; storage rechecks the reader.
+  final String objectPath;
+
+  /// The person's document this file copies, if any.
+  final String? documentId;
+  final PeopleDocumentKind? documentKind;
+  final String? documentLabel;
+  final String? documentNumber;
+  final bool documentCurrent;
+  final String? title;
+  final String uploadedBy;
+  final String uploadedByRole;
+  final DateTime? uploadedAt;
+
+  bool get isImage => contentType.startsWith('image/');
+  bool get isPdf => contentType == 'application/pdf';
+  bool get isSheet => contentType.contains('spreadsheet');
+
+  /// "1.2 MB", "340 KB".
+  String get sizeText {
+    if (sizeBytes >= 1024 * 1024) {
+      return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(sizeBytes / 1024).ceil()} KB';
+  }
+}
+
+/// A person's attachments and whether the reader may add or remove them.
+final class PeopleAttachments {
+  const PeopleAttachments({
+    required this.workerId,
+    required this.items,
+    this.canManage = false,
+  });
+
+  factory PeopleAttachments.fromJson(Map<String, dynamic> json) =>
+      PeopleAttachments(
+        workerId: _s(json['worker_id']),
+        canManage: json['can_manage'] == true,
+        items: [
+          for (final item in _list(json['attachments']))
+            PeopleAttachment.fromJson(item),
+        ],
+      );
+
+  final String workerId;
+  final bool canManage;
+  final List<PeopleAttachment> items;
+
+  /// How many files copy each document.
+  Map<String, int> get byDocument => {
+    for (final item in items)
+      if (item.documentId != null)
+        item.documentId!: items
+            .where((other) => other.documentId == item.documentId)
+            .length,
+  };
+}
+
+/// Attachment types accepted (and checked again by storage and the server).
+const peopleAttachmentTypes = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      'docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+};
+
+/// The largest attachment, as the storage bucket enforces.
+const peopleAttachmentMaxBytes = 20 * 1024 * 1024;
+
 final class PeoplePerson {
   const PeoplePerson({
     required this.id,
