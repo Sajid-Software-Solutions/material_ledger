@@ -2405,6 +2405,19 @@ enforced capabilities (`company_documents.view`, `company_documents.manage`)
 for the same three roles. The PR Overview lists company documents that
 need attention. Design: [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md).
 
+## 44. Daily document expiry summary (owner decision, 13 November 2026)
+
+Every active PR and Admin receives **one notification each morning** (08:15
+in Dubai) when staff, labour or company documents have expired or expire
+within 60 days, and **only when something changed** since their last
+summary: a document entered the 60-day window, one expired, or one was
+renewed or ended. Nothing waiting, or nothing changed, sends nothing; it is
+never sent twice in a day. It is urgent when anything has expired. It opens
+People's Needs attention, or Company documents when only company documents
+need attention. Event codes `people_documents_overdue` (something expired)
+and `people_documents_due` (expiring only). Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md)
+section Daily summary.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

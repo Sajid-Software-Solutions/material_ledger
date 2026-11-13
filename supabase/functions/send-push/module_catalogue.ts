@@ -591,6 +591,38 @@ export const moduleEvents: Record<string, {title: Record<string,string>; body: R
     },
     "destination": "attendance",
     "urgent": true
+  },
+  "people_documents_overdue": {
+    "title": {
+      "en": "Documents have expired",
+      "ar": "انتهت صلاحية مستندات",
+      "ur": "دستاویزات کی میعاد ختم ہو گئی",
+      "hi": "दस्तावेज़ों की अवधि समाप्त हो गई"
+    },
+    "body": {
+      "en": "Some staff, labour or company documents have expired, and others may expire within 60 days. Open the list to renew them.",
+      "ar": "انتهت صلاحية بعض مستندات الموظفين أو العمال أو الشركة، وقد تنتهي أخرى خلال 60 يومًا. افتح القائمة لتجديدها.",
+      "ur": "عملے، مزدوروں یا کمپنی کی کچھ دستاویزات کی میعاد ختم ہو گئی ہے، اور کچھ 60 دن میں ختم ہو سکتی ہیں۔ تجدید کے لیے فہرست کھولیں۔",
+      "hi": "स्टाफ़, मज़दूरों या कंपनी के कुछ दस्तावेज़ों की अवधि समाप्त हो गई है, और कुछ 60 दिनों में समाप्त हो सकते हैं। नवीनीकरण के लिए सूची खोलें।"
+    },
+    "destination": "people",
+    "urgent": true
+  },
+  "people_documents_due": {
+    "title": {
+      "en": "Documents expiring soon",
+      "ar": "مستندات تنتهي قريبًا",
+      "ur": "دستاویزات جلد ختم ہو رہی ہیں",
+      "hi": "दस्तावेज़ जल्द समाप्त हो रहे हैं"
+    },
+    "body": {
+      "en": "Some staff, labour or company documents expire within 60 days. Open the list to renew them in time.",
+      "ar": "تنتهي بعض مستندات الموظفين أو العمال أو الشركة خلال 60 يومًا. افتح القائمة لتجديدها في الوقت المناسب.",
+      "ur": "عملے، مزدوروں یا کمپنی کی کچھ دستاویزات 60 دن میں ختم ہو رہی ہیں۔ بروقت تجدید کے لیے فہرست کھولیں۔",
+      "hi": "स्टाफ़, मज़दूरों या कंपनी के कुछ दस्तावेज़ 60 दिनों में समाप्त हो रहे हैं। समय पर नवीनीकरण के लिए सूची खोलें।"
+    },
+    "destination": "people",
+    "urgent": false
   }
 };
 export const workflowEvents: Record<string, {title: Record<string,string>; body: Record<string,string>; type: "request" | "project" | "info"}> = {

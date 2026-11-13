@@ -297,6 +297,26 @@ Deno.test("module destination retains parent record and rejects external URLs", 
   );
 });
 
+Deno.test("the document expiry summary opens People or Company documents only", () => {
+  const summary = {
+    ...claim(),
+    eventCode: "people_documents_overdue",
+    entityType: "people_expiry_digest",
+  };
+  assertEquals(
+    routeFor({ ...summary, moduleRoute: "/yorks/people" }),
+    "/yorks/people",
+  );
+  assertEquals(
+    routeFor({ ...summary, moduleRoute: "/yorks/company-documents" }),
+    "/yorks/company-documents",
+  );
+  assertEquals(
+    routeFor({ ...summary, moduleRoute: "https://evil.test" }),
+    "/yorks/people",
+  );
+});
+
 Deno.test("workflow and module copy uses all supported installation languages", async () => {
   const { moduleEvents, workflowEvents } = await import(
     "./module_catalogue.ts"

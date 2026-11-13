@@ -109,6 +109,13 @@ export function routeFor(claim: PushClaim): string {
   ) {
     return claim.moduleRoute;
   }
+  // The daily document expiry summary opens People, or Company documents
+  // when only company documents need attention. Only these two exact routes.
+  if (claim.eventCode.startsWith("people_documents_")) {
+    return claim.moduleRoute === "/yorks/company-documents"
+      ? "/yorks/company-documents"
+      : "/yorks/people";
+  }
   const module = moduleEvents[claim.eventCode];
 
   if (module) {

@@ -117,6 +117,10 @@ class YorksV1NotificationRecord {
         ? (resolvedProjectId.isEmpty
               ? RoutePaths.yorksV1Accounts
               : '/yorks/projects/$resolvedProjectId/accounts/${module['destination'] == 'invoices' ? 'client-invoices' : module['destination']}')
+        : eventCode.startsWith('people_documents_')
+        ? (moduleRoute == RoutePaths.yorksV1CompanyDocuments
+              ? RoutePaths.yorksV1CompanyDocuments
+              : RoutePaths.yorksV1People)
         : '/yorks/workforce/${module['destination']}';
     final resolvedRoute =
         rentalRoute ??
