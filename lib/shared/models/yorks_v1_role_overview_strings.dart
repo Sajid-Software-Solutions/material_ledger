@@ -1739,10 +1739,10 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'ध्यान चाहने वाले कंपनी दस्तावेज़',
   );
   static const companyAttentionSub = TranslatableString(
-    en: 'Licences, vehicles, insurance and contracts expired or ending within 60 days.',
-    ar: 'الرخص والمركبات والتأمين والعقود المنتهية أو التي تنتهي خلال 60 يومًا.',
-    ur: 'لائسنس، گاڑیاں، انشورنس اور معاہدے جو ختم ہو چکے یا 60 دن میں ختم ہوں گے۔',
-    hi: 'लाइसेंस, वाहन, बीमा और अनुबंध जो समाप्त हो चुके या 60 दिनों में समाप्त होंगे।',
+    en: 'Licences, vehicles, insurance and CICPA passes expired or ending within 60 days.',
+    ar: 'الرخص والمركبات والتأمين وتصاريح CICPA المنتهية أو التي تنتهي خلال 60 يومًا.',
+    ur: 'لائسنس، گاڑیاں، انشورنس اور CICPA پاسز جو ختم ہو چکے یا 60 دن میں ختم ہوں گے۔',
+    hi: 'लाइसेंस, वाहन, बीमा और CICPA पास जो समाप्त हो चुके या 60 दिनों में समाप्त होंगे।',
   );
   static const noCompanyAttention = TranslatableString(
     en: 'No company document has expired or expires in the next 60 days.',
@@ -1763,10 +1763,10 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'कंपनी दस्तावेज़ खोलें',
   );
   static const companyToolSub = TranslatableString(
-    en: 'Licences, permits, vehicles, insurance and CICPA contracts',
-    ar: 'الرخص والتصاريح والمركبات والتأمين وعقود CICPA',
-    ur: 'لائسنس، پرمٹ، گاڑیاں، انشورنس اور CICPA معاہدے',
-    hi: 'लाइसेंस, परमिट, वाहन, बीमा और CICPA अनुबंध',
+    en: 'Licences, permits, vehicles, insurance and CICPA passes',
+    ar: 'الرخص والتصاريح والمركبات والتأمين وتصاريح CICPA',
+    ur: 'لائسنس، پرمٹ، گاڑیاں، انشورنس اور CICPA پاسز',
+    hi: 'लाइसेंस, परमिट, वाहन, बीमा और CICPA पास',
   );
   static const moreOnCompany = TranslatableString(
     en: '{n} more in Company documents.',

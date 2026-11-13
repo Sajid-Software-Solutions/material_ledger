@@ -1,7 +1,7 @@
 /// Company documents — import the tracker's company sheets, or an export.
 ///
 /// The device reads the workbook (licences, certificates, vehicles and their
-/// passes, insurance, CICPA contracts), the server previews what would
+/// passes, insurance, CICPA passes), the server previews what would
 /// change, and Import applies every record or none. A row the server or the
 /// device could not read blocks the import until the file is fixed.
 library;
