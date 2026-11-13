@@ -278,6 +278,9 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_answer_day(p_team_id uuid, p_work_date date, p_answer text, p_idempotency_key uuid)'),
   ('v1_wf_ask_day(p_team_id uuid, p_work_date date, p_question text, p_idempotency_key uuid)'),
   ('v1_wf_confirm_month(p_team_id uuid, p_month date, p_idempotency_key uuid)'),
+  -- Status only (expired / expiring / OK) for a crew's workers
+  -- (PRODUCT_DECISIONS.md section 45).
+  ('v1_wf_crew_document_status(p_team_id uuid)'),
   ('v1_wf_get_confirmations_due()'),
   ('v1_wf_get_crew(p_team_id uuid)'),
   ('v1_wf_get_day(p_team_id uuid, p_work_date date)'),

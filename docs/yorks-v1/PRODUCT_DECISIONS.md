@@ -2418,6 +2418,18 @@ need attention. Event codes `people_documents_overdue` (something expired)
 and `people_documents_due` (expiring only). Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md)
 section Daily summary.
 
+## 45. Engineers see document status only (owner decision, 13 November 2026)
+
+People who run a crew (its project's Project and Site Engineers, the
+organization-wide engineers, and the Accountant, PR and Admin, as
+`v1_wf_crew_access` decides) see, beside each worker on Take attendance and
+the Crews page, only whether that person's documents are **OK**,
+**expiring** within 60 days, or **expired**. No document kind, number, date,
+date of birth or other People field is shown or returned, and no
+`people_records.*` capability is granted for it. Expiring and expired show a
+chip ("Ask PR to renew them"); OK is a small check. Design:
+[`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section Engineer status.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

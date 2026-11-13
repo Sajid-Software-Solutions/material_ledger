@@ -19,6 +19,7 @@ import 'package:material_ledger/features/workforce/presentation/attendance/atten
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_project_portfolio_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
@@ -201,7 +202,12 @@ void _size(WidgetTester tester, Size size) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-Future<void> _pump(WidgetTester tester, _FakeRpc rpc, String location) async {
+Future<void> _pump(
+  WidgetTester tester,
+  _FakeRpc rpc,
+  String location, {
+  YorksV1FeatureFlags? featureFlags,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
   final router = GoRouter(
@@ -239,9 +245,11 @@ Future<void> _pump(WidgetTester tester, _FakeRpc rpc, String location) async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+        if (featureFlags != null)
+          yorksV1FeatureFlagsProvider.overrideWithValue(featureFlags),
         yorksAttendanceRepositoryProvider.overrideWithValue(
           YorksAttendanceRepository(
-            featureFlags: _flags,
+            featureFlags: featureFlags ?? _flags,
             connectivity: const _Online(),
             rpcClient: rpc,
           ),
@@ -410,6 +418,99 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved!['p_change_reason'], 'Gate log shows he came');
     expect(saved!['p_expected_version'], 1);
+  });
+
+  group('crew document status', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+    const peopleFlags = YorksV1FeatureFlags(
+      foundation: true,
+      projects: true,
+      boq: true,
+      excel: true,
+      requests: true,
+      arrangement: true,
+      logistics: true,
+      returnsDocuments: true,
+      documents: true,
+      workforce: true,
+      workforceAttendanceV2: true,
+      peopleRecords: true,
+    );
+    _FakeRpc server() => _FakeRpc({
+      'v1_wf_list_crews': (_) => _crews(_access()),
+      'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+      'v1_wf_get_day': (_) => _day(),
+      'v1_wf_crew_document_status': (params) {
+        expect(params, {'p_team_id': _crewId});
+        return {
+          'statuses': {'w1': 'expired', 'w2': 'ok'},
+        };
+      },
+    });
+
+    testWidgets('a phone row says only that documents expired', (tester) async {
+      _size(tester, const Size(360, 800));
+      final rpc = server();
+      await _pump(
+        tester,
+        rpc,
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+        featureFlags: peopleFlags,
+      );
+      expect(find.text('Documents expired'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('crew-doc-status-w2')),
+        findsOneWidget,
+        reason: 'OK is a small check, not a chip',
+      );
+      expect(find.text('Documents OK'), findsNothing);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_phone_doc_status.png'),
+      );
+      expect(
+        rpc.calls.where((c) => c.$1 == 'v1_wf_crew_document_status'),
+        hasLength(1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the desktop grid shows an icon beside each name', (
+      tester,
+    ) async {
+      _size(tester, const Size(1400, 900));
+      await _pump(
+        tester,
+        server(),
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+        featureFlags: peopleFlags,
+      );
+      expect(find.byKey(const ValueKey('crew-doc-status-w1')), findsOneWidget);
+      expect(
+        find.byTooltip('Documents expired. Ask PR to renew them.'),
+        findsOneWidget,
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_desktop_doc_status.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with People off nothing is asked or shown', (tester) async {
+      _size(tester, const Size(360, 800));
+      final rpc = server();
+      await _pump(
+        tester,
+        rpc,
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date',
+      );
+      expect(find.byKey(const ValueKey('crew-doc-status-w1')), findsNothing);
+      expect(
+        rpc.calls.where((c) => c.$1 == 'v1_wf_crew_document_status'),
+        isEmpty,
+      );
+    });
   });
 
   testWidgets('desktop takes the day in a keyboard grid', (tester) async {

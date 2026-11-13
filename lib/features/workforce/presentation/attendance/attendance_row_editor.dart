@@ -235,9 +235,20 @@ class _RowEditorState extends State<_RowEditor> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      row.worker.name,
-                      style: v2Style(15, weight: FontWeight.w700),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          row.worker.name,
+                          style: v2Style(15, weight: FontWeight.w700),
+                        ),
+                        CrewDocumentBadge(
+                          crewId: day.crew.id,
+                          workerId: row.worker.id,
+                        ),
+                      ],
                     ),
                     Text(
                       '${row.worker.number} · ${row.worker.designation} · ${attendanceShortDate(day.date)}',
@@ -757,10 +768,22 @@ class _GridRowState extends State<_GridRow> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        row.worker.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: v2Style(13, weight: FontWeight.w600),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              row.worker.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: v2Style(13, weight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          CrewDocumentBadge(
+                            crewId: widget.day.crew.id,
+                            workerId: row.worker.id,
+                            compact: true,
+                          ),
+                        ],
                       ),
                       Text(
                         row.isMember

@@ -522,6 +522,30 @@ abstract final class AttendanceStrings {
     ur: 'لیبر پول',
     hi: 'श्रम पूल',
   );
+  static const docsOk = _T(
+    en: 'Documents OK',
+    ar: 'المستندات سارية',
+    ur: 'دستاویزات درست',
+    hi: 'दस्तावेज़ ठीक',
+  );
+  static const docsExpiring = _T(
+    en: 'Documents expiring',
+    ar: 'مستندات تنتهي قريبًا',
+    ur: 'دستاویزات جلد ختم',
+    hi: 'दस्तावेज़ जल्द समाप्त',
+  );
+  static const docsExpired = _T(
+    en: 'Documents expired',
+    ar: 'مستندات منتهية',
+    ur: 'دستاویزات ختم',
+    hi: 'दस्तावेज़ समाप्त',
+  );
+  static const docsHint = _T(
+    en: 'Ask PR to renew them.',
+    ar: 'اطلب من العلاقات العامة تجديدها.',
+    ur: 'تجدید کے لیے پی آر سے کہیں۔',
+    hi: 'नवीनीकरण के लिए पीआर से कहें।',
+  );
   static const changedChip = _T(
     en: 'Changed',
     ar: 'تم التغيير',

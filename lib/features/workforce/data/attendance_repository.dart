@@ -66,6 +66,22 @@ final class YorksAttendanceRepository {
     );
   }
 
+  /// Status only (expired, expiring, OK) of the documents of a crew's
+  /// workers, by worker id. No document kind, number or date is returned.
+  Future<Map<String, CrewDocumentStatus>> crewDocumentStatus(
+    String crewId,
+  ) async {
+    final json = await _invoke('v1_wf_crew_document_status', {
+      'p_team_id': crewId,
+    });
+    final statuses = json['statuses'];
+    return {
+      if (statuses is Map)
+        for (final MapEntry(:key, :value) in statuses.entries)
+          key.toString(): ?CrewDocumentStatus.from(value),
+    };
+  }
+
   Future<AttendanceDay> getDay({
     required String crewId,
     required String date,

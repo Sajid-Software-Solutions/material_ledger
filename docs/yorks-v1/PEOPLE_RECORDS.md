@@ -15,7 +15,7 @@ document.
 | --- | --- | --- |
 | 1 | People home, Staff and Labour registers, person record, person form, document add/correct/renew/end, Excel import and export, tracker data load | This change |
 | 2 | Company documents: trade licences and permits per entity, vehicles and vehicle passes, insurance policies, CICPA contracts | See [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) |
-| 3 | Daily expiry summary to PR and Admin (see below); status-only chips for engineers on their crew | Summary done; engineer chips later |
+| 3 | Daily expiry summary to PR and Admin; status-only chips for engineers on their crew (see below) | Done |
 
 Until slice 2, the import reports insurance lines and vehicle passes found
 in the tracker and skips them; they are not people.
@@ -145,6 +145,22 @@ at 04:15 UTC (08:15 in Dubai).
 Rollback: `select cron.unschedule('yorks-people-expiry-summary');` and, if
 needed, restore the three notification functions from their
 `*_before_people_expiry` versions. Keep every row.
+
+## Engineer status
+
+`20261114160000_crew_document_status.sql` adds
+`v1_wf_crew_document_status(p_team_id)`. It requires `view` on the crew
+(`v1_wf_crew_access`) and returns, by worker id, only `ok`, `expiring` or
+`expired` for the crew's current members and anyone who worked on it in the
+last 31 days. A worker with no dated document is left out. Nothing else from
+People is returned; the function is the only door engineers have to it.
+
+The app asks for it only when People is on, once per crew
+(`yorksCrewDocumentStatusProvider`), and shows `CrewDocumentBadge` beside
+the name on Take attendance (phone rows, the desktop grid, the row editor)
+and the Crews page. pgTAP `yorks_crew_document_status.test.sql` covers the
+statuses, that no kind, number or date leaks, that a worker off the crew is
+excluded, that the engineer still cannot open People, and the role matrix.
 
 ## Release and rollback
 

@@ -757,3 +757,21 @@ final class AttendanceConfirmationDue {
   /// Working days still not entered (confirming waits for these).
   final int missingDays;
 }
+
+/// How a worker's documents stand, as the crew's engineers see it: nothing
+/// more than this (PRODUCT_DECISIONS.md section 45).
+enum CrewDocumentStatus {
+  ok('ok'),
+  expiring('expiring'),
+  expired('expired');
+
+  const CrewDocumentStatus(this.wire);
+  final String wire;
+
+  static CrewDocumentStatus? from(Object? value) {
+    for (final status in values) {
+      if (status.wire == value) return status;
+    }
+    return null;
+  }
+}

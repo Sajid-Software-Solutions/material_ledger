@@ -1210,6 +1210,7 @@ class _WorkerCard extends StatelessWidget {
               row.worker.name,
               style: v2Style(13.5, weight: FontWeight.w700),
             ),
+            CrewDocumentBadge(crewId: day.crew.id, workerId: row.worker.id),
             if (!row.isMember)
               AccountsV2Chip(
                 row.worker.crewName == null
