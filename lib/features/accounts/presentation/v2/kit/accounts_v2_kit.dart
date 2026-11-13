@@ -1243,6 +1243,11 @@ class AccountsV2TextField extends StatelessWidget {
     this.suffix,
     this.onTap,
     this.readOnly = false,
+    this.focusNode,
+    this.autofocus = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   final String label;
@@ -1258,6 +1263,13 @@ class AccountsV2TextField extends StatelessWidget {
   final Widget? suffix;
   final VoidCallback? onTap;
   final bool readOnly;
+  final FocusNode? focusNode;
+  final bool autofocus;
+
+  /// The on-screen keyboard; by default numbers for [numeric], else text.
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -1267,10 +1279,16 @@ class AccountsV2TextField extends StatelessWidget {
       readOnly: readOnly,
       onTap: onTap,
       onChanged: onChanged,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
       textAlign: numeric ? TextAlign.right : TextAlign.start,
-      keyboardType: numeric
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : TextInputType.text,
+      keyboardType:
+          keyboardType ??
+          (numeric
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text),
       style: v2Style(
         14,
         weight: FontWeight.w500,

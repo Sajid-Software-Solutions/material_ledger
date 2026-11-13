@@ -30,6 +30,17 @@ T03–T10 tables, rows and commands are kept and are not migrated.
 | Access | Decided by role and dated project membership, like Material Requests: Site/Project Engineers on the crew's project take attendance; that project's Project Engineer, the organization-wide engineers and Admin confirm; Admin and PR manage everything; Accountant reads every crew and exports. No role template changes, so the T03–T10 commands keep their per-person grants. Admin and PR go through the capability resolver; for everyone else an explicit per-person deny of the matching `workforce.*` key removes the right (`v1_wf_allowed`). |
 | Reports | The monthly sheet is the paper DAILY TIME SHEET (print/PDF per worker) plus an Excel register for holders of `workforce.reports.export`. |
 
+On phones (14 November 2026) Take attendance starts with the work: no intro
+paragraph, the quick actions as one row of equal tiles (Everyone present,
+Copy the previous day, the shift, Add workers), and each worker as one row
+with P / A / ··· beside the name (they move under it only when the name
+would get too narrow). Add workers opens a searchable sheet that ticks
+several workers at once (Enter ticks the best match and clears the box); the
+crew editor uses the same picker, as a dialog on desktop. The worker editor
+and the crew editor keep their Save button pinned above the keyboard. Every
+time box has a number keyboard with Next and selects its time when entered,
+so typing "630" replaces it. Nothing about saving, access or hours changes.
+
 Attendance V2 still carries no pay, passport or licence field. Release:
 `supabase/release/pr_role_and_attendance_v2_bundle.sql`; rollback:
 `supabase/release/attendance_v2_rollback.sql` (keeps every table and row).

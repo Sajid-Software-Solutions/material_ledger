@@ -11,6 +11,7 @@ import '../../application/attendance_providers.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
+import 'attendance_inputs.dart';
 
 enum AttendanceEditorMove { previous, next, close }
 
@@ -195,16 +196,18 @@ class _RowEditorState extends State<_RowEditor> {
       String label,
       TextEditingController controller,
       AttendanceParsedTime parsed,
-      String key,
-    ) => Expanded(
+      String key, {
+      bool last = false,
+    }) => Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AccountsV2TextField(
+          AttendanceTimeField(
             key: ValueKey(key),
             label: label,
             controller: controller,
             error: !parsed.ok,
+            last: last,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 2),
@@ -221,275 +224,320 @@ class _RowEditorState extends State<_RowEditor> {
       ),
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
+    final actions = Row(
+      children: [
+        AccountsV2Button(
+          label: AS.t(AS.previous, language),
+          icon: 'caret',
+          onPressed: widget.hasPrevious
+              ? () => _finish(AttendanceEditorMove.previous)
+              : null,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: AccountsV2Button(
+            key: const ValueKey('attendance-editor-done'),
+            block: true,
+            kind: AccountsV2ButtonKind.primary,
+            size: AccountsV2ButtonSize.large,
+            label: widget.hasNext
+                ? AS.t(AS.saveNext, language)
+                : AS.t(AS.done, language),
+            onPressed:
+                present && (!_pIn.ok || !_pOut.ok || !_pBreak.ok || !_pBack.ok)
+                ? null
+                : () => _finish(
+                    widget.hasNext
+                        ? AttendanceEditorMove.next
+                        : AttendanceEditorMove.close,
+                  ),
+          ),
+        ),
+      ],
+    );
+
+    // The details scroll; Previous and Save & next stay pinned at the
+    // bottom, above the keyboard.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: SingleChildScrollView(
+            key: const ValueKey('attendance-editor-scroll'),
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: _content(
+                context,
+                row,
+                present,
+                minutes,
+                statuses,
+                timeField,
+              ),
+            ),
+          ),
+        ),
+        DecoratedBox(
+          key: const ValueKey('attendance-editor-actions'),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AccountsV2Colors.line)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+              child: actions,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _content(
+    BuildContext context,
+    AttendanceRow row,
+    bool present,
+    AttendanceMinutes minutes,
+    List<AttendanceStatus> statuses,
+    Widget Function(
+      String label,
+      TextEditingController controller,
+      AttendanceParsedTime parsed,
+      String key, {
+      bool last,
+    })
+    timeField,
+  ) {
+    final language = _language;
+    final day = widget.day;
+    return [
+      Row(
         children: [
-          Row(
-            children: [
-              AttendanceAvatar(initials: row.worker.initials, size: 40),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          AttendanceAvatar(initials: row.worker.initials, size: 40),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          row.worker.name,
-                          style: v2Style(15, weight: FontWeight.w700),
-                        ),
-                        CrewDocumentBadge(
-                          crewId: day.crew.id,
-                          workerId: row.worker.id,
-                        ),
-                      ],
-                    ),
                     Text(
-                      '${row.worker.number} · ${row.worker.designation} · ${attendanceShortDate(day.date)}',
-                      style: v2Style(12, color: AccountsV2Colors.mut),
+                      row.worker.name,
+                      style: v2Style(15, weight: FontWeight.w700),
+                    ),
+                    CrewDocumentBadge(
+                      crewId: day.crew.id,
+                      workerId: row.worker.id,
                     ),
                   ],
                 ),
+                Text(
+                  '${row.worker.number} · ${row.worker.designation} · ${attendanceShortDate(day.date)}',
+                  style: v2Style(12, color: AccountsV2Colors.mut),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: AS.t(AS.cancel, language),
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close_rounded),
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final status in statuses)
+            AttendanceChoiceChip(
+              key: ValueKey('attendance-editor-status-${status.code}'),
+              label: attendanceStatusLabel(status).active(language),
+              selected: row.status == status,
+              onPressed: () => _setStatus(status),
+            ),
+        ],
+      ),
+      if (present) ...[
+        const SizedBox(height: 14),
+        Text(
+          AS.t(AS.timeHint, language),
+          style: v2Style(12, weight: FontWeight.w600),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            timeField(
+              AS.t(AS.colIn, language),
+              _in,
+              _pIn,
+              'attendance-editor-in',
+            ),
+            const SizedBox(width: 6),
+            timeField(
+              AS.t(AS.colBreak, language),
+              _break,
+              _pBreak,
+              'attendance-editor-break',
+            ),
+            const SizedBox(width: 6),
+            timeField(
+              AS.t(AS.colBack, language),
+              _back,
+              _pBack,
+              'attendance-editor-back',
+            ),
+            const SizedBox(width: 6),
+            timeField(
+              AS.t(AS.colOut, language),
+              _out,
+              _pOut,
+              'attendance-editor-out',
+              last: true,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              AS.t(AS.outAt, language),
+              style: v2Style(12, color: AccountsV2Colors.mut),
+            ),
+            for (final minute in const [900, 1020, 1080, 1140])
+              AttendanceChoiceChip(
+                key: ValueKey('attendance-editor-out-at-$minute'),
+                label: formatAttendanceTime(minute),
+                selected: _pOut.minutes == minute,
+                onPressed: () => setState(
+                  () => _out.text = formatAttendanceTimeInput(minute),
+                ),
               ),
-              IconButton(
-                tooltip: AS.t(AS.cancel, language),
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded),
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              ),
+            AttendanceChoiceChip(
+              key: const ValueKey('attendance-editor-toggle-break'),
+              label: _break.text.isEmpty
+                  ? AS.t(AS.addBreak, language)
+                  : AS.t(AS.noBreak, language),
+              onPressed: () => setState(() {
+                if (_break.text.isEmpty) {
+                  _break.text = formatAttendanceTimeInput(
+                    day.crew.breakStart ?? 750,
+                  );
+                  _back.text = formatAttendanceTimeInput(
+                    day.crew.breakFinish ?? 780,
+                  );
+                } else {
+                  _break.clear();
+                  _back.clear();
+                }
+              }),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AccountsV2Colors.neu,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              for (final (label, value, color) in [
+                (AS.colHours, minutes.worked, AccountsV2Colors.ink),
+                (AS.colNormal, minutes.regular, AccountsV2Colors.ink),
+                (
+                  AS.colOtNormalShort,
+                  minutes.normalOvertime,
+                  AccountsV2Colors.warn,
+                ),
+                (
+                  AS.colOtHolidayShort,
+                  minutes.holidayOvertime,
+                  AccountsV2Colors.vio,
+                ),
+              ])
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        minutes.timeMissing
+                            ? '?'
+                            : formatAttendanceHours(value, zeroAsDash: true),
+                        style: v2Style(
+                          16,
+                          weight: FontWeight.w700,
+                          color: color,
+                          tabular: true,
+                        ),
+                      ),
+                      Text(
+                        label.active(language),
+                        textAlign: TextAlign.center,
+                        style: v2Style(11, color: AccountsV2Colors.mut),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+        ),
+        const SizedBox(height: 10),
+        AccountsV2TextField(
+          key: const ValueKey('attendance-editor-project'),
+          label: AS.t(AS.colProject, language),
+          hint: AS.t(AS.projectHint, language),
+          controller: _project,
+          onChanged: (_) => setState(() {}),
+        ),
+        if (minutes.overtime > 0) ...[
+          const SizedBox(height: 10),
+          Text(
+            AS.t(AS.overtimeNote, language),
+            style: v2Style(12, weight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final status in statuses)
-                ChoiceChip(
-                  key: ValueKey('attendance-editor-status-${status.code}'),
-                  label: Text(attendanceStatusLabel(status).active(language)),
-                  selected: row.status == status,
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
-                  onSelected: (_) => _setStatus(status),
+              for (final note in [
+                AS.noteConcrete,
+                AS.noteClient,
+                AS.noteShutdown,
+                AS.noteUrgent,
+              ])
+                AttendanceChoiceChip(
+                  label: note.active(language),
+                  selected: _note.text.trim() == note.active(language),
+                  onPressed: () =>
+                      setState(() => _note.text = note.active(language)),
                 ),
             ],
           ),
-          if (present) ...[
-            const SizedBox(height: 14),
-            Text(
-              AS.t(AS.timeHint, language),
-              style: v2Style(12, weight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                timeField(
-                  AS.t(AS.colIn, language),
-                  _in,
-                  _pIn,
-                  'attendance-editor-in',
-                ),
-                const SizedBox(width: 6),
-                timeField(
-                  AS.t(AS.colBreak, language),
-                  _break,
-                  _pBreak,
-                  'attendance-editor-break',
-                ),
-                const SizedBox(width: 6),
-                timeField(
-                  AS.t(AS.colBack, language),
-                  _back,
-                  _pBack,
-                  'attendance-editor-back',
-                ),
-                const SizedBox(width: 6),
-                timeField(
-                  AS.t(AS.colOut, language),
-                  _out,
-                  _pOut,
-                  'attendance-editor-out',
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(
-                  AS.t(AS.outAt, language),
-                  style: v2Style(12, color: AccountsV2Colors.mut),
-                ),
-                for (final minute in const [900, 1020, 1080, 1140])
-                  ActionChip(
-                    label: Text(formatAttendanceTime(minute)),
-                    materialTapTargetSize: MaterialTapTargetSize.padded,
-                    onPressed: () => setState(
-                      () => _out.text = formatAttendanceTimeInput(minute),
-                    ),
-                  ),
-                ActionChip(
-                  key: const ValueKey('attendance-editor-toggle-break'),
-                  label: Text(
-                    _break.text.isEmpty
-                        ? AS.t(AS.addBreak, language)
-                        : AS.t(AS.noBreak, language),
-                  ),
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
-                  onPressed: () => setState(() {
-                    if (_break.text.isEmpty) {
-                      _break.text = formatAttendanceTimeInput(
-                        day.crew.breakStart ?? 750,
-                      );
-                      _back.text = formatAttendanceTimeInput(
-                        day.crew.breakFinish ?? 780,
-                      );
-                    } else {
-                      _break.clear();
-                      _back.clear();
-                    }
-                  }),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AccountsV2Colors.neu,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  for (final (label, value, color) in [
-                    (AS.colHours, minutes.worked, AccountsV2Colors.ink),
-                    (AS.colNormal, minutes.regular, AccountsV2Colors.ink),
-                    (
-                      AS.colOtNormalShort,
-                      minutes.normalOvertime,
-                      AccountsV2Colors.warn,
-                    ),
-                    (
-                      AS.colOtHolidayShort,
-                      minutes.holidayOvertime,
-                      AccountsV2Colors.vio,
-                    ),
-                  ])
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            minutes.timeMissing
-                                ? '?'
-                                : formatAttendanceHours(
-                                    value,
-                                    zeroAsDash: true,
-                                  ),
-                            style: v2Style(
-                              16,
-                              weight: FontWeight.w700,
-                              color: color,
-                              tabular: true,
-                            ),
-                          ),
-                          Text(
-                            label.active(language),
-                            textAlign: TextAlign.center,
-                            style: v2Style(11, color: AccountsV2Colors.mut),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            AccountsV2TextField(
-              key: const ValueKey('attendance-editor-project'),
-              label: AS.t(AS.colProject, language),
-              hint: AS.t(AS.projectHint, language),
-              controller: _project,
-              onChanged: (_) => setState(() {}),
-            ),
-            if (minutes.overtime > 0) ...[
-              const SizedBox(height: 10),
-              Text(
-                AS.t(AS.overtimeNote, language),
-                style: v2Style(12, weight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final note in [
-                    AS.noteConcrete,
-                    AS.noteClient,
-                    AS.noteShutdown,
-                    AS.noteUrgent,
-                  ])
-                    ActionChip(
-                      label: Text(note.active(language)),
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      onPressed: () =>
-                          setState(() => _note.text = note.active(language)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              AccountsV2TextField(
-                key: const ValueKey('attendance-editor-note'),
-                label: AS.t(AS.overtimeNoteHint, language),
-                controller: _note,
-                onChanged: (_) => setState(() {}),
-              ),
-            ],
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              AccountsV2Button(
-                label: AS.t(AS.previous, language),
-                icon: 'caret',
-                onPressed: widget.hasPrevious
-                    ? () => _finish(AttendanceEditorMove.previous)
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AccountsV2Button(
-                  key: const ValueKey('attendance-editor-done'),
-                  block: true,
-                  kind: AccountsV2ButtonKind.primary,
-                  size: AccountsV2ButtonSize.large,
-                  label: widget.hasNext
-                      ? AS.t(AS.saveNext, language)
-                      : AS.t(AS.done, language),
-                  onPressed:
-                      present &&
-                          (!_pIn.ok || !_pOut.ok || !_pBreak.ok || !_pBack.ok)
-                      ? null
-                      : () => _finish(
-                          widget.hasNext
-                              ? AttendanceEditorMove.next
-                              : AttendanceEditorMove.close,
-                        ),
-                ),
-              ),
-            ],
+          const SizedBox(height: 6),
+          AccountsV2TextField(
+            key: const ValueKey('attendance-editor-note'),
+            label: AS.t(AS.overtimeNoteHint, language),
+            controller: _note,
+            onChanged: (_) => setState(() {}),
           ),
         ],
-      ),
-    );
+      ],
+    ];
   }
 }
 

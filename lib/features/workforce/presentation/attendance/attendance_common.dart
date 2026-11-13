@@ -174,11 +174,16 @@ class AttendancePage extends StatelessWidget {
     this.readOnly = false,
     this.language = AppLanguage.english,
     this.onRefresh,
+    this.subtitleOnPhone = true,
   });
 
   final String title;
   final String? eyebrow;
   final String? subtitle;
+
+  /// False leaves the subtitle out on phones, where the work itself should
+  /// start near the top of the screen.
+  final bool subtitleOnPhone;
   final List<Widget> actions;
   final bool readOnly;
   final AppLanguage language;
@@ -236,7 +241,8 @@ class AttendancePage extends StatelessWidget {
                               ),
                           ],
                         ),
-                        if (subtitle != null) ...[
+                        if (subtitle != null &&
+                            (subtitleOnPhone || !phone)) ...[
                           const SizedBox(height: 4),
                           Text(
                             subtitle!,

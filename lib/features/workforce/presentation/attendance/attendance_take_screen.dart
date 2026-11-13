@@ -23,6 +23,7 @@ import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
 import 'attendance_dialogs.dart';
+import 'attendance_inputs.dart';
 import 'attendance_row_editor.dart';
 
 class AttendanceTakeScreen extends ConsumerStatefulWidget {
@@ -166,6 +167,7 @@ class _DayView extends ConsumerWidget {
       language: language,
       title: AS.t(AS.takeAttendance, language),
       subtitle: AS.t(intro, language),
+      subtitleOnPhone: false,
       onRefresh: state.dirty ? null : controller.load,
       children: [
         ...AttendanceConfirmationsBanner.forPage(
@@ -678,11 +680,113 @@ class _Toolbar extends ConsumerWidget {
     );
   }
 
+  void _added(BuildContext context, List<AttendanceWorker> workers) {
+    if (workers.isEmpty) return;
+    for (final worker in workers) {
+      controller.addWorkerForDay(worker);
+    }
+    attendanceToast(
+      context,
+      AS.t(AS.addedForDay, language, {
+        'name': workers.map((w) => w.name).join(', '),
+        'date': attendanceShortDate(day.date),
+      }),
+    );
+  }
+
+  Future<void> _copy(BuildContext context, String previous) async {
+    final before = controller.current.rows;
+    final ok = await controller.copyFrom(previous);
+    if (ok && context.mounted) {
+      showAttendanceUndo(
+        context,
+        language: language,
+        message: AS.t(AS.copiedToast, language, {
+          'date': attendanceShortDate(previous),
+        }),
+        onUndo: () => controller.restoreRows(before),
+      );
+    }
+  }
+
+  void _everyone(BuildContext context) {
+    final before = controller.current.rows;
+    controller.everyonePresent();
+    showAttendanceUndo(
+      context,
+      language: language,
+      message: AS.t(AS.undoEveryone, language),
+      onUndo: () => controller.restoreRows(before),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final previous = day.previousSameTypeDate;
     final workers = ref.watch(yorksAttendanceWorkersProvider);
     final phone = AccountsV2Breakpoints.isPhone(context);
+    final exclude = {for (final row in state.rows) row.worker.id};
+    if (phone) {
+      // Phones: every action in sight as equal tiles; Add workers opens the
+      // picker sheet so the keyboard never hides the matches.
+      return AccountsV2Panel(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: AttendanceActionTiles(
+            tiles: [
+              if (!day.holiday)
+                AttendanceActionTile(
+                  key: const ValueKey('attendance-everyone-present'),
+                  icon: 'check',
+                  label: AS.t(AS.everyonePresent, language),
+                  onPressed: state.unmarkedCount == 0
+                      ? null
+                      : () => _everyone(context),
+                ),
+              if (previous != null)
+                AttendanceActionTile(
+                  key: const ValueKey('attendance-copy-previous'),
+                  icon: 'copy',
+                  label: AS.t(AS.copyDay, language, {
+                    'date': attendanceShortDate(previous),
+                  }),
+                  onPressed: () => _copy(context, previous),
+                ),
+              AttendanceActionTile(
+                key: const ValueKey('attendance-shift'),
+                icon: 'clock',
+                label:
+                    '${formatAttendanceTime(day.crew.shiftStart)} – ${formatAttendanceTime(day.crew.shiftFinish)}',
+                semanticLabel: AS.t(AS.shiftButton, language, {
+                  'start': formatAttendanceTime(day.crew.shiftStart),
+                  'finish': formatAttendanceTime(day.crew.shiftFinish),
+                }),
+                onPressed: () => _editShift(context),
+              ),
+              AttendanceActionTile(
+                key: const ValueKey('attendance-add-worker-open'),
+                icon: 'plus',
+                label: AS.t(AS.addWorkers, language),
+                onPressed: workers.valueOrNull == null
+                    ? null
+                    : () async {
+                        final picked = await showAttendanceWorkerPicker(
+                          context,
+                          language: language,
+                          title: AS.t(AS.addWorkers, language),
+                          workers: workers.valueOrNull ?? const [],
+                          exclude: exclude,
+                        );
+                        if (picked != null && context.mounted) {
+                          _added(context, picked);
+                        }
+                      },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final buttons = <Widget>[
       if (previous != null)
         AccountsV2Button(
@@ -691,38 +795,14 @@ class _Toolbar extends ConsumerWidget {
             'date': attendanceShortDate(previous),
           }),
           icon: 'copy',
-          onPressed: () async {
-            final before = controller.current.rows;
-            final ok = await controller.copyFrom(previous);
-            if (ok && context.mounted) {
-              showAttendanceUndo(
-                context,
-                language: language,
-                message: AS.t(AS.copiedToast, language, {
-                  'date': attendanceShortDate(previous),
-                }),
-                onUndo: () => controller.restoreRows(before),
-              );
-            }
-          },
+          onPressed: () => _copy(context, previous),
         ),
       if (!day.holiday)
         AccountsV2Button(
           key: const ValueKey('attendance-everyone-present'),
           label: AS.t(AS.everyonePresent, language),
           icon: 'check',
-          onPressed: state.unmarkedCount == 0
-              ? null
-              : () {
-                  final before = controller.current.rows;
-                  controller.everyonePresent();
-                  showAttendanceUndo(
-                    context,
-                    language: language,
-                    message: AS.t(AS.undoEveryone, language),
-                    onUndo: () => controller.restoreRows(before),
-                  );
-                },
+          onPressed: state.unmarkedCount == 0 ? null : () => _everyone(context),
         ),
       AccountsV2Button(
         key: const ValueKey('attendance-shift'),
@@ -737,49 +817,21 @@ class _Toolbar extends ConsumerWidget {
     final addWorker = _AddWorkerField(
       language: language,
       workers: workers.valueOrNull ?? const [],
-      exclude: {for (final row in state.rows) row.worker.id},
-      onAdd: (worker) {
-        controller.addWorkerForDay(worker);
-        attendanceToast(
-          context,
-          AS.t(AS.addedForDay, language, {
-            'name': worker.name,
-            'date': attendanceShortDate(day.date),
-          }),
-        );
-      },
+      exclude: exclude,
+      onAdd: (worker) => _added(context, [worker]),
     );
     return AccountsV2Panel(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: phone
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < buttons.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 8),
-                          buttons[i],
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  addWorker,
-                ],
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ...buttons,
-                  SizedBox(width: 320, child: addWorker),
-                ],
-              ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            ...buttons,
+            SizedBox(width: 320, child: addWorker),
+          ],
+        ),
       ),
     );
   }
@@ -957,7 +1009,8 @@ class _ShiftDialogState extends State<_ShiftDialog> {
         child: Row(
           children: [
             Expanded(
-              child: AccountsV2TextField(
+              child: AttendanceTimeField(
+                key: const ValueKey('attendance-shift-in'),
                 label: AS.t(AS.colIn, language),
                 controller: _start,
                 hint: formatAttendanceTime(start.minutes),
@@ -967,11 +1020,13 @@ class _ShiftDialogState extends State<_ShiftDialog> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: AccountsV2TextField(
+              child: AttendanceTimeField(
+                key: const ValueKey('attendance-shift-out'),
                 label: AS.t(AS.colOut, language),
                 controller: _finish,
                 hint: formatAttendanceTime(finish.minutes),
                 error: !finish.ok,
+                last: true,
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -1109,51 +1164,49 @@ class _WorkerCard extends StatelessWidget {
       language: language,
     );
     final missing = !row.isMarked || minutes.timeMissing;
+    final phone = AccountsV2Breakpoints.isPhone(context);
     Widget pill(String label, AttendanceStatus? status, {String? key}) {
       final selected =
           status != null && row.status == status ||
           (status == null && (row.status?.isLeave ?? false));
-      return Padding(
-        padding: const EdgeInsetsDirectional.only(start: 6),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Material(
-            color: selected
-                ? (status == AttendanceStatus.absent
-                      ? AccountsV2Colors.bad
-                      : status == AttendanceStatus.present
-                      ? AccountsV2Colors.ok
-                      : AccountsV2Colors.pri)
-                : Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                color: selected ? Colors.transparent : AccountsV2Colors.lineS,
-              ),
+      return SizedBox(
+        width: _pillSize,
+        height: _pillSize,
+        child: Material(
+          color: selected
+              ? (status == AttendanceStatus.absent
+                    ? AccountsV2Colors.bad
+                    : status == AttendanceStatus.present
+                    ? AccountsV2Colors.ok
+                    : AccountsV2Colors.pri)
+              : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: selected ? Colors.transparent : AccountsV2Colors.lineS,
             ),
-            child: Semantics(
-              button: true,
-              selected: selected,
-              label: status == null
-                  ? AS.t(AS.moreStatuses, language, {'name': row.worker.name})
-                  : AS.t(AS.markAs, language, {
-                      'name': row.worker.name,
-                      'status': attendanceStatusLabel(status).active(language),
-                    }),
-              excludeSemantics: true,
-              child: InkWell(
-                key: key == null ? null : ValueKey(key),
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => onStatus(status),
-                child: Center(
-                  child: Text(
-                    label,
-                    style: v2Style(
-                      13,
-                      weight: FontWeight.w700,
-                      color: selected ? Colors.white : AccountsV2Colors.ink2,
-                    ),
+          ),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: status == null
+                ? AS.t(AS.moreStatuses, language, {'name': row.worker.name})
+                : AS.t(AS.markAs, language, {
+                    'name': row.worker.name,
+                    'status': attendanceStatusLabel(status).active(language),
+                  }),
+            excludeSemantics: true,
+            child: InkWell(
+              key: key == null ? null : ValueKey(key),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => onStatus(status),
+              child: Center(
+                child: Text(
+                  label,
+                  style: v2Style(
+                    13,
+                    weight: FontWeight.w700,
+                    color: selected ? Colors.white : AccountsV2Colors.ink2,
                   ),
                 ),
               ),
@@ -1164,8 +1217,8 @@ class _WorkerCard extends StatelessWidget {
     }
 
     final id = row.worker.id;
-    final pills = editable
-        ? [
+    final controls = editable
+        ? <Widget>[
             if (day.holiday)
               pill(
                 AS.t(AS.pillOff, language),
@@ -1194,7 +1247,10 @@ class _WorkerCard extends StatelessWidget {
                 tooltip: AS.t(AS.remove, language),
                 onPressed: onRemove,
                 icon: const Icon(Icons.close_rounded, size: 20),
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                constraints: const BoxConstraints(
+                  minWidth: _pillSize,
+                  minHeight: _pillSize,
+                ),
               ),
           ]
         : const <Widget>[];
@@ -1263,47 +1319,92 @@ class _WorkerCard extends StatelessWidget {
         ),
       ],
     );
+    final avatarSize = phone ? 30.0 : 34.0;
+    final avatarGap = phone ? 8.0 : 10.0;
+    final controlsRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < controls.length; i++) ...[
+          if (i > 0) const SizedBox(width: _pillGap),
+          controls[i],
+        ],
+      ],
+    );
+    final status = !editable && row.isMarked
+        ? AccountsV2Chip(
+            attendanceStatusLabel(row.status).active(language),
+            tone: row.status == AttendanceStatus.absent
+                ? AccountsV2ChipTone.bad
+                : row.status == AttendanceStatus.present
+                ? AccountsV2ChipTone.ok
+                : AccountsV2ChipTone.neutral,
+          )
+        : null;
     return Container(
       key: ValueKey('attendance-row-$id'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: phone ? 12 : 14, vertical: 10),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AccountsV2Colors.line2)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // The pills sit beside the name while the name keeps a readable
+          // width; otherwise (a holiday's extra Off, a worker added for the
+          // day) they move under it.
+          final controlsWidth = controls.isEmpty
+              ? 0.0
+              : controls.length * (_pillSize + _pillGap);
+          final inline =
+              controls.isEmpty ||
+              constraints.maxWidth - avatarSize - avatarGap - controlsWidth >=
+                  _minNameWidth;
+          final head = Row(
+            crossAxisAlignment: inline
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
             children: [
-              AttendanceAvatar(initials: row.worker.initials),
-              const SizedBox(width: 10),
+              AttendanceAvatar(initials: row.worker.initials, size: avatarSize),
+              SizedBox(width: avatarGap),
               Expanded(
-                child: InkWell(onTap: editable ? onEdit : null, child: details),
-              ),
-              if (!editable && row.isMarked)
-                AccountsV2Chip(
-                  attendanceStatusLabel(row.status).active(language),
-                  tone: row.status == AttendanceStatus.absent
-                      ? AccountsV2ChipTone.bad
-                      : row.status == AttendanceStatus.present
-                      ? AccountsV2ChipTone.ok
-                      : AccountsV2ChipTone.neutral,
+                child: InkWell(
+                  key: ValueKey('attendance-row-open-$id'),
+                  onTap: editable ? onEdit : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: details,
                 ),
-            ],
-          ),
-          if (pills.isNotEmpty)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: 38, top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: pills,
               ),
-            ),
-        ],
+              if (inline && controls.isNotEmpty) ...[
+                const SizedBox(width: _pillGap),
+                controlsRow,
+              ],
+              ?status,
+            ],
+          );
+          if (inline) return head;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              head,
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: controlsRow,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
+
+/// Status pills are 44px tap targets; the name keeps at least this much
+/// room beside them.
+const double _pillSize = 44;
+const double _pillGap = 4;
+const double _minNameWidth = 112;
 
 class _Footer extends ConsumerWidget {
   const _Footer({
@@ -1424,13 +1525,17 @@ class _Footer extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           summary,
-          Text(
-            AS.t(
-              day.crew.needsConfirmation ? AS.draftNote : AS.draftNoteWorkshop,
-              language,
+          // Phones keep the bar short; the note is on wider screens.
+          if (!phone)
+            Text(
+              AS.t(
+                day.crew.needsConfirmation
+                    ? AS.draftNote
+                    : AS.draftNoteWorkshop,
+                language,
+              ),
+              style: v2Style(11.5, color: AccountsV2Colors.mut),
             ),
-            style: v2Style(11.5, color: AccountsV2Colors.mut),
-          ),
           const SizedBox(height: 8),
           Row(
             children: [
