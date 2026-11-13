@@ -297,10 +297,10 @@ abstract final class CrewRequestStrings {
 
   // ─── Request form ──────────────────────────────────────────────────────────
   static const formTitleNew = _T(
-    en: 'Request crew',
-    ar: 'طلب طاقم',
-    ur: 'عملہ طلب کریں',
-    hi: 'क्रू माँगें',
+    en: 'New Crew Request',
+    ar: 'طلب طاقم جديد',
+    ur: 'عملے کی نئی درخواست',
+    hi: 'नया क्रू अनुरोध',
   );
   static const formTitleFix = _T(
     en: 'Fix and resubmit {number}',
@@ -309,10 +309,10 @@ abstract final class CrewRequestStrings {
     hi: '{number} सुधारें और फिर भेजें',
   );
   static const formIntro = _T(
-    en: 'Say who you need and from when. Nothing is sent until you press Send.',
-    ar: 'حدّد من تحتاج ومتى. لا يُرسل شيء حتى تضغط إرسال.',
-    ur: 'بتائیں کون اور کب سے درکار ہے۔ بھیجیں دبانے تک کچھ نہیں جاتا۔',
-    hi: 'बताएँ किसकी और कब से ज़रूरत है। भेजें दबाने तक कुछ नहीं जाता।',
+    en: 'Say who you need and from when. Type a person\'s name, or the workers you need and how many. Nothing is sent until you press Send.',
+    ar: 'حدّد من تحتاج ومتى. اكتب اسم شخص، أو العمال الذين تحتاجهم والعدد. لا يُرسل شيء حتى تضغط إرسال.',
+    ur: 'بتائیں آپ کو کون اور کب سے چاہیے۔ کسی شخص کا نام لکھیں، یا درکار کارکن اور تعداد۔ بھیجیں دبانے تک کچھ نہیں بھیجا جاتا۔',
+    hi: 'बताएँ आपको कौन और कब से चाहिए। किसी व्यक्ति का नाम लिखें, या ज़रूरी कामगार और संख्या। भेजें दबाने तक कुछ नहीं भेजा जाता।',
   );
   static const forLabel = _T(
     en: 'For',
@@ -375,10 +375,10 @@ abstract final class CrewRequestStrings {
     hi: 'क्रू में जोड़ें (वैकल्पिक)',
   );
   static const targetCrewAny = _T(
-    en: 'PR decides',
-    ar: 'يقرر قسم العلاقات العامة',
-    ur: 'پی آر طے کرے',
-    hi: 'पीआर तय करे',
+    en: 'Approver decides',
+    ar: 'يقرّر المعتمِد',
+    ur: 'منظور کنندہ طے کرے گا',
+    hi: 'स्वीकृतकर्ता तय करेगा',
   );
   static const peopleNeeded = _T(
     en: 'People needed',
@@ -387,23 +387,18 @@ abstract final class CrewRequestStrings {
     hi: 'आवश्यक लोग',
   );
   static const trade = _T(
-    en: 'Name or trade',
-    ar: 'الاسم أو المهنة',
-    ur: 'نام یا ہنر',
-    hi: 'नाम या ट्रेड',
+    en: 'Worker',
+    ar: 'العامل',
+    ur: 'کارکن',
+    hi: 'कामगार',
   );
   static const tradeHint = _T(
-    en: 'Start typing a name or a trade',
-    ar: 'ابدأ بكتابة اسم أو مهنة',
-    ur: 'نام یا ہنر لکھنا شروع کریں',
-    hi: 'नाम या ट्रेड लिखना शुरू करें',
+    en: 'Name, or e.g. Labour',
+    ar: 'الاسم، أو مثلًا عامل',
+    ur: 'نام، یا مثلاً مزدور',
+    hi: 'नाम, या जैसे मज़दूर',
   );
-  static const howMany = _T(
-    en: 'How many',
-    ar: 'كم عددًا',
-    ur: 'کتنے',
-    hi: 'कितने',
-  );
+  static const howMany = _T(en: 'Qty', ar: 'العدد', ur: 'تعداد', hi: 'संख्या');
   static const lineNote = _T(
     en: 'Note (optional)',
     ar: 'ملاحظة (اختياري)',
@@ -411,10 +406,10 @@ abstract final class CrewRequestStrings {
     hi: 'टिप्पणी (वैकल्पिक)',
   );
   static const addTrade = _T(
-    en: 'Add another person or trade',
-    ar: 'أضف شخصًا أو مهنة أخرى',
-    ur: 'ایک اور شخص یا ہنر شامل کریں',
-    hi: 'एक और व्यक्ति या ट्रेड जोड़ें',
+    en: 'Add Worker',
+    ar: 'إضافة عامل',
+    ur: 'کارکن شامل کریں',
+    hi: 'कामगार जोड़ें',
   );
   static const remove = _T(
     en: 'Remove',
@@ -453,10 +448,10 @@ abstract final class CrewRequestStrings {
     hi: 'प्रोजेक्ट इंजीनियर स्वीकृत करेगा और कामगार सौंपेगा।',
   );
   static const errNoLines = _T(
-    en: 'Add at least one trade with how many people.',
-    ar: 'أضف مهنة واحدة على الأقل مع عدد الأشخاص.',
-    ur: 'کم از کم ایک ہنر اور افراد کی تعداد شامل کریں۔',
-    hi: 'कम से कम एक ट्रेड और लोगों की संख्या जोड़ें।',
+    en: 'Add at least one worker: a name, or who you need and how many.',
+    ar: 'أضف عاملًا واحدًا على الأقل: اسمًا، أو من تحتاج والعدد.',
+    ur: 'کم از کم ایک کارکن شامل کریں: نام، یا کون چاہیے اور تعداد۔',
+    hi: 'कम से कम एक कामगार जोड़ें: नाम, या कौन चाहिए और संख्या।',
   );
   static const errProject = _T(
     en: 'Choose the project.',
@@ -535,10 +530,10 @@ abstract final class CrewRequestStrings {
     hi: '{from} से',
   );
   static const linesTitle = _T(
-    en: 'People',
-    ar: 'الأشخاص',
-    ur: 'افراد',
-    hi: 'लोग',
+    en: 'Workers',
+    ar: 'العمال',
+    ur: 'کارکن',
+    hi: 'कामगार',
   );
   static const noOneYet = _T(
     en: 'No one assigned yet',
@@ -926,10 +921,10 @@ abstract final class CrewRequestStrings {
     hi: 'विवरण',
   );
   static const stepPeople = _T(
-    en: 'People',
-    ar: 'الأشخاص',
-    ur: 'افراد',
-    hi: 'लोग',
+    en: 'Workers',
+    ar: 'العمال',
+    ur: 'کارکن',
+    hi: 'कामगार',
   );
   static const stepReview = _T(
     en: 'Review',
@@ -950,22 +945,22 @@ abstract final class CrewRequestStrings {
     hi: 'किसे कामगार चाहिए?',
   );
   static const detailsDescription = _T(
-    en: 'Choose the project, the work and when the people are needed.',
-    ar: 'اختر المشروع والعمل ومتى يلزم الأشخاص.',
-    ur: 'پروجیکٹ، کام اور افراد کب درکار ہیں منتخب کریں۔',
-    hi: 'प्रोजेक्ट, काम और लोग कब चाहिए चुनें।',
+    en: 'Choose the project, the work and when the workers are needed.',
+    ar: 'اختر المشروع والعمل وموعد الحاجة إلى العمال.',
+    ur: 'پروجیکٹ، کام اور کارکنوں کی ضرورت کا وقت چنیں۔',
+    hi: 'प्रोजेक्ट, काम और कामगारों की ज़रूरत का समय चुनें।',
   );
   static const peoplePrompt = _T(
-    en: 'Which people do you need?',
-    ar: 'ما الأشخاص الذين تحتاجهم؟',
-    ur: 'آپ کو کون سے افراد چاہییں؟',
-    hi: 'आपको कौन से लोग चाहिए?',
+    en: 'Which workers do you need?',
+    ar: 'ما العمال الذين تحتاجهم؟',
+    ur: 'آپ کو کون سے کارکن چاہییں؟',
+    hi: 'आपको कौन से कामगार चाहिए?',
   );
   static const peopleDescription = _T(
-    en: 'Type a name to ask for a person, or a trade and how many.',
-    ar: 'اكتب اسمًا لطلب شخص بعينه، أو مهنة والعدد.',
-    ur: 'کسی شخص کے لیے نام لکھیں، یا ہنر اور تعداد۔',
-    hi: 'किसी व्यक्ति के लिए नाम लिखें, या ट्रेड और संख्या।',
+    en: 'Type a person\'s name, or the workers you need (e.g. Labour) and how many.',
+    ar: 'اكتب اسم شخص، أو العمال الذين تحتاجهم (مثلًا عامل) والعدد.',
+    ur: 'کسی شخص کا نام لکھیں، یا درکار کارکن (مثلاً مزدور) اور تعداد۔',
+    hi: 'किसी व्यक्ति का नाम लिखें, या ज़रूरी कामगार (जैसे मज़दूर) और संख्या।',
   );
   static const reviewPrompt = _T(
     en: 'Review and send',
@@ -1006,10 +1001,10 @@ abstract final class CrewRequestStrings {
     hi: 'प्रोजेक्ट और तारीखें',
   );
   static const rowPeople = _T(
-    en: 'People needed',
-    ar: 'الأشخاص المطلوبون',
-    ur: 'درکار افراد',
-    hi: 'आवश्यक लोग',
+    en: 'Workers',
+    ar: 'العمال',
+    ur: 'کارکن',
+    hi: 'कामगार',
   );
   static const rowRoute = _T(
     en: 'Approval route',
@@ -1042,16 +1037,16 @@ abstract final class CrewRequestStrings {
     hi: 'अपना अनुरोध पूरा करें',
   );
   static const completeRequestMessage = _T(
-    en: 'Send unlocks when the project, dates and people are ready.',
-    ar: 'يتاح الإرسال عند تجهيز المشروع والتواريخ والأشخاص.',
-    ur: 'پروجیکٹ، تاریخیں اور افراد تیار ہونے پر بھیجنا ممکن ہوگا۔',
-    hi: 'प्रोजेक्ट, तारीखें और लोग तैयार होने पर भेज सकेंगे।',
+    en: 'Send unlocks when the project, dates and workers are ready.',
+    ar: 'يُتاح الإرسال عند اكتمال المشروع والتواريخ والعمال.',
+    ur: 'پروجیکٹ، تاریخیں اور کارکن تیار ہونے پر بھیجنا ممکن ہوگا۔',
+    hi: 'प्रोजेक्ट, तारीखें और कामगार तैयार होने पर भेजना संभव होगा।',
   );
   static const peopleCount = _T(
-    en: 'People: {n}',
-    ar: 'الأشخاص: {n}',
-    ur: 'افراد: {n}',
-    hi: 'लोग: {n}',
+    en: 'Workers: {n}',
+    ar: 'العمال: {n}',
+    ur: 'کارکن: {n}',
+    hi: 'कामगार: {n}',
   );
   static const registerTitle = _T(
     en: 'Crew Requests',
@@ -1145,10 +1140,10 @@ abstract final class CrewRequestStrings {
     hi: 'अनुरोध जानकारी',
   );
   static const peopleSection = _T(
-    en: 'People needed',
-    ar: 'الأشخاص المطلوبون',
-    ur: 'درکار افراد',
-    hi: 'आवश्यक लोग',
+    en: 'Workers',
+    ar: 'العمال',
+    ur: 'کارکن',
+    hi: 'कामगार',
   );
   static const readyToSend = _T(
     en: 'Ready to send',
@@ -1157,10 +1152,10 @@ abstract final class CrewRequestStrings {
     hi: 'भेजने के लिए तैयार',
   );
   static const completeBeforeSending = _T(
-    en: 'Complete the project, dates and at least one person or trade to send.',
-    ar: 'أكمل المشروع والتواريخ وشخصًا أو مهنة واحدة على الأقل للإرسال.',
-    ur: 'بھیجنے کے لیے پروجیکٹ، تاریخیں اور کم از کم ایک شخص یا ہنر مکمل کریں۔',
-    hi: 'भेजने के लिए प्रोजेक्ट, तारीखें और कम से कम एक व्यक्ति या ट्रेड पूरा करें।',
+    en: 'Complete the project, dates and at least one worker to send.',
+    ar: 'أكمل المشروع والتواريخ وعاملًا واحدًا على الأقل للإرسال.',
+    ur: 'بھیجنے کے لیے پروجیکٹ، تاریخیں اور کم از کم ایک کارکن مکمل کریں۔',
+    hi: 'भेजने के लिए प्रोजेक्ट, तारीखें और कम से कम एक कामगार पूरा करें।',
   );
   static const openAll = _T(
     en: 'Open all crew requests',
@@ -1211,12 +1206,6 @@ abstract final class CrewRequestStrings {
     ar: 'الأشخاص',
     ur: 'افراد',
     hi: 'लोग',
-  );
-  static const suggestTrades = _T(
-    en: 'Any worker with this trade',
-    ar: 'أي عامل بهذه المهنة',
-    ur: 'اس ہنر کا کوئی بھی کارکن',
-    hi: 'इस ट्रेड का कोई भी कामगार',
   );
   static const workerFree = _T(en: 'Free', ar: 'متاح', ur: 'فارغ', hi: 'खाली');
   static const workerOnCrew = _T(
@@ -1424,5 +1413,142 @@ abstract final class CrewRequestStrings {
     ar: 'غادر هذا العامل الطاقم بالفعل. حدّث لرؤية الأحدث.',
     ur: 'یہ کارکن پہلے ہی عملہ چھوڑ چکا ہے۔ تازہ ترین دیکھنے کے لیے ریفریش کریں۔',
     hi: 'यह कामगार पहले ही क्रू छोड़ चुका है। नवीनतम देखने के लिए रीफ़्रेश करें।',
+  );
+
+  // ─── Worker table and editor ───────────────────────────────────────────────
+  static const assignedOnSend = _T(
+    en: 'Assigned on send',
+    ar: 'يُخصَّص عند الإرسال',
+    ur: 'بھیجنے پر مقرر',
+    hi: 'भेजने पर तय',
+  );
+  static const colNumber = _T(en: 'S.No', ar: 'م', ur: 'نمبر', hi: 'क्र.');
+  static const colWorker = _T(
+    en: 'Worker',
+    ar: 'العامل',
+    ur: 'کارکن',
+    hi: 'कामगार',
+  );
+  static const colQty = _T(en: 'Qty', ar: 'العدد', ur: 'تعداد', hi: 'संख्या');
+  static const colNote = _T(en: 'Note', ar: 'ملاحظة', ur: 'نوٹ', hi: 'टिप्पणी');
+  static const colAction = _T(
+    en: 'Action',
+    ar: 'إجراء',
+    ur: 'عمل',
+    hi: 'कार्रवाई',
+  );
+  static const addSimilarRow = _T(
+    en: 'Add similar row',
+    ar: 'إضافة صف مماثل',
+    ur: 'ملتی جلتی قطار شامل کریں',
+    hi: 'समान पंक्ति जोड़ें',
+  );
+  static const addRowBelow = _T(
+    en: 'Add row below',
+    ar: 'إضافة صف أسفل',
+    ur: 'نیچے قطار شامل کریں',
+    hi: 'नीचे पंक्ति जोड़ें',
+  );
+  static const editWorker = _T(
+    en: 'Edit worker',
+    ar: 'تعديل العامل',
+    ur: 'کارکن میں ترمیم',
+    hi: 'कामगार संपादित करें',
+  );
+  static const addWorkerTitle = _T(
+    en: 'Add worker',
+    ar: 'إضافة عامل',
+    ur: 'کارکن شامل کریں',
+    hi: 'कामगार जोड़ें',
+  );
+  static const saveChanges = _T(
+    en: 'Save changes',
+    ar: 'حفظ التغييرات',
+    ur: 'تبدیلیاں محفوظ کریں',
+    hi: 'बदलाव सहेजें',
+  );
+  static const selectedWorkers = _T(
+    en: 'Selected workers',
+    ar: 'العمال المختارون',
+    ur: 'منتخب کارکن',
+    hi: 'चुने गए कामगार',
+  );
+  static const noWorkersYet = _T(
+    en: 'No workers added yet.',
+    ar: 'لم تتم إضافة عمال بعد.',
+    ur: 'ابھی کوئی کارکن شامل نہیں کیا گیا۔',
+    hi: 'अभी कोई कामगार नहीं जोड़ा गया।',
+  );
+  static const askForAny = _T(
+    en: 'Use “{text}”',
+    ar: 'استخدم «{text}»',
+    ur: '«{text}» استعمال کریں',
+    hi: '“{text}” इस्तेमाल करें',
+  );
+  static const rowsAttention = _T(
+    en: 'Some worker rows need attention. The first incomplete row is highlighted below.',
+    ar: 'بعض صفوف العمال تحتاج إلى مراجعة. أول صف غير مكتمل مظلَّل أدناه.',
+    ur: 'کچھ کارکن قطاروں پر توجہ درکار ہے۔ پہلی نامکمل قطار نیچے نمایاں ہے۔',
+    hi: 'कुछ कामगार पंक्तियों पर ध्यान देना है। पहली अधूरी पंक्ति नीचे हाइलाइट है।',
+  );
+  static const reviewRows = _T(
+    en: 'Review',
+    ar: 'مراجعة',
+    ur: 'جائزہ',
+    hi: 'देखें',
+  );
+  static const workerRequired = _T(
+    en: 'Choose a person or type who you need.',
+    ar: 'اختر شخصًا أو اكتب من تحتاج.',
+    ur: 'کوئی شخص چنیں یا لکھیں کون چاہیے۔',
+    hi: 'कोई व्यक्ति चुनें या लिखें कौन चाहिए।',
+  );
+  static const qtyRequired = _T(
+    en: 'Enter how many, 1 to 200.',
+    ar: 'أدخل العدد من 1 إلى 200.',
+    ur: 'تعداد درج کریں، 1 سے 200۔',
+    hi: 'संख्या लिखें, 1 से 200।',
+  );
+  static const namedQtyHint = _T(
+    en: 'One person, asked for by name',
+    ar: 'شخص واحد، مطلوب بالاسم',
+    ur: 'ایک شخص، نام سے طلب',
+    hi: 'एक व्यक्ति, नाम से माँगा',
+  );
+  static const requestStatus = _T(
+    en: 'Request status',
+    ar: 'حالة الطلب',
+    ur: 'درخواست کی حالت',
+    hi: 'अनुरोध की स्थिति',
+  );
+  static const addWorkersChip = _T(
+    en: 'Add workers',
+    ar: 'أضف عمالًا',
+    ur: 'کارکن شامل کریں',
+    hi: 'कामगार जोड़ें',
+  );
+  static const reviewHeading = _T(
+    en: 'Review',
+    ar: 'المراجعة',
+    ur: 'جائزہ',
+    hi: 'समीक्षा',
+  );
+  static const factRequestNumber = _T(
+    en: 'Request number',
+    ar: 'رقم الطلب',
+    ur: 'درخواست نمبر',
+    hi: 'अनुरोध संख्या',
+  );
+  static const eyebrowRequests = _T(
+    en: 'Crew requests',
+    ar: 'طلبات الطواقم',
+    ur: 'عملے کی درخواستیں',
+    hi: 'क्रू अनुरोध',
+  );
+  static const stageOnSiteShort = _T(
+    en: 'On site',
+    ar: 'في الموقع',
+    ur: 'سائٹ پر',
+    hi: 'साइट पर',
   );
 }
