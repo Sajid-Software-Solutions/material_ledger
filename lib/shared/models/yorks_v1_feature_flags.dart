@@ -34,6 +34,7 @@ class YorksV1FeatureFlags {
     bool workforceAttendanceV2 = false,
     bool workforceCenter = false,
     bool peopleRecords = false,
+    bool companyDocuments = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -55,7 +56,8 @@ class YorksV1FeatureFlags {
        _workerRecords = workerRecords,
        _workforceAttendanceV2 = workforceAttendanceV2,
        _workforceCenter = workforceCenter,
-       _peopleRecords = peopleRecords;
+       _peopleRecords = peopleRecords,
+       _companyDocuments = companyDocuments;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -139,6 +141,10 @@ class YorksV1FeatureFlags {
       _peopleRecords = const bool.fromEnvironment(
         'YORKS_V1_PEOPLE_RECORDS',
         defaultValue: false,
+      ),
+      _companyDocuments = const bool.fromEnvironment(
+        'YORKS_V1_COMPANY_DOCUMENTS',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -163,6 +169,7 @@ class YorksV1FeatureFlags {
   final bool _workforceAttendanceV2;
   final bool _workforceCenter;
   final bool _peopleRecords;
+  final bool _companyDocuments;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -252,6 +259,12 @@ class YorksV1FeatureFlags {
   /// accepts it on staging. The server enforces `people_records.*`
   /// regardless of this flag.
   bool get peopleRecords => foundation && _peopleRecords;
+
+  /// Company documents: licences, permits, vehicles, insurance and CICPA
+  /// contracts (docs/yorks-v1/COMPANY_DOCUMENTS.md). Default off until
+  /// `20261114140000_company_documents_foundation.sql` is applied. The server
+  /// enforces `company_documents.*` on every call.
+  bool get companyDocuments => foundation && _companyDocuments;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

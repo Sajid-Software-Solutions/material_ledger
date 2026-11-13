@@ -29,6 +29,12 @@ abstract final class YorksV1ShellStrings {
     ur: 'افراد',
     hi: 'लोग',
   );
+  static const companyDocuments = TranslatableString(
+    en: 'Company documents',
+    ar: 'مستندات الشركة',
+    ur: 'کمپنی کی دستاویزات',
+    hi: 'कंपनी दस्तावेज़',
+  );
   static const workforceAdministration = TranslatableString(
     en: 'Workforce administration',
     ar: 'إدارة القوى العاملة',

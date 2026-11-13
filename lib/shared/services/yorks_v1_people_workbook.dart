@@ -112,6 +112,18 @@ final class PeopleTrackerPassMatch {
   final bool added;
 }
 
+/// A gate pass held by a vehicle (a name with a plate number); Company
+/// documents records it against the vehicle.
+typedef PeopleTrackerVehiclePass = ({
+  int row,
+  String name,
+  String section,
+  PeopleDocumentKind kind,
+  String? number,
+  String? expiry,
+  String? sites,
+});
+
 final class PeopleTrackerRead {
   const PeopleTrackerRead({
     required this.people,
@@ -129,7 +141,7 @@ final class PeopleTrackerRead {
   final List<({int row, String text})> skippedRows;
 
   /// Vehicle passes, kept for company documents.
-  final List<({int row, String name})> vehicles;
+  final List<PeopleTrackerVehiclePass> vehicles;
   final bool staffSheetFound;
   final bool passSheetFound;
 
@@ -476,7 +488,7 @@ PeopleTrackerRead peopleReadTracker(YorksV1BoqParsedWorkbook workbook) {
 
   // ── Gate passes ──────────────────────────────────────────────────────────
   final matches = <PeopleTrackerPassMatch>[];
-  final vehicles = <({int row, String name})>[];
+  final vehicles = <PeopleTrackerVehiclePass>[];
   var passFound = false;
   for (final sheet in workbook.sheets) {
     if (sheet.isHidden) continue;
@@ -485,7 +497,15 @@ PeopleTrackerRead peopleReadTracker(YorksV1BoqParsedWorkbook workbook) {
     passFound = true;
     for (final pass in read) {
       if (RegExp(r'\d').hasMatch(pass.name)) {
-        vehicles.add((row: pass.row, name: pass.name));
+        vehicles.add((
+          row: pass.row,
+          name: pass.name,
+          section: pass.section,
+          kind: pass.kind,
+          number: pass.number,
+          expiry: pass.expiry,
+          sites: pass.sites,
+        ));
         continue;
       }
       final person = _matchPerson(people, pass.name, pass.section);

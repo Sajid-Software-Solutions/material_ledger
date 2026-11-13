@@ -89,6 +89,9 @@ import '../features/company_overview/presentation/company_analytics_screen.dart'
 import '../features/company_overview/domain/company_analytics_models.dart';
 import '../features/transactions/presentation/screens/transactions_screen.dart';
 import '../features/workforce/presentation/screens/yorks_workforce_overview_screen.dart';
+import '../features/company_documents/presentation/company_centre_screen.dart';
+import '../features/company_documents/presentation/company_form_screen.dart';
+import '../features/company_documents/presentation/company_record_screen.dart';
 import '../features/people_records/presentation/people_centre_screen.dart';
 import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
@@ -246,6 +249,13 @@ abstract final class RoutePaths {
   static const String yorksV1PeopleNew = '/yorks/people/new';
   static const String yorksV1PeoplePerson = '/yorks/people/:workerId';
   static const String yorksV1PeopleEdit = '/yorks/people/:workerId/edit';
+  static const String yorksV1CompanyDocuments = '/yorks/company-documents';
+  static const String yorksV1CompanyDocumentsNew =
+      '/yorks/company-documents/new';
+  static const String yorksV1CompanyDocument =
+      '/yorks/company-documents/:recordId';
+  static const String yorksV1CompanyDocumentEdit =
+      '/yorks/company-documents/:recordId/edit';
   static const String yorksV1TeamChat = '/yorks/team-chat';
   static const String yorksV1TeamChatConversation =
       '/yorks/team-chat/:conversationId';
@@ -701,6 +711,7 @@ bool? _isAllowedForRole(
   if (_isYorksV1WorkforcePath(path)) return true;
   if (_isYorksV1AnalyticsPath(path)) return true;
   if (_isYorksV1PeoplePath(path)) return true;
+  if (_isYorksV1CompanyDocumentsPath(path)) return true;
 
   // Worker Records lives on the User Management page itself (never its
   // per-user access sub-pages). Any role may reach it once the confirmed
@@ -949,6 +960,21 @@ bool? _isYorksV1RouteAllowedForRole(
     );
   }
 
+  // Company documents: PR, Accountant and Admin by default. Adding or
+  // editing a record needs the manage grant.
+  if (_isYorksV1CompanyDocumentsPath(path)) {
+    final editing =
+        path == RoutePaths.yorksV1CompanyDocumentsNew || path.endsWith('/edit');
+    return _hybridRouteAllows(
+      permissionResolver,
+      editing
+          ? YorksV1CapabilityKeys.companyDocumentsManage
+          : YorksV1CapabilityKeys.companyDocumentsView,
+      legacyAllowed: false,
+      organizationSummary: true,
+    );
+  }
+
   // Company staff policy is independent of project/stock authority. Accountant
   // may enter Company requests and the unscoped, server-filtered shared home.
   if (role == YorksV1Role.accountant) {
@@ -1158,6 +1184,10 @@ bool _isYorksV1PeoplePath(String path) =>
     path == RoutePaths.yorksV1People ||
     path.startsWith('${RoutePaths.yorksV1People}/');
 
+bool _isYorksV1CompanyDocumentsPath(String path) =>
+    path == RoutePaths.yorksV1CompanyDocuments ||
+    path.startsWith('${RoutePaths.yorksV1CompanyDocuments}/');
+
 bool _canOpenAccountsPortfolio(YorksV1Role role) =>
     role == YorksV1Role.admin ||
     role == YorksV1Role.accountant ||
@@ -1265,6 +1295,7 @@ GoRouter createAppRouter({
   bool yorksV1WorkforceAttendanceV2Enabled = false,
   bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1PeopleRecordsEnabled = false,
+  bool yorksV1CompanyDocumentsEnabled = false,
   bool yorksV1AnalyticsEnabled = false,
   YorksV1Role? yorksV1Role,
   YorksV1HybridPermissionResolver? yorksV1PermissionResolver,
@@ -1404,6 +1435,10 @@ GoRouter createAppRouter({
         return _yorksV1ProjectFallbackPath();
       }
       if (_isYorksV1PeoplePath(path) && !yorksV1PeopleRecordsEnabled) {
+        return _yorksV1ProjectFallbackPath();
+      }
+      if (_isYorksV1CompanyDocumentsPath(path) &&
+          !yorksV1CompanyDocumentsEnabled) {
         return _yorksV1ProjectFallbackPath();
       }
       if (path == RoutePaths.finance && yorksV1AccountsEnabled) {
@@ -2381,6 +2416,39 @@ GoRouter createAppRouter({
             PeoplePersonFormScreen(
               workerId: state.pathParameters['workerId'] ?? '',
             ),
+          ),
+        ),
+      ],
+      if (yorksV1CompanyDocumentsEnabled) ...[
+        GoRoute(
+          path: RoutePaths.yorksV1CompanyDocuments,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            CompanyCentreScreen(initialView: state.uri.queryParameters['view']),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.yorksV1CompanyDocumentsNew,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            CompanyFormScreen(initialKind: state.uri.queryParameters['kind']),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.yorksV1CompanyDocument,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            CompanyRecordScreen(
+              key: ValueKey(state.pathParameters['recordId']),
+              recordId: state.pathParameters['recordId'] ?? '',
+            ),
+          ),
+        ),
+        GoRoute(
+          path: RoutePaths.yorksV1CompanyDocumentEdit,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            CompanyFormScreen(recordId: state.pathParameters['recordId'] ?? ''),
           ),
         ),
       ],

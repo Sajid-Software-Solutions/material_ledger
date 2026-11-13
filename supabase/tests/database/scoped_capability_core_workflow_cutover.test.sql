@@ -17,6 +17,8 @@ select is(
     'boq.edit',
     'boq.manage_folders',
     'boq.view',
+    'company_documents.manage',
+    'company_documents.view',
     'configure_project_commercials',
     'confirm_billing_progress',
     'delivery_orders.generate',

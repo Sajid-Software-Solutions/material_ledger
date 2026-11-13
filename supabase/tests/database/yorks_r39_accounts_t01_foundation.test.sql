@@ -66,10 +66,12 @@ select ok(
       and role_default.is_granted
       and not public.v1_accounts_is_capability_key(catalog.capability_key)
       -- PRODUCT_DECISIONS.md sections 33 and 42: the only exceptions are
-      -- the organization-wide worker record and people record keys.
+      -- the organization-wide worker record, people record and company
+      -- document keys (sections 33, 42 and 43).
       and catalog.capability_key not in (
         'worker_records.view', 'worker_records.manage',
-        'people_records.view', 'people_records.manage'
+        'people_records.view', 'people_records.manage',
+        'company_documents.view', 'company_documents.manage'
       )
   ),
   'Accountant has no technical or non-Accounts role-template grant'

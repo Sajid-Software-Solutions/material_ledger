@@ -11,6 +11,8 @@ import 'package:material_ledger/features/projects/presentation/overview/yorks_v1
 import 'package:material_ledger/features/workforce/domain/crew_request_models.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_audit_workspace.dart';
+import 'package:material_ledger/shared/models/yorks_v1_company_documents.dart'
+    show CompanyOverview;
 import 'package:material_ledger/shared/models/yorks_v1_rental.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_logistics.dart';
@@ -216,7 +218,12 @@ void main() {
       expect(spec.kpis.firstWhere((k) => k.id == 'expired').value, '6');
       expect(spec.kpis.firstWhere((k) => k.id == 'crew').value, '1');
       final ids = spec.allSections.map((s) => s.id).toSet();
-      expect(ids, {'docs', 'crew', 'rent', 'links'});
+      expect(ids, {'docs', 'company', 'crew', 'rent', 'links'});
+      final company =
+          spec.allSections.firstWhere((s) => s.id == 'company')
+              as YorksOverviewListSection;
+      expect(company.items.first.title, 'EXAMPLE DUBAI BRANCH');
+      expect(company.items.last.detail, 'Asateel permit · EXAMPLE MAIN');
       final docs =
           spec.allSections.firstWhere((s) => s.id == 'docs')
               as YorksOverviewListSection;
@@ -449,6 +456,7 @@ YorksRoleOverviewSpec _spec(
           : null,
       people: role == YorksV1Role.pr ? wrap(_people) : null,
       crewRequests: role == YorksV1Role.pr ? wrap(_crewRegister) : null,
+      companyDocuments: role == YorksV1Role.pr ? wrap(_company) : null,
       audit: role == YorksV1Role.admin && !auditFailed ? _audit : null,
       auditFailed: role == YorksV1Role.admin && auditFailed,
       canCreateProject: role != YorksV1Role.procurement,
@@ -481,9 +489,51 @@ YorksRoleOverviewSpec _spec(
       openPerson: (_) {},
       openWorkforce: () {},
       openCrewRequest: (_) {},
+      openCompanyDocuments: role == YorksV1Role.pr ? () {} : null,
+      openCompanyRecord: (_) {},
     ),
   );
 }
+
+final _company = CompanyOverview.fromJson({
+  'today': '2026-11-09',
+  'can_manage': true,
+  'counts': {'total': 56, 'expired': 11, 'expiring': 4},
+  'owners': <Object>[],
+  'attention': [
+    {
+      'document': {
+        'id': 'cdoc-1',
+        'kind': 'licence',
+        'status': 'expired',
+        'record_version': 1,
+        'expiry_date': '2026-11-01',
+        'days_left': -8,
+      },
+      'record': {
+        'id': 'crec-1',
+        'kind': 'entity',
+        'name': 'EXAMPLE DUBAI BRANCH',
+      },
+    },
+    {
+      'document': {
+        'id': 'cdoc-2',
+        'kind': 'asateel_permit',
+        'status': 'expiring',
+        'record_version': 1,
+        'expiry_date': '2026-12-01',
+        'days_left': 22,
+      },
+      'record': {
+        'id': 'crec-2',
+        'kind': 'vehicle',
+        'name': 'TEST PICKUP 11111',
+        'owner': 'EXAMPLE MAIN',
+      },
+    },
+  ],
+});
 
 final _people = PeopleOverview.fromJson({
   'today': '2026-11-09',
