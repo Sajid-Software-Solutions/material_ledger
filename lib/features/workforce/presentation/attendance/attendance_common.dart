@@ -707,3 +707,71 @@ class AttendanceConfirmationsBanner extends ConsumerWidget {
     );
   }
 }
+
+/// A crew worker's document status, as the crew's engineers may see it:
+/// expired, expiring within 60 days, or OK. A chip when something needs
+/// renewing; a small check when all is well; nothing when there is no
+/// dated document or People is off. [compact] shows an icon only.
+class CrewDocumentBadge extends ConsumerWidget {
+  const CrewDocumentBadge({
+    super.key,
+    required this.crewId,
+    required this.workerId,
+    this.compact = false,
+  });
+
+  final String crewId;
+  final String workerId;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref
+        .watch(yorksCrewDocumentStatusProvider(crewId))
+        .valueOrNull?[workerId];
+    if (status == null) return const SizedBox.shrink();
+    final language = attendanceLanguage(ref);
+    final (label, tone, icon) = switch (status) {
+      CrewDocumentStatus.expired => (
+        AS.t(AS.docsExpired, language),
+        AccountsV2ChipTone.bad,
+        Icons.error_outline_rounded,
+      ),
+      CrewDocumentStatus.expiring => (
+        AS.t(AS.docsExpiring, language),
+        AccountsV2ChipTone.warn,
+        Icons.schedule_rounded,
+      ),
+      CrewDocumentStatus.ok => (
+        AS.t(AS.docsOk, language),
+        AccountsV2ChipTone.ok,
+        Icons.verified_outlined,
+      ),
+    };
+    final tooltip = status == CrewDocumentStatus.ok
+        ? label
+        : '$label. ${AS.t(AS.docsHint, language)}';
+    if (compact || status == CrewDocumentStatus.ok) {
+      return Tooltip(
+        message: tooltip,
+        child: Semantics(
+          label: label,
+          child: Icon(
+            icon,
+            key: ValueKey('crew-doc-status-$workerId'),
+            size: 16,
+            color: tone.foreground,
+          ),
+        ),
+      );
+    }
+    return Tooltip(
+      message: tooltip,
+      child: AccountsV2Chip(
+        label,
+        key: ValueKey('crew-doc-status-$workerId'),
+        tone: tone,
+      ),
+    );
+  }
+}

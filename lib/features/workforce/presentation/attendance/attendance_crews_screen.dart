@@ -429,7 +429,19 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
                       initials: member.initials,
                       size: 30,
                     ),
-                    title: Text(member.name, style: v2Style(13)),
+                    title: Row(
+                      children: [
+                        Flexible(child: Text(member.name, style: v2Style(13))),
+                        if (crew != null) ...[
+                          const SizedBox(width: 6),
+                          CrewDocumentBadge(
+                            crewId: crew.id,
+                            workerId: member.id,
+                            compact: true,
+                          ),
+                        ],
+                      ],
+                    ),
                     subtitle: Text(
                       '${member.number} · ${member.designation}',
                       style: v2Style(11.5, color: AccountsV2Colors.mut),

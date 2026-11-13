@@ -49,6 +49,17 @@ final yorksAttendanceCrewsProvider =
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listCrews(),
     );
 
+/// Status only of each crew worker's documents, when People is on.
+final yorksCrewDocumentStatusProvider = FutureProvider.autoDispose
+    .family<Map<String, CrewDocumentStatus>, String>((ref, crewId) {
+      if (!ref.watch(yorksV1FeatureFlagsProvider).peopleRecords) {
+        return const {};
+      }
+      return ref
+          .watch(yorksAttendanceRepositoryProvider)
+          .crewDocumentStatus(crewId);
+    });
+
 final yorksAttendanceCrewDetailProvider = FutureProvider.autoDispose
     .family<({AttendanceCrew crew, List<AttendanceWorker> members}), String>(
       (ref, crewId) =>
