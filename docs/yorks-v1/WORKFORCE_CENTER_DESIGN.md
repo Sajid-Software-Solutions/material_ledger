@@ -206,16 +206,18 @@ Supersedes decisions 3 and 4 above; `PRODUCT_DECISIONS.md` section 40.
 
 ## 9. The request form matches the Material Request (13 November 2026)
 
-- **Wording.** A row asks for a **Worker**: a person by name, or any worker
-  with a designation. "Trade" and the trade chips are gone; suggestions
-  appear in the Worker field as the requester types.
+- **Wording.** A row asks for a **Worker**, as an item on a Material
+  Request: a person by name, or a description of who is needed (for
+  example "Labour") and how many. There are no trades or designations to
+  pick; suggestions of people appear in the Worker field as the requester
+  types, and "Use …" keeps what was typed.
 - **Desktop.** The Material Request composer: header (eyebrow, New Crew
   Request with its stage, guidance, request number, requester, project,
   worker count, Cancel and Send), a Request Information card with labelled
   fields, and a numbered Workers card with Add Worker and a spreadsheet
   table — S.No, Worker, Qty, Note, Action (Add similar row, Add row below,
   Remove). The Worker cell uses the Material Request suggestion panel:
-  People (Free or the crew they are on), Designations, and "Ask for any".
+  People (Free or the crew they are on), then "Use …" for typed text.
   A named person shows in the cell with their tag and a Change button; Qty
   is fixed at 1. Incomplete rows after Send are highlighted with the same
   attention banner and red markers. The Request Status panel (route,

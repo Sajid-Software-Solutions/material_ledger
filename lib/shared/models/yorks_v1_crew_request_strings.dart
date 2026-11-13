@@ -309,10 +309,10 @@ abstract final class CrewRequestStrings {
     hi: '{number} सुधारें और फिर भेजें',
   );
   static const formIntro = _T(
-    en: 'Say who you need and from when. Type a name to ask for a person, or a designation for any worker. Nothing is sent until you press Send.',
-    ar: 'حدّد من تحتاج ومتى. اكتب اسمًا لطلب شخص بعينه، أو مسمّى وظيفيًا لأي عامل. لا يُرسل شيء حتى تضغط إرسال.',
-    ur: 'بتائیں آپ کو کون اور کب سے چاہیے۔ کسی شخص کے لیے نام لکھیں، یا کسی بھی کارکن کے لیے عہدہ۔ بھیجیں دبانے تک کچھ نہیں بھیجا جاتا۔',
-    hi: 'बताएँ आपको कौन और कब से चाहिए। किसी व्यक्ति के लिए नाम लिखें, या किसी भी कामगार के लिए पदनाम। भेजें दबाने तक कुछ नहीं भेजा जाता।',
+    en: 'Say who you need and from when. Type a person\'s name, or the workers you need and how many. Nothing is sent until you press Send.',
+    ar: 'حدّد من تحتاج ومتى. اكتب اسم شخص، أو العمال الذين تحتاجهم والعدد. لا يُرسل شيء حتى تضغط إرسال.',
+    ur: 'بتائیں آپ کو کون اور کب سے چاہیے۔ کسی شخص کا نام لکھیں، یا درکار کارکن اور تعداد۔ بھیجیں دبانے تک کچھ نہیں بھیجا جاتا۔',
+    hi: 'बताएँ आपको कौन और कब से चाहिए। किसी व्यक्ति का नाम लिखें, या ज़रूरी कामगार और संख्या। भेजें दबाने तक कुछ नहीं भेजा जाता।',
   );
   static const forLabel = _T(
     en: 'For',
@@ -393,10 +393,10 @@ abstract final class CrewRequestStrings {
     hi: 'कामगार',
   );
   static const tradeHint = _T(
-    en: 'Name or designation',
-    ar: 'الاسم أو المسمّى الوظيفي',
-    ur: 'نام یا عہدہ',
-    hi: 'नाम या पदनाम',
+    en: 'Name, or e.g. Labour',
+    ar: 'الاسم، أو مثلًا عامل',
+    ur: 'نام، یا مثلاً مزدور',
+    hi: 'नाम, या जैसे मज़दूर',
   );
   static const howMany = _T(en: 'Qty', ar: 'العدد', ur: 'تعداد', hi: 'संख्या');
   static const lineNote = _T(
@@ -448,10 +448,10 @@ abstract final class CrewRequestStrings {
     hi: 'प्रोजेक्ट इंजीनियर स्वीकृत करेगा और कामगार सौंपेगा।',
   );
   static const errNoLines = _T(
-    en: 'Add at least one worker: a name, or a designation and how many.',
-    ar: 'أضف عاملًا واحدًا على الأقل: اسمًا، أو مسمّى وظيفيًا والعدد.',
-    ur: 'کم از کم ایک کارکن شامل کریں: نام، یا عہدہ اور تعداد۔',
-    hi: 'कम से कम एक कामगार जोड़ें: नाम, या पदनाम और संख्या।',
+    en: 'Add at least one worker: a name, or who you need and how many.',
+    ar: 'أضف عاملًا واحدًا على الأقل: اسمًا، أو من تحتاج والعدد.',
+    ur: 'کم از کم ایک کارکن شامل کریں: نام، یا کون چاہیے اور تعداد۔',
+    hi: 'कम से कम एक कामगार जोड़ें: नाम, या कौन चाहिए और संख्या।',
   );
   static const errProject = _T(
     en: 'Choose the project.',
@@ -957,10 +957,10 @@ abstract final class CrewRequestStrings {
     hi: 'आपको कौन से कामगार चाहिए?',
   );
   static const peopleDescription = _T(
-    en: 'Type a name to ask for a person, or a designation for any worker.',
-    ar: 'اكتب اسمًا لطلب شخص بعينه، أو مسمّى وظيفيًا لأي عامل.',
-    ur: 'کسی شخص کے لیے نام لکھیں، یا کسی بھی کارکن کے لیے عہدہ۔',
-    hi: 'किसी व्यक्ति के लिए नाम लिखें, या किसी भी कामगार के लिए पदनाम।',
+    en: 'Type a person\'s name, or the workers you need (e.g. Labour) and how many.',
+    ar: 'اكتب اسم شخص، أو العمال الذين تحتاجهم (مثلًا عامل) والعدد.',
+    ur: 'کسی شخص کا نام لکھیں، یا درکار کارکن (مثلاً مزدور) اور تعداد۔',
+    hi: 'किसी व्यक्ति का नाम लिखें, या ज़रूरी कामगार (जैसे मज़दूर) और संख्या।',
   );
   static const reviewPrompt = _T(
     en: 'Review and send',
@@ -1206,12 +1206,6 @@ abstract final class CrewRequestStrings {
     ar: 'الأشخاص',
     ur: 'افراد',
     hi: 'लोग',
-  );
-  static const suggestTrades = _T(
-    en: 'Designations',
-    ar: 'المسمّيات الوظيفية',
-    ur: 'عہدے',
-    hi: 'पदनाम',
   );
   static const workerFree = _T(en: 'Free', ar: 'متاح', ur: 'فارغ', hi: 'खाली');
   static const workerOnCrew = _T(
@@ -1485,23 +1479,11 @@ abstract final class CrewRequestStrings {
     ur: 'ابھی کوئی کارکن شامل نہیں کیا گیا۔',
     hi: 'अभी कोई कामगार नहीं जोड़ा गया।',
   );
-  static const designationMeta = _T(
-    en: 'Any worker with this designation',
-    ar: 'أي عامل بهذا المسمّى',
-    ur: 'اس عہدے کا کوئی بھی کارکن',
-    hi: 'इस पदनाम का कोई भी कामगार',
-  );
-  static const badgeDesignation = _T(
-    en: 'Designation',
-    ar: 'مسمّى',
-    ur: 'عہدہ',
-    hi: 'पदनाम',
-  );
   static const askForAny = _T(
-    en: 'Ask for any “{text}”',
-    ar: 'اطلب أي «{text}»',
-    ur: 'کوئی بھی «{text}» مانگیں',
-    hi: 'कोई भी “{text}” माँगें',
+    en: 'Use “{text}”',
+    ar: 'استخدم «{text}»',
+    ur: '«{text}» استعمال کریں',
+    hi: '“{text}” इस्तेमाल करें',
   );
   static const rowsAttention = _T(
     en: 'Some worker rows need attention. The first incomplete row is highlighted below.',
@@ -1516,10 +1498,10 @@ abstract final class CrewRequestStrings {
     hi: 'देखें',
   );
   static const workerRequired = _T(
-    en: 'Choose a person or type a designation.',
-    ar: 'اختر شخصًا أو اكتب مسمّى وظيفيًا.',
-    ur: 'کوئی شخص چنیں یا عہدہ لکھیں۔',
-    hi: 'कोई व्यक्ति चुनें या पदनाम लिखें।',
+    en: 'Choose a person or type who you need.',
+    ar: 'اختر شخصًا أو اكتب من تحتاج.',
+    ur: 'کوئی شخص چنیں یا لکھیں کون چاہیے۔',
+    hi: 'कोई व्यक्ति चुनें या लिखें कौन चाहिए।',
   );
   static const qtyRequired = _T(
     en: 'Enter how many, 1 to 200.',

@@ -556,7 +556,7 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
     expect(
       find.text(
-        'Add at least one worker: a name, or a designation and how many.',
+        'Add at least one worker: a name, or who you need and how many.',
       ),
       findsOneWidget,
     );
@@ -773,13 +773,10 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const ValueKey('crew-request-worker-1')),
-      'help',
+      'Helper',
     );
     await tester.pumpAndSettle();
-    await _tap(
-      tester,
-      find.byKey(const ValueKey('crew-request-suggest-designation-1-Helper')),
-    );
+    await _tap(tester, find.byKey(const ValueKey('crew-request-use-typed-1')));
     expect(
       tester
           .widget<TextField>(
@@ -827,7 +824,7 @@ void main() {
       'Welder',
     );
     await tester.pumpAndSettle();
-    await _tap(tester, find.byKey(const ValueKey('crew-request-ask-any-0')));
+    await _tap(tester, find.byKey(const ValueKey('crew-request-use-typed-0')));
     await tester.enterText(
       find.byKey(const ValueKey('crew-request-quantity-0')),
       '',
@@ -1542,12 +1539,12 @@ void main() {
       await _tap(tester, find.byKey(const ValueKey('crew-request-below-0')));
       await tester.enterText(
         find.byKey(const ValueKey('crew-request-worker-1')),
-        'help',
+        'Labour',
       );
       await tester.pumpAndSettle();
       await _tap(
         tester,
-        find.byKey(const ValueKey('crew-request-suggest-designation-1-Helper')),
+        find.byKey(const ValueKey('crew-request-use-typed-1')),
       );
       await tester.enterText(
         find.byKey(const ValueKey('crew-request-quantity-1')),
@@ -1596,14 +1593,12 @@ void main() {
       await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
       await tester.enterText(
         find.byKey(const ValueKey('crew-request-worker-editor')),
-        'Helper',
+        'Labour',
       );
       await tester.pumpAndSettle();
       await _tap(
         tester,
-        find.byKey(
-          const ValueKey('crew-request-suggest-designation-editor-Helper'),
-        ),
+        find.byKey(const ValueKey('crew-request-use-typed-editor')),
       );
       await tester.enterText(
         find.byKey(const ValueKey('crew-request-quantity-editor')),

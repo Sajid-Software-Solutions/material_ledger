@@ -1,8 +1,8 @@
-/// Crew requests — the Worker field: type a name to ask for a person, or a
-/// designation for any worker. Suggestions open under the field in the
-/// Material Request item-search panel style: People first (with Free or the
-/// crew they are on), then Designations, then "Ask for any …" to keep what
-/// was typed.
+/// Crew requests — the Worker field, like a Material Request item: type a
+/// person's name to ask for them, or describe the workers needed (for
+/// example "Labour") and set how many. Suggestions open under the field in
+/// the Material Request item-search panel style: People (with Free or the
+/// crew they are on), then "Use …" to keep what was typed.
 library;
 
 import 'dart:math' as math;
@@ -16,32 +16,17 @@ import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import 'crew_request_common.dart';
 
-sealed class _Choice {
-  const _Choice();
-}
-
-final class _PersonChoice extends _Choice {
-  const _PersonChoice(this.worker);
-  final AttendanceWorker worker;
-}
-
-final class _DesignationChoice extends _Choice {
-  const _DesignationChoice(this.designation);
-  final String designation;
-}
-
 class CrewWorkerField extends StatefulWidget {
   const CrewWorkerField({
     super.key,
     required this.slot,
     required this.controller,
     required this.workers,
-    required this.designations,
     required this.excludedWorkerIds,
     required this.language,
     required this.onWorker,
     required this.onChanged,
-    this.onDesignation,
+    this.onTyped,
     this.enabled = true,
     this.desktopCell = false,
     this.label,
@@ -52,14 +37,15 @@ class CrewWorkerField extends StatefulWidget {
   final String slot;
   final TextEditingController controller;
   final List<AttendanceWorker> workers;
-  final List<String> designations;
 
   /// People already named elsewhere on this request.
   final Set<String> excludedWorkerIds;
   final AppLanguage language;
   final ValueChanged<AttendanceWorker> onWorker;
   final ValueChanged<String> onChanged;
-  final ValueChanged<String>? onDesignation;
+
+  /// The typed text is kept as the row's description.
+  final ValueChanged<String>? onTyped;
   final bool enabled;
 
   /// A borderless spreadsheet cell, as in the Material Request table.
@@ -96,31 +82,6 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
             hit.item,
         ];
 
-  List<String> get _designations => _query.isEmpty
-      ? const []
-      : [
-          for (final hit in attendanceFuzzySearch(
-            _query,
-            widget.designations,
-            (designation) => designation,
-            limit: 4,
-          ))
-            hit.item,
-        ];
-
-  List<_Choice> get _choices => [
-    for (final worker in _people) _PersonChoice(worker),
-    for (final designation in _designations) _DesignationChoice(designation),
-  ];
-
-  /// Typed text that is not exactly a known designation may be kept as is.
-  bool get _canAskForAny =>
-      _query.isNotEmpty &&
-      widget.designations.every(
-        (designation) =>
-            attendanceCanon(designation) != attendanceCanon(_query),
-      );
-
   @override
   void initState() {
     super.initState();
@@ -143,10 +104,6 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
 
   void _refresh() {
     if (!widget.enabled || !_focus.hasFocus || _query.isEmpty) {
-      _hide();
-      return;
-    }
-    if (_choices.isEmpty && !_canAskForAny) {
       _hide();
       return;
     }
@@ -196,12 +153,11 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
                     slot: widget.slot,
                     language: widget.language,
                     people: _people,
-                    designations: _designations,
-                    askForAny: _canAskForAny ? _query : null,
+                    typed: _query,
                     highlight: _highlight,
                     maxHeight: height,
                     onPerson: _pickPerson,
-                    onDesignation: _pickDesignation,
+                    onTyped: _keepTyped,
                     onHover: (index) {
                       if (index == _highlight) return;
                       _highlight = index;
@@ -234,33 +190,29 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
     widget.onWorker(worker);
   }
 
-  void _pickDesignation(String designation) {
-    widget.controller.value = TextEditingValue(
-      text: designation,
-      selection: TextSelection.collapsed(offset: designation.length),
-    );
+  void _keepTyped() {
+    final text = _query;
     _hide();
-    widget.onChanged(designation);
-    widget.onDesignation?.call(designation);
+    if (text.isNotEmpty) widget.onTyped?.call(text);
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent || _entry == null) {
       return KeyEventResult.ignored;
     }
-    final choices = _choices;
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       _hide();
       return KeyEventResult.handled;
     }
-    if (choices.isEmpty) return KeyEventResult.ignored;
+    // People, then "Use …".
+    final count = _people.length + 1;
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _highlight = (_highlight + 1) % choices.length;
+      _highlight = (_highlight + 1) % count;
       _entry?.markNeedsBuild();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _highlight = (_highlight - 1 + choices.length) % choices.length;
+      _highlight = (_highlight - 1 + count) % count;
       _entry?.markNeedsBuild();
       return KeyEventResult.handled;
     }
@@ -268,16 +220,11 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
   }
 
   void _submit() {
-    final choices = _choices;
-    if (_entry != null && choices.isNotEmpty) {
-      switch (choices[_highlight.clamp(0, choices.length - 1)]) {
-        case _PersonChoice(:final worker):
-          _pickPerson(worker);
-        case _DesignationChoice(:final designation):
-          _pickDesignation(designation);
-      }
+    final people = _people;
+    if (_entry != null && _highlight < people.length) {
+      _pickPerson(people[_highlight]);
     } else {
-      _hide();
+      _keepTyped();
     }
   }
 
@@ -336,273 +283,209 @@ class _CrewWorkerFieldState extends State<CrewWorkerField> {
   );
 }
 
-/// The Material Request suggestion panel, for people and designations.
+/// The Material Request suggestion panel: people, then "Use …".
 class _SuggestionPanel extends StatelessWidget {
   const _SuggestionPanel({
     required this.slot,
     required this.language,
     required this.people,
-    required this.designations,
-    required this.askForAny,
+    required this.typed,
     required this.highlight,
     required this.maxHeight,
     required this.onPerson,
-    required this.onDesignation,
+    required this.onTyped,
     required this.onHover,
   });
 
   final String slot;
   final AppLanguage language;
   final List<AttendanceWorker> people;
-  final List<String> designations;
-  final String? askForAny;
+  final String typed;
   final int highlight;
   final double maxHeight;
   final ValueChanged<AttendanceWorker> onPerson;
-  final ValueChanged<String> onDesignation;
+  final VoidCallback onTyped;
   final ValueChanged<int> onHover;
-
-  Widget _group(IconData icon, Color color, String label, int count) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        color: AppColors.surfaceContainerLow,
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                label.toUpperCase(),
-                style: AppTypography.labelSmall.copyWith(
-                  color: AppColors.inkSecondary,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ),
-            Text(
-              '$count',
-              style: AppTypography.labelSmall.copyWith(
-                color: AppColors.muted,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _row({
-    required Key key,
-    required bool highlighted,
-    required Widget leading,
-    required String title,
-    required String meta,
-    required String badge,
-    required Color badgeColor,
-    required Color badgeBackground,
-    required VoidCallback onTap,
-    required VoidCallback onHovered,
-  }) => InkWell(
-    key: key,
-    canRequestFocus: false,
-    onTap: onTap,
-    onHover: (hovering) {
-      if (hovering) onHovered();
-    },
-    child: Container(
-      constraints: const BoxConstraints(minHeight: AppSpacing.minTapTarget),
-      padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
-      decoration: BoxDecoration(
-        color: highlighted ? AppColors.blue.withValues(alpha: 0.06) : null,
-        border: const Border(bottom: BorderSide(color: AppColors.line)),
-      ),
-      child: Row(
-        children: [
-          leading,
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.labelLarge.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  meta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            flex: 0,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 150),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeBackground,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                ),
-                child: Text(
-                  badge,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.labelSmall.copyWith(
-                    color: badgeColor,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 2),
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 19,
-            color: AppColors.muted,
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _box(Widget child, Color color) => Container(
-    width: 38,
-    height: 38,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: AppColors.line),
-    ),
-    child: child,
-  );
 
   @override
   Widget build(BuildContext context) {
     final children = <Widget>[];
     if (people.isNotEmpty) {
       children.add(
-        _group(
-          Icons.badge_outlined,
-          AppColors.blue,
-          CRS.t(CRS.suggestPeople, language),
-          people.length,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          color: AppColors.surfaceContainerLow,
+          child: Row(
+            children: [
+              const Icon(Icons.badge_outlined, size: 16, color: AppColors.blue),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  CRS.t(CRS.suggestPeople, language).toUpperCase(),
+                  style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.inkSecondary,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              Text(
+                '${people.length}',
+                style: AppTypography.labelSmall.copyWith(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       );
       for (final (index, worker) in people.indexed) {
         final onCrew = worker.crewId != null;
         children.add(
-          _row(
+          InkWell(
             key: ValueKey('crew-request-suggest-worker-$slot-${worker.id}'),
-            highlighted: highlight == index,
-            leading: _box(
-              Text(
-                worker.initials,
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.blue,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              AppColors.blue,
-            ),
-            title: worker.name,
-            meta: [
-              worker.number,
-              worker.designation,
-            ].where((part) => part.isNotEmpty).join(' · '),
-            badge: onCrew
-                ? CRS.t(CRS.workerOnCrew, language, {
-                    'crew': worker.crewName ?? '',
-                  })
-                : CRS.t(CRS.workerFree, language),
-            badgeColor: onCrew ? AppColors.warning : AppColors.success,
-            badgeBackground: onCrew
-                ? AppColors.warningContainer
-                : AppColors.successContainer,
+            canRequestFocus: false,
             onTap: () => onPerson(worker),
-            onHovered: () => onHover(index),
-          ),
-        );
-      }
-    }
-    if (designations.isNotEmpty) {
-      children.add(
-        _group(
-          Icons.engineering_outlined,
-          AppColors.success,
-          CRS.t(CRS.suggestTrades, language),
-          designations.length,
-        ),
-      );
-      for (final (offset, designation) in designations.indexed) {
-        final index = people.length + offset;
-        children.add(
-          _row(
-            key: ValueKey(
-              'crew-request-suggest-designation-$slot-$designation',
-            ),
-            highlighted: highlight == index,
-            leading: _box(
-              const Icon(
-                Icons.engineering_outlined,
-                size: 20,
-                color: AppColors.success,
+            onHover: (hovering) {
+              if (hovering) onHover(index);
+            },
+            child: Container(
+              constraints: const BoxConstraints(
+                minHeight: AppSpacing.minTapTarget,
               ),
-              AppColors.success,
-            ),
-            title: designation,
-            meta: CRS.t(CRS.designationMeta, language),
-            badge: CRS.t(CRS.badgeDesignation, language),
-            badgeColor: AppColors.success,
-            badgeBackground: AppColors.successContainer,
-            onTap: () => onDesignation(designation),
-            onHovered: () => onHover(index),
-          ),
-        );
-      }
-    }
-    if (askForAny != null) {
-      children.add(
-        InkWell(
-          key: ValueKey('crew-request-ask-any-$slot'),
-          canRequestFocus: false,
-          onTap: () => onDesignation(askForAny!),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(
-              children: [
-                const Icon(Icons.add_rounded, size: 19, color: AppColors.blue),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    CRS.t(CRS.askForAny, language, {'text': askForAny}),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.labelLarge.copyWith(
-                      color: AppColors.blue,
-                      fontWeight: FontWeight.w800,
+              padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
+              decoration: BoxDecoration(
+                color: highlight == index
+                    ? AppColors.blue.withValues(alpha: 0.06)
+                    : null,
+                border: const Border(bottom: BorderSide(color: AppColors.line)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                    child: Text(
+                      worker.initials,
+                      style: AppTypography.labelMedium.copyWith(
+                        color: AppColors.blue,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          worker.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.labelLarge.copyWith(
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          [
+                            worker.number,
+                            worker.designation,
+                          ].where((part) => part.isNotEmpty).join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.labelSmall.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: onCrew
+                            ? AppColors.warningContainer
+                            : AppColors.successContainer,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusFull,
+                        ),
+                      ),
+                      child: Text(
+                        onCrew
+                            ? CRS.t(CRS.workerOnCrew, language, {
+                                'crew': worker.crewName ?? '',
+                              })
+                            : CRS.t(CRS.workerFree, language),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.labelSmall.copyWith(
+                          color: onCrew ? AppColors.warning : AppColors.success,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 19,
+                    color: AppColors.muted,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
     }
+    // Keep what was typed, as "Keep as custom item" on a Material Request.
+    children.add(
+      InkWell(
+        key: ValueKey('crew-request-use-typed-$slot'),
+        canRequestFocus: false,
+        onTap: onTyped,
+        onHover: (hovering) {
+          if (hovering) onHover(people.length);
+        },
+        child: Container(
+          color: highlight == people.length
+              ? AppColors.blue.withValues(alpha: 0.06)
+              : null,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              const Icon(Icons.add_rounded, size: 19, color: AppColors.blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  CRS.t(CRS.askForAny, language, {'text': typed}),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelLarge.copyWith(
+                    color: AppColors.blue,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
     return Material(
       key: ValueKey('crew-request-suggestions-$slot'),
       elevation: 8,

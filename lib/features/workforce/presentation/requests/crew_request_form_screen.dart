@@ -7,8 +7,9 @@
 /// beside a Request Status panel. Phone: Details, Workers and Review steps,
 /// a worker basket, and a focused one-worker editor.
 ///
-/// Each row asks for a person by name or for any worker with a designation:
-/// the Worker field suggests both as the requester types. A person on
+/// Each row is a Worker, as an item is on a Material Request: a person by
+/// name, or a description ("Labour") and how many. The Worker field
+/// suggests people as the requester types. A person on
 /// another crew carries a warning the approver also sees. Nothing reaches
 /// the approver until Send succeeds on the server; a refusal is shown with
 /// everything typed still there.
@@ -106,18 +107,18 @@ class CrewRequestFormScreen extends ConsumerWidget {
   }
 }
 
-/// One row: a person by name, or a designation and how many.
+/// One row: a person by name, or a description and how many.
 class _LineDraft {
   _LineDraft({
-    String designation = '',
+    String description = '',
     String quantity = '',
     String note = '',
     this.worker,
-  }) : text = TextEditingController(text: designation),
+  }) : text = TextEditingController(text: description),
        quantity = TextEditingController(text: quantity),
        note = TextEditingController(text: note);
 
-  /// The designation typed, or the name being looked up.
+  /// The description typed, or the name being looked up.
   final TextEditingController text;
   final TextEditingController quantity;
   final TextEditingController note;
@@ -136,7 +137,7 @@ class _LineDraft {
       note.text.trim().isEmpty;
   bool get isValid => hasWorker && hasCount;
 
-  /// The person's name, or the designation.
+  /// The person's name, or the description.
   String get title => worker?.name ?? text.text.trim();
 
   /// How the row reads in summaries.
@@ -147,16 +148,16 @@ class _LineDraft {
       : '${count ?? 0} × ${text.text.trim()}';
 
   _LineDraft copy() => _LineDraft(
-    designation: text.text,
+    description: text.text,
     quantity: quantity.text,
     note: note.text,
     worker: worker,
   );
 
-  /// Another worker like this one: the same designation, never the same
-  /// named person.
+  /// Another row like this one: the same description (a named person's
+  /// designation), never the same person.
   _LineDraft similar() => _LineDraft(
-    designation: worker?.designation ?? text.text.trim(),
+    description: worker?.designation ?? text.text.trim(),
     quantity: worker != null ? '1' : quantity.text.trim(),
   );
 
@@ -231,7 +232,7 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
         final named = line.worker;
         _lines.add(
           _LineDraft(
-            designation: named == null ? line.trade : '',
+            description: named == null ? line.trade : '',
             quantity: named == null ? '${line.quantity}' : '',
             note: line.note ?? '',
             worker: named == null
@@ -1181,14 +1182,13 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
                         slot: '$index',
                         controller: line.text,
                         workers: _options.workers,
-                        designations: _options.trades,
                         excludedWorkerIds: _namedElsewhere(line),
                         language: _language,
                         enabled: !_busy,
                         desktopCell: true,
                         onChanged: (_) => _changed(),
                         onWorker: (picked) => _pickWorker(line, picked),
-                        onDesignation: (_) {
+                        onTyped: (_) {
                           if (line.quantity.text.trim().isEmpty) {
                             line.quantity.text = '1';
                           }
@@ -1940,7 +1940,6 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
                           slot: 'editor',
                           controller: editor.text,
                           workers: _options.workers,
-                          designations: _options.trades,
                           excludedWorkerIds: {
                             for (final (index, line) in _lines.indexed)
                               if (index != _editorIndex && line.worker != null)
@@ -1957,7 +1956,7 @@ class _CrewRequestFormState extends ConsumerState<_CrewRequestForm> {
                             editor.text.clear();
                             editor.quantity.clear();
                           }),
-                          onDesignation: (_) => setState(() {
+                          onTyped: (_) => setState(() {
                             if (editor.quantity.text.trim().isEmpty) {
                               editor.quantity.text = '1';
                             }
