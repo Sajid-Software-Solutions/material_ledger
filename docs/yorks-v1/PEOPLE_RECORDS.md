@@ -15,7 +15,7 @@ document.
 | --- | --- | --- |
 | 1 | People home, Staff and Labour registers, person record, person form, document add/correct/renew/end, Excel import and export, tracker data load | This change |
 | 2 | Company documents: trade licences and permits per entity, vehicles and vehicle passes, insurance policies, CICPA contracts | See [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) |
-| 3 | Daily expiry summary to PR and Admin, status-only chips for engineers on their crew, Workforce and Timesheets links from a person | Later |
+| 3 | Daily expiry summary to PR and Admin (see below); status-only chips for engineers on their crew | Summary done; engineer chips later |
 
 Until slice 2, the import reports insurance lines and vehicle passes found
 in the tracker and skips them; they are not people.
@@ -120,6 +120,31 @@ expiry cells.
 Routes and the sidebar entry are behind `YORKS_V1_PEOPLE_RECORDS` (default
 off) and `people_records.view`; new and edit also need
 `people_records.manage`.
+
+## Daily summary
+
+`20261114150000_people_expiry_summary.sql` adds the daily job
+`v1_people_send_expiry_summary()`, scheduled as `yorks-people-expiry-summary`
+at 04:15 UTC (08:15 in Dubai).
+
+- **What counts:** every current document of an active person or an active
+  company record that has expired or expires within 60 days.
+- **Who:** every active PR and Admin (`v1_people_expiry_recipients`).
+- **When:** one notification per person per day, and only when the set of
+  documents and their statuses differs from that person's last summary.
+  `v1_people_expiry_digests` keeps each summary (counts and an md5
+  fingerprint of the set) and cannot be deleted.
+- **What it says:** `people_documents_overdue` (urgent) when anything has
+  expired, otherwise `people_documents_due`. The label is the number of
+  documents. It opens `/yorks/people`, or `/yorks/company-documents` when
+  only company documents need attention; the push sender allows only these
+  two links for it.
+- **Copy:** `contracts/notifications/module_events.v1.json`, generated into
+  the app and the push function by `tool/generate-notification-catalogue.py`.
+
+Rollback: `select cron.unschedule('yorks-people-expiry-summary');` and, if
+needed, restore the three notification functions from their
+`*_before_people_expiry` versions. Keep every row.
 
 ## Release and rollback
 

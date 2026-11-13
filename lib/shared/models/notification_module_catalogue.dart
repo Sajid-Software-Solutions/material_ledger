@@ -594,6 +594,38 @@ const notificationModuleEvents = <String, Map<String, Object>>{
     "destination": "attendance",
     "urgent": true,
   },
+  "people_documents_overdue": {
+    "title": <String>[
+      "Documents have expired",
+      "انتهت صلاحية مستندات",
+      "دستاویزات کی میعاد ختم ہو گئی",
+      "दस्तावेज़ों की अवधि समाप्त हो गई",
+    ],
+    "body": <String>[
+      "Some staff, labour or company documents have expired, and others may expire within 60 days. Open the list to renew them.",
+      "انتهت صلاحية بعض مستندات الموظفين أو العمال أو الشركة، وقد تنتهي أخرى خلال 60 يومًا. افتح القائمة لتجديدها.",
+      "عملے، مزدوروں یا کمپنی کی کچھ دستاویزات کی میعاد ختم ہو گئی ہے، اور کچھ 60 دن میں ختم ہو سکتی ہیں۔ تجدید کے لیے فہرست کھولیں۔",
+      "स्टाफ़, मज़दूरों या कंपनी के कुछ दस्तावेज़ों की अवधि समाप्त हो गई है, और कुछ 60 दिनों में समाप्त हो सकते हैं। नवीनीकरण के लिए सूची खोलें।",
+    ],
+    "destination": "people",
+    "urgent": true,
+  },
+  "people_documents_due": {
+    "title": <String>[
+      "Documents expiring soon",
+      "مستندات تنتهي قريبًا",
+      "دستاویزات جلد ختم ہو رہی ہیں",
+      "दस्तावेज़ जल्द समाप्त हो रहे हैं",
+    ],
+    "body": <String>[
+      "Some staff, labour or company documents expire within 60 days. Open the list to renew them in time.",
+      "تنتهي بعض مستندات الموظفين أو العمال أو الشركة خلال 60 يومًا. افتح القائمة لتجديدها في الوقت المناسب.",
+      "عملے، مزدوروں یا کمپنی کی کچھ دستاویزات 60 دن میں ختم ہو رہی ہیں۔ بروقت تجدید کے لیے فہرست کھولیں۔",
+      "स्टाफ़, मज़दूरों या कंपनी के कुछ दस्तावेज़ 60 दिनों में समाप्त हो रहे हैं। समय पर नवीनीकरण के लिए सूची खोलें।",
+    ],
+    "destination": "people",
+    "urgent": false,
+  },
 };
 String moduleNotificationText(String code, String field, AppLanguage language) {
   final values = notificationModuleEvents[code]![field] as List<String>;
