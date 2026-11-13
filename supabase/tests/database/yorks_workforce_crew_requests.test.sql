@@ -616,9 +616,9 @@ select ok(
     select 1 from public.v1_workforce_crew_members member
     where member.worker_id = '7c020000-0000-4000-8000-000000000006'
       and member.team_id = '7c040000-0000-4000-8000-000000000001'
-      and member.removed_at is not null
+      and member.removed_at is null
   ),
-  'The named worker moved from the workshop crew to the request crew'
+  'The named worker joins the request crew and stays on the workshop crew (several places a day)'
 );
 select ok(
   exists (
@@ -747,14 +747,25 @@ reset role;
 select ok(
   not exists (
     select 1 from public.v1_workforce_crew_members member
-    where member.worker_id = '7c020000-0000-4000-8000-000000000006'
+    join public.v1_workforce_crew_requests request
+      on request.target_team_id = member.team_id
+    where request.id = current_setting('crq.rel')::uuid
+      and member.worker_id = '7c020000-0000-4000-8000-000000000006'
       and member.removed_at is null
   ) and exists (
     select 1 from public.v1_workforce_crew_members member
-    where member.worker_id = '7c020000-0000-4000-8000-000000000007'
+    join public.v1_workforce_crew_requests request
+      on request.target_team_id = member.team_id
+    where request.id = current_setting('crq.rel')::uuid
+      and member.worker_id = '7c020000-0000-4000-8000-000000000007'
+      and member.removed_at is null
+  ) and exists (
+    select 1 from public.v1_workforce_crew_members member
+    where member.worker_id = '7c020000-0000-4000-8000-000000000006'
+      and member.team_id = '7c040000-0000-4000-8000-000000000001'
       and member.removed_at is null
   ),
-  'Only the released worker left the crew'
+  'Only the released worker left the request crew; their other crew is kept'
 );
 
 set local role authenticated;

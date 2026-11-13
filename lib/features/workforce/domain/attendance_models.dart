@@ -185,26 +185,48 @@ final class AttendanceWorker {
     this.company = '',
     this.crewId,
     this.crewName,
+    this.crews = const [],
+    this.isStaff = false,
   });
 
-  factory AttendanceWorker.fromJson(Map<String, dynamic> json) =>
-      AttendanceWorker(
-        id: _s(json['id']),
-        number: _s(json['number']),
-        name: _s(json['name']),
-        designation: _s(json['designation']),
-        company: _s(json['company']),
-        crewId: _ns(json['crew_id']),
-        crewName: _ns(json['crew_name']),
-      );
+  factory AttendanceWorker.fromJson(Map<String, dynamic> json) {
+    final crews = [
+      for (final crew in _maps(json['crews']))
+        (id: _s(crew['id']), name: _s(crew['name'])),
+    ];
+    final crewId = _ns(json['crew_id']);
+    final crewName = _ns(json['crew_name']);
+    return AttendanceWorker(
+      id: _s(json['id']),
+      number: _s(json['number']),
+      name: _s(json['name']),
+      designation: _s(json['designation']),
+      company: _s(json['company']),
+      crewId: crewId,
+      crewName: crewName,
+      // Older payloads name one crew only.
+      crews: crews.isEmpty && crewId != null
+          ? [(id: crewId, name: crewName ?? '')]
+          : crews,
+      isStaff: json['category'] == 'staff',
+    );
+  }
 
   final String id;
   final String number;
   final String name;
   final String designation;
   final String company;
+
+  /// The first sheet the worker is on (by name), or null for the labour pool.
   final String? crewId;
   final String? crewName;
+
+  /// Every sheet the worker is on: a labourer may work at several places.
+  final List<({String id, String name})> crews;
+
+  /// Staff never go on attendance sheets; the server lists labour only.
+  final bool isStaff;
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -213,6 +235,79 @@ final class AttendanceWorker {
     final last = parts.length > 1 ? parts.last[0] : '';
     return (first + last).toUpperCase();
   }
+}
+
+/// The same worker's line on another sheet that day: a labourer may work at
+/// up to three places a day, each recording its own hours.
+final class AttendanceElsewhere {
+  const AttendanceElsewhere({
+    required this.crewId,
+    required this.crewName,
+    this.status,
+    this.start,
+    this.breakStart,
+    this.breakFinish,
+    this.finish,
+    this.worked = 0,
+    this.locked = false,
+  });
+
+  factory AttendanceElsewhere.fromJson(Map<String, dynamic> json) =>
+      AttendanceElsewhere(
+        crewId: _s(json['crew_id']),
+        crewName: _s(json['crew_name']),
+        status: AttendanceStatus.fromCode(json['status']),
+        start: _ni(json['start_minute']),
+        breakStart: _ni(json['break_start_minute']),
+        breakFinish: _ni(json['break_finish_minute']),
+        finish: _ni(json['finish_minute']),
+        worked: _i(json['worked_minutes']),
+        locked: _b(json['locked']),
+      );
+
+  final String crewId;
+  final String crewName;
+  final AttendanceStatus? status;
+  final int? start;
+  final int? breakStart;
+  final int? breakFinish;
+  final int? finish;
+  final int worked;
+
+  /// That place's month is confirmed.
+  final bool locked;
+
+  bool get isPresent =>
+      status == AttendanceStatus.present && start != null && finish != null;
+
+  Map<String, Object?> toJson() => {
+    'crew_id': crewId,
+    'crew_name': crewName,
+    'status': status?.code,
+    'start_minute': start,
+    'break_start_minute': breakStart,
+    'break_finish_minute': breakFinish,
+    'finish_minute': finish,
+    'worked_minutes': worked,
+    'locked': locked,
+  };
+}
+
+/// Why a line cannot be saved alongside the worker's other places that day.
+enum AttendancePlaceConflict {
+  none,
+
+  /// Present here at a time they are present at another place.
+  overlap,
+
+  /// Present here while on leave at another place.
+  onLeaveElsewhere,
+
+  /// On leave here while present at another place.
+  presentElsewhere,
+
+  /// Present here and already present at three other places.
+  tooManyPlaces,
 }
 
 /// One worker's line on a day, as saved or being edited.
@@ -230,6 +325,7 @@ final class AttendanceRow {
     this.copied = false,
     this.changedAfterEntry = false,
     this.isMember = true,
+    this.elsewhere = const [],
   });
 
   factory AttendanceRow.fromJson(Map<String, dynamic> json) => AttendanceRow(
@@ -245,6 +341,10 @@ final class AttendanceRow {
     copied: _b(json['copied']),
     changedAfterEntry: _b(json['changed_after_entry']),
     isMember: json['is_member'] != false,
+    elsewhere: [
+      for (final other in _maps(json['elsewhere']))
+        AttendanceElsewhere.fromJson(other),
+    ],
   );
 
   final AttendanceWorker worker;
@@ -262,16 +362,110 @@ final class AttendanceRow {
   /// False for a worker added to this day only.
   final bool isMember;
 
+  /// The worker's lines on other sheets that day, from the server.
+  final List<AttendanceElsewhere> elsewhere;
+
   bool get isMarked => status != null;
 
-  AttendanceMinutes minutes({required bool holiday}) =>
-      computeAttendanceMinutes(
-        present: status == AttendanceStatus.present,
-        holiday: holiday,
+  /// Recorded present, resting or on leave at another place today: this
+  /// sheet need not mark them.
+  bool get busyElsewhere => elsewhere.any(
+    (other) =>
+        other.status == AttendanceStatus.present ||
+        other.status == AttendanceStatus.rest ||
+        (other.status?.isLeave ?? false),
+  );
+
+  /// Unmarked here and nowhere else: still to be marked.
+  bool get needsMarking => !isMarked && !busyElsewhere;
+
+  /// Hours over the worker's whole day (server rule, PRODUCT_DECISIONS 46):
+  /// in time order, the first 8 hours of the day are normal and every later
+  /// hour is overtime, on the sheet where it was worked.
+  AttendanceMinutes minutes({required bool holiday}) {
+    final own = computeAttendanceMinutes(
+      present: status == AttendanceStatus.present,
+      holiday: holiday,
+      start: start,
+      breakStart: breakStart,
+      breakFinish: breakFinish,
+      finish: finish,
+    );
+    if (holiday || own.timeMissing || own.worked == 0) return own;
+    final before = elsewhere
+        .where(
+          (other) =>
+              other.isPresent &&
+              (other.start! < start! ||
+                  (other.start == start && other.finish! < finish!)),
+        )
+        .fold<int>(0, (sum, other) => sum + other.worked);
+    final room = (attendanceStandardMinutes - before).clamp(0, own.worked);
+    return AttendanceMinutes(
+      worked: own.worked,
+      regular: room,
+      normalOvertime: own.worked - room,
+    );
+  }
+
+  /// Whether this line fits with the worker's other places today.
+  AttendancePlaceConflict get placeConflict {
+    if (status == AttendanceStatus.present) {
+      if (elsewhere.any((other) => other.status?.isLeave ?? false)) {
+        return AttendancePlaceConflict.onLeaveElsewhere;
+      }
+      if (start != null &&
+          finish != null &&
+          elsewhere.any(
+            (other) =>
+                other.isPresent &&
+                other.start! < finish! &&
+                start! < other.finish!,
+          )) {
+        return AttendancePlaceConflict.overlap;
+      }
+      if (elsewhere.where((other) => other.isPresent).length >= 3) {
+        return AttendancePlaceConflict.tooManyPlaces;
+      }
+    } else if ((status?.isLeave ?? false) &&
+        elsewhere.any((other) => other.isPresent)) {
+      return AttendancePlaceConflict.presentElsewhere;
+    }
+    return AttendancePlaceConflict.none;
+  }
+
+  /// The other place this line clashes with, for its message.
+  AttendanceElsewhere? get conflictingPlace => switch (placeConflict) {
+    AttendancePlaceConflict.none => null,
+    AttendancePlaceConflict.overlap => elsewhere.firstWhere(
+      (other) =>
+          other.isPresent && other.start! < finish! && start! < other.finish!,
+    ),
+    AttendancePlaceConflict.onLeaveElsewhere => elsewhere.firstWhere(
+      (other) => other.status?.isLeave ?? false,
+    ),
+    AttendancePlaceConflict.presentElsewhere => elsewhere.firstWhere(
+      (other) => other.isPresent,
+    ),
+    AttendancePlaceConflict.tooManyPlaces => null,
+  };
+
+  /// The same line with the server's latest view of the other places.
+  AttendanceRow withElsewhere(List<AttendanceElsewhere> places) =>
+      AttendanceRow(
+        worker: worker,
+        status: status,
         start: start,
         breakStart: breakStart,
         breakFinish: breakFinish,
         finish: finish,
+        workProjectId: workProjectId,
+        workLabel: workLabel,
+        overtimeNote: overtimeNote,
+        copied: copied,
+        changedAfterEntry: changedAfterEntry,
+        isMember: isMember,
+        elsewhere: places,
       );
 
   AttendanceRow copyWith({
@@ -309,6 +503,7 @@ final class AttendanceRow {
       copied: copied ?? this.copied,
       changedAfterEntry: changedAfterEntry,
       isMember: isMember,
+      elsewhere: elsewhere,
     );
   }
 
@@ -337,8 +532,12 @@ final class AttendanceRow {
       'company': worker.company,
       'crew_id': worker.crewId,
       'crew_name': worker.crewName,
+      'crews': [
+        for (final crew in worker.crews) {'id': crew.id, 'name': crew.name},
+      ],
     },
     'is_member': isMember,
+    'elsewhere': [for (final other in elsewhere) other.toJson()],
   };
 
   /// Compares only what is saved, to tell whether a draft differs.

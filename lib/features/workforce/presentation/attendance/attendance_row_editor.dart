@@ -100,8 +100,12 @@ class _RowEditorState extends State<_RowEditor> {
   @override
   void initState() {
     super.initState();
-    // Opening an unmarked worker on a working day starts at Present.
-    _row = widget.initial.isMarked || widget.day.holiday
+    // Opening an unmarked worker on a working day starts at Present, unless
+    // they are recorded at another place today: then the keeper chooses.
+    _row =
+        widget.initial.isMarked ||
+            widget.day.holiday ||
+            widget.initial.busyElsewhere
         ? widget.initial
         : widget.presentOnShift(widget.initial);
     _syncFields();
@@ -158,6 +162,7 @@ class _RowEditorState extends State<_RowEditor> {
       copied: false,
       changedAfterEntry: _row.changedAfterEntry,
       isMember: _row.isMember,
+      elsewhere: _row.elsewhere,
     );
     return draft;
   }
@@ -353,6 +358,57 @@ class _RowEditorState extends State<_RowEditor> {
           ),
         ],
       ),
+      // The worker's other places today, so this place's times fit.
+      if (row.elsewhere.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Container(
+          key: const ValueKey('attendance-editor-elsewhere'),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AccountsV2Colors.neu,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AS.t(AS.alsoToday, language),
+                style: v2Style(12, weight: FontWeight.w700),
+              ),
+              for (final other in row.elsewhere)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '${other.crewName} · ${attendancePlaceTime(other, language)}',
+                    style: v2Style(12.5, color: AccountsV2Colors.ink2),
+                  ),
+                ),
+              if (!widget.initial.isMarked && widget.initial.busyElsewhere)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    AS.t(AS.markHereToo, language),
+                    style: v2Style(12, color: AccountsV2Colors.mut),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      for (final line in attendancePlaceLines(row, language))
+        if (line.bad)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              line.text,
+              key: const ValueKey('attendance-editor-conflict'),
+              style: v2Style(
+                12.5,
+                weight: FontWeight.w700,
+                color: AccountsV2Colors.bad,
+              ),
+            ),
+          ),
       const SizedBox(height: 12),
       Wrap(
         spacing: 6,
@@ -718,6 +774,7 @@ class _GridRowState extends State<_GridRow> {
         overtimeNote: widget.row.overtimeNote,
         changedAfterEntry: widget.row.changedAfterEntry,
         isMember: widget.row.isMember,
+        elsewhere: widget.row.elsewhere,
       ),
     );
   }
@@ -849,6 +906,28 @@ class _GridRowState extends State<_GridRow> {
                               : AccountsV2Colors.vio,
                         ),
                       ),
+                      // Where else the worker is today, or what clashes.
+                      for (final line in attendancePlaceLines(row, language))
+                        Tooltip(
+                          message: line.text,
+                          child: Text(
+                            line.text,
+                            key: ValueKey(
+                              'attendance-grid-place-${row.worker.id}',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: v2Style(
+                              11,
+                              weight: line.bad
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: line.bad
+                                  ? AccountsV2Colors.bad
+                                  : AccountsV2Colors.mut,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

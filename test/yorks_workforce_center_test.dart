@@ -916,7 +916,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.text('On Ruwais crew · approving moves them here'),
+      find.text('Also on Ruwais crew · stays there and joins this crew too'),
       findsOneWidget,
     );
     expect(find.text('Rahim Shah (Duct fitter), 2 × Helper'), findsWidgets);
@@ -938,7 +938,7 @@ void main() {
       find.byKey(const ValueKey('crew-request-assign-moves-w3')),
       findsOneWidget,
     );
-    expect(find.text('Moves from Ruwais crew'), findsOneWidget);
+    expect(find.text('Also on Ruwais crew'), findsOneWidget);
 
     // The approver may remove the named person, then change their mind.
     await _tap(tester, named);

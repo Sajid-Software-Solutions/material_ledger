@@ -2430,6 +2430,47 @@ date of birth or other People field is shown or returned, and no
 chip ("Ask PR to renew them"); OK is a small check. Design:
 [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section Engineer status.
 
+## 46. Attendance at several places a day (owner decisions, 14 November 2026)
+
+Supersedes the one-crew-per-worker and one-sheet-per-day rules and the
+confirmers of section 37.
+
+- **Sheets kept by the place.** A crew is an attendance sheet for one place:
+  a project, or an internal location (workshop, store, office). Site and
+  Project Engineers, Senior Mechanical Engineers, Project Managers, Workshop
+  In-Charges, Admin and PR create and keep sheets without anyone setting
+  them up; a Site or Project Engineer only for a project they are on (or an
+  internal location). The creator keeps the sheet; the project's Site and
+  Project Engineers and the organization-wide engineers other than the
+  Document Controller may also take attendance on it. Document Controllers
+  and the Accountant read. Procurement has no attendance.
+- **Several places a day.** A labourer may be on several sheets and may
+  work at up to three places on the same day; each place records its own
+  hours. Adding a worker to a sheet never takes them off another one, so
+  there is nothing to confirm. Times at two places may not overlap, and a
+  worker on leave at one place cannot be present at another. A member
+  recorded present, resting or on leave at another place need not be marked
+  on this sheet, and a day may be saved with nobody on it when everyone was
+  elsewhere.
+- **Hours over the whole day.** In time order, the first 8 hours of the
+  worker's day are normal hours and every later hour is normal overtime, on
+  the sheet where it was worked; every hour on a Sunday or public holiday is
+  holiday overtime. A change at one place recounts the other places that
+  day, except that a confirmed month is never changed: such a save is
+  refused until Admin or PR reopens that month.
+- **Confirmers.** A month is confirmed by a Senior Mechanical Engineer or by
+  a Project Engineer of the sheet's project (an internal location: a Senior
+  Mechanical Engineer), with Admin as an audited override. Project Managers,
+  Workshop In-Charges and Document Controllers no longer confirm. Month-end
+  reminders go to the project's Project Engineers, or to the Senior
+  Mechanical Engineers when the project has none or the sheet is for an
+  internal location.
+- **Labour only.** Staff (People category "staff") are never offered in the
+  worker search, on sheets or on crew requests, and the server refuses them.
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Attendance V2. Migration `20261114170000_workforce_attendance_multi_place.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

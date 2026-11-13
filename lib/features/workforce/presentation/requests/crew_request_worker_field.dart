@@ -427,7 +427,10 @@ class _SuggestionPanel extends StatelessWidget {
                       child: Text(
                         onCrew
                             ? CRS.t(CRS.workerOnCrew, language, {
-                                'crew': worker.crewName ?? '',
+                                // A labourer may be on several crews.
+                                'crew': worker.crews.length > 1
+                                    ? '${worker.crewName ?? ''} +${worker.crews.length - 1}'
+                                    : worker.crewName ?? '',
                               })
                             : CRS.t(CRS.workerFree, language),
                         maxLines: 1,
