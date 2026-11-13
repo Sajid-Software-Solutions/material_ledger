@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../app/router.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
+import '../../../../shared/models/yorks_v1_people.dart';
 import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_project_portfolio.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
@@ -13,6 +14,8 @@ import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/permissions_provider.dart';
 import '../../../../shared/providers/yorks_v1_audit_provider.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
+import '../../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../../shared/providers/yorks_v1_rental_provider.dart';
 import '../../../../shared/providers/session_provider.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
@@ -21,6 +24,12 @@ import '../../../../shared/providers/yorks_v1_material_request_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../../../shared/providers/yorks_v1_project_portfolio_provider.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
+import '../../../people_records/presentation/people_kit.dart'
+    show peopleNewPath, peoplePath, peoplePersonPath;
+import '../../../workforce/application/attendance_providers.dart';
+import '../../../workforce/domain/crew_request_models.dart';
+import '../../../workforce/presentation/requests/crew_request_common.dart'
+    show crewRequestPath;
 import 'yorks_v1_role_overview_builders.dart';
 import 'yorks_v1_role_overview_layout.dart';
 
@@ -100,6 +109,27 @@ class _YorksV1RoleOverviewScreenState
     final permissions = ref.watch(yorksV1CurrentPermissionSnapshotProvider);
     final user = ref.watch(currentUserProvider);
     final authUserId = ref.watch(yorksV1AuthUserIdProvider);
+    final flags = ref.watch(yorksV1FeatureFlagsProvider);
+
+    // PR's Overview is people, crews and rentals; it reads no Material
+    // Request or project projection.
+    final pr = role == YorksV1Role.pr;
+    final canViewPeople =
+        pr &&
+        flags.peopleRecords &&
+        permissions.hybridAllows(
+          YorksV1CapabilityKeys.peopleRecordsView,
+          legacyAllowed: false,
+          organizationSummary: true,
+        );
+    final canManagePeople =
+        canViewPeople &&
+        permissions.hybridAllows(
+          YorksV1CapabilityKeys.peopleRecordsManage,
+          legacyAllowed: false,
+          organizationSummary: true,
+        );
+    final needsCrewRequests = pr && flags.workforceCenter;
 
     // Each role loads only the projections its cards use.
     final needsActive = switch (role) {
@@ -148,17 +178,29 @@ class _YorksV1RoleOverviewScreenState
       legacyAllowed: role?.canConfigureUsers ?? false,
     );
 
-    final projects = ref.watch(yorksV1ProjectOverviewProvider);
+    final projects = pr
+        ? const AsyncLoading<YorksV1ProjectOverview>()
+        : ref.watch(yorksV1ProjectOverviewProvider);
     final portfolio = needsPortfolio
         ? ref.watch(yorksV1ProjectPortfolioProvider)
         : const AsyncData<List<YorksV1ProjectPortfolioItem>>([]);
-    final requests = ref.watch(yorksV1MaterialRequestOverviewProvider(6));
-    final myWork = ref.watch(
-      yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery),
-    );
-    final exceptions = ref.watch(
-      yorksV1MaterialRequestSummaryPageProvider(_exceptionsQuery),
-    );
+    final requests = pr
+        ? const AsyncLoading<YorksV1MaterialRequestOverview>()
+        : ref.watch(yorksV1MaterialRequestOverviewProvider(6));
+    final myWork = pr
+        ? const AsyncLoading<YorksV1MaterialRequestSummaryPage>()
+        : ref.watch(yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery));
+    final exceptions = pr
+        ? const AsyncLoading<YorksV1MaterialRequestSummaryPage>()
+        : ref.watch(
+            yorksV1MaterialRequestSummaryPageProvider(_exceptionsQuery),
+          );
+    final people = canViewPeople
+        ? ref.watch(yorksV1PeopleOverviewProvider)
+        : null;
+    final crewRequests = needsCrewRequests
+        ? ref.watch(yorksCrewRequestsProvider)
+        : null;
     final active = needsActive
         ? ref.watch(yorksV1MaterialRequestSummaryPageProvider(_activeQuery))
         : null;
@@ -186,7 +228,14 @@ class _YorksV1RoleOverviewScreenState
     // Admin keeps the rental and audit summaries from the retained command
     // centre; both providers enforce their own Admin-only access.
     final admin = role == YorksV1Role.admin;
-    final canAccessRentals = admin && ref.watch(canAccessRentalsProvider);
+    final canAccessRentals = admin
+        ? ref.watch(canAccessRentalsProvider)
+        : pr &&
+              permissions.hybridAllows(
+                YorksV1CapabilityKeys.rentalsView,
+                legacyAllowed: true,
+                organizationSummary: true,
+              );
     final rentals = canAccessRentals
         ? ref
               .watch(yorksV1RentalPortfolioProvider)
@@ -194,7 +243,9 @@ class _YorksV1RoleOverviewScreenState
         : null;
     final audit = admin ? ref.watch(yorksV1AuditControllerProvider) : null;
 
-    final core = [projects, requests, myWork, exceptions];
+    final core = pr
+        ? <AsyncValue<Object?>>[?people, ?crewRequests]
+        : [projects, requests, myWork, exceptions];
     final ready = core.every((value) => value.hasValue || value.hasError);
     if (ready && _updatedAt == null) {
       _updatedAt = DateTime.now();
@@ -221,6 +272,8 @@ class _YorksV1RoleOverviewScreenState
       audit: audit?.workspace,
       auditLoading: audit?.isLoading ?? false,
       auditFailed: audit?.error != null && audit?.workspace == null,
+      people: people,
+      crewRequests: crewRequests,
       canCreateProject: createProject.isVisible,
       canCreateRequest: createRequest.isVisible,
       canBrowseInventory: canBrowseInventory,
@@ -275,12 +328,26 @@ class _YorksV1RoleOverviewScreenState
           ? () => context.go(RoutePaths.rentals)
           : null,
       openAudit: admin ? () => context.go(RoutePaths.activityLog) : null,
+      openPeople: canViewPeople ? () => context.go(peoplePath) : null,
+      newPerson: canManagePeople ? () => context.push(peopleNewPath) : null,
+      openPerson: canViewPeople
+          ? (id) => context.push(peoplePersonPath(id))
+          : null,
+      openWorkforce: pr && flags.workforce
+          ? () => context.go(RoutePaths.yorksV1Workforce)
+          : null,
+      openCrewRequest: needsCrewRequests
+          ? (id) => context.push(crewRequestPath(id))
+          : null,
       retry: () => _refresh(
         includeActive: needsActive,
         includeDelivery: needsDelivery,
         includePortfolio: needsPortfolio,
         includeMine: needsMine,
         includeInventory: needsInventory,
+        includePeople: canViewPeople,
+        includeCrewRequests: needsCrewRequests,
+        includeRentals: canAccessRentals,
         role: role,
         authUserId: authUserId,
       ),
@@ -301,6 +368,9 @@ class _YorksV1RoleOverviewScreenState
         includePortfolio: needsPortfolio,
         includeMine: needsMine,
         includeInventory: needsInventory,
+        includePeople: canViewPeople,
+        includeCrewRequests: needsCrewRequests,
+        includeRentals: canAccessRentals,
         role: role,
         authUserId: authUserId,
       ),
@@ -313,20 +383,34 @@ class _YorksV1RoleOverviewScreenState
     required bool includePortfolio,
     required bool includeMine,
     required bool includeInventory,
+    required bool includePeople,
+    required bool includeCrewRequests,
+    required bool includeRentals,
     required YorksV1Role? role,
     required String? authUserId,
   }) async {
     setState(() => _refreshing = true);
+    final pr = role == YorksV1Role.pr;
     final futures = <Future<Object?>>[
-      ref.refresh(yorksV1ProjectOverviewProvider.future),
+      if (!pr) ...[
+        ref.refresh(yorksV1ProjectOverviewProvider.future),
+        ref.refresh(yorksV1MaterialRequestOverviewProvider(6).future),
+        ref.refresh(
+          yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery).future,
+        ),
+        ref.refresh(
+          yorksV1MaterialRequestSummaryPageProvider(_exceptionsQuery).future,
+        ),
+      ],
       if (includePortfolio) ref.refresh(yorksV1ProjectPortfolioProvider.future),
-      ref.refresh(yorksV1MaterialRequestOverviewProvider(6).future),
-      ref.refresh(
-        yorksV1MaterialRequestSummaryPageProvider(_myWorkQuery).future,
-      ),
-      ref.refresh(
-        yorksV1MaterialRequestSummaryPageProvider(_exceptionsQuery).future,
-      ),
+      if (includePeople)
+        ref.refresh<Future<PeopleOverview>>(
+          yorksV1PeopleOverviewProvider.future,
+        ),
+      if (includeCrewRequests)
+        ref.refresh<Future<CrewRequestRegister>>(
+          yorksCrewRequestsProvider.future,
+        ),
       if (includeActive)
         ref.refresh(
           yorksV1MaterialRequestSummaryPageProvider(_activeQuery).future,
@@ -347,8 +431,7 @@ class _YorksV1RoleOverviewScreenState
         ref.refresh(
           yorksV1MaterialRequestOperationsDashboardProvider(null).future,
         ),
-      if (role == YorksV1Role.admin && ref.read(canAccessRentalsProvider))
-        ref.refresh(yorksV1RentalPortfolioProvider.future),
+      if (includeRentals) ref.refresh(yorksV1RentalPortfolioProvider.future),
       if (role == YorksV1Role.admin)
         ref.read(yorksV1AuditControllerProvider.notifier).load(),
       if (role == YorksV1Role.siteEngineer && authUserId != null)

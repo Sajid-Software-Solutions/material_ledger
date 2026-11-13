@@ -75,6 +75,18 @@ select ok(
   'People records are reachable only through their functions'
 );
 
+-- PostgREST runs STABLE functions read-only, and every entry point syncs the
+-- caller's profile first, so none of them may be STABLE or IMMUTABLE.
+select is(
+  (select count(*)::int from pg_catalog.pg_proc p
+     join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname like 'v1_people_%'
+     and has_function_privilege('authenticated', p.oid, 'execute')
+     and p.provolatile <> 'v'),
+  0,
+  'Every People function the app calls may write the caller profile'
+);
+
 -- Who may read ----------------------------------------------------------------
 
 select set_config('ppl.today', public.v1_wf_today()::text, true);

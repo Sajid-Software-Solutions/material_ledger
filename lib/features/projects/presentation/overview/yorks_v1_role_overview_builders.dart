@@ -7,6 +7,7 @@ import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/models/yorks_v1_logistics.dart';
 import '../../../../shared/models/yorks_v1_material_request.dart';
 import '../../../../shared/models/yorks_v1_material_request_strings.dart';
+import '../../../../shared/models/yorks_v1_people.dart';
 import '../../../../shared/models/yorks_v1_project.dart';
 import '../../../../shared/models/yorks_v1_project_portfolio.dart';
 import '../../../../shared/models/yorks_v1_project_strings.dart';
@@ -15,6 +16,11 @@ import '../../../../shared/models/yorks_v1_audit_workspace.dart';
 import '../../../../shared/models/yorks_v1_rental.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/models/yorks_v1_role_overview_strings.dart';
+import '../../../people_records/presentation/people_kit.dart'
+    show peopleDate, peopleDaysText, peopleKindIcon, peopleKindLabel;
+import '../../../workforce/domain/crew_request_models.dart';
+import '../../../workforce/presentation/requests/crew_request_common.dart'
+    show crewRequestNextStep, crewRequestPeople, crewRequestWhere;
 import 'yorks_v1_role_overview_spec.dart';
 
 typedef _S = YorksV1RoleOverviewStrings;
@@ -44,6 +50,8 @@ class YorksRoleOverviewInputs {
     this.rentals,
     this.audit,
     this.auditLoading = false,
+    this.people,
+    this.crewRequests,
     this.canCreateProject = false,
     this.canCreateRequest = false,
     this.canBrowseInventory = false,
@@ -97,6 +105,12 @@ class YorksRoleOverviewInputs {
 
   /// The audit workspace could not be loaded.
   final bool auditFailed;
+
+  /// PR: staff and labour documents (`people_records.view` holders only).
+  final AsyncValue<PeopleOverview>? people;
+
+  /// PR: crew requests the signed-in person may see.
+  final AsyncValue<CrewRequestRegister>? crewRequests;
   final bool canCreateProject;
   final bool canCreateRequest;
   final bool canBrowseInventory;
@@ -125,6 +139,11 @@ class YorksRoleOverviewNavigation {
     this.openAudit,
     this.retryAudit,
     this.retry,
+    this.openPeople,
+    this.newPerson,
+    this.openPerson,
+    this.openWorkforce,
+    this.openCrewRequest,
   });
 
   final void Function(YorksV1MaterialRequestSummary request) openRequest;
@@ -148,6 +167,12 @@ class YorksRoleOverviewNavigation {
 
   /// Reloads every projection on the Overview (the Refresh action).
   final VoidCallback? retry;
+
+  final VoidCallback? openPeople;
+  final VoidCallback? newPerson;
+  final void Function(String workerId)? openPerson;
+  final VoidCallback? openWorkforce;
+  final void Function(String requestId)? openCrewRequest;
 }
 
 /// Builds the Overview for the signed-in role.
@@ -164,9 +189,9 @@ YorksRoleOverviewSpec buildYorksRoleOverviewSpec(
     YorksV1Role.workshopInCharge => b.workshop(),
     YorksV1Role.documentController => b.documentController(),
     YorksV1Role.admin => b.admin(),
+    YorksV1Role.pr => b.pr(),
     YorksV1Role.projectEngineer ||
     YorksV1Role.accountant ||
-    YorksV1Role.pr ||
     null => b.projectEngineer(),
   };
 }
@@ -2416,6 +2441,240 @@ class _Builder {
   }
 
   // ─── Admin ──────────────────────────────────────────────────────────────
+
+  // PR -----------------------------------------------------------------------
+
+  /// PR's work is people: documents that expire, crews to staff, logins and
+  /// rentals. No Material Request projection is read.
+  YorksRoleOverviewSpec pr() {
+    final people = input.people?.valueOrNull;
+    final register = input.crewRequests?.valueOrNull;
+    final waiting = register?.mine ?? const <CrewRequest>[];
+    return YorksRoleOverviewSpec(
+      greeting: t(_S.goodDay),
+      title: t(_S.overview),
+      roleLabel: roleOf('pr'),
+      description: t(_S.prDescription),
+      scope: t(_S.orgWide),
+      actions: actions([
+        if (nav.newPerson != null)
+          YorksOverviewAction(
+            icon: Icons.person_add_alt_1_outlined,
+            label: t(_S.addPerson),
+            onTap: nav.newPerson,
+            primary: true,
+          ),
+        if (nav.openPeople != null)
+          YorksOverviewAction(
+            icon: Icons.contact_page_outlined,
+            label: t(_S.openPeople),
+            onTap: nav.openPeople,
+          ),
+        if (nav.openUsers != null)
+          YorksOverviewAction(
+            icon: Icons.manage_accounts_outlined,
+            label: t(_S.userManagement),
+            onTap: nav.openUsers,
+          ),
+      ]),
+      kpis: [
+        if (input.people != null) ...[
+          kpi(
+            id: 'people',
+            icon: Icons.groups_outlined,
+            tone: YorksOverviewTone.blue,
+            label: t(_S.people),
+            value: people?.total,
+            load: _loadOf(input.people),
+            caption: people == null
+                ? ''
+                : tf(_S.kpiPeopleSub, {'s': people.staff, 'l': people.labour}),
+            onTap: nav.openPeople,
+          ),
+          kpi(
+            id: 'expired',
+            icon: Icons.error_outline_rounded,
+            tone: YorksOverviewTone.red,
+            label: t(_S.kpiExpiredDocs),
+            value: people?.expired,
+            load: _loadOf(input.people),
+            caption: t(_S.kpiExpiredDocsSub),
+            emphasis: YorksOverviewEmphasis.bad,
+            target: 'docs',
+          ),
+          kpi(
+            id: 'expiring',
+            icon: Icons.schedule_rounded,
+            tone: YorksOverviewTone.orange,
+            label: t(_S.kpiExpiringDocs),
+            value: people?.expiring,
+            load: _loadOf(input.people),
+            caption: t(_S.kpiExpiringDocsSub),
+            emphasis: YorksOverviewEmphasis.warn,
+            target: 'docs',
+          ),
+        ],
+        if (input.crewRequests != null)
+          kpi(
+            id: 'crew',
+            icon: Icons.groups_2_outlined,
+            tone: YorksOverviewTone.violet,
+            label: t(_S.kpiCrewRequests),
+            value: register == null ? null : waiting.length,
+            load: _loadOf(input.crewRequests),
+            caption: tf(_S.kpiCrewRequestsSub, {'n': register?.open ?? 0}),
+            actionable: true,
+            target: 'crew',
+          ),
+        if (input.rentals != null)
+          kpi(
+            id: 'leases',
+            icon: Icons.apartment_outlined,
+            tone: YorksOverviewTone.gold,
+            label: t(_S.leasesExpiring),
+            value: input.rentals?.valueOrNull?.summary.expiringWithin90,
+            load: _loadOf(input.rentals),
+            caption: t(_S.rentals),
+            emphasis: YorksOverviewEmphasis.warn,
+            target: 'rent',
+          ),
+      ],
+      left: [if (input.people != null) documentsAttention()],
+      right: [
+        if (input.crewRequests != null) crewRequestList(waiting, register),
+        if (input.rentals != null) rentalCard(),
+      ],
+      full: [prLinks()],
+      phoneOrder: const ['docs', 'crew', 'rent', 'links'],
+    );
+  }
+
+  YorksOverviewListSection documentsAttention() {
+    final people = input.people?.valueOrNull;
+    final items = people?.attention ?? const <PeopleAttentionItem>[];
+    const limit = 8;
+    return YorksOverviewListSection(
+      id: 'docs',
+      icon: Icons.badge_outlined,
+      title: t(_S.documentsAttention),
+      subtitle: t(_S.documentsAttentionSub),
+      linkLabel: nav.openPeople == null ? null : t(_S.openPeople),
+      onLink: nav.openPeople,
+      limit: limit,
+      load: _loadOf(input.people),
+      onRetry: nav.retry,
+      emptyText: t(_S.noDocumentsAttention),
+      footnote: items.length > limit
+          ? tf(_S.moreOnPeople, {'n': items.length - limit})
+          : null,
+      items: [
+        for (final item in items)
+          YorksOverviewListItem(
+            icon: peopleKindIcon(item.document.kind),
+            tone: item.document.status == PeopleDocumentStatus.expired
+                ? YorksOverviewTone.red
+                : YorksOverviewTone.orange,
+            title: item.personName,
+            detail: [
+              peopleKindLabel(
+                item.document.kind,
+                lang,
+                label: item.document.label,
+              ),
+              item.company,
+            ].join(' · '),
+            trailing: peopleDate(item.document.expiryDate),
+            trailingSub: peopleDaysText(item.document, lang),
+            trailingEmphasis:
+                item.document.status == PeopleDocumentStatus.expired
+                ? YorksOverviewEmphasis.bad
+                : YorksOverviewEmphasis.warn,
+            onTap: nav.openPerson == null
+                ? null
+                : () => nav.openPerson!(item.personId),
+          ),
+      ],
+    );
+  }
+
+  YorksOverviewListSection crewRequestList(
+    List<CrewRequest> waiting,
+    CrewRequestRegister? register,
+  ) {
+    final open = [
+      ...waiting,
+      for (final request in register?.requests ?? const <CrewRequest>[])
+        if (request.state.isOpen && !request.access.mine) request,
+    ];
+    return YorksOverviewListSection(
+      id: 'crew',
+      icon: Icons.groups_2_outlined,
+      title: t(_S.crewRequests),
+      subtitle: t(_S.crewRequestsSub),
+      linkLabel: nav.openWorkforce == null ? null : t(_S.openWorkforce),
+      onLink: nav.openWorkforce,
+      load: _loadOf(input.crewRequests),
+      onRetry: nav.retry,
+      emptyText: t(_S.noCrewRequests),
+      items: [
+        for (final request in open)
+          YorksOverviewListItem(
+            icon: Icons.groups_2_outlined,
+            tone: request.access.mine
+                ? YorksOverviewTone.violet
+                : YorksOverviewTone.neutral,
+            title: '${request.number} · ${crewRequestWhere(request, lang)}',
+            detail: [
+              crewRequestPeople(request),
+              crewRequestNextStep(request, lang),
+            ].where((part) => part.isNotEmpty).join(' · '),
+            trailing: request.access.mine ? t(_S.waitingForYou) : null,
+            trailingEmphasis: request.access.mine
+                ? YorksOverviewEmphasis.violet
+                : YorksOverviewEmphasis.none,
+            onTap: nav.openCrewRequest == null
+                ? null
+                : () => nav.openCrewRequest!(request.id),
+          ),
+      ],
+    );
+  }
+
+  YorksOverviewToolsSection prLinks() => YorksOverviewToolsSection(
+    id: 'links',
+    icon: Icons.link_rounded,
+    title: t(_S.quickLinks),
+    tools: [
+      if (nav.openPeople != null)
+        YorksOverviewTool(
+          icon: Icons.contact_page_outlined,
+          label: t(_S.people),
+          description: t(_S.peopleToolSub),
+          onTap: nav.openPeople,
+        ),
+      if (nav.openWorkforce != null)
+        YorksOverviewTool(
+          icon: Icons.groups_2_outlined,
+          label: t(_S.workforce),
+          description: t(_S.workforceToolSub),
+          onTap: nav.openWorkforce,
+        ),
+      if (nav.openUsers != null)
+        YorksOverviewTool(
+          icon: Icons.manage_accounts_outlined,
+          label: t(_S.userManagement),
+          description: t(_S.usersToolSub),
+          onTap: nav.openUsers,
+        ),
+      if (nav.openRentals != null)
+        YorksOverviewTool(
+          icon: Icons.apartment_outlined,
+          label: t(_S.rentalProperties),
+          description: t(_S.rentalsToolSub),
+          onTap: nav.openRentals,
+        ),
+    ],
+  );
 
   YorksRoleOverviewSpec admin() {
     final p = projects;

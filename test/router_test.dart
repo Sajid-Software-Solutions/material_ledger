@@ -215,6 +215,54 @@ void main() {
     },
   );
 
+  testWidgets('PR lands on its Overview and is not sent elsewhere', (
+    tester,
+  ) async {
+    final router = createAppRouter(
+      isOnboarded: true,
+      isLoggedIn: true,
+      role: UserRole.pr,
+      user: AppUser(
+        id: 'pr-user',
+        fullName: 'PR User',
+        email: 'pr@yorks.test',
+        role: UserRole.pr,
+        createdAt: DateTime.utc(2026, 8, 1),
+      ),
+      yorksV1ProjectsEnabled: true,
+      yorksV1BoqEnabled: true,
+      yorksV1RequestsEnabled: true,
+      yorksV1Role: YorksV1Role.pr,
+    );
+    addTearDown(router.dispose);
+
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWithValue(preferences)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+
+    router.go(RoutePaths.login);
+    await tester.pumpAndSettle();
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RoutePaths.engineerHome,
+    );
+
+    router.go(RoutePaths.users);
+    await tester.pumpAndSettle();
+    router.go(RoutePaths.engineerHome);
+    await tester.pumpAndSettle();
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      RoutePaths.engineerHome,
+    );
+  });
+
   testWidgets(
     'V1 Procurement project deep links land on an office-shell safe route',
     (tester) async {
