@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router.dart';
 import '../../../../core/constants/constants.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/models/app_strings.dart';
 import '../../application/attendance_providers.dart';
 import '../../data/attendance_repository.dart';
 import '../../domain/crew_request_models.dart';
@@ -740,9 +741,248 @@ class _PeopleCard extends StatelessWidget {
   /// Set when the signed-in person may release workers one by one.
   final ValueChanged<CrewRequestAssignee>? onRelease;
 
+  String get _counts => [
+    CRS.t(CRS.assignedOf, language, {
+      'a': request.assignedCount,
+      'b': request.requestedCount,
+    }),
+    // Once someone has left, say how many are still there.
+    if (request.onSiteCount < request.assignedCount)
+      CRS.t(CRS.onSiteCount, language, {'n': request.onSiteCount}),
+  ].join(' · ');
+
+  /// Who is asked for: a named person (with the warning when they are on
+  /// another crew) or a designation, and the requester's note.
+  Widget _worker(CrewRequestLine line) {
+    final worker = line.worker;
+    return Column(
+      key: ValueKey('crew-request-line-${line.id}'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          worker?.name ?? line.trade,
+          style: AppTypography.titleSmall.copyWith(fontWeight: FontWeight.w800),
+        ),
+        if (worker != null)
+          Text(
+            [
+              if (worker.number.isNotEmpty) worker.number,
+              if (line.trade.isNotEmpty) line.trade,
+            ].join(' · '),
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.inkSecondary,
+            ),
+          ),
+        if (line.note != null)
+          Text(
+            line.note!,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+          ),
+        if (worker != null) ...[
+          const SizedBox(height: 6),
+          CrPill(
+            icon: Icons.badge_outlined,
+            label: CRS.t(CRS.namedPerson, language),
+            color: AppColors.blue,
+            background: AppColors.blueContainer,
+          ),
+          if (line.namedOnOtherCrew &&
+              request.state.isOpen &&
+              request.state != CrewRequestState.returned) ...[
+            const SizedBox(height: 6),
+            Container(
+              key: ValueKey('crew-request-line-warning-${line.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.warningContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      CRS.t(CRS.onCrewApproverWarning, language, {
+                        'crew': worker.crewName ?? '',
+                      }),
+                      style: AppTypography.labelMedium.copyWith(
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  /// Who has been assigned, with Release, and why a row is short.
+  Widget _assigned(CrewRequestLine line) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (line.assigned.isEmpty)
+        Text(
+          CRS.t(CRS.noOneYet, language),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        )
+      else
+        for (final person in line.assigned)
+          _Assignee(
+            person: person,
+            language: language,
+            onRelease: onRelease == null || !person.onSite
+                ? null
+                : () => onRelease!(person),
+          ),
+      if (line.decision != null &&
+          line.decision != CrewRequestLineDecision.full) ...[
+        const SizedBox(height: 6),
+        Text(
+          '${CRS.t(line.decision == CrewRequestLineDecision.partial ? CRS.decisionPartial : CRS.decisionCannot, language)}'
+          '${line.decisionReason == null ? '' : ' · “${line.decisionReason}”'}',
+          style: AppTypography.bodySmall.copyWith(
+            color: AppColors.warning,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ],
+  );
+
+  Text _fraction(CrewRequestLine line) => Text(
+    '${line.assigned.length} / ${line.quantity}',
+    style: AppTypography.labelLarge.copyWith(
+      color: line.short == 0 ? AppColors.success : AppColors.ink,
+    ),
+  );
+
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => LayoutBuilder(
     key: const ValueKey('crew-request-lines'),
+    builder: (context, constraints) =>
+        constraints.maxWidth >= 760 ? _table() : _cards(),
+  );
+
+  /// Desktop: the Material Request record table.
+  Widget _table() {
+    Widget cell(Widget child, {bool end = false}) => Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
+      child: Align(
+        alignment: end
+            ? AlignmentDirectional.topEnd
+            : AlignmentDirectional.topStart,
+        child: child,
+      ),
+    );
+    Widget header(TranslatableString label, {bool end = false}) => cell(
+      Text(
+        CRS.t(label, language),
+        style: AppTypography.labelSmall.copyWith(fontWeight: FontWeight.w800),
+      ),
+      end: end,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          CRS.t(CRS.linesTitle, language),
+          style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          _counts,
+          style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          key: const ValueKey('crew-request-lines-table'),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            border: Border.all(color: AppColors.line),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.shadow,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            child: Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.top,
+              border: const TableBorder(
+                horizontalInside: BorderSide(color: AppColors.line),
+                verticalInside: BorderSide(color: AppColors.line),
+              ),
+              columnWidths: const {
+                0: FixedColumnWidth(54),
+                1: FlexColumnWidth(1.6),
+                2: FixedColumnWidth(88),
+                3: FlexColumnWidth(2),
+              },
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(
+                    color: AppColors.surfaceContainerLow,
+                  ),
+                  children: [
+                    header(CRS.colNumber),
+                    header(CRS.colWorker),
+                    header(CRS.colQty, end: true),
+                    header(CRS.assignedPeople),
+                  ],
+                ),
+                for (final (index, line) in request.lines.indexed)
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: index.isEven
+                          ? AppColors.surfaceContainerLowest
+                          : AppColors.surfaceContainerLow.withValues(
+                              alpha: .35,
+                            ),
+                    ),
+                    children: [
+                      cell(
+                        Text(
+                          '${line.lineNumber}',
+                          style: AppTypography.labelLarge.copyWith(
+                            color: AppColors.inkSecondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      cell(_worker(line)),
+                      cell(_fraction(line), end: true),
+                      cell(_assigned(line)),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Phone: one card with a row per line.
+  Widget _cards() => Card(
     margin: EdgeInsets.zero,
     child: Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -760,17 +1000,7 @@ class _PeopleCard extends StatelessWidget {
                 ),
               ),
               Text(
-                [
-                  CRS.t(CRS.assignedOf, language, {
-                    'a': request.assignedCount,
-                    'b': request.requestedCount,
-                  }),
-                  // Once someone has left, say how many are still there.
-                  if (request.onSiteCount < request.assignedCount)
-                    CRS.t(CRS.onSiteCount, language, {
-                      'n': request.onSiteCount,
-                    }),
-                ].join(' · '),
+                _counts,
                 style: AppTypography.labelMedium.copyWith(
                   color: AppColors.inkSecondary,
                 ),
@@ -780,7 +1010,6 @@ class _PeopleCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           for (final line in request.lines)
             Container(
-              key: ValueKey('crew-request-line-${line.id}'),
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               decoration: const BoxDecoration(
                 border: Border(top: BorderSide(color: AppColors.line)),
@@ -802,142 +1031,18 @@ class _PeopleCard extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: line.worker == null
-                                  ? Text(
-                                      line.trade,
-                                      style: AppTypography.titleSmall,
-                                    )
-                                  : Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          line.worker!.name,
-                                          style: AppTypography.titleSmall,
-                                        ),
-                                        Text(
-                                          [
-                                            if (line.worker!.number.isNotEmpty)
-                                              line.worker!.number,
-                                            if (line.trade.isNotEmpty)
-                                              line.trade,
-                                          ].join(' · '),
-                                          style: AppTypography.bodySmall
-                                              .copyWith(
-                                                color: AppColors.inkSecondary,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                            Text(
-                              '${line.assigned.length} / ${line.quantity}',
-                              style: AppTypography.labelLarge.copyWith(
-                                color: line.short == 0
-                                    ? AppColors.success
-                                    : AppColors.ink,
-                              ),
-                            ),
+                            Expanded(child: _worker(line)),
+                            const SizedBox(width: AppSpacing.sm),
+                            _fraction(line),
                           ],
                         ),
-                        if (line.note != null)
-                          Text(
-                            line.note!,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.muted,
-                            ),
-                          ),
-                        if (line.worker != null) ...[
-                          const SizedBox(height: 6),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 6,
-                            children: [
-                              CrPill(
-                                icon: Icons.badge_outlined,
-                                label: CRS.t(CRS.namedPerson, language),
-                                color: AppColors.blue,
-                                background: AppColors.blueContainer,
-                              ),
-                            ],
-                          ),
-                          if (line.namedOnOtherCrew &&
-                              request.state.isOpen &&
-                              request.state != CrewRequestState.returned) ...[
-                            const SizedBox(height: 6),
-                            Container(
-                              key: ValueKey(
-                                'crew-request-line-warning-${line.id}',
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.warningContainer,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.warning_amber_rounded,
-                                    size: 16,
-                                    color: AppColors.warning,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      CRS.t(
-                                        CRS.onCrewApproverWarning,
-                                        language,
-                                        {'crew': line.worker!.crewName ?? ''},
-                                      ),
-                                      style: AppTypography.labelMedium.copyWith(
-                                        color: AppColors.warning,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
                         const SizedBox(height: 6),
-                        if (line.assigned.isEmpty)
-                          Text(
-                            CRS.t(CRS.noOneYet, language),
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.muted,
-                            ),
-                          )
-                        else
-                          for (final person in line.assigned)
-                            _Assignee(
-                              person: person,
-                              language: language,
-                              onRelease: onRelease == null || !person.onSite
-                                  ? null
-                                  : () => onRelease!(person),
-                            ),
-                        if (line.decision != null &&
-                            line.decision != CrewRequestLineDecision.full) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            '${CRS.t(line.decision == CrewRequestLineDecision.partial ? CRS.decisionPartial : CRS.decisionCannot, language)}'
-                            '${line.decisionReason == null ? '' : ' · “${line.decisionReason}”'}',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                        _assigned(line),
                       ],
                     ),
                   ),

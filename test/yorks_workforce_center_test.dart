@@ -555,13 +555,15 @@ void main() {
     );
     await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
     expect(
-      find.text('Add at least one trade with how many people.'),
+      find.text(
+        'Add at least one worker: a name, or a designation and how many.',
+      ),
       findsOneWidget,
     );
     expect(rpc.calls.map((c) => c.$1), isNot(contains('v1_wf_submit_request')));
 
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-trade-0')),
+      find.byKey(const ValueKey('crew-request-worker-0')),
       'Duct fitter',
     );
     await tester.enterText(
@@ -737,7 +739,7 @@ void main() {
     await _pump(tester, rpc, RoutePaths.yorksV1WorkforceRequestNew);
 
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-trade-0')),
+      find.byKey(const ValueKey('crew-request-worker-0')),
       'rahim',
     );
     await tester.pumpAndSettle();
@@ -761,7 +763,7 @@ void main() {
     // A second line by trade; the named person is not offered twice.
     await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-trade-1')),
+      find.byKey(const ValueKey('crew-request-worker-1')),
       'rahim',
     );
     await tester.pumpAndSettle();
@@ -770,13 +772,13 @@ void main() {
       findsNothing,
     );
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-trade-1')),
+      find.byKey(const ValueKey('crew-request-worker-1')),
       'help',
     );
     await tester.pumpAndSettle();
     await _tap(
       tester,
-      find.byKey(const ValueKey('crew-request-suggest-trade-1-Helper')),
+      find.byKey(const ValueKey('crew-request-suggest-designation-1-Helper')),
     );
     expect(
       tester
@@ -800,6 +802,86 @@ void main() {
     expect(payload['lines'], [
       {'worker_id': 'w3', 'trade': 'Duct fitter', 'quantity': 1},
       {'trade': 'Helper', 'quantity': 2},
+    ]);
+  });
+
+  testWidgets('the worker table works like the Material Request table', (
+    tester,
+  ) async {
+    _size(tester, const Size(1440, 1400));
+    final rpc = _FakeRpc({
+      'v1_wf_request_options': (_) => _options(named: true),
+      'v1_wf_submit_request': (_) => _request(),
+      'v1_wf_get_request': (_) => _request(),
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1WorkforceRequestNew);
+
+    expect(find.byKey(const ValueKey('crew-request-table')), findsOneWidget);
+    for (final header in ['S.No', 'WORKER', 'QTY', 'NOTE', 'ACTION']) {
+      expect(find.text(header), findsOneWidget, reason: header);
+    }
+
+    // A designation without how many is pointed out, and nothing is sent.
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-worker-0')),
+      'Welder',
+    );
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-ask-any-0')));
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-quantity-0')),
+      '',
+    );
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
+    expect(
+      find.byKey(const ValueKey('crew-request-attention')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('crew-request-quantity-error-0')),
+      findsOneWidget,
+    );
+    expect(rpc.calls.map((c) => c.$1), isNot(contains('v1_wf_submit_request')));
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-quantity-0')),
+      '2',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('crew-request-attention')), findsNothing);
+
+    // A named person; Similar adds another of their designation, not them.
+    await _tap(tester, find.byKey(const ValueKey('crew-request-below-0')));
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-worker-1')),
+      'gul',
+    );
+    await tester.pumpAndSettle();
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('crew-request-suggest-worker-1-w0')),
+    );
+    expect(find.byKey(const ValueKey('crew-request-named-1')), findsOneWidget);
+    expect(find.text('Free'), findsOneWidget);
+    await _tap(tester, find.byKey(const ValueKey('crew-request-similar-1')));
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('crew-request-worker-2')),
+          )
+          .controller!
+          .text,
+      'Duct fitter',
+    );
+    // Remove the extra row, then send.
+    await _tap(tester, find.byKey(const ValueKey('crew-request-remove-2')));
+    expect(find.byKey(const ValueKey('crew-request-worker-2')), findsNothing);
+    await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
+    final payload =
+        rpc.last('v1_wf_submit_request')['p_payload'] as Map<String, Object?>;
+    expect(payload['lines'], [
+      {'trade': 'Welder', 'quantity': 2},
+      {'worker_id': 'w0', 'trade': 'Duct fitter', 'quantity': 1},
     ]);
   });
 
@@ -1147,24 +1229,48 @@ void main() {
 
     expect(find.text('Who needs workers?'), findsOneWidget);
     await _tap(tester, find.byKey(const ValueKey('crew-request-continue')));
-    expect(find.text('Which people do you need?'), findsOneWidget);
-    // Review waits for a trade and how many.
+    expect(find.text('Which workers do you need?'), findsOneWidget);
+    expect(find.text('No workers added yet.'), findsOneWidget);
+    // Review waits for a worker.
     final review = tester.widget<FilledButton>(
       find.byKey(const ValueKey('crew-request-review')),
     );
     expect(review.onPressed, isNull);
+
+    // Add Worker opens the focused one-worker editor.
+    await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
+    expect(find.byKey(const ValueKey('crew-request-editor')), findsOneWidget);
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-trade-0')),
+      find.byKey(const ValueKey('crew-request-worker-editor')),
       'Duct fitter',
     );
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-editor-save')));
+    // Saving without how many is refused, with the reason on the field.
+    expect(find.text('Enter how many, 1 to 200.'), findsOneWidget);
     await tester.enterText(
-      find.byKey(const ValueKey('crew-request-quantity-0')),
+      find.byKey(const ValueKey('crew-request-quantity-editor')),
       '4',
     );
     await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-editor-save')));
+    expect(find.byKey(const ValueKey('crew-request-editor')), findsNothing);
+    expect(find.text('Duct fitter'), findsOneWidget);
+    expect(find.text('Qty 4'), findsOneWidget);
+
+    // Edit the worker from its card.
+    await _tap(tester, find.byKey(const ValueKey('crew-request-edit-0')));
+    expect(find.text('Edit worker'), findsWidgets);
+    await tester.enterText(
+      find.byKey(const ValueKey('crew-request-quantity-editor')),
+      '5',
+    );
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('crew-request-editor-save')));
+    expect(find.text('Qty 5'), findsOneWidget);
     await _tap(tester, find.byKey(const ValueKey('crew-request-review')));
     expect(find.text('Review and send'), findsOneWidget);
-    expect(find.text('4 × Duct fitter'), findsOneWidget);
+    expect(find.text('5 × Duct fitter'), findsOneWidget);
     expect(rpc.calls.map((c) => c.$1), isNot(contains('v1_wf_submit_request')));
 
     await _tap(tester, find.byKey(const ValueKey('crew-request-send')));
@@ -1174,7 +1280,7 @@ void main() {
                 .$2['p_payload']
             as Map<String, Object?>;
     expect(payload['lines'], [
-      {'trade': 'Duct fitter', 'quantity': 4},
+      {'trade': 'Duct fitter', 'quantity': 5},
     ]);
   });
 
@@ -1414,6 +1520,105 @@ void main() {
         ),
       );
     });
+    testWidgets('desktop request form, workers filled in', (tester) async {
+      _size(tester, const Size(1440, 1000));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_request_options': (_) => _options(named: true),
+        }),
+        RoutePaths.yorksV1WorkforceRequestNew,
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-worker-0')),
+        'rahim',
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-suggest-worker-0-w3')),
+      );
+      await _tap(tester, find.byKey(const ValueKey('crew-request-below-0')));
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-worker-1')),
+        'help',
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-suggest-designation-1-Helper')),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-quantity-1')),
+        '2',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-note-1')),
+        'Level 3 ceiling',
+      );
+      await _tap(tester, find.byKey(const ValueKey('crew-request-below-1')));
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-worker-2')),
+        'wa',
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_desktop_form_filled.png'),
+      );
+    });
+    testWidgets('phone form, the worker basket', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...handlers,
+          'v1_wf_request_options': (_) => _options(named: true),
+        }),
+        RoutePaths.yorksV1WorkforceRequestNew,
+      );
+      await _tap(tester, find.byKey(const ValueKey('crew-request-continue')));
+      await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-worker-editor')),
+        'rahim',
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-suggest-worker-editor-w3')),
+      );
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-editor-save')),
+      );
+      await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-worker-editor')),
+        'Helper',
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(
+          const ValueKey('crew-request-suggest-designation-editor-Helper'),
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('crew-request-quantity-editor')),
+        '2',
+      );
+      await tester.pumpAndSettle();
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('crew-request-editor-save')),
+      );
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/workforce_center_phone_form_basket.png'),
+      );
+    });
     testWidgets('phone form, a person by name', (tester) async {
       _size(tester, const Size(360, 800));
       await _pump(
@@ -1425,8 +1630,9 @@ void main() {
         RoutePaths.yorksV1WorkforceRequestNew,
       );
       await _tap(tester, find.byKey(const ValueKey('crew-request-continue')));
+      await _tap(tester, find.byKey(const ValueKey('crew-request-add-line')));
       await tester.enterText(
-        find.byKey(const ValueKey('crew-request-trade-0')),
+        find.byKey(const ValueKey('crew-request-worker-editor')),
         'ra',
       );
       await tester.pumpAndSettle();
@@ -1436,7 +1642,7 @@ void main() {
       );
       await _tap(
         tester,
-        find.byKey(const ValueKey('crew-request-suggest-worker-0-w3')),
+        find.byKey(const ValueKey('crew-request-suggest-worker-editor-w3')),
       );
       await expectLater(
         find.byType(MaterialApp),
