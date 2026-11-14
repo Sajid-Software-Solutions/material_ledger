@@ -2466,7 +2466,9 @@ confirmers of section 37.
   Mechanical Engineers when the project has none or the sheet is for an
   internal location.
 - **Labour only.** Staff (People category "staff") are never offered in the
-  worker search, on sheets or on crew requests, and the server refuses them.
+  worker search, on sheets or on crew requests, and the server refuses new
+  ones. A staff row already saved on a day before this rule stays and may be
+  saved again unchanged.
 
 Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 Attendance V2. Migration `20261114170000_workforce_attendance_multi_place.sql`.

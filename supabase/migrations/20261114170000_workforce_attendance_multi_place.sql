@@ -29,7 +29,8 @@
 --     leave) need not be marked on this sheet; a day may be saved with no
 --     rows when every member was elsewhere, so the month can be complete.
 --
--- Data preservation: no row is changed or removed. The one-crew-per-worker
+-- Data preservation: no row is changed or removed. A staff row already
+-- saved on a day stays on it and may be saved again unchanged. The one-crew-per-worker
 -- and one-sheet-per-worker-per-day uniqueness rules are replaced by
 -- per-sheet rules. Production holds no crews or attendance yet.
 -- Rollback: restore the functions from 20261112140000, 20261113090000,
@@ -990,8 +991,13 @@ begin
     ) then
       raise exception 'V1_WORKFORCE_DAY_INVALID' using errcode = '22023';
     end if;
-    -- Only labour goes on attendance sheets.
-    if not public.v1_wf_is_labour(v_worker) then
+    -- Only labour goes on attendance sheets. A staff row saved on this day
+    -- before the rule may be kept as it was; no new one is accepted.
+    if not public.v1_wf_is_labour(v_worker) and not exists (
+      select 1 from public.v1_workforce_day_rows saved_row
+      where saved_row.sheet_id = v_sheet.id
+        and saved_row.worker_id = v_worker
+    ) then
       raise exception 'V1_WORKFORCE_STAFF_NOT_ON_SHEETS' using errcode = '22023';
     end if;
 

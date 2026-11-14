@@ -496,6 +496,29 @@ select throws_ok(
   'Staff cannot be added to a day'
 );
 
+-- A staff row saved before the rule stays and can be saved again.
+reset role;
+insert into public.v1_workforce_day_rows (
+  sheet_id, team_id, work_date, worker_id, attendance_status,
+  updated_by_auth_user_id
+)
+select sheet.id, sheet.team_id, sheet.work_date,
+  '6d020000-0000-4000-8000-000000000006', 'A',
+  '10000000-0000-4000-8000-000000000004'
+from public.v1_workforce_day_sheets sheet
+where sheet.team_id = current_setting('mp.b')::uuid
+  and sheet.work_date = current_setting('mp.day')::date;
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000004', 'admin');
+select lives_ok(
+  format($$select public.v1_wf_save_day(%L::uuid, %L::date, jsonb_build_array(
+      pg_temp.row_p('6d020000-0000-4000-8000-000000000001', 1145, 1200),
+      pg_temp.row_s('6d020000-0000-4000-8000-000000000006', 'A')), 1, null,
+      '6d030000-0000-4000-8000-000000000035')$$,
+    current_setting('mp.b'), current_setting('mp.day')),
+  'A staff row already saved on the day is kept when the day is saved again'
+);
+
 -- A confirmed month at one place is never changed by another.
 reset role;
 insert into public.v1_workforce_month_confirmations (
