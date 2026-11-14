@@ -17,6 +17,7 @@ import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../shared/providers/yorks_v1_people_provider.dart';
 import 'people_kit.dart';
+import 'person_attachments.dart';
 import 'person_document_dialog.dart';
 
 class PeoplePersonScreen extends ConsumerWidget {
@@ -88,9 +89,29 @@ class _PersonBody extends ConsumerWidget {
     if (ended == true) yorksV1RefreshPeople(ref, workerId: person.id);
   }
 
+  /// Attaches a copy of one document.
+  Future<void> _attach(
+    BuildContext context,
+    WidgetRef ref,
+    PeopleDocument document,
+  ) async {
+    final added = await showPeopleAttachmentDialog(
+      context,
+      person: person,
+      documentId: document.id,
+    );
+    if (added == true) yorksV1RefreshPeople(ref, workerId: person.id);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final width = MediaQuery.sizeOf(context).width;
+    final attached =
+        ref
+            .watch(yorksV1PeopleAttachmentsProvider(person.id))
+            .valueOrNull
+            ?.byDocument ??
+        const <String, int>{};
     final wide = width >= 1100;
     final horizontal = width >= AppSpacing.yorksV1DesktopBreakpoint
         ? AppSpacing.xl
@@ -104,6 +125,8 @@ class _PersonBody extends ConsumerWidget {
       onRenew: (document) =>
           _document(context, ref, document: document, renew: true),
       onEnd: (document) => _end(context, ref, document),
+      onAttach: (document) => _attach(context, ref, document),
+      attached: attached,
     );
     final details = _DetailsCard(
       person: person,
@@ -159,6 +182,8 @@ class _PersonBody extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.lg),
                   documents,
                 ],
+                const SizedBox(height: AppSpacing.lg),
+                PeopleAttachmentsSection(person: person, language: language),
                 const SizedBox(height: AppSpacing.lg),
                 _PreviousDocuments(person: person, language: language),
                 const SizedBox(height: AppSpacing.md),
@@ -391,6 +416,8 @@ class _DocumentsSection extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
+    this.attached = const {},
   });
 
   final PeoplePerson person;
@@ -399,6 +426,10 @@ class _DocumentsSection extends StatelessWidget {
   final ValueChanged<PeopleDocument> onEdit;
   final ValueChanged<PeopleDocument> onRenew;
   final ValueChanged<PeopleDocument> onEnd;
+  final ValueChanged<PeopleDocument> onAttach;
+
+  /// How many attachments copy each document, by document id.
+  final Map<String, int> attached;
 
   /// Every held document, then a placeholder for each single kind not held.
   List<(PeopleDocumentKind, PeopleDocument?)> get _rows => [
@@ -435,6 +466,8 @@ class _DocumentsSection extends StatelessWidget {
                       onEdit: onEdit,
                       onRenew: onRenew,
                       onEnd: onEnd,
+                      onAttach: onAttach,
+                      attached: attached[document?.id] ?? 0,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                   ],
@@ -484,7 +517,7 @@ class _DocumentsSection extends StatelessWidget {
             2: FlexColumnWidth(1.1),
             3: FlexColumnWidth(1.6),
             4: FlexColumnWidth(1.6),
-            5: FixedColumnWidth(180),
+            5: FixedColumnWidth(230),
           },
           children: [
             TableRow(
@@ -532,6 +565,16 @@ class _DocumentsSection extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (document != null) ...[
+                          const SizedBox(width: 6),
+                          PeopleAttachmentCount(
+                            key: ValueKey(
+                              'people-document-attached-${document.id}',
+                            ),
+                            count: attached[document.id] ?? 0,
+                            language: language,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -600,6 +643,7 @@ class _DocumentsSection extends StatelessWidget {
                         onEdit: onEdit,
                         onRenew: onRenew,
                         onEnd: onEnd,
+                        onAttach: onAttach,
                       ),
                     ),
                   ),
@@ -622,6 +666,7 @@ class _RowActions extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
   });
 
   final PeopleDocumentKind kind;
@@ -632,6 +677,7 @@ class _RowActions extends StatelessWidget {
   final ValueChanged<PeopleDocument> onEdit;
   final ValueChanged<PeopleDocument> onRenew;
   final ValueChanged<PeopleDocument> onEnd;
+  final ValueChanged<PeopleDocument> onAttach;
 
   Widget _button({
     required Key key,
@@ -669,6 +715,15 @@ class _RowActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _button(
+          key: ValueKey('people-document-attach-${doc.id}'),
+          icon: Icons.attach_file_rounded,
+          tooltip: PS.t(PS.addAttachment, language),
+          color: AppColors.blue,
+          border: AppColors.line,
+          onPressed: () => onAttach(doc),
+        ),
+        const SizedBox(width: 6),
         _button(
           key: ValueKey('people-document-edit-${doc.id}'),
           icon: Icons.edit_outlined,
@@ -710,6 +765,8 @@ class _DocumentCard extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
+    this.attached = 0,
   });
 
   final PeopleDocumentKind kind;
@@ -720,6 +777,8 @@ class _DocumentCard extends StatelessWidget {
   final ValueChanged<PeopleDocument> onEdit;
   final ValueChanged<PeopleDocument> onRenew;
   final ValueChanged<PeopleDocument> onEnd;
+  final ValueChanged<PeopleDocument> onAttach;
+  final int attached;
 
   @override
   Widget build(BuildContext context) {
@@ -755,11 +814,25 @@ class _DocumentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      peopleKindLabel(kind, language, label: doc?.label),
-                      style: AppTypography.titleSmall.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            peopleKindLabel(kind, language, label: doc?.label),
+                            style: AppTypography.titleSmall.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (doc != null) ...[
+                          const SizedBox(width: 6),
+                          PeopleAttachmentCount(
+                            key: ValueKey('people-document-attached-${doc.id}'),
+                            count: attached,
+                            language: language,
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       doc == null
@@ -804,6 +877,7 @@ class _DocumentCard extends StatelessWidget {
                 onEdit: onEdit,
                 onRenew: onRenew,
                 onEnd: onEnd,
+                onAttach: onAttach,
               ),
             ),
           ],
@@ -978,6 +1052,8 @@ class _History extends StatelessWidget {
       ('document', 'created') => PS.hDocCreated,
       ('document', 'renewed') => PS.hDocRenewed,
       ('document', 'ended') => PS.hDocEnded,
+      ('attachment', 'removed') => PS.hAttachmentRemoved,
+      ('attachment', _) => PS.hAttachmentAdded,
       _ => PS.hDocUpdated,
     };
     return PS.t(template, language, values);

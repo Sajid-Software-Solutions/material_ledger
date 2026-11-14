@@ -789,6 +789,159 @@ abstract final class PeopleStrings {
     hi: 'यह पिछले दस्तावेज़ों में चला जाएगा। रद्द या लौटाए जाने पर उपयोग करें।',
   );
   static const reason = _T(en: 'Reason', ar: 'السبب', ur: 'وجہ', hi: 'कारण');
+
+  // Attachments (PRODUCT_DECISIONS section 47).
+  static const attachments = _T(
+    en: 'Attachments',
+    ar: 'المرفقات',
+    ur: 'منسلکات',
+    hi: 'संलग्नक',
+  );
+  static const attachmentsDescription = _T(
+    en: 'Copies of passports, visas, Emirates IDs, labour cards, passes and other papers.',
+    ar: 'نسخ من جوازات السفر والتأشيرات والهويات الإماراتية وبطاقات العمل والتصاريح وأوراق أخرى.',
+    ur: 'پاسپورٹ، ویزا، ایمریٹس آئی ڈی، لیبر کارڈ، پاس اور دیگر کاغذات کی نقول۔',
+    hi: 'पासपोर्ट, वीज़ा, एमिरेट्स आईडी, लेबर कार्ड, पास और अन्य कागज़ों की प्रतियाँ।',
+  );
+  static const addAttachment = _T(
+    en: 'Add attachment',
+    ar: 'إضافة مرفق',
+    ur: 'منسلکہ شامل کریں',
+    hi: 'संलग्नक जोड़ें',
+  );
+  static const noAttachments = _T(
+    en: 'No files yet.',
+    ar: 'لا توجد ملفات بعد.',
+    ur: 'ابھی کوئی فائل نہیں۔',
+    hi: 'अभी कोई फ़ाइल नहीं।',
+  );
+  static const chooseAnotherFile = _T(
+    en: 'Choose another file',
+    ar: 'اختر ملفًا آخر',
+    ur: 'دوسری فائل منتخب کریں',
+    hi: 'दूसरी फ़ाइल चुनें',
+  );
+  static const fileTypes = _T(
+    en: 'PDF, Word, Excel, JPG or PNG, up to 20 MB.',
+    ar: 'PDF أو Word أو Excel أو JPG أو PNG، حتى 20 ميجابايت.',
+    ur: 'PDF، Word، Excel، JPG یا PNG، زیادہ سے زیادہ 20 MB۔',
+    hi: 'PDF, Word, Excel, JPG या PNG, अधिकतम 20 MB।',
+  );
+  static const copyOf = _T(
+    en: 'Copy of',
+    ar: 'نسخة من',
+    ur: 'کس کی نقل',
+    hi: 'किसकी प्रति',
+  );
+  static const notADocument = _T(
+    en: 'Not one of the documents',
+    ar: 'ليس أحد المستندات',
+    ur: 'دستاویزات میں سے نہیں',
+    hi: 'दस्तावेज़ों में से नहीं',
+  );
+  static const attachmentTitle = _T(
+    en: 'Title (optional)',
+    ar: 'العنوان (اختياري)',
+    ur: 'عنوان (اختیاری)',
+    hi: 'शीर्षक (वैकल्पिक)',
+  );
+  static const attachmentTitleHint = _T(
+    en: 'e.g. Offer letter, Visa page 2',
+    ar: 'مثل خطاب العرض، صفحة التأشيرة 2',
+    ur: 'مثلاً آفر لیٹر، ویزا صفحہ 2',
+    hi: 'जैसे ऑफ़र लेटर, वीज़ा पृष्ठ 2',
+  );
+  static const attach = _T(
+    en: 'Attach',
+    ar: 'إرفاق',
+    ur: 'منسلک کریں',
+    hi: 'संलग्न करें',
+  );
+  static const uploading = _T(
+    en: 'Uploading…',
+    ar: 'جارٍ الرفع…',
+    ur: 'اپ لوڈ ہو رہا ہے…',
+    hi: 'अपलोड हो रहा है…',
+  );
+  static const openFile = _T(en: 'Open', ar: 'فتح', ur: 'کھولیں', hi: 'खोलें');
+  static const removeAttachment = _T(
+    en: 'Remove attachment',
+    ar: 'إزالة المرفق',
+    ur: 'منسلکہ ہٹائیں',
+    hi: 'संलग्नक हटाएँ',
+  );
+  static const removeAttachmentTitle = _T(
+    en: 'Remove {file}?',
+    ar: 'إزالة {file}؟',
+    ur: '{file} ہٹائیں؟',
+    hi: '{file} हटाएँ?',
+  );
+  static const removeAttachmentBody = _T(
+    en: 'It leaves the list and can no longer be opened. The file and the history are kept.',
+    ar: 'يخرج من القائمة ولا يمكن فتحه بعد الآن. يُحتفظ بالملف والسجل.',
+    ur: 'یہ فہرست سے نکل جائے گی اور کھولی نہیں جا سکے گی۔ فائل اور تاریخ محفوظ رہیں گی۔',
+    hi: 'यह सूची से हट जाएगी और खोली नहीं जा सकेगी। फ़ाइल और इतिहास रखे जाते हैं।',
+  );
+  static const remove = _T(
+    en: 'Remove',
+    ar: 'إزالة',
+    ur: 'ہٹائیں',
+    hi: 'हटाएँ',
+  );
+  static const attachedBy = _T(
+    en: '{name} · {date}',
+    ar: '{name} · {date}',
+    ur: '{name} · {date}',
+    hi: '{name} · {date}',
+  );
+  static const filesAttached = _T(
+    en: '{n} attached',
+    ar: '{n} مرفق',
+    ur: '{n} منسلک',
+    hi: '{n} संलग्न',
+  );
+  static const attachmentAdded = _T(
+    en: 'Attachment added.',
+    ar: 'تمت إضافة المرفق.',
+    ur: 'منسلکہ شامل ہو گیا۔',
+    hi: 'संलग्नक जुड़ गया।',
+  );
+  static const attachmentRemoved = _T(
+    en: 'Attachment removed.',
+    ar: 'تمت إزالة المرفق.',
+    ur: 'منسلکہ ہٹا دیا گیا۔',
+    hi: 'संलग्नक हटा दिया गया।',
+  );
+  static const errFileType = _T(
+    en: 'Choose a PDF, Word, Excel, JPG or PNG file of up to 20 MB.',
+    ar: 'اختر ملف PDF أو Word أو Excel أو JPG أو PNG حتى 20 ميجابايت.',
+    ur: 'زیادہ سے زیادہ 20 MB کی PDF، Word، Excel، JPG یا PNG فائل منتخب کریں۔',
+    hi: 'अधिकतम 20 MB की PDF, Word, Excel, JPG या PNG फ़ाइल चुनें।',
+  );
+  static const errOpenFile = _T(
+    en: 'The file could not be opened. Try again.',
+    ar: 'تعذّر فتح الملف. حاول مرة أخرى.',
+    ur: 'فائل نہیں کھل سکی۔ دوبارہ کوشش کریں۔',
+    hi: 'फ़ाइल नहीं खुल सकी। फिर कोशिश करें।',
+  );
+  static const endedShort = _T(
+    en: 'ended',
+    ar: 'منتهٍ',
+    ur: 'ختم',
+    hi: 'समाप्त',
+  );
+  static const hAttachmentAdded = _T(
+    en: '{name} added an attachment',
+    ar: 'أضاف {name} مرفقًا',
+    ur: '{name} نے ایک منسلکہ شامل کیا',
+    hi: '{name} ने एक संलग्नक जोड़ा',
+  );
+  static const hAttachmentRemoved = _T(
+    en: '{name} removed an attachment',
+    ar: 'أزال {name} مرفقًا',
+    ur: '{name} نے ایک منسلکہ ہٹایا',
+    hi: '{name} ने एक संलग्नक हटाया',
+  );
   static const endedToast = _T(
     en: '{doc} ended',
     ar: 'انتهى {doc}',

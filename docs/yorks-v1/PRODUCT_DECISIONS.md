@@ -2473,6 +2473,17 @@ confirmers of section 37.
 Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 Attendance V2. Migration `20261114170000_workforce_attendance_multi_place.sql`.
 
+## 47. Attachments for every labourer and staff member (owner decision, 14 November 2026)
+
+Each person in People records has an Attachments section holding the files
+of their documents (passport, visa, Emirates ID, labour card and pass
+copies, and any other paper). A file may say which document it copies;
+document rows and the register show a paperclip and count. People who may
+read People records open them; PR, Admin and the Accountant add and remove
+them (as for People records). Removing needs a reason and keeps the file and
+history. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section
+Attachments.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
