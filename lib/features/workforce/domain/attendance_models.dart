@@ -898,35 +898,114 @@ final class AttendanceFeedItem {
   final Map<String, dynamic> summary;
 }
 
+/// One place's today on the overview (PRODUCT_DECISIONS section 58):
+/// saved or not, who saved it last and when, and its counts by status.
+final class AttendancePlaceToday {
+  const AttendancePlaceToday({
+    this.entered = false,
+    this.enteredBy,
+    this.lastSavedBy,
+    this.lastSavedAt,
+    this.present = 0,
+    this.absent = 0,
+    this.leave = 0,
+    this.rest = 0,
+  });
+
+  factory AttendancePlaceToday.fromJson(Map<String, dynamic> json) =>
+      AttendancePlaceToday(
+        entered: _b(json['entered']),
+        enteredBy: _ns(json['entered_by']),
+        lastSavedBy: _ns(json['last_saved_by']),
+        lastSavedAt: DateTime.tryParse(_s(json['last_saved_at'])),
+        present: _i(json['present']),
+        absent: _i(json['absent']),
+        leave: _i(json['leave']),
+        rest: _i(json['rest']),
+      );
+
+  final bool entered;
+  final String? enteredBy;
+  final String? lastSavedBy;
+  final DateTime? lastSavedAt;
+  final int present;
+  final int absent;
+  final int leave;
+  final int rest;
+}
+
+/// Labourers today across every place the reader may see; a labourer at two
+/// places counts once.
+final class AttendanceTodaySummary {
+  const AttendanceTodaySummary({
+    this.places = 0,
+    this.placesEntered = 0,
+    this.present = 0,
+    this.absent = 0,
+    this.leave = 0,
+  });
+
+  factory AttendanceTodaySummary.fromJson(Map<String, dynamic> json) =>
+      AttendanceTodaySummary(
+        places: _i(json['places']),
+        placesEntered: _i(json['places_entered']),
+        present: _i(json['present']),
+        absent: _i(json['absent']),
+        leave: _i(json['leave']),
+      );
+
+  final int places;
+  final int placesEntered;
+  final int present;
+  final int absent;
+  final int leave;
+}
+
 final class AttendanceOverview {
   const AttendanceOverview({
     required this.today,
     required this.month,
     required this.crews,
     required this.feed,
+    this.todayByCrew = const {},
+    this.todaySummary,
   });
 
-  factory AttendanceOverview.fromJson(Map<String, dynamic> json) =>
-      AttendanceOverview(
-        today: _s(json['today']),
-        month: _s(json['month']),
-        crews: [
-          for (final crew in _maps(json['crews']))
-            (
-              crew: AttendanceCrew.fromJson(crew),
-              month: AttendanceMonth.fromJson(_map(crew['month'])),
-            ),
-        ],
-        feed: [
-          for (final item in _maps(json['feed']))
-            AttendanceFeedItem.fromJson(item),
-        ],
-      );
+  factory AttendanceOverview.fromJson(
+    Map<String, dynamic> json,
+  ) => AttendanceOverview(
+    today: _s(json['today']),
+    month: _s(json['month']),
+    crews: [
+      for (final crew in _maps(json['crews']))
+        (
+          crew: AttendanceCrew.fromJson(crew),
+          month: AttendanceMonth.fromJson(_map(crew['month'])),
+        ),
+    ],
+    feed: [
+      for (final item in _maps(json['feed'])) AttendanceFeedItem.fromJson(item),
+    ],
+    todayByCrew: {
+      for (final crew in _maps(json['crews']))
+        if (crew['today'] is Map)
+          _s(crew['id']): AttendancePlaceToday.fromJson(_map(crew['today'])),
+    },
+    todaySummary: json['today_summary'] is Map
+        ? AttendanceTodaySummary.fromJson(_map(json['today_summary']))
+        : null,
+  );
 
   final String today;
   final String month;
   final List<({AttendanceCrew crew, AttendanceMonth month})> crews;
   final List<AttendanceFeedItem> feed;
+
+  /// Today per place, by crew id. Empty from a server before section 58.
+  final Map<String, AttendancePlaceToday> todayByCrew;
+
+  /// Null from a server before section 58.
+  final AttendanceTodaySummary? todaySummary;
 }
 
 final class AttendanceSheetDay {

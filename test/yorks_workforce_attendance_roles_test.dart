@@ -4,6 +4,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/features/workforce/application/attendance_role_layout.dart';
+import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 
 void main() {
@@ -82,6 +83,63 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('overview today', () {
+    test('each place and the summary are read from the server', () {
+      final overview = AttendanceOverview.fromJson({
+        'today': '2026-11-14',
+        'month': '2026-11-01',
+        'crews': [
+          {
+            'id': 'c1',
+            'name': 'Example site',
+            'month': <String, Object?>{},
+            'today': {
+              'entered': true,
+              'entered_by': 'Example Engineer',
+              'last_saved_by': 'Example Office',
+              'last_saved_at': '2026-11-14T04:10:00Z',
+              'present': 7,
+              'absent': 1,
+              'leave': 2,
+              'rest': 0,
+            },
+          },
+        ],
+        'feed': <Object>[],
+        'today_summary': {
+          'places': 3,
+          'places_entered': 2,
+          'present': 11,
+          'absent': 1,
+          'leave': 2,
+        },
+      });
+      final today = overview.todayByCrew['c1']!;
+      expect(today.entered, isTrue);
+      expect(today.lastSavedBy, 'Example Office');
+      expect(today.lastSavedAt, DateTime.utc(2026, 11, 14, 4, 10));
+      expect((today.present, today.absent, today.leave), (7, 1, 2));
+      final summary = overview.todaySummary!;
+      expect(
+        (summary.places, summary.placesEntered, summary.present),
+        (3, 2, 11),
+      );
+    });
+
+    test('a server before section 58 sends no today', () {
+      final overview = AttendanceOverview.fromJson({
+        'today': '2026-11-14',
+        'month': '2026-11-01',
+        'crews': [
+          {'id': 'c1', 'name': 'Example site', 'month': <String, Object?>{}},
+        ],
+        'feed': <Object>[],
+      });
+      expect(overview.todayByCrew, isEmpty);
+      expect(overview.todaySummary, isNull);
     });
   });
 }

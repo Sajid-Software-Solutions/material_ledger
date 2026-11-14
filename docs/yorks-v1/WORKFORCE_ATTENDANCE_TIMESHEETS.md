@@ -131,6 +131,21 @@ sheets links open Attendance, and the Workshop In-Charge's Workforce home
 opens the Workshop. Month confirmation stays reachable from a reminder for
 anyone the server lets confirm. Goldens: `test/goldens/attendance_roles_*`.
 
+My sites and the office Overview (`attendance_overview_screen.dart`) read
+`v1_wf_get_overview`, which since migration
+`20261115100000_workforce_overview_today.sql` also returns, per place,
+`today` (saved or not, by whom and when, and present, absent, leave and rest
+counts) and `today_summary` (places, places entered today, and labourers
+present, absent and on leave across the places the reader may see, a
+labourer at two places counted once). Both cover exactly the sheets
+`v1_wf_crew_access` lets the reader view. The screen shows Today, Working
+today, Overtime and Confirmation; the places table shows today's status with
+who saved it and when, and Present; the office also gets **Needs a look**
+(places not entered today, open questions, changed lines) beside the
+activity feed. Engineers see their projects as Sites. Release:
+`supabase/release/attendance_overview_today_bundle.sql`; rollback:
+`supabase/release/attendance_overview_today_rollback.sql`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation
