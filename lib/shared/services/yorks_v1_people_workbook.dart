@@ -51,6 +51,7 @@ final class PeopleTrackerPerson {
     required this.company,
     required this.category,
     this.profession,
+    this.position,
     this.arabicName,
     this.dateOfBirth,
     this.unifiedNumber,
@@ -67,7 +68,12 @@ final class PeopleTrackerPerson {
   final String fullName;
   final String company;
   final PeopleCategory category;
+
+  /// The Profession column: the profession on the visa and ID.
   final String? profession;
+
+  /// A Position in Company column, when the sheet has one.
+  final String? position;
   final String? arabicName;
   final String? dateOfBirth;
   final String? unifiedNumber;
@@ -83,6 +89,7 @@ final class PeopleTrackerPerson {
     'employer_company': company,
     'category': category.wire,
     if (profession != null) 'designation': profession,
+    if (position != null) 'position': position,
     if (arabicName != null) 'arabic_name': arabicName,
     if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
     if (unifiedNumber != null) 'unified_number': unifiedNumber,
@@ -309,6 +316,7 @@ enum _Column {
   name,
   arabicName,
   profession,
+  position,
   category,
   visaExpiry,
   visaNumber,
@@ -328,10 +336,23 @@ const _aliases = <_Column, List<String>>{
   _Column.arabicName: ['arabicname', 'nameinarabic'],
   _Column.profession: [
     'profession',
+    'professiononid',
+    'professiononvisa',
+    'professiononvisaandid',
+    'visaprofession',
+    'idprofession',
     'designation',
     'jobtitle',
     'occupation',
     'position',
+  ],
+  // The position held in the company, apart from the profession on the
+  // visa and ID (PRODUCT_DECISIONS section 53).
+  _Column.position: [
+    'positionincompany',
+    'positioninthecompany',
+    'companyposition',
+    'designationincompany',
   ],
   _Column.category: ['category', 'stafforlabour', 'type'],
   _Column.visaExpiry: ['visaexpiry', 'residencevisaexpiry', 'visaexpirydate'],
@@ -426,6 +447,7 @@ PeopleTrackerRead peopleReadTracker(YorksV1BoqParsedWorkbook workbook) {
       }
 
       final profession = cell(row, _Column.profession);
+      final position = cell(row, _Column.position);
       final categoryCell = cell(row, _Column.category).toLowerCase();
       final category = categoryCell.startsWith('staff')
           ? PeopleCategory.staff
@@ -475,6 +497,7 @@ PeopleTrackerRead peopleReadTracker(YorksV1BoqParsedWorkbook workbook) {
           company: company,
           category: category,
           profession: profession.isEmpty ? null : profession,
+          position: position.isEmpty ? null : position,
           arabicName: arabic.isEmpty ? null : arabic,
           dateOfBirth: date(_Column.dateOfBirth, 'date_of_birth'),
           unifiedNumber: peopleNumberText(cell(row, _Column.unifiedNumber)),
@@ -851,6 +874,7 @@ List<PeopleSheet> peopleExportSheets(
       'Employee Name',
       'Arabic Name',
       'Profession',
+      'Position in Company',
       'Visa Expiry',
       'Residence Visa Number',
       'Passport Number',
@@ -867,6 +891,7 @@ List<PeopleSheet> peopleExportSheets(
       10,
       24,
       30,
+      26,
       26,
       26,
       14,
@@ -896,8 +921,10 @@ List<PeopleSheet> peopleExportSheets(
             PeopleCell.text(person.company),
             PeopleCell.text(person.name),
             PeopleCell.text(person.arabicName ?? ''),
+            // Profession is the one on the visa and ID, as in the tracker.
+            PeopleCell.text(person.idProfession ?? ''),
             PeopleCell.text(
-              person.profession == 'Not recorded' ? '' : person.profession,
+              person.position == 'Not recorded' ? '' : person.position,
             ),
             date(visa?.expiryDate, tone: visa?.status),
             PeopleCell.text(number(visa)),

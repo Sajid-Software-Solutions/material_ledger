@@ -42,7 +42,14 @@ A person **is** a Workforce worker (`v1_workforce_workers`, number
 Beside it:
 
 - `v1_people_profiles`: Staff or Labour, Arabic name, date of birth,
-  unified number, a source note, record version.
+  unified number, the profession on the visa and ID (`id_profession`), a
+  source note, record version.
+
+A person has two professions (`PRODUCT_DECISIONS.md` section 53): the
+**profession on the visa and ID** (for example Mechanical Engineer) and
+the **position in the company** (the Workforce designation, for example
+Project Engineer, shown across Workforce). Every record's profession on
+ID started as its designation when the field was added.
 - `v1_people_documents`: kind (visa, passport, labour card, ILOE, Emirates
   ID, CICPA pass, CMW pass, other), number, issue and expiry dates, sites
   (passes), notes. Visa, passport, labour card, ILOE and Emirates ID are
@@ -86,6 +93,11 @@ headings, so the owner's tracker and the app's own export both import.
 - Staff or Labour comes from a Category column when present, otherwise
   from the profession (engineer, manager, officer, accountant and similar
   office words are Staff; the rest are Labour).
+- The Profession column is the profession on the visa and ID: an import
+  fills a blank one and never overwrites one kept in the app. A
+  "Position in Company" column, when present, gives a new person's
+  position (otherwise the profession is used) and fills a position not
+  recorded yet.
 - Gate passes join the person by name, with the company section breaking
   ties. A pass whose name contains a digit is a vehicle (slice 2). A pass
   for a name not on the staff sheet adds that person as Labour, marked
@@ -99,7 +111,7 @@ headings, so the owner's tracker and the app's own export both import.
   lock.
 
 Export writes three sheets: **Staff Documents** (the tracker's columns,
-plus number and category), **Gate Passes** (one pass per row) and **Needs
+plus number, category and Position in Company), **Gate Passes** (one pass per row) and **Needs
 Attention**, with real dates, frozen headings, filters and red/amber/green
 expiry cells.
 

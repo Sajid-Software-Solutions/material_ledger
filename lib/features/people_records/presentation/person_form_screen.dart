@@ -111,6 +111,7 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
   late final TextEditingController _arabic;
   late final TextEditingController _company;
   late final TextEditingController _profession;
+  late final TextEditingController _idProfession;
   late final TextEditingController _unified;
   late final TextEditingController _phone;
   final _companyFocus = FocusNode();
@@ -132,10 +133,11 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
     _arabic = TextEditingController(text: person?.arabicName ?? '');
     _company = TextEditingController(text: person?.company ?? '');
     _profession = TextEditingController(
-      text: person == null || person.profession == 'Not recorded'
+      text: person == null || person.position == 'Not recorded'
           ? ''
-          : person.profession,
+          : person.position,
     );
+    _idProfession = TextEditingController(text: person?.idProfession ?? '');
     _unified = TextEditingController(text: person?.unifiedNumber ?? '');
     _phone = TextEditingController(text: person?.mobile ?? '');
     _category = person?.category ?? PeopleCategory.labour;
@@ -149,6 +151,7 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
       _arabic,
       _company,
       _profession,
+      _idProfession,
       _unified,
       _phone,
     ]) {
@@ -191,7 +194,8 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
               fullName: _name.text,
               company: _company.text,
               category: _category,
-              profession: _profession.text,
+              position: _profession.text,
+              idProfession: _idProfession.text,
               arabicName: _arabic.text,
               dateOfBirth: _dob,
               unifiedNumber: _unified.text,
@@ -275,6 +279,13 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
     'people-form-profession',
     _profession,
     label: labelled ? PS.t(PS.profession, _language) : null,
+    capitalization: TextCapitalization.words,
+  );
+
+  Widget _idProfessionField({bool labelled = true}) => _text(
+    'people-form-id-profession',
+    _idProfession,
+    label: labelled ? PS.t(PS.idProfession, _language) : null,
     capitalization: TextCapitalization.words,
   );
 
@@ -595,6 +606,7 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
       (PS.arabicName, _arabicField(labelled: false)),
       (PS.company, _companyField(labelled: false)),
       (PS.profession, _professionField(labelled: false)),
+      (PS.idProfession, _idProfessionField(labelled: false)),
       (PS.factCategory, _categoryField()),
     ]),
   );
@@ -660,6 +672,8 @@ class _PersonFormState extends ConsumerState<_PersonForm> {
           _companyField(),
           gap,
           _professionField(),
+          gap,
+          _idProfessionField(),
           gap,
           _categoryField(),
           section(PS.t(PS.personal, _language)),

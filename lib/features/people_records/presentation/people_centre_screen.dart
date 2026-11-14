@@ -1285,9 +1285,7 @@ class _RegisterTable extends StatelessWidget {
                   cell(
                     2,
                     Text(
-                      person.profession == 'Not recorded'
-                          ? '—'
-                          : person.profession,
+                      person.position == 'Not recorded' ? '—' : person.position,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall,
@@ -1452,8 +1450,8 @@ class _PersonCard extends StatelessWidget {
                         Text(
                           [
                             person.company,
-                            if (person.profession != 'Not recorded')
-                              person.profession,
+                            if (person.position != 'Not recorded')
+                              person.position,
                           ].join(' · '),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
