@@ -98,7 +98,7 @@ insert into public.v1_workforce_crew_profiles (
 -- The job ----------------------------------------------------------------
 
 select ok(
-  public.v1_wf_send_month_end_reminders() >= 3,
+  public.v1_wf_send_month_end_reminders() >= 2,
   'The daily job reminds the crews'' confirmers'
 );
 select is(
@@ -113,12 +113,12 @@ select ok(
     select 1 from public.v1_notifications
     where recipient_auth_user_id = '10000000-0000-4000-8000-000000000009'
       and event_code = 'workforce_attendance_month_overdue'
-  ) and exists (
+  ) and not exists (
     select 1 from public.v1_notifications
     where recipient_auth_user_id = '10000000-0000-4000-8000-000000000010'
       and event_code = 'workforce_attendance_month_overdue'
   ),
-  'A crew whose project has no Project Engineer reminds SME and PM'
+  'A crew whose project has no Project Engineer reminds the Senior Mechanical Engineers (a Project Manager no longer confirms)'
 );
 select is(
   (select count(*) from public.v1_notifications

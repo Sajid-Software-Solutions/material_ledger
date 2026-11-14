@@ -22,7 +22,7 @@ final class SupabaseYorksV1CompanyDocumentsRpcClient
 }
 
 /// Company documents: licences, permits, certificates, vehicles, insurance
-/// and CICPA contracts. Every command is rechecked on the server
+/// and CICPA passes. Every command is rechecked on the server
 /// (`company_documents.*`, record versions, idempotency keys); nothing is
 /// shown as saved before the server confirms it.
 final class YorksV1CompanyDocumentsRepository {

@@ -404,7 +404,7 @@ class _PickerRow extends StatelessWidget {
                         style: v2Style(14, weight: FontWeight.w600),
                       ),
                       Text(
-                        '${worker.number} · ${worker.designation} · ${worker.crewName ?? AS.t(AS.labourPool, language)}',
+                        '${worker.number} · ${worker.designation} · ${attendanceWorkerSheets(worker, language)}',
                         style: v2Style(12, color: AccountsV2Colors.mut),
                       ),
                     ],
@@ -427,6 +427,17 @@ class _PickerRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The sheets a labourer is on ("On Sweihan site crew, Workshop +1"), or
+/// Labour pool.
+String attendanceWorkerSheets(AttendanceWorker worker, AppLanguage language) {
+  final names = [for (final crew in worker.crews) crew.name];
+  if (names.isEmpty) return AS.t(AS.labourPool, language);
+  final shown = names.take(2).join(', ');
+  return AS.t(AS.onCrews, language, {
+    'crews': names.length > 2 ? '$shown +${names.length - 2}' : shown,
+  });
 }
 
 // ─── Phone quick actions ─────────────────────────────────────────────────────

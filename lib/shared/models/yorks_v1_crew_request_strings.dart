@@ -895,10 +895,10 @@ abstract final class CrewRequestStrings {
     hi: 'कामगार चुनें, या पंक्ति को आंशिक या अभी उपलब्ध नहीं चिह्नित करें।',
   );
   static const errWorkerOnCrew = _T(
-    en: 'A chosen worker joined another crew meanwhile. Refresh and choose again.',
-    ar: 'انضم أحد العمال المختارين إلى طاقم آخر. حدّث واختر مجددًا.',
-    ur: 'ایک منتخب کارکن اس دوران دوسرے عملے میں شامل ہو گیا۔ ریفریش کر کے دوبارہ چنیں۔',
-    hi: 'चुना गया एक कामगार इस बीच दूसरे क्रू में चला गया। रीफ़्रेश करके फिर चुनें।',
+    en: 'A chosen worker is already on this crew. Refresh and choose again.',
+    ar: 'أحد العمال المختارين موجود بالفعل في هذا الطاقم. حدّث واختر مجددًا.',
+    ur: 'ایک منتخب کارکن پہلے ہی اس عملے میں ہے۔ ریفریش کر کے دوبارہ چنیں۔',
+    hi: 'चुना गया एक कामगार पहले से इस क्रू में है। रीफ़्रेश करके फिर चुनें।',
   );
   static const errOverAssigned = _T(
     en: 'A line has more workers than were asked for.',
@@ -1239,10 +1239,10 @@ abstract final class CrewRequestStrings {
     hi: 'स्वीकृतकर्ता यह देखेगा। स्वीकृति पर {name} इस अनुरोध के क्रू में चला जाएगा।',
   );
   static const onCrewApproverWarning = _T(
-    en: 'On {crew} · approving moves them here',
-    ar: 'في {crew} · الموافقة تنقله إلى هنا',
-    ur: '{crew} میں · منظوری انہیں یہاں منتقل کرے گی',
-    hi: '{crew} में · स्वीकृति उन्हें यहाँ ले आएगी',
+    en: 'Also on {crew} · stays there and joins this crew too',
+    ar: 'أيضًا في {crew} · يبقى هناك وينضم إلى هذا الطاقم أيضًا',
+    ur: '{crew} میں بھی · وہیں رہے گا اور اس عملے میں بھی شامل ہوگا',
+    hi: '{crew} में भी · वहीं रहेगा और इस क्रू में भी जुड़ेगा',
   );
   static const notOnRecords = _T(
     en: 'Not in Worker Records yet? Type the trade instead.',
@@ -1287,10 +1287,10 @@ abstract final class CrewRequestStrings {
     hi: 'स्वीकृत · {n} सौंपे',
   );
   static const movesFrom = _T(
-    en: 'Moves from {crew}',
-    ar: 'ينتقل من {crew}',
-    ur: '{crew} سے منتقل ہو گا',
-    hi: '{crew} से आएगा',
+    en: 'Also on {crew}',
+    ar: 'أيضًا في {crew}',
+    ur: '{crew} میں بھی',
+    hi: '{crew} में भी',
   );
   static const namedOnLine = _T(
     en: 'Named on this request',

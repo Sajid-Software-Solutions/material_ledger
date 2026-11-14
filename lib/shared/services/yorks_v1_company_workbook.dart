@@ -10,8 +10,11 @@
 ///   column. Rows with only one or two values are company-wide certificates
 ///   and permits. The car registration sections list vehicles with their
 ///   registration and Asateel permit; Personal cars are kept as Personal.
-/// * **CICPA Contracts**: one contract per LOA under each company heading,
-///   with its job, people and vehicle counts, passes applied for and expiry.
+/// * **CICPA Contracts** sheet: one CICPA pass record per LOA under each
+///   company heading, with its job, people and vehicle counts, passes applied
+///   for and expiry.
+///
+/// The company's postal address (P.O. Box) is never read as a document.
 /// * **Staff Documents**: the insurance lines between the people are the
 ///   company's policies, for the company block they sit in.
 /// * **Gate Passes**: a pass whose name carries a plate is the vehicle's
@@ -267,11 +270,25 @@ CompanyTrackerRead companyReadTracker(YorksV1BoqParsedWorkbook workbook) {
     );
   }
 
+  // The company's postal address ("P.O. BOX 4757") sits among the permits
+  // but is not a document: leave it out, and say so in the preview.
+  records.removeWhere((record) {
+    if (!companyIsPostalAddress(record.name)) return false;
+    skipped.add((sheet: record.sheet, row: record.row, text: record.name));
+    return true;
+  });
+
   return CompanyTrackerRead(
     records: records,
     skippedRows: skipped,
     sheetsFound: found,
   );
+}
+
+/// "P.O. BOX 4757", "PO Box 12", "Post Box 9": an address, not a document.
+bool companyIsPostalAddress(String name) {
+  final key = _key(name);
+  return key.startsWith('pobox') || key.startsWith('postbox');
 }
 
 /// Company Licenses & Permits: `Item | Value 1 | Value 2 …`.
@@ -630,8 +647,11 @@ String companyExportGroupName(CompanyRecordKind kind) => switch (kind) {
   CompanyRecordKind.item => 'Certificate or permit',
   CompanyRecordKind.vehicle => 'Vehicle',
   CompanyRecordKind.policy => 'Insurance',
-  CompanyRecordKind.contract => 'CICPA contract',
+  CompanyRecordKind.contract => 'CICPA pass',
 };
+
+/// Group names written by earlier exports, still read back.
+const _legacyGroupNames = {'cicpacontract': CompanyRecordKind.contract};
 
 String companyExportDocumentName(CompanyDocumentKind kind) => switch (kind) {
   CompanyDocumentKind.licence => 'Trade licence',
@@ -654,7 +674,7 @@ CompanyRecordKind? _groupFrom(String text) {
       return kind;
     }
   }
-  return null;
+  return _legacyGroupNames[key];
 }
 
 CompanyDocumentKind? _documentFrom(String text) {

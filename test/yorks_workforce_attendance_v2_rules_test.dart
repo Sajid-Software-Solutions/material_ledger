@@ -1,6 +1,7 @@
 // Workforce attendance V2 — the time-entry, hours and search rules from the
 // approved prototype and the paper DAILY TIME SHEET.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
 import 'package:material_ledger/features/workforce/domain/attendance_search.dart';
 import 'package:material_ledger/features/workforce/domain/attendance_time.dart';
 
@@ -131,6 +132,136 @@ void main() {
 
     test('unrelated text finds nothing', () {
       expect(find('xyzq'), isEmpty);
+    });
+  });
+
+  group('several places a day (PRODUCT_DECISIONS 46)', () {
+    const worker = AttendanceWorker(
+      id: 'w1',
+      number: 'W-1',
+      name: 'Test Worker',
+      designation: 'Helper',
+    );
+    AttendanceElsewhere store({
+      AttendanceStatus status = AttendanceStatus.present,
+      int? start = 390,
+      int? finish = 720,
+    }) => AttendanceElsewhere(
+      crewId: 'store',
+      crewName: 'Store',
+      status: status,
+      start: status == AttendanceStatus.present ? start : null,
+      finish: status == AttendanceStatus.present ? finish : null,
+      worked: status == AttendanceStatus.present ? finish! - start! : 0,
+    );
+    AttendanceRow here({
+      AttendanceStatus? status = AttendanceStatus.present,
+      int start = 780,
+      int finish = 1140,
+      List<AttendanceElsewhere> elsewhere = const [],
+    }) => AttendanceRow(
+      worker: worker,
+      status: status,
+      start: status == AttendanceStatus.present ? start : null,
+      finish: status == AttendanceStatus.present ? finish : null,
+      elsewhere: elsewhere,
+    );
+
+    test('the first 8 hours of the whole day are normal, in time order', () {
+      // 6:30-12 at the store (5.5 h), 1-7 PM here (6 h): 2.5 h normal here.
+      final later = here(elsewhere: [store()]).minutes(holiday: false);
+      expect(later.worked, 360);
+      expect(later.regular, 150);
+      expect(later.normalOvertime, 210);
+      // The earlier place keeps its normal hours.
+      final earlier = here(
+        start: 300,
+        finish: 380,
+        elsewhere: [store(start: 390, finish: 1140)],
+      ).minutes(holiday: false);
+      expect(earlier.regular, 80);
+      expect(earlier.normalOvertime, 0);
+      // A Sunday is all holiday overtime wherever it is worked.
+      expect(
+        here(elsewhere: [store()]).minutes(holiday: true).holidayOvertime,
+        360,
+      );
+    });
+
+    test('a member recorded elsewhere need not be marked here', () {
+      final busy = here(status: null, elsewhere: [store()]);
+      expect(busy.busyElsewhere, isTrue);
+      expect(busy.needsMarking, isFalse);
+      expect(here(status: null).needsMarking, isTrue);
+      final absentThere = here(
+        status: null,
+        elsewhere: [store(status: AttendanceStatus.absent)],
+      );
+      expect(absentThere.needsMarking, isTrue, reason: 'absent there only');
+    });
+
+    test('clashes with the other places are caught before saving', () {
+      expect(
+        here(start: 600, finish: 900, elsewhere: [store()]).placeConflict,
+        AttendancePlaceConflict.overlap,
+      );
+      expect(
+        here(start: 720, finish: 900, elsewhere: [store()]).placeConflict,
+        AttendancePlaceConflict.none,
+        reason: 'starting when the other place ends is fine',
+      );
+      expect(
+        here(
+          elsewhere: [store(status: AttendanceStatus.sickLeave)],
+        ).placeConflict,
+        AttendancePlaceConflict.onLeaveElsewhere,
+      );
+      expect(
+        here(
+          status: AttendanceStatus.annualLeave,
+          elsewhere: [store()],
+        ).placeConflict,
+        AttendancePlaceConflict.presentElsewhere,
+      );
+      expect(
+        here(
+          start: 1200,
+          finish: 1260,
+          elsewhere: [
+            store(start: 300, finish: 400),
+            store(start: 420, finish: 700),
+            store(start: 720, finish: 1100),
+          ],
+        ).placeConflict,
+        AttendancePlaceConflict.tooManyPlaces,
+      );
+    });
+
+    test('a worker on several sheets reads back from the server', () {
+      final read = AttendanceWorker.fromJson({
+        'id': 'w1',
+        'number': 'W-1',
+        'name': 'Test Worker',
+        'designation': 'Helper',
+        'category': 'labour',
+        'crew_id': 'a',
+        'crew_name': 'Alpha',
+        'crews': [
+          {'id': 'a', 'name': 'Alpha'},
+          {'id': 'b', 'name': 'Bravo'},
+        ],
+      });
+      expect(read.crews.map((crew) => crew.name), ['Alpha', 'Bravo']);
+      expect(read.isStaff, isFalse);
+      // An older payload with one crew still reads.
+      expect(
+        AttendanceWorker.fromJson({
+          'id': 'w1',
+          'crew_id': 'a',
+          'crew_name': 'Alpha',
+        }).crews.single.name,
+        'Alpha',
+      );
     });
   });
 }

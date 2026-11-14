@@ -10,15 +10,23 @@ same expiry status, renewal history, Excel import and export as People:
 | Record | What it holds | From the tracker |
 | --- | --- | --- |
 | Company or branch | Trade licence, establishment card, labour file, PRO cards, other per-company documents | Company Licenses & Permits: the LICENSES row and the rows under it, by column |
-| Certificate or permit | Civil Defence, ISO 9001, ICV, CMW, CICPA company registration, P.O. Box, land rent and similar | The same sheet, rows with one or two dates |
+| Certificate or permit | Civil Defence, ISO 9001, ICV, CMW, CICPA company registration, land rent and similar | The same sheet, rows with one or two dates |
 | Vehicle | Registration, Asateel permit, CICPA vehicle pass | The car registration sections (company, branch and personal cars) and the vehicle lines of the Gate Passes sheet, joined by plate |
 | Insurance policy | The policy and its expiry | The insurance lines between the people on Staff Documents, for the company block they sit in, and Workmen's insurance |
-| CICPA contract | LOA, with job, people, vehicles and passes applied for | CICPA Contracts, under each company heading |
+| CICPA pass | LOA, with job, people, vehicles and passes applied for | CICPA Contracts, under each company heading |
 
 A row in the licence sheet with only one or two dates is not tied to a
 company: its second date is kept as a second document labelled "Value 2"
 (the tracker's own column) so PR can say which company it belongs to.
-Note rows such as "(COURT) 3 spas" are reported and not imported.
+Note rows such as "(COURT) 3 spas" are reported and not imported, and so
+is the company's postal address ("P.O. BOX …"): it is an address, not a
+document (owner decision, 14 November 2026). The P.O. Box line loaded on
+13 November was archived in production with that reason.
+
+The register formerly called "CICPA contracts" is named **CICPA passes**
+(owner decision, 14 November 2026). The stored kind stays `contract`, so
+records, exports and history are unchanged; an export that says "CICPA
+contract" still reads back.
 
 ## Who sees what
 
@@ -78,7 +86,7 @@ imports again) and a Needs Attention sheet.
 ## Screens
 
 - `/yorks/company-documents`: Needs attention, Licences & permits,
-  Vehicles, Insurance, CICPA contracts; six tiles; search, company, sort
+  Vehicles, Insurance, CICPA passes; six tiles; search, company, sort
   and Show archived; Import, Export and Add record; a link to People.
 - `/yorks/company-documents/:recordId`: header with Archive, Edit and Add
   document; status banner; documents table with an empty row for each

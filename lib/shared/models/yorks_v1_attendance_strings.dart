@@ -391,10 +391,10 @@ abstract final class AttendanceStrings {
 
   // ─── Take attendance ───────────────────────────────────────────────────────
   static const takeIntro = _T(
-    en: 'Enter your crew for today or any earlier day. Your Project Engineer sees it straight away and confirms the whole month at month end.',
-    ar: 'أدخل طاقمك لليوم أو لأي يوم سابق. يراه مهندس المشروع فورًا ويؤكد الشهر كاملًا في نهايته.',
-    ur: 'آج یا کسی پچھلے دن کے لیے اپنا عملہ درج کریں۔ پروجیکٹ انجینئر فوراً دیکھتا ہے اور مہینے کے آخر میں پورے مہینے کی تصدیق کرتا ہے۔',
-    hi: 'आज या किसी पिछले दिन के लिए अपना दल दर्ज करें। प्रोजेक्ट इंजीनियर तुरंत देखता है और माह के अंत में पूरे माह की पुष्टि करता है।',
+    en: 'Enter your crew for today or any earlier day. The Project Engineer or a Senior Mechanical Engineer sees it straight away and confirms the whole month at month end.',
+    ar: 'أدخل طاقمك لليوم أو لأي يوم سابق. يراه مهندس المشروع أو كبير المهندسين الميكانيكيين فورًا ويؤكد الشهر كاملًا في نهايته.',
+    ur: 'آج یا کسی پچھلے دن کے لیے اپنا عملہ درج کریں۔ پروجیکٹ انجینئر یا سینئر مکینیکل انجینئر فوراً دیکھتا ہے اور مہینے کے آخر میں پورے مہینے کی تصدیق کرتا ہے۔',
+    hi: 'आज या किसी पिछले दिन के लिए अपना दल दर्ज करें। प्रोजेक्ट इंजीनियर या सीनियर मैकेनिकल इंजीनियर तुरंत देखता है और माह के अंत में पूरे माह की पुष्टि करता है।',
   );
   static const takeIntroWorkshop = _T(
     en: 'Enter your crew for today or any earlier day. Workshop attendance needs no confirmation.',
@@ -725,10 +725,10 @@ abstract final class AttendanceStrings {
     hi: '{n} समय अधूरा',
   );
   static const draftNote = _T(
-    en: 'Saved on this device as you go. Your Project Engineer sees it once you save.',
-    ar: 'يُحفظ على هذا الجهاز أثناء العمل. يراه مهندس المشروع بعد الحفظ.',
-    ur: 'کام کرتے ہوئے اس ڈیوائس پر محفوظ ہوتا ہے۔ محفوظ کرنے کے بعد پروجیکٹ انجینئر دیکھتا ہے۔',
-    hi: 'काम करते समय इस डिवाइस पर सहेजा जाता है। सहेजने के बाद प्रोजेक्ट इंजीनियर देखता है।',
+    en: 'Saved on this device as you go. Your confirmers see it once you save.',
+    ar: 'يُحفظ على هذا الجهاز أثناء العمل. يراه من يؤكدون الشهر بعد الحفظ.',
+    ur: 'کام کرتے ہوئے اس ڈیوائس پر محفوظ ہوتا ہے۔ محفوظ کرنے کے بعد تصدیق کرنے والے دیکھتے ہیں۔',
+    hi: 'काम करते समय इस डिवाइस पर सहेजा जाता है। सहेजने के बाद पुष्टि करने वाले देखते हैं।',
   );
   static const draftNoteWorkshop = _T(
     en: 'Saved on this device as you go. No confirmation needed.',
@@ -1223,18 +1223,6 @@ abstract final class AttendanceStrings {
     hi: 'हटाएँ',
   );
   static const save = _T(en: 'Save', ar: 'حفظ', ur: 'محفوظ کریں', hi: 'सहेजें');
-  static const moveWorker = _T(
-    en: '{name} is in {crew}. Move to this crew?',
-    ar: '{name} في {crew}. نقله إلى هذا الطاقم؟',
-    ur: '{name} {crew} میں ہے۔ اس عملے میں منتقل کریں؟',
-    hi: '{name} {crew} में है। इस दल में ले जाएँ?',
-  );
-  static const move = _T(
-    en: 'Move',
-    ar: 'نقل',
-    ur: 'منتقل کریں',
-    hi: 'ले जाएँ',
-  );
   static const crewSaved = _T(
     en: 'Crew saved.',
     ar: 'تم حفظ الطاقم.',
@@ -1460,6 +1448,108 @@ abstract final class AttendanceStrings {
     ar: 'عامل موجود بالفعل في كشف طاقم آخر في ذلك اليوم.',
     ur: 'ایک ورکر اس دن پہلے ہی کسی اور عملے کی شیٹ پر ہے۔',
     hi: 'एक कर्मचारी उस दिन पहले से दूसरे दल की शीट पर है।',
+  );
+  static const errOverlap = _T(
+    en: 'This worker’s times overlap with another place that day. Change the times, or check the other sheet.',
+    ar: 'أوقات هذا العامل تتداخل مع مكان آخر في ذلك اليوم. غيّر الأوقات أو راجع الكشف الآخر.',
+    ur: 'اس ورکر کے اوقات اس دن کسی اور جگہ سے ٹکراتے ہیں۔ وقت بدلیں یا دوسری شیٹ دیکھیں۔',
+    hi: 'इस कर्मचारी का समय उस दिन दूसरी जगह से टकराता है। समय बदलें या दूसरी शीट देखें।',
+  );
+  static const errLeaveElsewhere = _T(
+    en: 'This worker is on leave at another place that day.',
+    ar: 'هذا العامل في إجازة في مكان آخر في ذلك اليوم.',
+    ur: 'یہ ورکر اس دن کسی اور جگہ چھٹی پر ہے۔',
+    hi: 'यह कर्मचारी उस दिन दूसरी जगह छुट्टी पर है।',
+  );
+  static const errPresentElsewhere = _T(
+    en: 'This worker is present at another place that day, so cannot be on leave here.',
+    ar: 'هذا العامل حاضر في مكان آخر في ذلك اليوم، فلا يمكن أن يكون في إجازة هنا.',
+    ur: 'یہ ورکر اس دن کسی اور جگہ حاضر ہے، اس لیے یہاں چھٹی پر نہیں ہو سکتا۔',
+    hi: 'यह कर्मचारी उस दिन दूसरी जगह उपस्थित है, इसलिए यहाँ छुट्टी पर नहीं हो सकता।',
+  );
+  static const errTooManyPlaces = _T(
+    en: 'A worker can be at three places a day at most.',
+    ar: 'يمكن أن يكون العامل في ثلاثة أماكن في اليوم كحد أقصى.',
+    ur: 'ایک ورکر دن میں زیادہ سے زیادہ تین جگہوں پر ہو سکتا ہے۔',
+    hi: 'एक कर्मचारी दिन में अधिकतम तीन जगहों पर हो सकता है।',
+  );
+  static const errOtherPlaceLocked = _T(
+    en: 'This would change hours on a sheet whose month is already confirmed. Ask Admin or PR to reopen that month.',
+    ar: 'سيغيّر هذا الساعات في كشف تم تأكيد شهره. اطلب من المسؤول أو العلاقات العامة إعادة فتح ذلك الشهر.',
+    ur: 'اس سے ایسی شیٹ کے گھنٹے بدلیں گے جس کا مہینہ تصدیق ہو چکا ہے۔ ایڈمن یا پی آر سے وہ مہینہ دوبارہ کھلوائیں۔',
+    hi: 'इससे ऐसी शीट के घंटे बदलेंगे जिसका माह पुष्ट हो चुका है। एडमिन या पीआर से वह माह फिर खुलवाएँ।',
+  );
+  static const errStaff = _T(
+    en: 'Only labour goes on attendance sheets.',
+    ar: 'كشوف الحضور للعمال فقط.',
+    ur: 'حاضری کی شیٹ پر صرف لیبر آتی ہے۔',
+    hi: 'उपस्थिति शीट पर केवल श्रमिक आते हैं।',
+  );
+  static const alsoAt = _T(
+    en: 'Also at {place} · {time}',
+    ar: 'أيضًا في {place} · {time}',
+    ur: '{place} میں بھی · {time}',
+    hi: '{place} में भी · {time}',
+  );
+  static const atPlaceToday = _T(
+    en: 'At {place} today · {time}',
+    ar: 'في {place} اليوم · {time}',
+    ur: 'آج {place} میں · {time}',
+    hi: 'आज {place} में · {time}',
+  );
+  static const markHereToo = _T(
+    en: 'Mark here only if they also worked here.',
+    ar: 'سجّله هنا فقط إذا عمل هنا أيضًا.',
+    ur: 'یہاں صرف اس صورت میں لگائیں جب یہاں بھی کام کیا ہو۔',
+    hi: 'यहाँ तभी दर्ज करें जब यहाँ भी काम किया हो।',
+  );
+  static const conflictOverlap = _T(
+    en: 'Overlaps {place} · {time}',
+    ar: 'يتداخل مع {place} · {time}',
+    ur: '{place} سے ٹکراتا ہے · {time}',
+    hi: '{place} से टकराता है · {time}',
+  );
+  static const conflictLeaveElsewhere = _T(
+    en: 'On leave at {place}',
+    ar: 'في إجازة في {place}',
+    ur: '{place} میں چھٹی پر',
+    hi: '{place} में छुट्टी पर',
+  );
+  static const conflictPresentElsewhere = _T(
+    en: 'Present at {place} · cannot be on leave',
+    ar: 'حاضر في {place} · لا يمكن أن يكون في إجازة',
+    ur: '{place} میں حاضر · چھٹی نہیں ہو سکتی',
+    hi: '{place} में उपस्थित · छुट्टी नहीं हो सकती',
+  );
+  static const conflictTooMany = _T(
+    en: 'Already at three places today',
+    ar: 'في ثلاثة أماكن اليوم بالفعل',
+    ur: 'آج پہلے ہی تین جگہوں پر',
+    hi: 'आज पहले से तीन जगहों पर',
+  );
+  static const footerElsewhere = _T(
+    en: '{n} at another place',
+    ar: '{n} في مكان آخر',
+    ur: '{n} دوسری جگہ',
+    hi: '{n} दूसरी जगह',
+  );
+  static const footerConflicts = _T(
+    en: '{n} clash with another place',
+    ar: '{n} يتعارض مع مكان آخر',
+    ur: '{n} دوسری جگہ سے ٹکراؤ',
+    hi: '{n} दूसरी जगह से टकराव',
+  );
+  static const alsoToday = _T(
+    en: 'Also today',
+    ar: 'اليوم أيضًا',
+    ur: 'آج یہ بھی',
+    hi: 'आज यह भी',
+  );
+  static const onCrews = _T(
+    en: 'On {crews}',
+    ar: 'في {crews}',
+    ur: '{crews} میں',
+    hi: '{crews} में',
   );
   static const errReason = _T(
     en: 'A reason is needed to change a day someone else entered.',

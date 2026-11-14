@@ -100,7 +100,11 @@ final class YorksAttendanceRepository {
     await _invoke('v1_wf_save_day', {
       'p_team_id': crewId,
       'p_work_date': date,
-      'p_rows': [for (final row in rows) row.toPayload()],
+      // A member recorded at another place and not marked here is left out.
+      'p_rows': [
+        for (final row in rows)
+          if (row.isMarked) row.toPayload(),
+      ],
       'p_expected_version': expectedVersion,
       'p_change_reason': changeReason,
       'p_idempotency_key': idempotencyKey,

@@ -165,15 +165,18 @@ Supersedes decisions 3 and 4 above; `PRODUCT_DECISIONS.md` section 40.
   a person makes the line for that one person (`worker_id`, quantity 1,
   trade = their designation); the same person cannot be named twice. Typing a
   trade keeps the "how many" field.
-- **Warning.** A named person on another crew shows "*Name* is on *crew*" to
-  the requester, "On *crew* · approving moves them here" to the approver on
-  the request, and "Moves from *crew*" on the assignment screen.
+- **Other crews.** A named person on another crew shows "*Name* is on
+  *crew*" to the requester, "Also on *crew* · stays there and joins this crew
+  too" to the approver on the request, and "Also on *crew*" on the
+  assignment screen. A labourer may work at several places a day
+  (`PRODUCT_DECISIONS.md` section 46), so assigning never takes them off
+  another crew. Only labour is offered and assigned; staff are not.
 - **Approve and assign.** The approver opens the assignment screen from
   Submitted; named people are ticked and may be unticked. Saving sends
   `approve: true` to `v1_wf_fulfil_request`, which approves (event
   `approved` with `with_assignment`) and assigns in one transaction. A named
-  person on another crew is removed from it and joins this crew (`moved` in
-  the event). With nobody ticked it is Approve only; the existing Approve
+  person on another crew joins this crew and stays on the other one (since
+  14 November 2026; earlier events may still list `moved` people). With nobody ticked it is Approve only; the existing Approve
   dialog stays for the same purpose. Assigning later is open to the
   approvers and to PR (Admin).
 - **States.** Submitted → Approved → Partially fulfilled / Workers on site

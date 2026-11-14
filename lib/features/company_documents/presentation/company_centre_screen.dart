@@ -5,7 +5,7 @@
 ///
 /// Needs attention lists every current document that has expired or ends
 /// within 60 days, expired first. Licences & permits, Vehicles, Insurance
-/// and CICPA contracts are the registers, a table on desktop and cards on a
+/// and CICPA passes are the registers, a table on desktop and cards on a
 /// phone, paged on the server.
 library;
 

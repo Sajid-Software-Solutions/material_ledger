@@ -13,8 +13,10 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_centre_screen.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_form_screen.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_record_screen.dart';
+import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_workbook.dart';
 import 'package:material_ledger/shared/models/yorks_v1_company_documents.dart';
+import 'package:material_ledger/shared/models/yorks_v1_company_documents_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_boq_workbook_provider.dart';
@@ -461,6 +463,7 @@ YorksV1BoqParsedWorkbook _tracker() => YorksV1BoqParsedWorkbook(
         ['LABOUR FILE NUMBER', '12345.0', '67890.0', ''],
         ['PRO CARD LABOR TEST A', '47000', '47000', '47000'],
         ['ISO 9001', '46000', '47000'],
+        ['P.O. BOX 4757', '46387', '46387'],
         ['(COURT)', '3 spas'],
         ['EXAMPLE CAR REGISTRATION', '', 'ASATEEL PERMIT'],
         ['TEST PICKUP 11111', '46418', '46000'],
@@ -504,7 +507,15 @@ void main() {
     test('reads licences, vehicles, contracts, insurance and passes', () {
       final read = companyReadTracker(_tracker());
       expect(read.issueCount, 0);
-      expect(read.skippedRows.single.text, '(COURT) 3 spas');
+      // A note row and the postal address are reported, not imported.
+      expect(read.skippedRows.map((row) => row.text), [
+        '(COURT) 3 spas',
+        'P.O. BOX 4757',
+      ]);
+      expect(
+        read.records.where((record) => record.name.contains('BOX')),
+        isEmpty,
+      );
       CompanyTrackerRecord named(String name) =>
           read.records.firstWhere((record) => record.name == name);
 
@@ -597,11 +608,82 @@ void main() {
       );
       expect(read.records.last.details.people, 12);
       expect(
+        workbook.sheets.first.rows.any((row) => row.first == 'CICPA pass'),
+        isTrue,
+        reason: 'the register is called CICPA passes',
+      );
+      expect(
         read.records[1].documents
             .firstWhere((d) => d.kind == CompanyDocumentKind.cicpaPass)
             .sites,
         'Test Plant',
       );
+    });
+  });
+
+  group('CICPA passes and addresses', () {
+    test('an older export that says CICPA contract still reads back', () {
+      final bytes = peopleEncodeWorkbook(
+        companyExportSheets([
+          CompanyRecord.fromJson(_contract()),
+        ], today: '2026-11-13'),
+      );
+      final exported = const YorksV1BoqWorkbookCodec().decode(
+        bytes: bytes,
+        fileName: 'Company.xlsx',
+      );
+      final older = YorksV1BoqParsedWorkbook(
+        fileName: 'Company.xlsx',
+        sheets: [
+          for (final sheet in exported.sheets)
+            YorksV1BoqWorkbookSheet(
+              name: sheet.name,
+              rows: [
+                for (final row in sheet.rows)
+                  [
+                    for (final cell in row)
+                      cell == 'CICPA pass' ? 'CICPA contract' : cell,
+                  ],
+              ],
+            ),
+        ],
+      );
+      expect(
+        older.sheets.first.rows.any((row) => row.first == 'CICPA contract'),
+        isTrue,
+      );
+      final read = companyReadTracker(older);
+      expect(read.issueCount, 0);
+      expect(read.records.single.kind, CompanyRecordKind.contract);
+    });
+
+    test('postal addresses are never documents', () {
+      for (final name in [
+        'P.O. BOX 4757',
+        'PO Box 12',
+        'p. o. box 9',
+        'POST BOX 77',
+      ]) {
+        expect(companyIsPostalAddress(name), isTrue, reason: name);
+      }
+      for (final name in ['ISO 9001', 'CIVIL DEFENCE', 'BOX TRUCK 12345']) {
+        expect(companyIsPostalAddress(name), isFalse, reason: name);
+      }
+    });
+
+    test('every language names the register CICPA passes', () {
+      for (final language in AppLanguage.values) {
+        for (final label in [
+          CompanyStrings.viewContracts,
+          CompanyStrings.kindContract,
+        ]) {
+          expect(label.active(language), contains('CICPA'));
+          expect(
+            label.active(language).toLowerCase(),
+            isNot(contains('contract')),
+          );
+        }
+      }
     });
   });
 

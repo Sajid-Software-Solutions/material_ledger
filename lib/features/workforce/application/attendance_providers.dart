@@ -72,6 +72,11 @@ final yorksAttendanceHolidaysProvider = FutureProvider.autoDispose
           ref.watch(yorksAttendanceRepositoryProvider).listHolidays(year),
     );
 
+/// Whether the signed-in person may create attendance sheets.
+final yorksAttendanceCanCreateCrewProvider = FutureProvider.autoDispose<bool>(
+  (ref) => ref.watch(yorksAttendanceRepositoryProvider).canCreateCrew(),
+);
+
 final yorksAttendanceWorkersProvider =
     FutureProvider.autoDispose<List<AttendanceWorker>>(
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listWorkers(),
@@ -162,7 +167,18 @@ final class AttendanceDayEditState {
       rows.where((row) => row.status == AttendanceStatus.absent).length;
   int get leaveCount =>
       rows.where((row) => row.status?.isLeave ?? false).length;
-  int get unmarkedCount => rows.where((row) => !row.isMarked).length;
+
+  /// Still to be marked: not marked here and not recorded at another place.
+  int get unmarkedCount => rows.where((row) => row.needsMarking).length;
+
+  /// Members recorded at another place today and not marked here.
+  int get elsewhereCount =>
+      rows.where((row) => !row.isMarked && row.busyElsewhere).length;
+
+  /// Lines that clash with the worker's other places today.
+  int get conflictCount => rows
+      .where((row) => row.placeConflict != AttendancePlaceConflict.none)
+      .length;
   int get timeMissingCount =>
       rows.where((row) => row.minutes(holiday: holiday).timeMissing).length;
   int get normalOvertime => rows.fold(
@@ -174,11 +190,13 @@ final class AttendanceDayEditState {
     (sum, row) => sum + row.minutes(holiday: holiday).holidayOvertime,
   );
 
-  /// Ready to save: every worker marked, every present worker timed.
+  /// Ready to save: every worker marked (or recorded at another place),
+  /// every present worker timed, nothing clashing with another place.
   bool get canSave =>
       rows.isNotEmpty &&
       unmarkedCount == 0 &&
       timeMissingCount == 0 &&
+      conflictCount == 0 &&
       !saving &&
       (dirty || !(day?.saved ?? false));
 
@@ -230,7 +248,7 @@ final class AttendanceDayController
       final day = await _repository.getDay(crewId: key.crewId, date: key.date);
       if (!mounted) return;
       final base = _startingRows(day);
-      final draft = _readDraft(day);
+      final draft = _withServerPlaces(_readDraft(day), day);
       state = AttendanceDayEditState(
         day: day,
         rows: draft ?? base,
@@ -243,12 +261,29 @@ final class AttendanceDayController
     }
   }
 
-  /// A new rest day starts with everyone on Rest day, as on paper.
+  /// A new rest day starts with everyone on Rest day, as on paper, except
+  /// those recorded at another place.
   List<AttendanceRow> _startingRows(AttendanceDay day) {
     if (day.saved || !day.holiday) return day.rows;
     return [
       for (final row in day.rows)
-        row.isMarked ? row : row.copyWith(status: AttendanceStatus.rest),
+        row.isMarked || row.busyElsewhere
+            ? row
+            : row.copyWith(status: AttendanceStatus.rest),
+    ];
+  }
+
+  /// Rows kept on this device carry the server's latest view of the other
+  /// places, never the one saved with the draft.
+  List<AttendanceRow>? _withServerPlaces(
+    List<AttendanceRow>? rows,
+    AttendanceDay day,
+  ) {
+    if (rows == null) return null;
+    final places = {for (final row in day.rows) row.worker.id: row.elsewhere};
+    return [
+      for (final row in rows)
+        row.withElsewhere(places[row.worker.id] ?? const []),
     ];
   }
 
@@ -334,10 +369,12 @@ final class AttendanceDayController
     );
   }
 
-  /// Everyone not yet marked is present on the usual shift.
+  /// Everyone still to be marked is present on the usual shift; workers
+  /// recorded at another place today are left for the keeper to decide.
   void everyonePresent() {
     _writeDraft([
-      for (final row in state.rows) row.isMarked ? row : presentOnShift(row),
+      for (final row in state.rows)
+        row.needsMarking ? presentOnShift(row) : row,
     ]);
   }
 
@@ -357,21 +394,29 @@ final class AttendanceDayController
     try {
       final source = await _repository.getDay(crewId: key.crewId, date: date);
       final byId = {for (final row in source.rows) row.worker.id: row};
+      AttendanceRow copyOf(AttendanceRow row, AttendanceRow copied) =>
+          AttendanceRow(
+            worker: row.worker,
+            status: copied.status,
+            start: copied.start,
+            breakStart: copied.breakStart,
+            breakFinish: copied.breakFinish,
+            finish: copied.finish,
+            workProjectId: copied.workProjectId,
+            workLabel: copied.workLabel,
+            copied: true,
+            isMember: row.isMember,
+            elsewhere: row.elsewhere,
+          );
       _writeDraft([
         for (final row in state.rows)
           if (byId[row.worker.id] case final copied? when copied.isMarked)
-            AttendanceRow(
-              worker: row.worker,
-              status: copied.status,
-              start: copied.start,
-              breakStart: copied.breakStart,
-              breakFinish: copied.breakFinish,
-              finish: copied.finish,
-              workProjectId: copied.workProjectId,
-              workLabel: copied.workLabel,
-              copied: true,
-              isMember: row.isMember,
-            )
+            // A copy that would clash with another place today is skipped.
+            if (copyOf(row, copied).placeConflict ==
+                AttendancePlaceConflict.none)
+              copyOf(row, copied)
+            else
+              row
           else
             row,
       ]);
@@ -412,7 +457,8 @@ final class AttendanceDayController
       if (!mounted) return;
       final byId = {for (final row in mine) row.worker.id: row};
       final merged = [
-        for (final row in day.rows) byId.remove(row.worker.id) ?? row,
+        for (final row in day.rows)
+          byId.remove(row.worker.id)?.withElsewhere(row.elsewhere) ?? row,
         // Workers added for the day on this device stay too.
         ...byId.values.where((row) => !row.isMember),
       ];
