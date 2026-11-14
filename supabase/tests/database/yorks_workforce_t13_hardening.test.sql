@@ -318,6 +318,12 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_people_overview()'),
   ('v1_people_save_document(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_people_save_person(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
+  -- My Yorks from the People record (PRODUCT_DECISIONS.md section 54): the
+  -- caller's own record and a note to HR/PRO; linking is PR and Admin only.
+  ('v1_people_get_mine()'),
+  ('v1_people_send_note(p_message text, p_idempotency_key uuid)'),
+  ('v1_people_link_suggestions()'),
+  ('v1_people_set_account(p_worker_id uuid, p_auth_user_id uuid, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_fulfil_request(p_request_id uuid, p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_finish_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_list_requests()'),

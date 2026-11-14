@@ -214,6 +214,9 @@ final class PeoplePerson {
     this.history = const [],
     this.canManage = false,
     this.updatedAt,
+    this.account,
+    this.notes = const [],
+    this.canLink = false,
   });
 
   factory PeoplePerson.fromJson(Map<String, dynamic> json) {
@@ -267,6 +270,15 @@ final class PeoplePerson {
       ],
       canManage: json['can_manage'] == true,
       updatedAt: _dt(json['updated_at']),
+      account: json['account'] is Map
+          ? PeopleAccount.fromJson(
+              Map<String, dynamic>.from(json['account'] as Map),
+            )
+          : null,
+      notes: [
+        for (final item in _list(json['notes'])) PeopleNote.fromJson(item),
+      ],
+      canLink: json['can_link'] == true,
     );
   }
 
@@ -312,6 +324,15 @@ final class PeoplePerson {
   final List<PeopleHistoryEntry> history;
   final bool canManage;
   final DateTime? updatedAt;
+
+  /// The app account this person signs in with, when linked.
+  final PeopleAccount? account;
+
+  /// Notes the person sent HR/PRO about their record, newest first.
+  final List<PeopleNote> notes;
+
+  /// HR/PRO and Admin may link or unlink the account.
+  final bool canLink;
 
   /// The current document of a kind held once (visa, passport, …).
   PeopleDocument? current(PeopleDocumentKind kind) {
@@ -714,4 +735,327 @@ final class PeopleImportResult {
   final int documentsUpdated;
 
   bool get hasProblems => problemCount > 0;
+}
+
+/// An app account as People shows it (PRODUCT_DECISIONS section 54).
+final class PeopleAccount {
+  const PeopleAccount({
+    required this.authUserId,
+    required this.name,
+    this.email,
+    this.role = '',
+    this.active = true,
+  });
+
+  factory PeopleAccount.fromJson(Map<String, dynamic> json) => PeopleAccount(
+    authUserId: _s(json['auth_user_id']),
+    name: _s(json['name']),
+    email: _ns(json['email']),
+    role: _s(json['role']),
+    active: json['active'] != false,
+  );
+
+  final String authUserId;
+  final String name;
+  final String? email;
+
+  /// The exact app role claim, e.g. `site_engineer`.
+  final String role;
+  final bool active;
+}
+
+/// A note a person sent HR/PRO about their own record.
+final class PeopleNote {
+  const PeopleNote({
+    required this.id,
+    required this.message,
+    this.at,
+    this.doneAt,
+    this.doneBy,
+  });
+
+  factory PeopleNote.fromJson(Map<String, dynamic> json) => PeopleNote(
+    id: _s(json['id']),
+    message: _s(json['message']),
+    at: _dt(json['at']),
+    doneAt: _dt(json['done_at']),
+    doneBy: _ns(json['done_by']),
+  );
+
+  final String id;
+  final String message;
+  final DateTime? at;
+  final DateTime? doneAt;
+  final String? doneBy;
+
+  bool get isDone => doneAt != null;
+}
+
+/// A People record an account's name matches.
+final class PeopleLinkCandidate {
+  const PeopleLinkCandidate({
+    required this.workerId,
+    required this.number,
+    required this.name,
+    required this.company,
+    required this.position,
+    required this.category,
+  });
+
+  factory PeopleLinkCandidate.fromJson(Map<String, dynamic> json) =>
+      PeopleLinkCandidate(
+        workerId: _s(json['worker_id']),
+        number: _s(json['number']),
+        name: _s(json['name']),
+        company: _s(json['company']),
+        position: _s(json['position']),
+        category: PeopleCategory.from(json['category']),
+      );
+
+  final String workerId;
+  final String number;
+  final String name;
+  final String company;
+  final String position;
+  final PeopleCategory category;
+}
+
+/// An account not yet linked, with the people its name matches.
+final class PeopleLinkAccount {
+  const PeopleLinkAccount({required this.account, required this.suggestions});
+
+  factory PeopleLinkAccount.fromJson(Map<String, dynamic> json) =>
+      PeopleLinkAccount(
+        account: PeopleAccount.fromJson(json),
+        suggestions: [
+          for (final item in _list(json['suggestions']))
+            PeopleLinkCandidate.fromJson(item),
+        ],
+      );
+
+  final PeopleAccount account;
+  final List<PeopleLinkCandidate> suggestions;
+
+  bool suggests(String workerId) =>
+      suggestions.any((candidate) => candidate.workerId == workerId);
+}
+
+/// Every account not yet linked to a person (HR/PRO and Admin).
+final class PeopleLinkSuggestions {
+  const PeopleLinkSuggestions({
+    required this.linkedCount,
+    required this.accounts,
+  });
+
+  factory PeopleLinkSuggestions.fromJson(Map<String, dynamic> json) =>
+      PeopleLinkSuggestions(
+        linkedCount: _i(json['linked_count']),
+        accounts: [
+          for (final item in _list(json['accounts']))
+            PeopleLinkAccount.fromJson(item),
+        ],
+      );
+
+  final int linkedCount;
+  final List<PeopleLinkAccount> accounts;
+
+  int get withSuggestions =>
+      accounts.where((account) => account.suggestions.isNotEmpty).length;
+}
+
+/// One of the caller's own documents: never a whole number.
+final class PeopleMineDocument {
+  const PeopleMineDocument({
+    required this.kind,
+    required this.status,
+    this.label,
+    this.numberLast4,
+    this.expiryDate,
+    this.daysLeft,
+    this.sites,
+  });
+
+  factory PeopleMineDocument.fromJson(Map<String, dynamic> json) =>
+      PeopleMineDocument(
+        kind: PeopleDocumentKind.from(json['kind']),
+        status: PeopleDocumentStatus.from(json['status']),
+        label: _ns(json['label']),
+        numberLast4: _ns(json['number_last4']),
+        expiryDate: _ns(json['expiry_date']),
+        daysLeft: _ni(json['days_left']),
+        sites: _ns(json['sites']),
+      );
+
+  final PeopleDocumentKind kind;
+  final PeopleDocumentStatus status;
+  final String? label;
+
+  /// The last four letters or digits; null when the number is short.
+  final String? numberLast4;
+  final String? expiryDate;
+  final int? daysLeft;
+  final String? sites;
+}
+
+/// This month so far, from the crew day sheets.
+final class PeopleMineAttendance {
+  const PeopleMineAttendance({
+    required this.month,
+    required this.recordedDays,
+    required this.presentDays,
+    required this.absentDays,
+    required this.leaveDays,
+    required this.offDays,
+    required this.workedMinutes,
+    required this.overtimeMinutes,
+  });
+
+  factory PeopleMineAttendance.fromJson(Map<String, dynamic> json) =>
+      PeopleMineAttendance(
+        month: _s(json['month']),
+        recordedDays: _i(json['recorded_days']),
+        presentDays: _i(json['present_days']),
+        absentDays: _i(json['absent_days']),
+        leaveDays: _i(json['leave_days']),
+        offDays: _i(json['off_days']),
+        workedMinutes: _i(json['worked_minutes']),
+        overtimeMinutes: _i(json['overtime_minutes']),
+      );
+
+  /// `YYYY-MM`.
+  final String month;
+  final int recordedDays;
+  final int presentDays;
+  final int absentDays;
+  final int leaveDays;
+  final int offDays;
+  final int workedMinutes;
+  final int overtimeMinutes;
+}
+
+/// The caller's own People record, as they may see it.
+final class PeopleMinePerson {
+  const PeopleMinePerson({
+    required this.id,
+    required this.number,
+    required this.name,
+    required this.company,
+    required this.position,
+    required this.category,
+    required this.status,
+    required this.documents,
+    required this.attention,
+    required this.notes,
+    this.arabicName,
+    this.idProfession,
+    this.joiningDate,
+    this.crewName,
+    this.attendance,
+  });
+
+  factory PeopleMinePerson.fromJson(Map<String, dynamic> json) {
+    final crew = json['crew'] is Map
+        ? Map<String, dynamic>.from(json['crew'] as Map)
+        : null;
+    return PeopleMinePerson(
+      id: _s(json['id']),
+      number: _s(json['number']),
+      name: _s(json['name']),
+      company: _s(json['company']),
+      position: _s(json['position']),
+      category: PeopleCategory.from(json['category']),
+      status: _s(json['status']),
+      documents: [
+        for (final item in _list(json['documents']))
+          PeopleMineDocument.fromJson(item),
+      ],
+      attention: PeopleDocumentStatus.from(json['attention']),
+      notes: [
+        for (final item in _list(json['notes'])) PeopleNote.fromJson(item),
+      ],
+      arabicName: _ns(json['arabic_name']),
+      idProfession: _ns(json['id_profession']),
+      joiningDate: _ns(json['joining_date']),
+      crewName: crew == null ? null : _ns(crew['name']),
+      attendance: json['attendance'] is Map
+          ? PeopleMineAttendance.fromJson(
+              Map<String, dynamic>.from(json['attendance'] as Map),
+            )
+          : null,
+    );
+  }
+
+  final String id;
+  final String number;
+  final String name;
+  final String company;
+
+  /// The position in the company; "Not recorded" when unknown.
+  final String position;
+  final PeopleCategory category;
+  final String status;
+  final List<PeopleMineDocument> documents;
+
+  /// The worst current document: expired, expiring or ok.
+  final PeopleDocumentStatus attention;
+  final List<PeopleNote> notes;
+  final String? arabicName;
+  final String? idProfession;
+  final String? joiningDate;
+  final String? crewName;
+  final PeopleMineAttendance? attendance;
+
+  int get needingAttention =>
+      documents.where((document) => document.status.needsAttention).length;
+}
+
+/// A project the caller is a dated member of today.
+final class PeopleMineProject {
+  const PeopleMineProject({
+    required this.id,
+    required this.ref,
+    required this.name,
+    required this.state,
+    required this.role,
+  });
+
+  factory PeopleMineProject.fromJson(Map<String, dynamic> json) =>
+      PeopleMineProject(
+        id: _s(json['id']),
+        ref: _s(json['ref']),
+        name: _s(json['name']),
+        state: _s(json['state']),
+        role: _s(json['role']),
+      );
+
+  final String id;
+  final String ref;
+  final String name;
+  final String state;
+
+  /// `project_engineer` or `site_engineer`.
+  final String role;
+}
+
+/// `v1_people_get_mine`: the caller's own record and work.
+final class PeopleMine {
+  const PeopleMine({required this.person, required this.projects});
+
+  factory PeopleMine.fromJson(Map<String, dynamic> json) => PeopleMine(
+    person: json['state'] == 'linked' && json['person'] is Map
+        ? PeopleMinePerson.fromJson(
+            Map<String, dynamic>.from(json['person'] as Map),
+          )
+        : null,
+    projects: [
+      for (final item in _list(json['projects']))
+        PeopleMineProject.fromJson(item),
+    ],
+  );
+
+  /// Null until HR/PRO links the account to a People record.
+  final PeopleMinePerson? person;
+  final List<PeopleMineProject> projects;
+
+  bool get isLinked => person != null;
 }

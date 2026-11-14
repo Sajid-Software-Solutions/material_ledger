@@ -116,6 +116,18 @@ export function routeFor(claim: PushClaim): string {
       ? "/yorks/company-documents"
       : "/yorks/people";
   }
+  // A person's own document reminder opens My Yorks; a note about a
+  // person's record opens that record. Only these exact routes.
+  if (claim.eventCode.startsWith("people_my_documents_")) {
+    return "/profile";
+  }
+  if (claim.eventCode === "people_note_received") {
+    return claim.moduleRoute &&
+        /^\/yorks\/people\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+          .test(claim.moduleRoute)
+      ? claim.moduleRoute
+      : "/yorks/people";
+  }
   const module = moduleEvents[claim.eventCode];
 
   if (module) {

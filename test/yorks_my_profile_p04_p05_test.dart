@@ -211,6 +211,7 @@ void main() {
         findsNothing,
       );
       expect(find.text('Accounts projects'), findsNothing);
+      await _openTab(tester, 'settings');
       expect(find.text('Linked Workforce record'), findsOneWidget);
     },
   );
@@ -250,12 +251,18 @@ void main() {
         workspace: _WorkspaceRepository(error: StateError('offline')),
       );
 
+      // Work shows Today; Settings shows access and work identity.
       expect(
         find.text('Your workspace details are unavailable'),
-        findsNWidgets(3),
+        findsOneWidget,
       );
       expect(find.text('7'), findsNothing);
       expect(find.text('Try again'), findsAtLeastNWidgets(1));
+      await _openTab(tester, 'settings');
+      expect(
+        find.text('Your workspace details are unavailable'),
+        findsNWidgets(2),
+      );
     },
   );
 
@@ -269,6 +276,7 @@ void main() {
         ),
       ),
     );
+    await _openTab(tester, 'settings');
     expect(find.text('No Workforce record is linked'), findsOneWidget);
     expect(find.text('Verified account'), findsOneWidget);
     expect(find.text('WK-004'), findsNothing);
@@ -308,6 +316,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('GENERIC INVENTORY'), findsOneWidget);
   });
+}
+
+/// Opens a My Yorks tab on phone and tablet.
+Future<void> _openTab(WidgetTester tester, String section) async {
+  final tab = find.byKey(ValueKey('my-yorks-section-$section'));
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpProfile(

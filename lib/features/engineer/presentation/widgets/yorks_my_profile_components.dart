@@ -7,14 +7,8 @@ import '../../../../shared/models/yorks_v1_my_profile_workspace.dart';
 import '../../../../shared/models/yorks_v1_profile_strings.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
 
-enum YorksMyProfileSection {
-  account,
-  today,
-  accessAndScope,
-  workIdentity,
-  preferences,
-  helpAndSecurity,
-}
+/// The My Yorks tabs: the person's own record, their work, and settings.
+enum YorksMyProfileSection { me, work, settings }
 
 enum YorksMyProfileLayout { compact, medium, expanded }
 
@@ -68,21 +62,33 @@ class YorksProfileSectionNavigation extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           border: Border.all(color: AppColors.line),
         ),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: FocusTraversalGroup(
-            policy: OrderedTraversalPolicy(),
-            child: Row(
-              children: [
-                for (final definition in sections)
-                  _ProfileSectionTab(
-                    definition: definition,
-                    selected: selected == definition.section,
-                    onPressed: () => onSelected(definition.section),
-                  ),
-              ],
-            ),
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final tabs = [
+              for (final definition in sections)
+                _ProfileSectionTab(
+                  definition: definition,
+                  selected: selected == definition.section,
+                  onPressed: () => onSelected(definition.section),
+                ),
+            ];
+            // The tabs share the width when each still fits its label;
+            // otherwise (large text) they scroll sideways.
+            final fits =
+                constraints.maxWidth / sections.length >=
+                112 * MediaQuery.textScalerOf(context).scale(1);
+            return FocusTraversalGroup(
+              policy: OrderedTraversalPolicy(),
+              child: fits
+                  ? Row(
+                      children: [for (final tab in tabs) Expanded(child: tab)],
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: tabs),
+                    ),
+            );
+          },
         ),
       ),
     );
@@ -103,7 +109,7 @@ class _ProfileSectionTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(132, 52)),
+      minimumSize: const WidgetStatePropertyAll(Size(112, 52)),
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       ),
@@ -157,15 +163,31 @@ class YorksIdentityHero extends StatelessWidget {
     this.role,
     this.onRetry,
     this.compact = false,
+    this.secondaryName,
+    this.subtitle,
+    this.detailLine,
+    this.documentsLabel,
+    this.documentsColor,
   });
 
   final AppLanguage language;
   final YorksAccountEvidenceState state;
   final String? displayName;
+
+  /// Shown under the name; the header hides it when null.
   final String? email;
   final YorksV1Role? role;
   final VoidCallback? onRetry;
   final bool compact;
+
+  /// From the People record once the account is linked: the Arabic name,
+  /// the position in the company, the record number and company, and how
+  /// the person's documents stand.
+  final String? secondaryName;
+  final String? subtitle;
+  final String? detailLine;
+  final String? documentsLabel;
+  final Color? documentsColor;
 
   @override
   Widget build(BuildContext context) {
@@ -174,14 +196,17 @@ class YorksIdentityHero extends StatelessWidget {
     final safeName = name == null || name.isEmpty
         ? AppStrings.profile.active(language)
         : name;
-    final roleLabel = role == null
-        ? null
-        : YorksV1ProfileStrings.role(role!, language);
+    final roleLabel =
+        subtitle ??
+        (role == null ? null : YorksV1ProfileStrings.role(role!, language));
     final semantics = [
       YorksV1ProfileStrings.accountCardSemantic.active(language),
       if (verified) safeName,
+      if (verified && secondaryName != null) secondaryName!,
       ?roleLabel,
+      if (verified && detailLine != null) detailLine!,
       if (verified && email?.trim().isNotEmpty == true) email!.trim(),
+      if (verified && documentsLabel != null) documentsLabel!,
     ].join(', ');
 
     return Semantics(
@@ -249,6 +274,19 @@ class YorksIdentityHero extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (secondaryName != null && verified)
+                        Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: Text(
+                            secondaryName!,
+                            key: const ValueKey('my-yorks-identity-arabic'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.bodyLarge.copyWith(
+                              color: const Color(0xFFBFD7F4),
+                            ),
+                          ),
+                        ),
                       if (roleLabel != null && verified) ...[
                         const SizedBox(height: AppSpacing.xxs),
                         Text(
@@ -259,6 +297,14 @@ class YorksIdentityHero extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (detailLine != null && verified)
+                        Text(
+                          detailLine!,
+                          key: const ValueKey('my-yorks-identity-record'),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: const Color(0xFFBFD7F4),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -305,13 +351,21 @@ class YorksIdentityHero extends StatelessWidget {
                         label: YorksV1ProfileStrings.active.active(language),
                         foreground: const Color(0xFF65E6B5),
                       ),
-                      _IdentityStatusPill(
-                        icon: Icons.verified_user_outlined,
-                        label: YorksV1ProfileStrings.verifiedAccount.active(
-                          language,
+                      if (documentsLabel != null)
+                        _IdentityStatusPill(
+                          key: const ValueKey('my-yorks-identity-documents'),
+                          icon: Icons.badge_outlined,
+                          label: documentsLabel!,
+                          foreground: documentsColor ?? Colors.white,
+                        )
+                      else
+                        _IdentityStatusPill(
+                          icon: Icons.verified_user_outlined,
+                          label: YorksV1ProfileStrings.verifiedAccount.active(
+                            language,
+                          ),
+                          foreground: Colors.white,
                         ),
-                        foreground: Colors.white,
-                      ),
                     ],
                   )
                 else
@@ -368,6 +422,7 @@ class _IdentityEmail extends StatelessWidget {
 
 class _IdentityStatusPill extends StatelessWidget {
   const _IdentityStatusPill({
+    super.key,
     required this.icon,
     required this.label,
     required this.foreground,
@@ -1013,32 +1068,32 @@ class YorksWorkIdentityCard extends StatelessWidget {
                     .active(language),
               ),
               const SizedBox(height: AppSpacing.lg),
-              _ProfileFactRow(
+              YorksProfileFactRow(
                 label: YorksV1ProfileStrings.workRecordName.active(language),
                 value: worker.displayName!,
               ),
-              _ProfileFactRow(
+              YorksProfileFactRow(
                 label: YorksV1ProfileStrings.workerNumber.active(language),
                 value: worker.workerNumber!,
                 forceLtr: true,
               ),
-              _ProfileFactRow(
+              YorksProfileFactRow(
                 label: YorksV1ProfileStrings.designation.active(language),
                 value: worker.designation!,
               ),
               if (worker.department != null)
-                _ProfileFactRow(
+                YorksProfileFactRow(
                   label: YorksV1ProfileStrings.department.active(language),
                   value: worker.department!,
                 ),
-              _ProfileFactRow(
+              YorksProfileFactRow(
                 label: YorksV1ProfileStrings.workCategory.active(language),
                 value: YorksV1ProfileStrings.workerType(
                   worker.workerType!,
                   language,
                 ),
               ),
-              _ProfileFactRow(
+              YorksProfileFactRow(
                 label: YorksV1ProfileStrings.workStatus.active(language),
                 value: YorksV1ProfileStrings.workerStatus(
                   worker.currentStatus!,
@@ -1129,8 +1184,9 @@ class _IdentityNotice extends StatelessWidget {
   }
 }
 
-class _ProfileFactRow extends StatelessWidget {
-  const _ProfileFactRow({
+class YorksProfileFactRow extends StatelessWidget {
+  const YorksProfileFactRow({
+    super.key,
     required this.label,
     required this.value,
     this.forceLtr = false,

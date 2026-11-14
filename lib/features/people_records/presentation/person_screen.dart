@@ -16,7 +16,9 @@ import '../../../shared/models/yorks_v1_people.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../shared/providers/yorks_v1_people_provider.dart';
+import '../../../shared/models/yorks_v1_my_record_strings.dart';
 import 'people_kit.dart';
+import 'person_account.dart';
 import 'person_attachments.dart';
 import 'person_document_dialog.dart';
 
@@ -133,6 +135,7 @@ class _PersonBody extends ConsumerWidget {
       language: language,
       canTakeAttendance: flags.workforceAttendanceV2,
     );
+    final account = PeopleAccountSection(person: person, language: language);
     return ListView(
       key: const ValueKey('people-person'),
       padding: EdgeInsets.fromLTRB(
@@ -167,6 +170,10 @@ class _PersonBody extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _StatusCard(person: person, language: language),
+                if (person.notes.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  PeopleNotesSection(person: person, language: language),
+                ],
                 const SizedBox(height: AppSpacing.lg),
                 if (wide)
                   Row(
@@ -174,11 +181,23 @@ class _PersonBody extends ConsumerWidget {
                     children: [
                       Expanded(child: documents),
                       const SizedBox(width: AppSpacing.lg),
-                      SizedBox(width: 380, child: details),
+                      SizedBox(
+                        width: 380,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            details,
+                            const SizedBox(height: AppSpacing.lg),
+                            account,
+                          ],
+                        ),
+                      ),
                     ],
                   )
                 else ...[
                   details,
+                  const SizedBox(height: AppSpacing.lg),
+                  account,
                   const SizedBox(height: AppSpacing.lg),
                   documents,
                 ],
@@ -1046,6 +1065,11 @@ class _History extends StatelessWidget {
               language,
             ).toLowerCase(),
     };
+    if (entry.entity == 'person' &&
+        entry.action == 'updated' &&
+        entry.changed.contains('account')) {
+      return MyRecordStrings.t(MyRecordStrings.hAccount, language, values);
+    }
     final template = switch ((entry.entity, entry.action)) {
       ('person', 'created') => PS.hCreated,
       ('person', 'imported') => PS.hImported,

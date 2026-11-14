@@ -100,6 +100,61 @@ final class YorksV1PeopleRepository {
     ),
   );
 
+  /// The caller's own record and projects. Needs no People capability; the
+  /// server only ever reads the caller's own linked person.
+  Future<PeopleMine> mine() async =>
+      PeopleMine.fromJson(_map(await _invoke('v1_people_get_mine', const {})));
+
+  /// A note to HR/PRO about the caller's own record.
+  Future<PeopleMine> sendNote({
+    required String message,
+    required String idempotencyKey,
+  }) async => PeopleMine.fromJson(
+    _map(
+      await _invoke('v1_people_send_note', {
+        'p_message': message,
+        'p_idempotency_key': idempotencyKey,
+      }),
+    ),
+  );
+
+  /// Accounts not yet linked, with the people their names match (HR/PRO
+  /// and Admin).
+  Future<PeopleLinkSuggestions> linkSuggestions() async =>
+      PeopleLinkSuggestions.fromJson(
+        _map(await _invoke('v1_people_link_suggestions', const {})),
+      );
+
+  /// Links [authUserId] to the person, or unlinks when it is null.
+  Future<PeoplePerson> setAccount({
+    required String workerId,
+    required String? authUserId,
+    required int expectedVersion,
+    required String idempotencyKey,
+  }) async => PeoplePerson.fromJson(
+    _map(
+      await _invoke('v1_people_set_account', {
+        'p_worker_id': workerId,
+        'p_auth_user_id': authUserId,
+        'p_expected_version': expectedVersion,
+        'p_idempotency_key': idempotencyKey,
+      }),
+    ),
+  );
+
+  /// Marks a person's note done once the record is corrected.
+  Future<PeoplePerson> noteDone({
+    required String noteId,
+    required String idempotencyKey,
+  }) async => PeoplePerson.fromJson(
+    _map(
+      await _invoke('v1_people_note_done', {
+        'p_note_id': noteId,
+        'p_idempotency_key': idempotencyKey,
+      }),
+    ),
+  );
+
   /// A person's attachments (people_records.view).
   Future<PeopleAttachments> attachments(String workerId) async =>
       PeopleAttachments.fromJson(

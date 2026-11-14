@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../app/router.dart';
 import '../../../../app/yorks_navigation_history.dart';
@@ -13,9 +14,11 @@ import '../../../../core/constants/constants.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/app_strings.dart';
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/models/yorks_v1_feature_flags.dart';
 import '../../../../shared/models/yorks_v1_my_profile.dart';
 import '../../../../shared/models/yorks_v1_my_profile_workspace.dart';
+import '../../../../shared/models/yorks_v1_my_record_strings.dart';
 import '../../../../shared/models/yorks_v1_profile_strings.dart';
 import '../../../../shared/models/yorks_v1_workspace_status.dart';
 import '../../../../shared/providers/language_provider.dart';
@@ -23,12 +26,18 @@ import '../../../../shared/providers/yorks_v1_configuration_provider.dart';
 import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_my_profile_provider.dart';
 import '../../../../shared/providers/yorks_v1_my_profile_workspace_provider.dart';
+import '../../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../../shared/providers/yorks_v1_workspace_status_provider.dart';
 import '../../../../shared/services/app_config_service.dart';
 import '../../../../shared/sync/connectivity_service.dart';
 import '../../../../shared/sync/sync_engine.dart';
 import '../../../../shared/widgets/yorks_sign_out_action.dart';
+import '../../../people_records/presentation/people_kit.dart'
+    show peopleErrorText;
+import '../../../workforce/presentation/attendance/attendance_dialogs.dart'
+    show showAttendanceCommandDialog;
 import '../widgets/yorks_my_profile_components.dart';
+import '../widgets/yorks_my_record_cards.dart';
 
 /// Canonical My Yorks destination.
 ///
@@ -46,10 +55,10 @@ class EngineerProfileScreen extends ConsumerStatefulWidget {
 
 class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
   final _scrollController = ScrollController();
-  final _sectionKeys = <YorksMyProfileSection, GlobalKey>{
-    for (final section in YorksMyProfileSection.values) section: GlobalKey(),
-  };
-  var _selectedSection = YorksMyProfileSection.account;
+
+  /// The tab the person chose; until then Me once their record is linked,
+  /// otherwise Work.
+  YorksMyProfileSection? _selectedSection;
 
   @override
   void dispose() {
@@ -67,6 +76,12 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
     final runtimeConfiguration = ref.watch(yorksV1RuntimeConfigurationProvider);
     final version = ref.watch(appVersionProvider).label;
     final direction = language.isRtl ? TextDirection.rtl : TextDirection.ltr;
+    // The person's own People record (PRODUCT_DECISIONS section 54).
+    final peopleOn = featureFlags.peopleRecords;
+    final mineState = peopleOn ? ref.watch(yorksV1PeopleMineProvider) : null;
+    final mine = mineState?.valueOrNull;
+    final person = mine?.person;
+    final profile = profileState.valueOrNull;
 
     return Directionality(
       textDirection: direction,
@@ -74,41 +89,68 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
         builder: (context, constraints) {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
           final layout = yorksMyProfileLayoutFor(constraints.maxWidth);
-          final textScale = MediaQuery.textScalerOf(context).scale(1);
           final compact = layout == YorksMyProfileLayout.compact;
+          final expanded = layout == YorksMyProfileLayout.expanded;
           final horizontalPadding = switch (layout) {
             YorksMyProfileLayout.compact => AppSpacing.mobileScreenHorizontal,
             YorksMyProfileLayout.medium => AppSpacing.xxl,
             YorksMyProfileLayout.expanded => AppSpacing.screenHorizontal,
           };
+          final gap = compact ? AppSpacing.lg : AppSpacing.xl;
           final sections = <YorksProfileSectionDefinition>[
+            if (peopleOn)
+              YorksProfileSectionDefinition(
+                section: YorksMyProfileSection.me,
+                label: MyRecordStrings.t(MyRecordStrings.tabMe, language),
+                icon: Icons.badge_outlined,
+              ),
             YorksProfileSectionDefinition(
-              section: YorksMyProfileSection.account,
-              label: AppStrings.overview.active(language),
-              icon: Icons.home_outlined,
+              section: YorksMyProfileSection.work,
+              label: MyRecordStrings.t(MyRecordStrings.tabWork, language),
+              icon: Icons.work_outline_rounded,
             ),
             YorksProfileSectionDefinition(
-              section: YorksMyProfileSection.accessAndScope,
-              label: YorksV1ProfileStrings.accessAndScope.active(language),
-              icon: Icons.shield_outlined,
-            ),
-            YorksProfileSectionDefinition(
-              section: YorksMyProfileSection.preferences,
-              label: YorksV1ProfileStrings.preferences.active(language),
+              section: YorksMyProfileSection.settings,
+              label: MyRecordStrings.t(MyRecordStrings.tabSettings, language),
               icon: Icons.tune_rounded,
             ),
           ];
+          final chosen =
+              _selectedSection ??
+              (person != null
+                  ? YorksMyProfileSection.me
+                  : YorksMyProfileSection.work);
+          final selected =
+              sections.any((definition) => definition.section == chosen)
+              ? chosen
+              : YorksMyProfileSection.work;
+
+          final documents = person == null
+              ? null
+              : yorksMyDocumentsSummary(person, language);
           final accountSection = _AccountSection(
-            key: _sectionKeys[YorksMyProfileSection.account],
             language: language,
             profileState: profileState,
             compact:
                 compact ||
                 (layout == YorksMyProfileLayout.medium && size.height <= 500),
             onRetry: () => unawaited(_refreshProfile()),
+            secondaryName: person?.arabicName,
+            subtitle: person == null
+                ? null
+                : yorksMyPositionLine(person, language),
+            detailLine: person == null
+                ? null
+                : [
+                    person.number,
+                    if (person.company.isNotEmpty) person.company,
+                  ].join(' · '),
+            documentsLabel: documents?.label,
+            documentsColor: documents?.color,
+            // Once linked, the email moves to Settings > Your account.
+            showEmail: person == null,
           );
           final todaySection = _TodayAndActionsSection(
-            key: _sectionKeys[YorksMyProfileSection.today],
             language: language,
             profileState: profileState,
             workspaceState: profileWorkspaceState,
@@ -118,21 +160,18 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
             onNavigate: (route) => context.push(route),
           );
           final accessSection = _AccessSection(
-            key: _sectionKeys[YorksMyProfileSection.accessAndScope],
             language: language,
             profileState: profileState,
             workspaceState: profileWorkspaceState,
             onRetry: () => unawaited(_refreshProfile()),
           );
           final workIdentitySection = _WorkIdentitySection(
-            key: _sectionKeys[YorksMyProfileSection.workIdentity],
             language: language,
             profileState: profileState,
             workspaceState: profileWorkspaceState,
             onRetry: () => unawaited(_refreshProfile()),
           );
           final preferencesSection = _PreferencesSection(
-            key: _sectionKeys[YorksMyProfileSection.preferences],
             language: language,
             currencyLabel: '🇦🇪 AED',
             languageLabel: language.nativeName,
@@ -141,7 +180,6 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
             onLanguage: () => _showLanguagePicker(language),
           );
           final helpAndSecuritySection = _HelpAndSecuritySection(
-            key: _sectionKeys[YorksMyProfileSection.helpAndSecurity],
             language: language,
             workspaceStatus: workspaceStatus,
             version: version,
@@ -156,11 +194,10 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
             ),
             onSignOut: () => showYorksSignOut(context, ref),
           );
-
           final sectionNavigation = YorksProfileSectionNavigation(
             language: language,
             sections: sections,
-            selected: _selectedSection,
+            selected: selected,
             onSelected: _selectSection,
           );
           final confirmedBanner = _ServerConfirmedBanner(
@@ -168,136 +205,177 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
             confirmed: profileState.hasValue && profileWorkspaceState.hasValue,
             onRefresh: () => unawaited(_refreshProfile()),
           );
+
+          // Me: the person's own record.
+          final meChildren = <Widget>[
+            if (mineState == null)
+              workIdentitySection
+            else if (mineState.hasError && !mineState.isLoading)
+              YorksMyRecordNotice.failed(
+                language: language,
+                onRetry: () => ref.invalidate(yorksV1PeopleMineProvider),
+              )
+            else if (mine == null)
+              YorksMyRecordNotice.loading(language: language)
+            else if (person == null)
+              YorksMyRecordNotice.unlinked(language: language)
+            else ...[
+              YorksMyDocumentsCard(language: language, person: person),
+              YorksMyIdentityCard(language: language, person: person),
+              YorksTellHrCard(
+                language: language,
+                person: person,
+                onTell: () => unawaited(_tellHr(language)),
+              ),
+            ],
+          ];
+
+          // Work: what needs the person today, their projects, attendance.
+          final technicalProjects = profileWorkspaceState
+              .valueOrNull
+              ?.accessScope
+              .technicalProjectCount;
+          final workChildren = <Widget>[
+            todaySection,
+            confirmedBanner,
+            if (mine != null)
+              YorksMyProjectsCard(
+                language: language,
+                projects: mine.projects,
+                allProjectsCount:
+                    technicalProjects != null && technicalProjects > 0
+                    ? technicalProjects
+                    : null,
+                onOpen: (id) => context.push(RoutePaths.yorksV1ProjectPath(id)),
+              ),
+            if (person?.attendance case final attendance?)
+              YorksMyAttendanceCard(
+                language: language,
+                attendance: attendance,
+                crewName: person!.crewName,
+              ),
+          ];
+
+          // Settings: the account, access, preferences, help and security.
+          final email = profile?.email?.trim() ?? '';
+          final accountCard = person != null && email.isNotEmpty
+              ? YorksMyAccountCard(
+                  language: language,
+                  email: email,
+                  role: profile!.exactRole,
+                )
+              : null;
+
+          List<Widget> spaced(List<Widget> children) => [
+            for (var index = 0; index < children.length; index++) ...[
+              if (index > 0) SizedBox(height: gap),
+              children[index],
+            ],
+          ];
+
+          final Widget body;
+          if (expanded) {
+            body = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 360,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: spaced([accountSection, ...meChildren]),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xl),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: spaced([
+                      _PageHeading(language: language),
+                      ...workChildren,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: preferencesSection),
+                          const SizedBox(width: AppSpacing.xl),
+                          Expanded(child: helpAndSecuritySection),
+                        ],
+                      ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: accessSection),
+                          if (accountCard != null) ...[
+                            const SizedBox(width: AppSpacing.xl),
+                            Expanded(child: accountCard),
+                          ],
+                        ],
+                      ),
+                    ]),
+                  ),
+                ),
+              ],
+            );
+          } else {
+            final tab = switch (selected) {
+              YorksMyProfileSection.me => meChildren,
+              YorksMyProfileSection.work => workChildren,
+              YorksMyProfileSection.settings => <Widget>[
+                ?accountCard,
+                accessSection,
+                if (mineState == null) workIdentitySection,
+                preferencesSection,
+                helpAndSecuritySection,
+              ],
+            };
+            body = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: spaced([
+                if (!compact) _PageHeading(language: language),
+                accountSection,
+                sectionNavigation,
+                KeyedSubtree(
+                  key: ValueKey('my-yorks-tab-${selected.name}'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: spaced(tab),
+                  ),
+                ),
+              ]),
+            );
+          }
+
           final content = FocusTraversalGroup(
             policy: OrderedTraversalPolicy(),
-            child: CustomScrollView(
-              key: const ValueKey('canonical-my-yorks-page'),
-              controller: _scrollController,
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    compact ? AppSpacing.lg : AppSpacing.screenVertical,
-                    horizontalPadding,
-                    compact ? 96 : AppSpacing.xxxl,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: AppSpacing.pageMaxWidth,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (layout == YorksMyProfileLayout.expanded)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 336,
-                                    child: Column(
-                                      children: [
-                                        accountSection,
-                                        const SizedBox(height: AppSpacing.xl),
-                                        accessSection,
-                                        const SizedBox(height: AppSpacing.xl),
-                                        workIdentitySection,
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.xl),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        _PageHeading(language: language),
-                                        const SizedBox(height: AppSpacing.xl),
-                                        todaySection,
-                                        const SizedBox(height: AppSpacing.md),
-                                        confirmedBanner,
-                                        const SizedBox(height: AppSpacing.xl),
-                                        Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(child: preferencesSection),
-                                            const SizedBox(
-                                              width: AppSpacing.xl,
-                                            ),
-                                            Expanded(
-                                              child: helpAndSecuritySection,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else if (compact)
-                              Column(
-                                children: [
-                                  accountSection,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  sectionNavigation,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  todaySection,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  confirmedBanner,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  accessSection,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  workIdentitySection,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  preferencesSection,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  helpAndSecuritySection,
-                                ],
-                              )
-                            else
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _PageHeading(language: language),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  sectionNavigation,
-                                  const SizedBox(height: AppSpacing.xl),
-                                  accountSection,
-                                  const SizedBox(height: AppSpacing.xl),
-                                  todaySection,
-                                  const SizedBox(height: AppSpacing.md),
-                                  confirmedBanner,
-                                  const SizedBox(height: AppSpacing.xl),
-                                  if (textScale < 1.8)
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(child: accessSection),
-                                        const SizedBox(width: AppSpacing.xl),
-                                        Expanded(child: workIdentitySection),
-                                      ],
-                                    )
-                                  else ...[
-                                    accessSection,
-                                    const SizedBox(height: AppSpacing.xl),
-                                    workIdentitySection,
-                                  ],
-                                  const SizedBox(height: AppSpacing.xl),
-                                  preferencesSection,
-                                  const SizedBox(height: AppSpacing.xl),
-                                  helpAndSecuritySection,
-                                ],
-                              ),
-                          ],
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (peopleOn) ref.invalidate(yorksV1PeopleMineProvider);
+                await _refreshProfile();
+              },
+              child: CustomScrollView(
+                key: const ValueKey('canonical-my-yorks-page'),
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      compact ? AppSpacing.lg : AppSpacing.screenVertical,
+                      horizontalPadding,
+                      compact ? 96 : AppSpacing.xxxl,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: AppSpacing.pageMaxWidth,
+                          ),
+                          child: body,
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
 
@@ -352,16 +430,44 @@ class _EngineerProfileScreenState extends ConsumerState<EngineerProfileScreen> {
 
   void _selectSection(YorksMyProfileSection section) {
     setState(() => _selectedSection = section);
-    final sectionContext = _sectionKeys[section]?.currentContext;
-    if (sectionContext == null) return;
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    Scrollable.ensureVisible(
-      sectionContext,
-      duration: reducedMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: .04,
+  }
+
+  /// A note to HR/PRO about the person's own record. Nothing shows as sent
+  /// until the server confirms it.
+  Future<void> _tellHr(AppLanguage language) async {
+    final repository = ref.read(yorksV1PeopleRepositoryProvider);
+    final idempotencyKey = const Uuid().v4();
+    final sent = await showAttendanceCommandDialog(
+      context,
+      language: language,
+      title: MyRecordStrings.t(MyRecordStrings.tellHrTitle, language),
+      body: MyRecordStrings.t(MyRecordStrings.tellHrBody, language),
+      fieldLabel: MyRecordStrings.t(MyRecordStrings.tellHrTitle, language),
+      confirmLabel: MyRecordStrings.t(MyRecordStrings.send, language),
+      command: (text) async {
+        try {
+          await repository.sendNote(
+            message: text,
+            idempotencyKey: idempotencyKey,
+          );
+          return null;
+        } on YorksV1DomainException catch (error) {
+          if ((error.serverMessage ?? '').contains('V1_PEOPLE_NOTE_LIMIT')) {
+            return MyRecordStrings.t(MyRecordStrings.noteLimit, language);
+          }
+          return peopleErrorText(error, language);
+        } catch (error) {
+          return peopleErrorText(error, language);
+        }
+      },
+    );
+    if (sent == null || !mounted) return;
+    ref.invalidate(yorksV1PeopleMineProvider);
+    YorksAppToast.show(
+      context,
+      title: MyRecordStrings.t(MyRecordStrings.sentToast, language),
+      message: sent,
+      icon: Icons.mark_email_read_outlined,
     );
   }
 
@@ -528,17 +634,28 @@ class _ServerConfirmedBanner extends StatelessWidget {
 
 class _AccountSection extends StatelessWidget {
   const _AccountSection({
-    super.key,
     required this.language,
     required this.profileState,
     required this.compact,
     required this.onRetry,
+    this.secondaryName,
+    this.subtitle,
+    this.detailLine,
+    this.documentsLabel,
+    this.documentsColor,
+    this.showEmail = true,
   });
 
   final AppLanguage language;
   final AsyncValue<YorksV1MyProfile> profileState;
   final bool compact;
   final VoidCallback onRetry;
+  final String? secondaryName;
+  final String? subtitle;
+  final String? detailLine;
+  final String? documentsLabel;
+  final Color? documentsColor;
+  final bool showEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -547,9 +664,14 @@ class _AccountSection extends StatelessWidget {
         language: language,
         state: YorksAccountEvidenceState.verified,
         displayName: value.displayName,
-        email: value.email,
+        email: showEmail ? value.email : null,
         role: value.exactRole,
         compact: compact,
+        secondaryName: secondaryName,
+        subtitle: subtitle,
+        detailLine: detailLine,
+        documentsLabel: documentsLabel,
+        documentsColor: documentsColor,
       ),
       AsyncError() => YorksIdentityHero(
         language: language,
@@ -568,7 +690,6 @@ class _AccountSection extends StatelessWidget {
 
 class _TodayAndActionsSection extends StatelessWidget {
   const _TodayAndActionsSection({
-    super.key,
     required this.language,
     required this.profileState,
     required this.workspaceState,
@@ -717,7 +838,6 @@ class _TodayAndActionsSection extends StatelessWidget {
 
 class _AccessSection extends StatelessWidget {
   const _AccessSection({
-    super.key,
     required this.language,
     required this.profileState,
     required this.workspaceState,
@@ -765,7 +885,6 @@ class _AccessSection extends StatelessWidget {
 
 class _WorkIdentitySection extends StatelessWidget {
   const _WorkIdentitySection({
-    super.key,
     required this.language,
     required this.profileState,
     required this.workspaceState,
@@ -1001,7 +1120,6 @@ IconData _metricIcon(String key) => switch (key) {
 
 class _PreferencesSection extends StatelessWidget {
   const _PreferencesSection({
-    super.key,
     required this.language,
     required this.currencyLabel,
     required this.languageLabel,
@@ -1052,7 +1170,6 @@ class _PreferencesSection extends StatelessWidget {
 
 class _HelpAndSecuritySection extends StatelessWidget {
   const _HelpAndSecuritySection({
-    super.key,
     required this.language,
     required this.workspaceStatus,
     required this.version,

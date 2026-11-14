@@ -121,6 +121,12 @@ class YorksV1NotificationRecord {
         ? (moduleRoute == RoutePaths.yorksV1CompanyDocuments
               ? RoutePaths.yorksV1CompanyDocuments
               : RoutePaths.yorksV1People)
+        // A person's own reminder opens My Yorks; a note about a record
+        // opens People when the server gives no record link.
+        : eventCode.startsWith('people_my_documents_')
+        ? RoutePaths.engineerProfile
+        : eventCode == 'people_note_received'
+        ? RoutePaths.yorksV1People
         : '/yorks/workforce/${module['destination']}';
     final resolvedRoute =
         rentalRoute ??
