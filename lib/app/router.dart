@@ -100,7 +100,8 @@ import '../features/workforce/presentation/attendance/attendance_overview_screen
 import '../features/workforce/presentation/attendance/attendance_people_screen.dart'
     deferred as attendance_people;
 import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
-import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_take_screen.dart'
+    deferred as attendance_take;
 import '../features/workforce/presentation/requests/crew_request_assign_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_detail_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_form_screen.dart';
@@ -2508,7 +2509,7 @@ GoRouter createAppRouter({
             // Crew setup is hidden (PRODUCT_DECISIONS section 50); an old
             // link opens Take attendance.
             const _WorkforceScreenSwitch(
-              attendanceV2: AttendanceTakeScreen(),
+              attendanceV2: _DeferredAttendanceTakeScreen(),
               legacy: YorksWorkforceOverviewScreen(),
             ),
           ),
@@ -2535,9 +2536,9 @@ GoRouter createAppRouter({
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
             _WorkforceScreenSwitch(
-              attendanceV2: AttendanceTakeScreen(
-                initialCrewId: state.uri.queryParameters['crew'],
-                initialDate: state.uri.queryParameters['date'],
+              attendanceV2: _DeferredAttendanceTakeScreen(
+                crewId: state.uri.queryParameters['crew'],
+                date: state.uri.queryParameters['date'],
               ),
               legacy: yorksWorkforceAttendanceScreen(
                 initialTeamId: state.uri.queryParameters['team_id'],
@@ -2902,6 +2903,61 @@ GoRouter createAppRouter({
               _slide(state.pageKey, const MaterialLineGridDemoScreen()),
         ),
     ],
+  );
+}
+
+/// Keeps Take attendance (with its editor and place picker) out of the
+/// initial web download; it loads when Attendance is opened.
+class _DeferredAttendanceTakeScreen extends StatefulWidget {
+  const _DeferredAttendanceTakeScreen({this.crewId, this.date});
+
+  final String? crewId;
+  final String? date;
+
+  @override
+  State<_DeferredAttendanceTakeScreen> createState() =>
+      _DeferredAttendanceTakeScreenState();
+}
+
+class _DeferredAttendanceTakeScreenState
+    extends State<_DeferredAttendanceTakeScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= loadOrRecover(attendance_take.loadLibrary());
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _load,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.done &&
+          !snapshot.hasError) {
+        return attendance_take.AttendanceTakeScreen(
+          initialCrewId: widget.crewId,
+          initialDate: widget.date,
+        );
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            onPressed: () => setState(() {
+              _load = _sharedLoad = loadOrRecover(
+                attendance_take.loadLibrary(),
+              );
+            }),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    },
   );
 }
 
