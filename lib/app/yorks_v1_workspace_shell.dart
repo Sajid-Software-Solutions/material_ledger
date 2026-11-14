@@ -19,6 +19,7 @@ import '../shared/models/yorks_v1_permission_strings.dart';
 import '../shared/models/yorks_v1_project_strings.dart';
 import '../shared/models/yorks_v1_role.dart';
 import '../features/workforce/application/attendance_providers.dart';
+import '../features/workforce/application/attendance_role_layout.dart';
 import '../shared/models/yorks_v1_attendance_strings.dart';
 import '../shared/models/yorks_v1_crew_request_strings.dart';
 import '../shared/models/yorks_v1_shell_strings.dart';
@@ -170,58 +171,88 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
         allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce) &&
         featureFlags.workforceAttendanceV2) {
       final center = featureFlags.workforceCenter;
-      sections.addAll([
-        _YorksDestination(
-          label: center
-              ? CrewRequestStrings.centerShort
-              : AttendanceStrings.overviewShort,
-          icon: Icons.dashboard_outlined,
-          selectedIcon: Icons.dashboard,
-          path: RoutePaths.yorksV1Workforce,
-          // Crew requests waiting for this person (Workforce Center).
-          badgeCount: center
-              ? ref.watch(yorksCrewRequestsProvider).valueOrNull?.mine.length ??
-                    0
-              : 0,
-        ),
-        const _YorksDestination(
-          label: AttendanceStrings.attendanceShort,
-          icon: Icons.fact_check_outlined,
-          selectedIcon: Icons.fact_check,
-          path: RoutePaths.yorksV1WorkforceAttendance,
-        ),
-        _YorksDestination(
-          label: AttendanceStrings.monthConfirmation,
-          icon: Icons.verified_outlined,
-          selectedIcon: Icons.verified,
-          path: RoutePaths.yorksV1WorkforceConfirm,
-          // Months waiting for this person's confirmation, as the prototype's
-          // badge on Month confirmation.
-          badgeCount:
-              ref
-                  .watch(yorksAttendanceConfirmationsDueProvider)
-                  .valueOrNull
-                  ?.length ??
-              0,
-        ),
-        const _YorksDestination(
-          label: AttendanceStrings.monthOverview,
-          icon: Icons.calendar_view_month_outlined,
-          selectedIcon: Icons.calendar_view_month,
-          path: RoutePaths.yorksV1WorkforceMonth,
-        ),
-        const _YorksDestination(
-          label: AttendanceStrings.monthlySheets,
-          icon: Icons.description_outlined,
-          selectedIcon: Icons.description,
-          path: RoutePaths.yorksV1WorkforceSheets,
-        ),
-        // Crew setup is hidden (PRODUCT_DECISIONS section 50): attendance is
-        // taken at a place, with no crews or members to set up.
-        ...allDestinations.where(
-          (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
-        ),
-      ]);
+      final layout = AttendanceRoleLayout.of(role);
+      // Tabs by role (PRODUCT_DECISIONS section 58). The Site Engineer has one
+      // attendance screen and no tab row.
+      for (final tab in layout.tabs) {
+        sections.add(switch (tab) {
+          AttendanceTab.overview => _YorksDestination(
+            label: center
+                ? CrewRequestStrings.centerShort
+                : switch (layout) {
+                    AttendanceRoleLayout.engineer => AttendanceStrings.mySites,
+                    AttendanceRoleLayout.reader => AttendanceStrings.sites,
+                    _ => AttendanceStrings.overviewShort,
+                  },
+            icon: Icons.dashboard_outlined,
+            selectedIcon: Icons.dashboard,
+            path: RoutePaths.yorksV1Workforce,
+            // Crew requests waiting for this person (Workforce Center).
+            badgeCount: center
+                ? ref
+                          .watch(yorksCrewRequestsProvider)
+                          .valueOrNull
+                          ?.mine
+                          .length ??
+                      0
+                : 0,
+          ),
+          AttendanceTab.attendance => _YorksDestination(
+            label: switch (layout) {
+              AttendanceRoleLayout.workshop => AttendanceStrings.workshop,
+              AttendanceRoleLayout.engineer => AttendanceStrings.takeAttendance,
+              _ => AttendanceStrings.attendanceShort,
+            },
+            icon: layout == AttendanceRoleLayout.workshop
+                ? Icons.handyman_outlined
+                : Icons.fact_check_outlined,
+            selectedIcon: layout == AttendanceRoleLayout.workshop
+                ? Icons.handyman
+                : Icons.fact_check,
+            path: RoutePaths.yorksV1WorkforceAttendance,
+          ),
+          AttendanceTab.month => _YorksDestination(
+            label: layout.isOffice
+                ? AttendanceStrings.employees
+                : AttendanceStrings.monthTab,
+            icon: Icons.calendar_view_month_outlined,
+            selectedIcon: Icons.calendar_view_month,
+            path: RoutePaths.yorksV1WorkforceMonth,
+          ),
+          AttendanceTab.sheets => _YorksDestination(
+            label: layout == AttendanceRoleLayout.workshop
+                ? AttendanceStrings.timeSheet
+                : AttendanceStrings.timeSheets,
+            icon: Icons.description_outlined,
+            selectedIcon: Icons.description,
+            path: RoutePaths.yorksV1WorkforceSheets,
+          ),
+          AttendanceTab.confirm => _YorksDestination(
+            label: layout.isOffice
+                ? AttendanceStrings.confirmTab
+                : AttendanceStrings.monthConfirmation,
+            icon: Icons.verified_outlined,
+            selectedIcon: Icons.verified,
+            path: RoutePaths.yorksV1WorkforceConfirm,
+            // Months waiting for this person's confirmation.
+            badgeCount:
+                ref
+                    .watch(yorksAttendanceConfirmationsDueProvider)
+                    .valueOrNull
+                    ?.length ??
+                0,
+          ),
+        });
+      }
+      // Crew setup is hidden (PRODUCT_DECISIONS section 50): attendance is
+      // taken at a place, with no crews or members to set up.
+      if (sections.isNotEmpty) {
+        sections.addAll(
+          allDestinations.where(
+            (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
+          ),
+        );
+      }
     } else if (location.startsWith(RoutePaths.yorksV1Workforce) &&
         allDestinations.any((d) => d.path == RoutePaths.yorksV1Workforce)) {
       sections.addAll([
@@ -729,6 +760,12 @@ List<_YorksDestination> _mobileDestinationsFor(
   }
 
   final home = path(RoutePaths.engineerHome);
+  // A Site Engineer takes attendance every day: it gets a bottom-bar place
+  // (PRODUCT_DECISIONS section 58), in Team Chat's slot; Chat stays in More.
+  final attendanceSource =
+      workforceAttendanceV2 && role == YorksV1Role.siteEngineer
+      ? path(RoutePaths.yorksV1Workforce)
+      : null;
   if (role == YorksV1Role.accountant) {
     final accounts = path(RoutePaths.yorksV1Accounts);
     final projects = path(RoutePaths.yorksV1AccountsProjects);
@@ -769,7 +806,10 @@ List<_YorksDestination> _mobileDestinationsFor(
         : <_YorksDestination?>[
             requiredHome,
             path(RoutePaths.yorksV1Projects),
-            if (teamChatEnabled) path(RoutePaths.yorksV1TeamChat),
+            if (attendanceSource != null)
+              attendanceSource
+            else if (teamChatEnabled)
+              path(RoutePaths.yorksV1TeamChat),
             path(RoutePaths.yorksV1MaterialRequests),
           ];
     return [...preferred.whereType<_YorksDestination>(), more];
@@ -830,7 +870,14 @@ List<_YorksDestination> _mobileDestinationsFor(
       more,
     ];
   }
-  return [mobileHome, ?projects, ?chat, ?requests, more];
+  final attendance = attendanceSource == null
+      ? null
+      : mobilePath(
+          attendanceSource,
+          Icons.fact_check_outlined,
+          Icons.fact_check_rounded,
+        );
+  return [mobileHome, ?projects, ?(attendance ?? chat), ?requests, more];
 }
 
 List<_YorksDestination> _destinationsFor(
@@ -927,12 +974,20 @@ List<_YorksDestination> _destinationsFor(
         path: RoutePaths.yorksV1Analytics,
       ),
     if (workforceEnabled)
-      _YorksDestination(
-        label: YorksV1ShellStrings.workforce,
-        icon: Icons.groups_2_outlined,
-        selectedIcon: Icons.groups_2_rounded,
-        path: RoutePaths.yorksV1Workforce,
-      ),
+      // A Site Engineer only takes attendance (PRODUCT_DECISIONS 58).
+      workforceAttendanceV2 && role == YorksV1Role.siteEngineer
+          ? const _YorksDestination(
+              label: AttendanceStrings.attendanceShort,
+              icon: Icons.fact_check_outlined,
+              selectedIcon: Icons.fact_check,
+              path: RoutePaths.yorksV1Workforce,
+            )
+          : const _YorksDestination(
+              label: YorksV1ShellStrings.workforce,
+              icon: Icons.groups_2_outlined,
+              selectedIcon: Icons.groups_2_rounded,
+              path: RoutePaths.yorksV1Workforce,
+            ),
     if (peopleRecordsEnabled)
       _YorksDestination(
         label: YorksV1ShellStrings.people,

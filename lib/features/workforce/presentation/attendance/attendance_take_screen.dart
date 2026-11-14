@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../accounts/presentation/v2/accounts_v2_safety.dart'
@@ -62,8 +63,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
   @override
   void didUpdateWidget(AttendanceTakeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialCrewId != oldWidget.initialCrewId &&
-        widget.initialCrewId != null) {
+    if (widget.initialCrewId != oldWidget.initialCrewId) {
+      // The tab itself (no place in the link) starts over at the person's
+      // usual place: the Workshop for the Workshop In-Charge.
       _crewId = widget.initialCrewId;
     }
     if (widget.initialDate != oldWidget.initialDate &&
@@ -165,6 +167,23 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     return null;
   }
 
+  /// The Workshop In-Charge's attendance opens on the workshop unless he
+  /// chooses a project (PRODUCT_DECISIONS section 58).
+  String? _workshop(AttendancePlaces places) {
+    if (ref.read(yorksV1CurrentRoleProvider) != YorksV1Role.workshopInCharge) {
+      return null;
+    }
+    final kept = [
+      for (final location in places.locations)
+        if (location.canTake) location,
+    ];
+    final named = kept.where(
+      (location) => location.name.toLowerCase().contains('workshop'),
+    );
+    if (named.isNotEmpty) return named.first.crewId;
+    return kept.length == 1 ? kept.single.crewId : null;
+  }
+
   AttendancePlaceChoice? _onlyPlace(AttendancePlaces places) {
     final projects = [
       for (final p in places.projects)
@@ -199,7 +218,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     final language = attendanceLanguage(ref);
     final placesAsync = ref.watch(yorksAttendancePlacesProvider);
     final places = placesAsync.valueOrNull;
-    final crewId = _crewId ?? (places == null ? null : _remembered(places));
+    final crewId =
+        _crewId ??
+        (places == null ? null : _workshop(places) ?? _remembered(places));
     final date = _date ?? attendanceLocalToday();
 
     if (crewId != null) {

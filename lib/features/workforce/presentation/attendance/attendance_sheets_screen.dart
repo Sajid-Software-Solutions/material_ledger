@@ -8,9 +8,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/providers/yorks_v1_identity_provider.dart';
+import '../../../../shared/models/app_strings.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
+import '../../application/attendance_role_layout.dart';
 import '../../data/attendance_sheet_service.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
@@ -77,7 +80,7 @@ class _AttendanceSheetsScreenState
         if (crews.isEmpty) {
           return AttendancePage(
             language: language,
-            title: AS.t(AS.monthlySheets, language),
+            title: AS.t(_sheetsTitle(ref), language),
             children: [
               AccountsV2Panel(
                 child: AccountsV2Empty(
@@ -174,7 +177,7 @@ class _AttendanceSheetsScreenState
         ];
         return AttendancePage(
           language: language,
-          title: AS.t(AS.monthlySheets, language),
+          title: AS.t(_sheetsTitle(ref), language),
           subtitle: AS.t(AS.sheetsIntro, language),
           readOnly: readOnly,
           onRefresh: () async => ref.invalidate(
@@ -763,3 +766,13 @@ class _PhoneSheet extends StatelessWidget {
     );
   }
 }
+
+/// Time sheets for the office, Time sheet for the Workshop In-Charge and
+/// Monthly sheets for everyone else (PRODUCT_DECISIONS section 58).
+TranslatableString _sheetsTitle(WidgetRef ref) =>
+    switch (AttendanceRoleLayout.of(ref.watch(yorksV1CurrentRoleProvider))) {
+      AttendanceRoleLayout.workshop => AS.timeSheet,
+      AttendanceRoleLayout.office ||
+      AttendanceRoleLayout.accounts => AS.timeSheets,
+      _ => AS.monthlySheets,
+    };

@@ -113,6 +113,24 @@ Release: `supabase/release/attendance_by_role_bundle.sql`; rollback:
 `supabase/release/attendance_by_role_rollback.sql` (restores the previous
 functions; nothing to undo in data).
 
+Screens by role (`lib/features/workforce/application/attendance_role_layout.dart`,
+presentation only; the server decides every right):
+
+| Role | Workforce tabs | Opens on |
+|---|---|---|
+| Site Engineer | none: one Attendance screen, also in the phone bottom bar | Attendance |
+| Project Engineer, Senior Mechanical Engineer, Project Manager | My sites · Take attendance · Month · Month confirmation | My sites |
+| Document Controller | Sites · Month | Sites |
+| Workshop In-Charge | Workshop · Month · Time sheet | Workshop: the workshop's day by default, a project when he chooses one |
+| Accountant | Overview · Employees · Time sheets · Attendance | Overview |
+| HR/PRO, Admin | Overview · Employees · Time sheets · Attendance · Confirm | Overview |
+
+A Workforce page a role has no tab for opens its first screen (the router's
+`_attendanceRoleRedirect`): a Site Engineer's Overview, Month and Monthly
+sheets links open Attendance, and the Workshop In-Charge's Workforce home
+opens the Workshop. Month confirmation stays reachable from a reminder for
+anyone the server lets confirm. Goldens: `test/goldens/attendance_roles_*`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

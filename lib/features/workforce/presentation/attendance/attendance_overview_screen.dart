@@ -12,9 +12,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
+import '../../application/attendance_role_layout.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 import '../../domain/crew_request_models.dart';
@@ -278,7 +280,13 @@ class _OverviewBody extends ConsumerWidget {
       onRefresh: onRefresh,
       title: center
           ? CRS.t(CRS.centerTitle, language)
-          : AS.t(AS.overview, language),
+          : AS.t(switch (AttendanceRoleLayout.of(
+              ref.watch(yorksV1CurrentRoleProvider),
+            )) {
+              AttendanceRoleLayout.engineer => AS.mySites,
+              AttendanceRoleLayout.reader => AS.sites,
+              _ => AS.overview,
+            }, language),
       subtitle:
           '${center ? CRS.t(CRS.centerIntro, language) : AS.t(_readOnly ? AS.overviewReadOnlyIntro : AS.overviewIntro, language)}  ·  ${attendanceFullDate(today)}',
       readOnly: _readOnly && !canRequest,

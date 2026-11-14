@@ -67,6 +67,56 @@ abstract final class AttendanceStrings {
     ur: 'ماہانہ شیٹس',
     hi: 'मासिक शीट',
   );
+
+  // Tabs by role (PRODUCT_DECISIONS section 58).
+  static const mySites = _T(
+    en: 'My sites',
+    ar: 'مواقعي',
+    ur: 'میری سائٹس',
+    hi: 'मेरी साइटें',
+  );
+  static const sites = _T(
+    en: 'Sites',
+    ar: 'المواقع',
+    ur: 'سائٹس',
+    hi: 'साइटें',
+  );
+  static const monthTab = _T(
+    en: 'Month',
+    ar: 'الشهر',
+    ur: 'مہینہ',
+    hi: 'महीना',
+  );
+  static const employees = _T(
+    en: 'Employees',
+    ar: 'الموظفون',
+    ur: 'ملازمین',
+    hi: 'कर्मचारी',
+  );
+  static const timeSheets = _T(
+    en: 'Time sheets',
+    ar: 'كشوف الدوام',
+    ur: 'ٹائم شیٹس',
+    hi: 'टाइम शीट',
+  );
+  static const timeSheet = _T(
+    en: 'Time sheet',
+    ar: 'كشف الدوام',
+    ur: 'ٹائم شیٹ',
+    hi: 'टाइम शीट',
+  );
+  static const workshop = _T(
+    en: 'Workshop',
+    ar: 'الورشة',
+    ur: 'ورکشاپ',
+    hi: 'वर्कशॉप',
+  );
+  static const confirmTab = _T(
+    en: 'Confirm',
+    ar: 'تأكيد',
+    ur: 'تصدیق',
+    hi: 'पुष्टि',
+  );
   static const sheetsShort = _T(
     en: 'Sheets',
     ar: 'الكشوف',
