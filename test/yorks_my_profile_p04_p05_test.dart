@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ledger/app/router.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/engineer/presentation/screens/engineer_profile_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
@@ -171,23 +170,19 @@ void main() {
   });
 
   testWidgets(
-    'confirmed metrics, scope, work identity, and protected actions render',
+    'confirmed scope and work identity render; Today and its shortcuts do not',
     (tester) async {
       await _setViewport(tester, const Size(1180, 820));
       await _pumpProfile(tester);
 
-      expect(find.text('Projects you can open'), findsOneWidget);
-      expect(find.text('7'), findsNWidgets(2));
       expect(find.text('Direct grant'), findsOneWidget);
       expect(find.text('WK-004'), findsOneWidget);
       expect(find.text('Temporary worker'), findsOneWidget);
+      expect(find.text('Today'), findsNothing);
+      expect(find.text('Projects you can open'), findsNothing);
       expect(
         find.byKey(const ValueKey('my-yorks-action-open_projects')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('my-yorks-action-open_accounts')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(tester.takeException(), isNull);
     },
@@ -211,36 +206,9 @@ void main() {
         findsNothing,
       );
       expect(find.text('Accounts projects'), findsNothing);
-      await _openTab(tester, 'settings');
       expect(find.text('Linked Workforce record'), findsOneWidget);
     },
   );
-
-  testWidgets('feature flags remove a shortcut without inventing denial copy', (
-    tester,
-  ) async {
-    await _setViewport(tester, const Size(390, 844));
-    await _pumpProfile(
-      tester,
-      flags: const YorksV1FeatureFlags(
-        foundation: true,
-        projects: true,
-        boq: true,
-        excel: true,
-        requests: true,
-        arrangement: true,
-        logistics: true,
-        returnsDocuments: true,
-        documents: true,
-        analytics: false,
-      ),
-    );
-    expect(
-      find.byKey(const ValueKey('my-yorks-action-open_analytics')),
-      findsNothing,
-    );
-    expect(find.text('Analytics'), findsNothing);
-  });
 
   testWidgets(
     'workspace error shows honest retry states and no summary value',
@@ -251,18 +219,13 @@ void main() {
         workspace: _WorkspaceRepository(error: StateError('offline')),
       );
 
-      // Work shows Today; Settings shows access and work identity.
-      expect(
-        find.text('Your workspace details are unavailable'),
-        findsOneWidget,
-      );
-      expect(find.text('7'), findsNothing);
-      expect(find.text('Try again'), findsAtLeastNWidgets(1));
-      await _openTab(tester, 'settings');
+      // Access and work identity each say so, with a retry.
       expect(
         find.text('Your workspace details are unavailable'),
         findsNWidgets(2),
       );
+      expect(find.text('7'), findsNothing);
+      expect(find.text('Try again'), findsAtLeastNWidgets(1));
     },
   );
 
@@ -276,55 +239,10 @@ void main() {
         ),
       ),
     );
-    await _openTab(tester, 'settings');
     expect(find.text('No Workforce record is linked'), findsOneWidget);
     expect(find.text('Verified account'), findsOneWidget);
     expect(find.text('WK-004'), findsNothing);
   });
-
-  testWidgets('inventory action uses the generic protected inventory route', (
-    tester,
-  ) async {
-    await _setViewport(tester, const Size(1024, 768));
-    final router = GoRouter(
-      initialLocation: RoutePaths.engineerProfile,
-      routes: [
-        GoRoute(
-          path: RoutePaths.engineerProfile,
-          builder: (_, _) => const EngineerProfileScreen(),
-        ),
-        GoRoute(
-          path: RoutePaths.yorksV1Inventory,
-          builder: (_, _) => const Scaffold(body: Text('GENERIC INVENTORY')),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await _pumpProfile(tester, router: router);
-    await tester.drag(
-      find.byKey(const ValueKey('canonical-my-yorks-page')),
-      const Offset(0, -900),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('my-yorks-action-open_inventory')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('my-yorks-action-open_inventory')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('GENERIC INVENTORY'), findsOneWidget);
-  });
-}
-
-/// Opens a My Yorks tab on phone and tablet.
-Future<void> _openTab(WidgetTester tester, String section) async {
-  final tab = find.byKey(ValueKey('my-yorks-section-$section'));
-  await tester.ensureVisible(tab);
-  await tester.pumpAndSettle();
-  await tester.tap(tab);
-  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpProfile(

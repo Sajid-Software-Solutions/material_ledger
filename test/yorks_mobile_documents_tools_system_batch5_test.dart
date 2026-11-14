@@ -271,11 +271,10 @@ Future<void> _pumpProfile(
     ),
   );
   await tester.pumpAndSettle();
-  // Preferences and workspace sync are on the Settings tab.
-  final settings = find.byKey(const ValueKey('my-yorks-section-settings'));
-  await tester.ensureVisible(settings);
-  await tester.pumpAndSettle();
-  await tester.tap(settings);
+  // Preferences and workspace sync follow the profile card.
+  await tester.ensureVisible(
+    find.byKey(const ValueKey('my-yorks-settings-heading')),
+  );
   await tester.pumpAndSettle();
 }
 

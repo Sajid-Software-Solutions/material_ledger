@@ -11,24 +11,6 @@ abstract final class YorksV1ZoomStrings {
     ur: 'ورک اسپیس زوم',
     hi: 'कार्यस्थान ज़ूम',
   );
-  static const zoomIn = TranslatableString(
-    en: 'Zoom in',
-    ar: 'تكبير',
-    ur: 'زوم اِن',
-    hi: 'ज़ूम इन',
-  );
-  static const zoomOut = TranslatableString(
-    en: 'Zoom out',
-    ar: 'تصغير',
-    ur: 'زوم آؤٹ',
-    hi: 'ज़ूम आउट',
-  );
-  static const resetZoom = TranslatableString(
-    en: 'Reset zoom',
-    ar: 'إعادة ضبط التكبير',
-    ur: 'زوم ری سیٹ کریں',
-    hi: 'ज़ूम रीसेट करें',
-  );
   static const zoomPercentage = TranslatableString(
     en: 'Zoom level',
     ar: 'مستوى التكبير',

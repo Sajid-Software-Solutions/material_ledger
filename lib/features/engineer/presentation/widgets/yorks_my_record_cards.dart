@@ -1,10 +1,9 @@
-/// My Yorks from the People record (PRODUCT_DECISIONS section 54): the
-/// person's own documents, who they are at Yorks, notes to HR/PRO, their
-/// projects and this month's attendance.
+/// My Yorks from the People record (PRODUCT_DECISIONS section 54): one card
+/// with the person's identity, their own documents, who they are at Yorks
+/// and their notes to HR/PRO.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../../../../core/constants/constants.dart';
 import '../../../../shared/models/app_language.dart';
@@ -36,15 +35,111 @@ typedef _M = MyRecordStrings;
   ),
 };
 
+/// Whether HR/PRO has filled a field in; "Not recorded" is the placeholder
+/// a new record carries until they do.
+bool yorksMyRecorded(String value) =>
+    value.trim().isNotEmpty && value.trim() != 'Not recorded';
+
 /// "Site Engineer · Staff", leaving out a position never recorded.
 String yorksMyPositionLine(PeopleMinePerson person, AppLanguage language) => [
-  if (person.position.isNotEmpty && person.position != 'Not recorded')
-    person.position,
+  if (yorksMyRecorded(person.position)) person.position,
   peopleCategoryLabel(person.category, language),
 ].join(' · ');
 
-class YorksMyDocumentsCard extends StatelessWidget {
-  const YorksMyDocumentsCard({
+/// "WR-000137 · Yorks (Abu Dhabi)", leaving out a company never recorded.
+String yorksMyRecordLine(PeopleMinePerson person) => [
+  person.number,
+  if (yorksMyRecorded(person.company)) person.company,
+].join(' · ');
+
+/// The person's identity on top and their own record below, in one card.
+class YorksMyProfileCard extends StatelessWidget {
+  const YorksMyProfileCard({
+    super.key,
+    required this.header,
+    this.children = const [],
+  });
+
+  /// A [YorksIdentityHero] built with `attached: true`.
+  final Widget header;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('my-yorks-profile-card'),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+      border: Border.all(color: AppColors.line),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x1A0D2F57),
+          blurRadius: 28,
+          offset: Offset(0, 12),
+        ),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0) const Divider(height: 1, color: AppColors.line),
+          children[index],
+        ],
+      ],
+    ),
+  );
+}
+
+/// One titled part of [YorksMyProfileCard].
+class _CardSection extends StatelessWidget {
+  const _CardSection({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.xs,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.blue),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(title, style: AppTypography.titleSmall),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ...children,
+      ],
+    ),
+  );
+}
+
+class YorksMyDocumentsSection extends StatelessWidget {
+  const YorksMyDocumentsSection({
     super.key,
     required this.language,
     required this.person,
@@ -54,15 +149,17 @@ class YorksMyDocumentsCard extends StatelessWidget {
   final PeopleMinePerson person;
 
   @override
-  Widget build(BuildContext context) => YorksProfileSectionCard(
+  Widget build(BuildContext context) => _CardSection(
     key: const ValueKey('my-yorks-documents'),
     title: _M.t(_M.yourDocuments, language),
-    description: _M.t(_M.yourDocumentsDescription, language),
     icon: Icons.badge_outlined,
     children: [
       if (person.documents.isEmpty)
         Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.sm,
+          ),
           child: Text(
             _M.t(_M.noDocuments, language),
             style: AppTypography.bodyMedium.copyWith(
@@ -178,10 +275,11 @@ class _MyDocumentRow extends StatelessWidget {
   }
 }
 
-/// Who the person is at Yorks: position, the profession on their visa and
-/// ID, category, record number, company, joining date and crew.
-class YorksMyIdentityCard extends StatelessWidget {
-  const YorksMyIdentityCard({
+/// Who the person is at Yorks, beyond what the header already shows:
+/// position, the profession on their visa and ID, company, joining date and
+/// crew. A field HR/PRO has not filled in says so.
+class YorksMyFactsSection extends StatelessWidget {
+  const YorksMyFactsSection({
     super.key,
     required this.language,
     required this.person,
@@ -193,46 +291,30 @@ class YorksMyIdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final notRecorded = _M.t(_M.notRecorded, language);
-    return YorksProfileSectionCard(
+    String orNotRecorded(String? value) =>
+        value != null && yorksMyRecorded(value) ? value : notRecorded;
+    return _CardSection(
       key: const ValueKey('my-yorks-identity-facts'),
       title: _M.t(_M.onYourId, language),
-      description: _M.t(_M.onYourIdDescription, language),
       icon: Icons.work_outline_rounded,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               YorksProfileFactRow(
                 label: _M.t(_M.positionInCompany, language),
-                value:
-                    person.position.isEmpty || person.position == 'Not recorded'
-                    ? notRecorded
-                    : person.position,
+                value: orNotRecorded(person.position),
               ),
               YorksProfileFactRow(
                 key: const ValueKey('my-yorks-id-profession'),
                 label: _M.t(_M.professionOnId, language),
-                value: person.idProfession ?? notRecorded,
-              ),
-              YorksProfileFactRow(
-                label: _M.t(_M.category, language),
-                value: peopleCategoryLabel(person.category, language),
-              ),
-              YorksProfileFactRow(
-                label: _M.t(_M.recordNumber, language),
-                value: person.number,
-                forceLtr: true,
+                value: orNotRecorded(person.idProfession),
               ),
               YorksProfileFactRow(
                 label: _M.t(_M.company, language),
-                value: person.company,
+                value: orNotRecorded(person.company),
               ),
               if (person.joiningDate != null)
                 YorksProfileFactRow(
@@ -252,9 +334,9 @@ class YorksMyIdentityCard extends StatelessWidget {
   }
 }
 
-/// The person's notes to HR/PRO and the button to send one.
-class YorksTellHrCard extends StatelessWidget {
-  const YorksTellHrCard({
+/// The person's notes to HR/PRO, if any, and the button to send one.
+class YorksMyNotesSection extends StatelessWidget {
+  const YorksMyNotesSection({
     super.key,
     required this.language,
     required this.person,
@@ -267,60 +349,70 @@ class YorksTellHrCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final button = OutlinedButton.icon(
-      key: const ValueKey('my-yorks-tell-hr'),
-      onPressed: onTell,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(AppSpacing.minTapTarget),
+    final button = Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: OutlinedButton.icon(
+        key: const ValueKey('my-yorks-tell-hr'),
+        onPressed: onTell,
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(AppSpacing.minTapTarget),
+        ),
+        icon: const Icon(Icons.chat_outlined, size: 18),
+        label: Text(_M.t(_M.tellHr, language)),
       ),
-      icon: const Icon(Icons.chat_outlined, size: 18),
-      label: Text(_M.t(_M.tellHr, language)),
     );
     if (person.notes.isEmpty) return button;
-    return YorksProfileSectionCard(
+    return Column(
       key: const ValueKey('my-yorks-notes'),
-      title: _M.t(_M.yourNotes, language),
-      description: _M.t(_M.tellHrBody, language),
-      icon: Icons.chat_outlined,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final note in person.notes)
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '“${note.message}”',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.ink,
-                  ),
+        _CardSection(
+          title: _M.t(_M.yourNotes, language),
+          icon: Icons.chat_outlined,
+          children: [
+            for (final note in person.notes)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
                 ),
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  note.isDone
-                      ? _M.t(_M.noteDoneOn, language, {
-                          'date': peopleStamp(note.doneAt),
-                        })
-                      : _M.t(_M.noteWaiting, language, {
-                          'date': peopleStamp(note.at),
-                        }),
-                  style: AppTypography.bodySmall.copyWith(
-                    color: note.isDone ? AppColors.success : AppColors.warning,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '“${note.message}”',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      note.isDone
+                          ? _M.t(_M.noteDoneOn, language, {
+                              'date': peopleStamp(note.doneAt),
+                            })
+                          : _M.t(_M.noteWaiting, language, {
+                              'date': peopleStamp(note.at),
+                            }),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: note.isDone
+                            ? AppColors.success
+                            : AppColors.warning,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: button),
+              ),
+          ],
+        ),
+        button,
       ],
     );
   }
 }
 
-/// Shown until HR/PRO links the account, while loading, or on failure.
+/// Inside the card until HR/PRO links the account, while loading, or on
+/// failure.
 class YorksMyRecordNotice extends StatelessWidget {
   const YorksMyRecordNotice.unlinked({super.key, required this.language})
     : loading = false,
@@ -343,7 +435,7 @@ class YorksMyRecordNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failed = onRetry != null;
-    return YorksProfileSectionCard(
+    return Padding(
       key: ValueKey(
         loading
             ? 'my-yorks-record-loading'
@@ -351,267 +443,54 @@ class YorksMyRecordNotice extends StatelessWidget {
             ? 'my-yorks-record-failed'
             : 'my-yorks-record-unlinked',
       ),
-      title: _M.t(_M.yourDocuments, language),
-      description: _M.t(_M.yourDocumentsDescription, language),
-      icon: Icons.badge_outlined,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: loading
-              ? const Center(
-                  child: SizedBox.square(
-                    dimension: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      failed
-                          ? Icons.cloud_off_outlined
-                          : Icons.link_off_rounded,
-                      color: AppColors.inkSecondary,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      _M.t(
-                        failed ? _M.recordUnavailable : _M.notLinkedTitle,
-                        language,
-                      ),
-                      style: AppTypography.titleSmall,
-                    ),
-                    if (!failed) ...[
-                      const SizedBox(height: AppSpacing.xxs),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: loading
+          ? const Center(
+              child: SizedBox.square(
+                dimension: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  failed ? Icons.cloud_off_outlined : Icons.link_off_rounded,
+                  color: AppColors.inkSecondary,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        _M.t(_M.notLinkedBody, language),
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.inkSecondary,
+                        _M.t(
+                          failed ? _M.recordUnavailable : _M.notLinkedTitle,
+                          language,
                         ),
+                        style: AppTypography.titleSmall,
                       ),
-                    ] else ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      OutlinedButton.icon(
-                        onPressed: onRetry,
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: Text(_M.t(_M.retry, language)),
-                      ),
+                      if (!failed) ...[
+                        const SizedBox(height: AppSpacing.xxs),
+                        Text(
+                          _M.t(_M.notLinkedBody, language),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.inkSecondary,
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        OutlinedButton.icon(
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(_M.t(_M.retry, language)),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The projects the person is a member of today.
-class YorksMyProjectsCard extends StatefulWidget {
-  const YorksMyProjectsCard({
-    super.key,
-    required this.language,
-    required this.projects,
-    required this.onOpen,
-    this.allProjectsCount,
-  });
-
-  final AppLanguage language;
-  final List<PeopleMineProject> projects;
-  final ValueChanged<String> onOpen;
-
-  /// When the role opens every project without a membership.
-  final int? allProjectsCount;
-
-  @override
-  State<YorksMyProjectsCard> createState() => _YorksMyProjectsCardState();
-}
-
-class _YorksMyProjectsCardState extends State<YorksMyProjectsCard> {
-  static const _shown = 5;
-  var _all = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final language = widget.language;
-    final projects = widget.projects;
-    final visible = _all || projects.length <= _shown
-        ? projects
-        : projects.take(_shown).toList();
-    return YorksProfileSectionCard(
-      key: const ValueKey('my-yorks-projects'),
-      title: _M.t(_M.yourProjects, language),
-      description: _M.t(_M.yourProjectsDescription, language),
-      icon: Icons.account_tree_outlined,
-      children: [
-        if (projects.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Text(
-              widget.allProjectsCount != null
-                  ? _M.t(_M.allProjects, language, {
-                      'n': widget.allProjectsCount,
-                    })
-                  : _M.t(_M.noProjects, language),
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.inkSecondary,
-              ),
-            ),
-          ),
-        for (final project in visible)
-          InkWell(
-            key: ValueKey('my-yorks-project-${project.id}'),
-            onTap: () => widget.onOpen(project.id),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: AppSpacing.minTapTarget,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            project.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          Text(
-                            [
-                              project.ref,
-                              _M.t(
-                                project.role == 'project_engineer'
-                                    ? _M.roleProjectEngineer
-                                    : _M.roleSiteEngineer,
-                                language,
-                              ),
-                            ].join(' · '),
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.inkSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Directionality.of(context) == TextDirection.rtl
-                          ? Icons.chevron_left_rounded
-                          : Icons.chevron_right_rounded,
-                      color: AppColors.inkSecondary,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        if (!_all && projects.length > _shown)
-          TextButton(
-            key: const ValueKey('my-yorks-projects-all'),
-            onPressed: () => setState(() => _all = true),
-            style: TextButton.styleFrom(
-              minimumSize: const Size.fromHeight(AppSpacing.minTapTarget),
-            ),
-            child: Text(
-              '${_M.t(_M.showAll, language)} · '
-              '${_M.t(_M.moreProjects, language, {'n': projects.length - _shown})}',
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// This month so far, from the crew day sheets.
-class YorksMyAttendanceCard extends StatelessWidget {
-  const YorksMyAttendanceCard({
-    super.key,
-    required this.language,
-    required this.attendance,
-    this.crewName,
-  });
-
-  final AppLanguage language;
-  final PeopleMineAttendance attendance;
-  final String? crewName;
-
-  @override
-  Widget build(BuildContext context) {
-    final month = DateTime.tryParse('${attendance.month}-01');
-    final overtime = _M.t(_M.hoursMinutes, language, {
-      'h': attendance.overtimeMinutes ~/ 60,
-      'm': attendance.overtimeMinutes % 60,
-    });
-    return YorksProfileSectionCard(
-      key: const ValueKey('my-yorks-attendance'),
-      title: _M.t(_M.yourAttendance, language, {
-        'month': month == null
-            ? attendance.month
-            : DateFormat('MMMM yyyy').format(month),
-      }),
-      description: _M.t(_M.yourAttendanceDescription, language),
-      icon: Icons.fact_check_outlined,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: attendance.recordedDays == 0
-              ? Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.md),
-                  child: Text(
-                    _M.t(_M.noAttendance, language),
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
                   ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    YorksProfileFactRow(
-                      key: const ValueKey('my-yorks-attendance-present'),
-                      label: _M.t(_M.daysPresent, language),
-                      value: _M.t(_M.ofRecorded, language, {
-                        'n': attendance.presentDays,
-                        'm': attendance.recordedDays,
-                      }),
-                    ),
-                    if (attendance.absentDays > 0)
-                      YorksProfileFactRow(
-                        label: _M.t(_M.absent, language),
-                        value: '${attendance.absentDays}',
-                      ),
-                    if (attendance.leaveDays > 0)
-                      YorksProfileFactRow(
-                        label: _M.t(_M.leave, language),
-                        value: '${attendance.leaveDays}',
-                      ),
-                    YorksProfileFactRow(
-                      key: const ValueKey('my-yorks-attendance-overtime'),
-                      label: _M.t(_M.overtime, language),
-                      value: overtime,
-                    ),
-                    if (crewName != null)
-                      YorksProfileFactRow(
-                        label: _M.t(_M.crew, language),
-                        value: crewName!,
-                      ),
-                  ],
                 ),
-        ),
-      ],
+              ],
+            ),
     );
   }
 }

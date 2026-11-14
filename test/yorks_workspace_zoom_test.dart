@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/zoom/yorks_workspace_zoom.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
-import 'package:material_ledger/shared/models/yorks_v1_zoom_strings.dart';
 
 void main() {
   if (kIsWeb) {
@@ -141,7 +140,7 @@ void main() {
     expect(controller.transformationController.value, Matrix4.identity());
   });
 
-  testWidgets('desktop has no floating controls; menu can zoom and reset', (
+  testWidgets('desktop has no floating controls; the controller zooms', (
     tester,
   ) async {
     _setViewport(tester, const Size(1200, 800));
@@ -152,9 +151,6 @@ void main() {
         home: YorksWorkspaceZoomScope(
           controller: controller,
           child: Scaffold(
-            drawer: const Drawer(
-              child: YorksWorkspaceZoomMenu(language: AppLanguage.english),
-            ),
             appBar: AppBar(),
             body: YorksWorkspaceZoomViewport(
               controller: controller,
@@ -171,16 +167,10 @@ void main() {
       find.byKey(const ValueKey('yorks-workspace-zoom-controls')),
       findsNothing,
     );
-    await tester.tap(find.byTooltip('Open navigation menu'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.text(YorksV1ZoomStrings.zoomIn.active(AppLanguage.english)),
-    );
+    controller.zoomIn();
     await tester.pumpAndSettle();
     expect(controller.currentScale, greaterThan(1));
-    await tester.tap(
-      find.text(YorksV1ZoomStrings.resetZoom.active(AppLanguage.english)),
-    );
+    controller.reset();
     await tester.pumpAndSettle();
     expect(controller.currentScale, 1);
     expect(tester.takeException(), isNull);

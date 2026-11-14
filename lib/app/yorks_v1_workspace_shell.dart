@@ -2282,10 +2282,8 @@ class _YorksAccountEntryState extends ConsumerState<YorksAccountEntry> {
             fallbackName: fallbackName,
             fallbackRole: widget.role,
             language: widget.language,
-            workspaceStatus: widget.workspaceStatus,
             onOpenProfile: () => _closeThenGo(RoutePaths.engineerProfile),
             onNotifications: () => _closeThenGo(RoutePaths.notifications),
-            onHelp: () => _closeThenGo(RoutePaths.about),
             onSignOut: () async {
               _menu.close();
               await showYorksSignOut(context, ref);
@@ -2387,26 +2385,25 @@ class _YorksAccountEntryState extends ConsumerState<YorksAccountEntry> {
   }
 }
 
+/// The account menu under the desktop sidebar: who is signed in, My Yorks,
+/// notifications and sign out. The account state shows only when the
+/// protected profile cannot be read, never as a routine "verifying" line.
 class YorksAccountPopover extends ConsumerWidget {
   const YorksAccountPopover({
     super.key,
     required this.fallbackName,
     required this.fallbackRole,
     required this.language,
-    required this.workspaceStatus,
     required this.onOpenProfile,
     required this.onNotifications,
-    required this.onHelp,
     required this.onSignOut,
   });
 
   final String fallbackName;
   final YorksV1Role? fallbackRole;
   final AppLanguage language;
-  final YorksV1WorkspaceStatus workspaceStatus;
   final VoidCallback onOpenProfile;
   final VoidCallback onNotifications;
-  final VoidCallback onHelp;
   final Future<void> Function() onSignOut;
 
   @override
@@ -2418,41 +2415,24 @@ class YorksAccountPopover extends ConsumerWidget {
         ? fallbackName
         : protectedName;
     final role = profile?.exactRole ?? fallbackRole;
-    final accountStatus = profileState.when(
-      data: (_) => (
-        AppStrings.accountActive.active(language),
-        Icons.verified_user_outlined,
-        AppColors.success,
-      ),
-      loading: () => (
-        AppStrings.verifyingAccount.active(language),
-        Icons.sync_rounded,
-        AppColors.blue,
-      ),
-      error: (_, _) => (
-        AppStrings.accountUnavailable.active(language),
-        Icons.error_outline_rounded,
-        AppColors.error,
-      ),
-    );
+    final email = profile?.email?.trim() ?? '';
     return SizedBox(
       key: const ValueKey('yorks-account-popover'),
-      width: 352,
+      width: 296,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: const BoxDecoration(
-              color: AppColors.navy,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(AppSpacing.radiusLg),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.lg,
+              AppSpacing.md,
             ),
             child: Row(
               children: [
-                _Avatar(name: name, size: 50),
+                _Avatar(name: name, size: 44),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -2462,108 +2442,82 @@ class YorksAccountPopover extends ConsumerWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.titleMedium.copyWith(
-                          color: Colors.white,
+                        style: AppTypography.titleSmall.copyWith(
+                          color: AppColors.ink,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
                         _roleCopy(role).active(language),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.bodySmall.copyWith(
-                          color: const Color(0xFFD7E7F7),
+                          color: AppColors.inkSecondary,
                         ),
                       ),
-                      if (profile?.email?.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: AppSpacing.xs),
+                      if (email.isNotEmpty)
                         Directionality(
                           textDirection: TextDirection.ltr,
                           child: Text(
-                            profile!.email!.trim(),
+                            email,
+                            key: const ValueKey('yorks-account-email'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.labelSmall.copyWith(
-                              color: const Color(0xFFBFD7F4),
+                              color: AppColors.muted,
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
               ],
             ),
           ),
+          if (profileState.hasError && !profileState.isLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: _YorksAccountStatusRow(
+                key: const ValueKey('yorks-account-authority-status'),
+                icon: Icons.error_outline_rounded,
+                label: AppStrings.accountUnavailable.active(language),
+                color: AppColors.error,
+              ),
+            ),
+          const Divider(height: 1, color: AppColors.line),
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _YorksAccountStatusRow(
-                  key: const ValueKey('yorks-account-authority-status'),
-                  icon: accountStatus.$2,
-                  label: accountStatus.$1,
-                  color: accountStatus.$3,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.cloud_done_outlined,
-                        size: 18,
-                        color: AppColors.inkSecondary,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          AppStrings.workspaceSync.active(language),
-                          style: AppTypography.labelMedium,
-                        ),
-                      ),
-                      YorksV1WorkspaceStatusLabel(
-                        status: workspaceStatus,
-                        compact: true,
-                        language: language,
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: AppSpacing.xl),
-                FilledButton.icon(
-                  key: const ValueKey('open-my-yorks'),
-                  onPressed: onOpenProfile,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                  icon: const Icon(Icons.person_outline_rounded),
-                  label: Text(AppStrings.openMyYorks.active(language)),
-                ),
-                const SizedBox(height: AppSpacing.xs),
                 _YorksAccountPopoverAction(
-                  icon: Icons.notifications_outlined,
+                  key: const ValueKey('open-my-yorks'),
+                  icon: Icons.person_outline_rounded,
+                  label: AppStrings.profile.active(language),
+                  onTap: onOpenProfile,
+                ),
+                _YorksAccountPopoverAction(
+                  key: const ValueKey('yorks-account-notifications'),
+                  icon: Icons.notifications_none_rounded,
                   label: AppStrings.notifications.active(language),
                   onTap: onNotifications,
                 ),
-                _YorksAccountPopoverAction(
-                  icon: Icons.help_outline_rounded,
-                  label: AppStrings.about.active(language),
-                  onTap: onHelp,
-                ),
-                YorksWorkspaceZoomMenu(language: language),
-                const Divider(height: AppSpacing.sm),
-                _YorksAccountPopoverAction(
-                  icon: Icons.logout_rounded,
-                  label: AppStrings.signOut.active(language),
-                  color: AppColors.error,
-                  onTap: onSignOut,
-                ),
               ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.line),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: _YorksAccountPopoverAction(
+              key: const ValueKey('yorks-account-sign-out'),
+              icon: Icons.logout_rounded,
+              label: AppStrings.signOut.active(language),
+              color: AppColors.error,
+              onTap: onSignOut,
             ),
           ),
         ],
@@ -2588,7 +2542,7 @@ class _YorksAccountStatusRow extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     label: label,
     child: Container(
-      constraints: const BoxConstraints(minHeight: 44),
+      constraints: const BoxConstraints(minHeight: 40),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
@@ -2612,6 +2566,7 @@ class _YorksAccountStatusRow extends StatelessWidget {
 
 class _YorksAccountPopoverAction extends StatelessWidget {
   const _YorksAccountPopoverAction({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -2630,9 +2585,9 @@ class _YorksAccountPopoverAction extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
+        constraints: const BoxConstraints(minHeight: 44),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Row(
             children: [
               Icon(icon, size: 20, color: color),
@@ -2642,14 +2597,9 @@ class _YorksAccountPopoverAction extends StatelessWidget {
                   label,
                   style: AppTypography.bodyMedium.copyWith(
                     color: color,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: color.withValues(alpha: 0.65),
               ),
             ],
           ),

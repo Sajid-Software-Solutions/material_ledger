@@ -118,11 +118,16 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text(AppStrings.accountActive.primary), findsOneWidget);
-    expect(find.text(AppStrings.workspaceSync.primary), findsOneWidget);
-    expect(find.text(AppStrings.openMyYorks.primary), findsOneWidget);
+    // Only the account and its three actions: no status lines, About or
+    // zoom controls.
+    expect(find.text('owner@example.test'), findsOneWidget);
+    expect(find.text(AppStrings.accountActive.primary), findsNothing);
+    expect(find.text(AppStrings.verifyingAccount.primary), findsNothing);
+    expect(find.text(AppStrings.workspaceSync.primary), findsNothing);
+    expect(find.text(AppStrings.profile.primary), findsOneWidget);
     expect(find.text(AppStrings.notifications.primary), findsOneWidget);
-    expect(find.text(AppStrings.about.primary), findsOneWidget);
+    expect(find.text(AppStrings.about.primary), findsNothing);
+    expect(find.byIcon(Icons.zoom_in), findsNothing);
     expect(find.text(AppStrings.signOut.primary), findsOneWidget);
     expect(find.text('Assigned projects'), findsNothing);
     expect(find.text('Open requests'), findsNothing);
@@ -196,7 +201,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.accountUnavailable.primary), findsOneWidget);
     expect(find.text(AppStrings.accountActive.primary), findsNothing);
-    expect(find.text(AppStrings.openMyYorks.primary), findsOneWidget);
+    expect(find.byKey(const ValueKey('open-my-yorks')), findsOneWidget);
   });
 
   for (final role in YorksV1Role.values) {

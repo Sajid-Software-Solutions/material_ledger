@@ -73,11 +73,6 @@ void main() {
     ) async {
       await _setViewport(tester, viewport.size);
       await _pumpProfile(tester);
-      if (!viewport.twoPanes) {
-        // Phone and tablet show one tab at a time; Work opens first.
-        expect(find.text('Preferences'), findsNothing);
-        await _openTab(tester, 'settings');
-      }
 
       expect(find.text('Owner'), findsOneWidget);
       expect(find.text('Admin'), findsWidgets);
@@ -105,7 +100,6 @@ void main() {
     await _pumpProfile(tester, textScale: 2);
 
     expect(find.text('Owner'), findsOneWidget);
-    await _openTab(tester, 'settings');
     await tester.scrollUntilVisible(
       find.text('Sign Out'),
       350,
@@ -121,7 +115,6 @@ void main() {
     SharedPreferences.setMockInitialValues({'selected_language': 'ar'});
     await _setViewport(tester, const Size(820, 1180));
     await _pumpProfile(tester);
-    await _openTab(tester, 'settings');
 
     expect(find.text('يوركس الخاصة بي'), findsOneWidget);
     expect(find.text('التفضيلات'), findsWidgets);
@@ -146,54 +139,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('section choice survives an orientation change', (tester) async {
+  testWidgets('one page holds the profile card and settings, without tabs', (
+    tester,
+  ) async {
     await _setViewport(tester, const Size(820, 1180));
     await _pumpProfile(tester);
-    await tester.tap(find.byKey(const ValueKey('my-yorks-section-settings')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('my-yorks-profile-card')), findsOneWidget);
     expect(
-      tester.widget(find.byKey(const ValueKey('my-yorks-section-settings'))),
-      isA<FilledButton>(),
+      find.byKey(const ValueKey('my-yorks-settings-heading')),
+      findsOneWidget,
     );
+    expect(find.text('Preferences'), findsOneWidget);
+    expect(find.text('Work'), findsNothing);
+    expect(find.text('Today'), findsNothing);
 
+    // Turning the tablet keeps the same content on the page.
     tester.view.physicalSize = const Size(1024, 768);
     await tester.pumpAndSettle();
-    expect(
-      tester.widget(find.byKey(const ValueKey('my-yorks-section-settings'))),
-      isA<FilledButton>(),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('reduced motion changes sections without an animated wait', (
-    tester,
-  ) async {
-    await _setViewport(tester, const Size(390, 844));
-    await _pumpProfile(tester, disableAnimations: true);
-
-    await tester.tap(find.byKey(const ValueKey('my-yorks-section-settings')));
-    await tester.pump();
-    expect(
-      tester.widget(find.byKey(const ValueKey('my-yorks-section-settings'))),
-      isA<FilledButton>(),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('keyboard activates section navigation in logical order', (
-    tester,
-  ) async {
-    await _setViewport(tester, const Size(820, 1180));
-    await _pumpProfile(tester);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget(find.byKey(const ValueKey('my-yorks-section-settings'))),
-      isA<FilledButton>(),
-    );
+    expect(find.byKey(const ValueKey('my-yorks-profile-card')), findsOneWidget);
+    expect(find.text('Preferences'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -203,7 +167,6 @@ void main() {
       await _setViewport(tester, const Size(390, 844));
       final semantics = tester.ensureSemantics();
       await _pumpProfile(tester);
-      await _openTab(tester, 'settings');
 
       final identity = tester.getSemantics(
         find.byKey(const ValueKey('my-yorks-identity-hero')),
@@ -227,7 +190,6 @@ void main() {
     await _setViewport(tester, const Size(390, 844));
     final semantics = tester.ensureSemantics();
     await _pumpProfile(tester);
-    await _openTab(tester, 'settings');
     await tester.scrollUntilVisible(
       find.text('Secondary Language'),
       350,
@@ -257,7 +219,6 @@ void main() {
     });
     await _setViewport(tester, const Size(390, 844));
     await _pumpProfile(tester);
-    await _openTab(tester, 'settings');
     expect(find.bySemanticsLabel('App lock'), findsNothing);
     await tester.scrollUntilVisible(
       find.bySemanticsLabel('Currency'),
@@ -533,15 +494,6 @@ YorksV1MyProfile _profile(YorksV1Role role) => YorksV1MyProfile.fromRpcJson({
   'operational_summary_state': 'not_projected',
   'workforce_scope_state': 'requires_work_date_context',
 });
-
-/// Opens a My Yorks tab on phone and tablet.
-Future<void> _openTab(WidgetTester tester, String section) async {
-  final tab = find.byKey(ValueKey('my-yorks-section-$section'));
-  await tester.ensureVisible(tab);
-  await tester.pumpAndSettle();
-  await tester.tap(tab);
-  await tester.pumpAndSettle();
-}
 
 Future<void> _setViewport(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;

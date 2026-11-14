@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:material_ledger/core/zoom/yorks_workspace_zoom.dart';
 import 'package:material_ledger/core/fullscreen/yorks_workspace_fullscreen.dart';
 import 'package:material_ledger/core/widgets/yorks_panel_toggle_icon.dart';
 import 'package:material_ledger/shared/models/yorks_v1_zoom_strings.dart';
-import 'package:material_ledger/shared/models/app_language.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,7 +164,7 @@ void main() {
   }
 
   for (final width in [1366.0, 360.0]) {
-    testWidgets('native account menu controls current view at $width', (
+    testWidgets('account menu keeps only the account actions at $width', (
       tester,
     ) async {
       _setViewport(tester, Size(width, 800));
@@ -176,29 +174,27 @@ void main() {
         _ShellTestApp(role: YorksV1Role.procurement, preferences: preferences),
       );
       await tester.pumpAndSettle();
-      final viewport = tester.element(find.byType(YorksWorkspaceZoomViewport));
-      final controller = YorksWorkspaceZoomScope.maybeOf(viewport)!;
       if (width < 720) {
         tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
         await tester.pumpAndSettle();
       }
       await tester.tap(find.byKey(const ValueKey('yorks-account-entry')));
       await tester.pumpAndSettle();
-      final zoom = find.text(
-        YorksV1ZoomStrings.zoomIn.active(AppLanguage.english),
-      );
-      expect(zoom, findsOneWidget);
-      await tester.ensureVisible(zoom);
-      await tester.tap(zoom);
-      await tester.pumpAndSettle();
-      expect(controller.currentScale, greaterThan(1));
-      final reset = find.text(
-        YorksV1ZoomStrings.resetZoom.active(AppLanguage.english),
-      );
-      await tester.ensureVisible(reset);
-      await tester.tap(reset);
-      await tester.pumpAndSettle();
-      expect(controller.currentScale, 1);
+      final popover = find.byKey(const ValueKey('yorks-account-popover'));
+      expect(popover, findsOneWidget);
+      for (final key in [
+        'open-my-yorks',
+        'yorks-account-notifications',
+        'yorks-account-sign-out',
+      ]) {
+        expect(
+          find.descendant(of: popover, matching: find.byKey(ValueKey(key))),
+          findsOneWidget,
+        );
+      }
+      expect(find.text(AppStrings.about.primary), findsNothing);
+      expect(find.text(AppStrings.workspaceSync.primary), findsNothing);
+      expect(find.byIcon(Icons.zoom_in), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
