@@ -4,6 +4,10 @@
 /// `v1_company_docs_*` functions.
 library;
 
+import 'yorks_v1_attachments.dart';
+
+export 'yorks_v1_attachments.dart';
+
 import 'yorks_v1_people.dart' show PeopleDocumentStatus;
 
 export 'yorks_v1_people.dart' show PeopleDocumentStatus;
@@ -703,3 +707,9 @@ final class CompanyImportResult {
 
   bool get hasProblems => problemCount > 0;
 }
+
+/// A file kept with a company record (PRODUCT_DECISIONS section 48).
+typedef CompanyAttachment = RecordAttachment;
+
+/// A record's attachments; the owner is the record id.
+typedef CompanyAttachments = RecordAttachments;

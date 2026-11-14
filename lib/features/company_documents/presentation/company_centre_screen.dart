@@ -26,6 +26,7 @@ import '../../../shared/services/yorks_v1_company_workbook.dart';
 import '../../../shared/services/yorks_v1_people_workbook.dart'
     show peopleEncodeWorkbook;
 import 'company_import_dialog.dart';
+import 'company_attachments.dart';
 import 'company_kit.dart';
 
 enum CompanyView {
@@ -1020,6 +1021,10 @@ class _Register extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(yorksV1CompanyListProvider(query));
+    // A paperclip beside each record with files (PRODUCT_DECISIONS 48).
+    final attached =
+        ref.watch(yorksV1CompanyAttachmentCountsProvider).valueOrNull ??
+        const <String, int>{};
     return page.when(
       skipLoadingOnRefresh: true,
       loading: () => const Padding(
@@ -1050,14 +1055,22 @@ class _Register extends ConsumerWidget {
           children: [
             LayoutBuilder(
               builder: (context, constraints) => constraints.maxWidth >= 980
-                  ? _RegisterTable(rows: data.rows, language: language)
+                  ? _RegisterTable(
+                      rows: data.rows,
+                      language: language,
+                      attached: attached,
+                    )
                   : Padding(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           for (final record in data.rows) ...[
-                            _RecordCard(record: record, language: language),
+                            _RecordCard(
+                              record: record,
+                              language: language,
+                              attached: attached[record.id] ?? 0,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                           ],
                         ],
@@ -1113,7 +1126,14 @@ class _Register extends ConsumerWidget {
 /// The register as a table: Record, Reference, Company, the documents held
 /// and the next expiry.
 class _RegisterTable extends StatelessWidget {
-  const _RegisterTable({required this.rows, required this.language});
+  const _RegisterTable({
+    required this.rows,
+    required this.language,
+    this.attached = const {},
+  });
+
+  /// Attachments per record, by record id.
+  final Map<String, int> attached;
 
   final List<CompanyRecord> rows;
   final AppLanguage language;
@@ -1182,7 +1202,14 @@ class _RegisterTable extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  cell(0, _RecordName(record: record, language: language)),
+                  cell(
+                    0,
+                    _RecordName(
+                      record: record,
+                      language: language,
+                      attached: attached[record.id] ?? 0,
+                    ),
+                  ),
                   cell(
                     1,
                     Text(
@@ -1231,10 +1258,17 @@ class _RegisterTable extends StatelessWidget {
 }
 
 class _RecordName extends StatelessWidget {
-  const _RecordName({required this.record, required this.language});
+  const _RecordName({
+    required this.record,
+    required this.language,
+    this.attached = 0,
+  });
 
   final CompanyRecord record;
   final AppLanguage language;
+
+  /// How many files the record has (a paperclip beside the name).
+  final int attached;
 
   @override
   Widget build(BuildContext context) {
@@ -1259,14 +1293,28 @@ class _RecordName extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                record.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.labelLarge.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: record.archived ? AppColors.muted : AppColors.ink,
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      record.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.labelLarge.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: record.archived
+                            ? AppColors.muted
+                            : AppColors.ink,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  RecordAttachmentCount(
+                    key: ValueKey('company-attached-${record.id}'),
+                    count: attached,
+                    language: language,
+                  ),
+                ],
               ),
               Text(
                 [
@@ -1342,10 +1390,15 @@ class _DocumentList extends StatelessWidget {
 
 /// The register as cards, for a phone or a narrow window.
 class _RecordCard extends StatelessWidget {
-  const _RecordCard({required this.record, required this.language});
+  const _RecordCard({
+    required this.record,
+    required this.language,
+    this.attached = 0,
+  });
 
   final CompanyRecord record;
   final AppLanguage language;
+  final int attached;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -1367,7 +1420,11 @@ class _RecordCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: _RecordName(record: record, language: language),
+                  child: _RecordName(
+                    record: record,
+                    language: language,
+                    attached: attached,
+                  ),
                 ),
                 if (record.documents.isNotEmpty) ...[
                   const SizedBox(width: AppSpacing.sm),

@@ -17,6 +17,7 @@ import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_company_documents_provider.dart';
 import '../../workforce/presentation/attendance/attendance_dialogs.dart'
     show showAttendanceCommandDialog;
+import 'company_attachments.dart';
 import 'company_document_dialog.dart';
 import 'company_kit.dart';
 
@@ -89,6 +90,20 @@ class _RecordBody extends ConsumerWidget {
     if (ended == true) yorksV1RefreshCompanyDocuments(ref, recordId: record.id);
   }
 
+  /// Attaches a copy of one document.
+  Future<void> _attach(
+    BuildContext context,
+    WidgetRef ref,
+    CompanyDocument document,
+  ) async {
+    final added = await showCompanyAttachmentDialog(
+      context,
+      record: record,
+      documentId: document.id,
+    );
+    if (added == true) yorksV1RefreshCompanyDocuments(ref, recordId: record.id);
+  }
+
   Future<void> _archive(BuildContext context, WidgetRef ref) async {
     final repository = ref.read(yorksV1CompanyDocumentsRepositoryProvider);
     final key = const Uuid().v4();
@@ -140,6 +155,12 @@ class _RecordBody extends ConsumerWidget {
     final horizontal = width >= AppSpacing.yorksV1DesktopBreakpoint
         ? AppSpacing.xl
         : AppSpacing.md;
+    final attached =
+        ref
+            .watch(yorksV1CompanyAttachmentsProvider(record.id))
+            .valueOrNull
+            ?.byDocument ??
+        const <String, int>{};
     final documents = _DocumentsSection(
       record: record,
       language: language,
@@ -148,6 +169,8 @@ class _RecordBody extends ConsumerWidget {
       onRenew: (document) =>
           _document(context, ref, document: document, renew: true),
       onEnd: (document) => _end(context, ref, document),
+      onAttach: (document) => _attach(context, ref, document),
+      attached: attached,
     );
     final details = _DetailsCard(record: record, language: language);
     return ListView(
@@ -203,6 +226,8 @@ class _RecordBody extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.lg),
                   documents,
                 ],
+                const SizedBox(height: AppSpacing.lg),
+                CompanyAttachmentsSection(record: record, language: language),
                 const SizedBox(height: AppSpacing.lg),
                 _PreviousDocuments(record: record, language: language),
                 const SizedBox(height: AppSpacing.md),
@@ -493,6 +518,8 @@ class _DocumentsSection extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
+    this.attached = const {},
   });
 
   final CompanyRecord record;
@@ -501,6 +528,10 @@ class _DocumentsSection extends StatelessWidget {
   final ValueChanged<CompanyDocument> onEdit;
   final ValueChanged<CompanyDocument> onRenew;
   final ValueChanged<CompanyDocument> onEnd;
+  final ValueChanged<CompanyDocument> onAttach;
+
+  /// How many attachments copy each document, by document id.
+  final Map<String, int> attached;
 
   bool get _canManage => record.canManage && !record.archived;
 
@@ -536,6 +567,8 @@ class _DocumentsSection extends StatelessWidget {
                       onEdit: onEdit,
                       onRenew: onRenew,
                       onEnd: onEnd,
+                      onAttach: onAttach,
+                      attached: attached[document?.id] ?? 0,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                   ],
@@ -578,7 +611,7 @@ class _DocumentsSection extends StatelessWidget {
             2: FlexColumnWidth(1.1),
             3: FlexColumnWidth(1.6),
             4: FlexColumnWidth(1.4),
-            5: FixedColumnWidth(180),
+            5: FixedColumnWidth(230),
           },
           children: [
             TableRow(
@@ -626,6 +659,16 @@ class _DocumentsSection extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (document != null) ...[
+                          const SizedBox(width: 6),
+                          RecordAttachmentCount(
+                            key: ValueKey(
+                              'company-document-attached-${document.id}',
+                            ),
+                            count: attached[document.id] ?? 0,
+                            language: language,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -696,6 +739,7 @@ class _DocumentsSection extends StatelessWidget {
                         onEdit: onEdit,
                         onRenew: onRenew,
                         onEnd: onEnd,
+                        onAttach: onAttach,
                       ),
                     ),
                   ),
@@ -718,6 +762,7 @@ class _RowActions extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
   });
 
   final CompanyDocumentKind kind;
@@ -728,6 +773,7 @@ class _RowActions extends StatelessWidget {
   final ValueChanged<CompanyDocument> onEdit;
   final ValueChanged<CompanyDocument> onRenew;
   final ValueChanged<CompanyDocument> onEnd;
+  final ValueChanged<CompanyDocument> onAttach;
 
   Widget _button({
     required Key key,
@@ -765,6 +811,15 @@ class _RowActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _button(
+          key: ValueKey('company-document-attach-${doc.id}'),
+          icon: Icons.attach_file_rounded,
+          tooltip: PS.t(PS.addAttachment, language),
+          color: AppColors.blue,
+          border: AppColors.line,
+          onPressed: () => onAttach(doc),
+        ),
+        const SizedBox(width: 6),
         _button(
           key: ValueKey('company-document-edit-${doc.id}'),
           icon: Icons.edit_outlined,
@@ -806,6 +861,8 @@ class _DocumentCard extends StatelessWidget {
     required this.onEdit,
     required this.onRenew,
     required this.onEnd,
+    required this.onAttach,
+    this.attached = 0,
   });
 
   final CompanyDocumentKind kind;
@@ -816,6 +873,8 @@ class _DocumentCard extends StatelessWidget {
   final ValueChanged<CompanyDocument> onEdit;
   final ValueChanged<CompanyDocument> onRenew;
   final ValueChanged<CompanyDocument> onEnd;
+  final ValueChanged<CompanyDocument> onAttach;
+  final int attached;
 
   @override
   Widget build(BuildContext context) {
@@ -851,11 +910,31 @@ class _DocumentCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      companyDocumentLabel(kind, language, label: doc?.label),
-                      style: AppTypography.titleSmall.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            companyDocumentLabel(
+                              kind,
+                              language,
+                              label: doc?.label,
+                            ),
+                            style: AppTypography.titleSmall.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (doc != null) ...[
+                          const SizedBox(width: 6),
+                          RecordAttachmentCount(
+                            key: ValueKey(
+                              'company-document-attached-${doc.id}',
+                            ),
+                            count: attached,
+                            language: language,
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       doc == null
@@ -900,6 +979,7 @@ class _DocumentCard extends StatelessWidget {
                 onEdit: onEdit,
                 onRenew: onRenew,
                 onEnd: onEnd,
+                onAttach: onAttach,
               ),
             ),
           ],
@@ -1063,6 +1143,8 @@ class _History extends StatelessWidget {
       ('document', 'created') => PS.hDocCreated,
       ('document', 'renewed') => PS.hDocRenewed,
       ('document', 'ended') => PS.hDocEnded,
+      ('attachment', 'removed') => PS.hAttachmentRemoved,
+      ('attachment', _) => PS.hAttachmentAdded,
       _ => PS.hDocUpdated,
     };
     return CS.t(template, language, values);

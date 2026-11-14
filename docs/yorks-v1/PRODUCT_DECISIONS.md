@@ -2484,6 +2484,16 @@ them (as for People records). Removing needs a reason and keeps the file and
 history. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section
 Attachments.
 
+## 48. Attachments for company documents (owner decision, 14 November 2026)
+
+Every company record in Company documents has an Attachments section, the
+same as People (section 47): files of its licences, registrations, permits,
+policies, passes and other papers, optionally naming the document each
+copies, with paperclip counts on document rows and in the registers. People
+who may read Company documents open them; PR, Admin and the Accountant add
+and remove them. Removing needs a reason and keeps the file and history.
+Design: [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) section Attachments.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

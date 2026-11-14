@@ -54,6 +54,12 @@ abstract final class CompanyStrings {
     ur: 'انشورنس',
     hi: 'बीमा',
   );
+  static const attachmentsDescription = _T(
+    en: 'Copies of licences, registrations, permits, policies, passes and other papers.',
+    ar: 'نسخ من الرخص والتسجيلات والتصاريح والوثائق والبطاقات وأوراق أخرى.',
+    ur: 'لائسنس، رجسٹریشن، پرمٹ، پالیسیوں، پاسز اور دیگر کاغذات کی نقول۔',
+    hi: 'लाइसेंस, पंजीकरण, परमिट, पॉलिसी, पास और अन्य कागज़ों की प्रतियाँ।',
+  );
   static const viewContracts = _T(
     en: 'CICPA passes',
     ar: 'تصاريح CICPA',

@@ -6,6 +6,9 @@ import '../models/yorks_v1_domain_error.dart';
 import '../models/yorks_v1_feature_flags.dart';
 import '../models/yorks_v1_people.dart';
 import '../sync/connectivity_service.dart';
+import 'yorks_v1_record_files.dart';
+
+export 'yorks_v1_record_files.dart';
 
 /// Seam over Supabase so the repository is testable without a client.
 abstract interface class YorksV1PeopleRpcClient {
@@ -14,34 +17,8 @@ abstract interface class YorksV1PeopleRpcClient {
 
 const yorksV1PeopleFilesBucket = 'yorks-people-files';
 
-/// Seam over Supabase Storage for people's attachments.
-abstract interface class YorksV1PeopleFileClient {
-  Future<void> upload(String objectPath, Uint8List bytes, String contentType);
-
-  Future<String> signedUrl(String objectPath, {required int seconds});
-}
-
-final class SupabaseYorksV1PeopleFileClient implements YorksV1PeopleFileClient {
-  const SupabaseYorksV1PeopleFileClient(this._client);
-
-  final SupabaseClient _client;
-
-  @override
-  Future<void> upload(String objectPath, Uint8List bytes, String contentType) =>
-      _client.storage
-          .from(yorksV1PeopleFilesBucket)
-          .uploadBinary(
-            objectPath,
-            bytes,
-            fileOptions: FileOptions(contentType: contentType),
-          );
-
-  @override
-  Future<String> signedUrl(String objectPath, {required int seconds}) => _client
-      .storage
-      .from(yorksV1PeopleFilesBucket)
-      .createSignedUrl(objectPath, seconds);
-}
+/// Storage for people's attachments.
+typedef YorksV1PeopleFileClient = YorksV1RecordFileClient;
 
 final class SupabaseYorksV1PeopleRpcClient implements YorksV1PeopleRpcClient {
   const SupabaseYorksV1PeopleRpcClient(this._client);
@@ -131,6 +108,7 @@ final class YorksV1PeopleRepository {
             'p_worker_id': workerId,
           }),
         ),
+        ownerKey: 'worker_id',
       );
 
   /// How many attachments each person has, by worker id.
@@ -157,36 +135,15 @@ final class YorksV1PeopleRepository {
     String? documentId,
     String? title,
   }) async {
-    final extension = peopleAttachmentTypes[contentType];
-    if (extension == null ||
-        bytes.isEmpty ||
-        bytes.lengthInBytes > peopleAttachmentMaxBytes) {
-      throw const YorksV1DomainException(YorksV1DomainErrorCode.invalidInput);
-    }
-    final objectPath = 'people/$workerId/$idempotencyKey.$extension';
+    final objectPath = yorksV1RecordFilePath(
+      folder: 'people',
+      ownerId: workerId,
+      idempotencyKey: idempotencyKey,
+      contentType: contentType,
+      sizeBytes: bytes.lengthInBytes,
+    );
     _ready();
-    final files = _files;
-    if (files == null) {
-      throw const YorksV1DomainException(
-        YorksV1DomainErrorCode.backendUnavailable,
-      );
-    }
-    try {
-      await files.upload(objectPath, bytes, contentType);
-    } on StorageException catch (error) {
-      final alreadyStored =
-          error.statusCode == '409' ||
-          error.message.toLowerCase().contains('already exists');
-      if (!alreadyStored) {
-        throw YorksV1DomainException(
-          error.statusCode == '403'
-              ? YorksV1DomainErrorCode.unauthorized
-              : YorksV1DomainErrorCode.serverRejected,
-          serverMessage: error.message,
-          cause: error,
-        );
-      }
-    }
+    await yorksV1StoreRecordFile(_files, objectPath, bytes, contentType);
     return PeopleAttachments.fromJson(
       _map(
         await _invoke('v1_people_add_attachment', {
@@ -200,6 +157,7 @@ final class YorksV1PeopleRepository {
           'p_idempotency_key': idempotencyKey,
         }),
       ),
+      ownerKey: 'worker_id',
     );
   }
 
@@ -216,26 +174,13 @@ final class YorksV1PeopleRepository {
         'p_idempotency_key': idempotencyKey,
       }),
     ),
+    ownerKey: 'worker_id',
   );
 
   /// A five-minute link to open a file. Storage rechecks who is asking.
   Future<String> attachmentUrl(String objectPath) async {
     _ready();
-    final files = _files;
-    if (files == null) {
-      throw const YorksV1DomainException(
-        YorksV1DomainErrorCode.backendUnavailable,
-      );
-    }
-    try {
-      return await files.signedUrl(objectPath, seconds: 300);
-    } on StorageException catch (error) {
-      throw YorksV1DomainException(
-        YorksV1DomainErrorCode.unauthorized,
-        serverMessage: error.message,
-        cause: error,
-      );
-    }
+    return yorksV1RecordFileUrl(_files, objectPath);
   }
 
   /// Classifies each person on the server. Writes nothing.

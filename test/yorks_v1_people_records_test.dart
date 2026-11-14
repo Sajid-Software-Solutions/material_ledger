@@ -459,7 +459,7 @@ Future<void> _pump(
           files ?? _Files(),
         ),
         yorksV1DocumentFileServiceProvider.overrideWithValue(_PickedDocument()),
-        peopleOpenLinkProvider.overrideWithValue((uri) async {
+        yorksV1OpenLinkProvider.overrideWithValue((uri) async {
           opened?.add(uri);
           return true;
         }),

@@ -101,6 +101,37 @@ Behind `YORKS_V1_COMPANY_DOCUMENTS` (default off) and
 `company_documents.view`; new and edit also need
 `company_documents.manage`.
 
+## Attachments
+
+Owner decision, 14 November 2026 (`PRODUCT_DECISIONS.md` section 48). Every
+company record has an **Attachments** section, built on the same shared
+widgets as People so both behave alike: copies of the trade licence,
+establishment card, vehicle registration, Asateel permit, CICPA pass or LOA,
+insurance policy and certificates, and any other paper (PDF, Word, Excel,
+JPG or PNG, up to 20 MB each).
+
+- **Who.** `company_documents.view` sees and opens them;
+  `company_documents.manage` (PR, Admin and the Accountant by default) adds
+  and removes them. Engineers and Procurement have neither.
+- **Copy of.** A file may name which of the record's documents it copies
+  (current or ended). Each document row shows a paperclip count and an
+  Attach button; the registers show a paperclip and count beside each record
+  with files.
+- **Storage.** Private bucket `yorks-company-files`, at
+  `company/<record id>/<attachment id>.<ext>`, with the same rules as
+  People: upload only for a real record with manage and never over a
+  recorded file; read only for a current attachment with view
+  (`v1_company_file_readable` / `v1_company_file_writable`); size and type
+  read from storage; one stored file per idempotency key.
+- **Removing** needs a reason; the file, the row and the history are kept.
+  Adding and removing appear in the record's history.
+- **Commands.** `v1_company_docs_list_attachments`,
+  `v1_company_docs_attachment_counts`, `v1_company_docs_add_attachment`,
+  `v1_company_docs_remove_attachment` (volatile, rechecking the capability).
+  Migration `20261114190000_company_documents_attachments.sql`; rollback:
+  drop the two storage policies and revoke the four commands, keeping the
+  bucket, table and files.
+
 ## Release and rollback
 
 1. Apply `20261114140000_company_documents_foundation.sql` (additive,

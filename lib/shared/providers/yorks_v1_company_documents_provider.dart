@@ -16,6 +16,12 @@ final yorksV1CompanyDocumentsRepositoryProvider =
         client: client == null
             ? null
             : SupabaseYorksV1CompanyDocumentsRpcClient(client),
+        files: client == null
+            ? null
+            : SupabaseYorksV1RecordFileClient(
+                client,
+                yorksV1CompanyFilesBucket,
+              ),
       );
     });
 
@@ -40,9 +46,31 @@ final yorksV1CompanyRecordProvider = FutureProvider.autoDispose
       return ref.watch(yorksV1CompanyDocumentsRepositoryProvider).get(recordId);
     });
 
+/// One record's attachments.
+final yorksV1CompanyAttachmentsProvider = FutureProvider.autoDispose
+    .family<CompanyAttachments, String>((ref, recordId) {
+      ref.watch(yorksV1AuthUserIdProvider);
+      return ref
+          .watch(yorksV1CompanyDocumentsRepositoryProvider)
+          .attachments(recordId);
+    });
+
+/// How many attachments each record has, for the registers.
+final yorksV1CompanyAttachmentCountsProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) {
+      ref.watch(yorksV1AuthUserIdProvider);
+      return ref
+          .watch(yorksV1CompanyDocumentsRepositoryProvider)
+          .attachmentCounts();
+    });
+
 /// After any write: the home, every register page and the record reload.
 void yorksV1RefreshCompanyDocuments(WidgetRef ref, {String? recordId}) {
   ref.invalidate(yorksV1CompanyOverviewProvider);
   ref.invalidate(yorksV1CompanyListProvider);
-  if (recordId != null) ref.invalidate(yorksV1CompanyRecordProvider(recordId));
+  ref.invalidate(yorksV1CompanyAttachmentCountsProvider);
+  if (recordId != null) {
+    ref.invalidate(yorksV1CompanyRecordProvider(recordId));
+    ref.invalidate(yorksV1CompanyAttachmentsProvider(recordId));
+  }
 }
