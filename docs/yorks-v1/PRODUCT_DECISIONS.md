@@ -2700,6 +2700,32 @@ the desktop account menu:
 `v1_people_get_mine` is unchanged and still returns projects and
 attendance; the app does not show them. No migration.
 
+## 56. User Management shows the account's People record (owner decision, 14 November 2026)
+
+User Management's "HR employee record" linked a login to the legacy
+employee list, which in V1 holds only placeholder rows (for example
+`emp-001`), so accounts could not be linked to real people there. While
+People records are on it is replaced by **People record**:
+
+- It shows the person the account belongs to (name, record number and
+  company, position and Staff/Labour, leaving out anything "Not recorded")
+  with **Open record**, or says the account is not linked yet.
+- HR/PRO and Admin link and unlink from here with the same rules as People
+  (section 54): **Link** opens a person picker in the People dialog style,
+  with name matches first, server search by name or record number, and
+  anyone already linked to another account shown but not selectable.
+  Unlink asks for confirmation. Both are in the person's history and the
+  audit trail.
+- Other People viewers (the Accountant, anyone granted
+  `people_records.view`) only read it. User Management alone (for example
+  the Senior Mechanical Engineer) does not show it.
+- The legacy HR employee link stays only while People records are off;
+  existing legacy links are kept, not shown.
+
+`v1_people_account_person(app_user_id)` reads it (People view required);
+linking uses the existing `v1_people_set_account`. Migration
+`20261114240000_people_account_person.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

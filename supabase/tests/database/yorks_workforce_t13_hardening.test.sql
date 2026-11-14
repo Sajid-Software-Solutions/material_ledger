@@ -324,6 +324,8 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_people_send_note(p_message text, p_idempotency_key uuid)'),
   ('v1_people_link_suggestions()'),
   ('v1_people_set_account(p_worker_id uuid, p_auth_user_id uuid, p_expected_version bigint, p_idempotency_key uuid)'),
+  -- User Management shows an account's People record (section 56).
+  ('v1_people_account_person(p_app_user_id text)'),
   ('v1_wf_fulfil_request(p_request_id uuid, p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_finish_request(p_request_id uuid, p_reason text, p_expected_version bigint, p_idempotency_key uuid)'),
   ('v1_wf_list_requests()'),

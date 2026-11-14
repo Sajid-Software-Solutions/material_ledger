@@ -840,6 +840,38 @@ final class PeopleLinkAccount {
       suggestions.any((candidate) => candidate.workerId == workerId);
 }
 
+/// An app account and the People record it is linked to, for User
+/// Management (PRODUCT_DECISIONS section 56).
+final class PeopleAccountPerson {
+  const PeopleAccountPerson({
+    required this.account,
+    required this.person,
+    required this.canLink,
+  });
+
+  factory PeopleAccountPerson.fromJson(Map<String, dynamic> json) {
+    final account = json['account'];
+    final person = json['person'];
+    return PeopleAccountPerson(
+      account: account is Map
+          ? PeopleAccount.fromJson(Map<String, dynamic>.from(account))
+          : null,
+      person: person is Map
+          ? PeoplePerson.fromJson(Map<String, dynamic>.from(person))
+          : null,
+      canLink: json['can_link'] == true,
+    );
+  }
+
+  final PeopleAccount? account;
+
+  /// Null until HR/PRO links the account to a person.
+  final PeoplePerson? person;
+
+  /// HR/PRO and Admin link and unlink; anyone else only reads.
+  final bool canLink;
+}
+
 /// Every account not yet linked to a person (HR/PRO and Admin).
 final class PeopleLinkSuggestions {
   const PeopleLinkSuggestions({
