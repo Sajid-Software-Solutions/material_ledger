@@ -117,6 +117,82 @@ abstract final class AttendanceStrings {
     ur: 'تصدیق',
     hi: 'पुष्टि',
   );
+
+  // My sites and the office Overview (PRODUCT_DECISIONS section 58).
+  static const mySitesIntro = _T(
+    en: 'The projects you are on. Open a site to take attendance or correct a day.',
+    ar: 'المشاريع التي أنت عضو فيها. افتح موقعًا لتسجيل الحضور أو تصحيح يوم.',
+    ur: 'وہ پروجیکٹس جن میں آپ شامل ہیں۔ حاضری لگانے یا کسی دن کی درستگی کے لیے سائٹ کھولیں۔',
+    hi: 'वे प्रोजेक्ट जिनमें आप शामिल हैं। उपस्थिति दर्ज करने या किसी दिन को सुधारने के लिए साइट खोलें।',
+  );
+  static const officeIntro = _T(
+    en: 'Every place as it is entered. Open a place to see or correct its days.',
+    ar: 'كل مكان كما يُسجَّل. افتح مكانًا لرؤية أيامه أو تصحيحها.',
+    ur: 'ہر جگہ جیسے درج ہوتی ہے۔ دن دیکھنے یا درست کرنے کے لیے جگہ کھولیں۔',
+    hi: 'हर स्थान जैसा दर्ज होता है। उसके दिन देखने या सुधारने के लिए स्थान खोलें।',
+  );
+  static const kpiWorkingToday = _T(
+    en: 'Working today',
+    ar: 'يعملون اليوم',
+    ur: 'آج کام پر',
+    hi: 'आज काम पर',
+  );
+  static const kpiWorkingValue = _T(
+    en: '{n} labourers',
+    ar: '{n} عامل',
+    ur: '{n} مزدور',
+    hi: '{n} मज़दूर',
+  );
+  static const kpiWorkingCaption = _T(
+    en: '{a} absent · {l} on leave',
+    ar: '{a} غائب · {l} في إجازة',
+    ur: '{a} غیر حاضر · {l} چھٹی پر',
+    hi: '{a} अनुपस्थित · {l} छुट्टी पर',
+  );
+  static const colSite = _T(en: 'Site', ar: 'الموقع', ur: 'سائٹ', hi: 'साइट');
+  static const colToday = _T(en: 'Today', ar: 'اليوم', ur: 'آج', hi: 'आज');
+  static const openDay = _T(
+    en: 'Open day',
+    ar: 'فتح اليوم',
+    ur: 'دن کھولیں',
+    hi: 'दिन खोलें',
+  );
+  static const needsLook = _T(
+    en: 'Needs a look',
+    ar: 'يحتاج إلى مراجعة',
+    ur: 'توجہ طلب',
+    hi: 'ध्यान दें',
+  );
+  static const needsLookSub = _T(
+    en: 'Places not entered today, open questions and changed lines.',
+    ar: 'أماكن لم تُسجَّل اليوم وأسئلة مفتوحة وسطور مُعدّلة.',
+    ur: 'آج درج نہ ہونے والی جگہیں، کھلے سوالات اور تبدیل شدہ سطریں۔',
+    hi: 'आज दर्ज न हुए स्थान, खुले प्रश्न और बदली गई पंक्तियाँ।',
+  );
+  static const needsNothing = _T(
+    en: 'Nothing needs a look.',
+    ar: 'لا شيء يحتاج إلى مراجعة.',
+    ur: 'کسی چیز پر توجہ درکار نہیں۔',
+    hi: 'किसी चीज़ पर ध्यान देने की ज़रूरत नहीं।',
+  );
+  static const lookNotEntered = _T(
+    en: '{place}: today not entered',
+    ar: '{place}: لم يُسجَّل اليوم',
+    ur: '{place}: آج درج نہیں',
+    hi: '{place}: आज दर्ज नहीं',
+  );
+  static const lookQuestion = _T(
+    en: '{place}: open question, {date}',
+    ar: '{place}: سؤال مفتوح، {date}',
+    ur: '{place}: کھلا سوال، {date}',
+    hi: '{place}: खुला प्रश्न, {date}',
+  );
+  static const lookChanged = _T(
+    en: '{place}: {by} changed lines, {date}',
+    ar: '{place}: عدّل {by} سطورًا، {date}',
+    ur: '{place}: {by} نے سطریں بدلیں، {date}',
+    hi: '{place}: {by} ने पंक्तियाँ बदलीं, {date}',
+  );
   static const sheetsShort = _T(
     en: 'Sheets',
     ar: 'الكشوف',
