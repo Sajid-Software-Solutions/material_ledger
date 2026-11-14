@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
@@ -142,8 +143,16 @@ class _OverviewBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final today = overview.today;
     final crews = overview.crews;
+    final layout = AttendanceRoleLayout.of(
+      ref.watch(yorksV1CurrentRoleProvider),
+    );
+    final summary = overview.todaySummary;
     final enteredToday = crews.where((c) {
+      final saved = overview.todayByCrew[c.crew.id];
       final day = c.month.days.where((d) => d.date == today).firstOrNull;
+      if (saved != null) {
+        return saved.entered || day?.state == AttendanceDayState.off;
+      }
       return day != null &&
           (day.state == AttendanceDayState.entered ||
               day.state == AttendanceDayState.question ||
@@ -204,21 +213,34 @@ class _OverviewBody extends ConsumerWidget {
                 }),
           tone: AccountsV2Tone.green,
         ),
-        AccountsV2KpiCard(
-          icon: 'alert',
-          label: AS.t(AS.kpiEarlierMissing, language),
-          value: '${missing.length}',
-          caption: missing.isEmpty
-              ? AS.t(AS.kpiNothingMissing, language)
-              : missing
-                    .take(2)
-                    .map((m) => '${m.crew} ${attendanceShortDate(m.date)}')
-                    .join(', '),
-          tone: missing.isEmpty ? AccountsV2Tone.green : AccountsV2Tone.red,
-          valueTone: missing.isEmpty
-              ? AccountsV2ValueTone.ok
-              : AccountsV2ValueTone.bad,
-        ),
+        if (summary != null)
+          AccountsV2KpiCard(
+            key: const ValueKey('attendance-kpi-working-today'),
+            icon: 'users',
+            label: AS.t(AS.kpiWorkingToday, language),
+            value: AS.t(AS.kpiWorkingValue, language, {'n': summary.present}),
+            caption: AS.t(AS.kpiWorkingCaption, language, {
+              'a': summary.absent,
+              'l': summary.leave,
+            }),
+            tone: AccountsV2Tone.blue,
+          )
+        else
+          AccountsV2KpiCard(
+            icon: 'alert',
+            label: AS.t(AS.kpiEarlierMissing, language),
+            value: '${missing.length}',
+            caption: missing.isEmpty
+                ? AS.t(AS.kpiNothingMissing, language)
+                : missing
+                      .take(2)
+                      .map((m) => '${m.crew} ${attendanceShortDate(m.date)}')
+                      .join(', '),
+            tone: missing.isEmpty ? AccountsV2Tone.green : AccountsV2Tone.red,
+            valueTone: missing.isEmpty
+                ? AccountsV2ValueTone.ok
+                : AccountsV2ValueTone.bad,
+          ),
         AccountsV2KpiCard(
           icon: 'clock',
           label: AS.t(AS.kpiOvertime, language),
@@ -271,9 +293,26 @@ class _OverviewBody extends ConsumerWidget {
     final crewsCard = _CrewsCard(
       overview: overview,
       language: language,
+      sites: !layout.isOffice,
       onOpen: (crew, month) => _openCrew(context, crew, month),
     );
     final feedCard = _FeedCard(overview: overview, language: language);
+    // The office gets what needs a look beside what happened.
+    final lowerCards = layout.isOffice
+        ? _SideBySide(
+            first: _NeedsLookCard(
+              overview: overview,
+              language: language,
+              onOpen: (crewId, date) => context.go(
+                Uri(
+                  path: RoutePaths.yorksV1WorkforceAttendance,
+                  queryParameters: {'crew': crewId, 'date': date},
+                ).toString(),
+              ),
+            ),
+            second: feedCard,
+          )
+        : feedCard;
 
     return AttendancePage(
       language: language,
@@ -288,7 +327,13 @@ class _OverviewBody extends ConsumerWidget {
               _ => AS.overview,
             }, language),
       subtitle:
-          '${center ? CRS.t(CRS.centerIntro, language) : AS.t(_readOnly ? AS.overviewReadOnlyIntro : AS.overviewIntro, language)}  ·  ${attendanceFullDate(today)}',
+          '${center ? CRS.t(CRS.centerIntro, language) : AS.t(_readOnly
+                    ? AS.overviewReadOnlyIntro
+                    : layout == AttendanceRoleLayout.engineer
+                    ? AS.mySitesIntro
+                    : layout.isOffice
+                    ? AS.officeIntro
+                    : AS.overviewIntro, language)}  ·  ${attendanceFullDate(today)}',
       readOnly: _readOnly && !canRequest,
       actions: [
         if (center && canRequest)
@@ -323,7 +368,7 @@ class _OverviewBody extends ConsumerWidget {
         kpis,
         if (!center) ...[
           crewsCard,
-          feedCard,
+          lowerCards,
         ] else ...[
           _CenterViewTabs(
             view: view,
@@ -348,7 +393,7 @@ class _OverviewBody extends ConsumerWidget {
             ),
             WorkforceCenterView.crews => crewsCard,
           },
-          if (view == WorkforceCenterView.crews) feedCard,
+          if (view == WorkforceCenterView.crews) lowerCards,
         ],
       ],
     );
@@ -707,21 +752,73 @@ class _CrewsCard extends StatelessWidget {
     required this.overview,
     required this.language,
     required this.onOpen,
+    this.sites = false,
   });
 
   final AttendanceOverview overview;
   final AppLanguage language;
   final void Function(AttendanceCrew crew, AttendanceMonth month) onOpen;
 
+  /// Engineers see their projects as Sites; the office sees Places.
+  final bool sites;
+
+  /// Today for one place: saved (by whom, when), not saved, or a rest day.
+  Widget _today(AttendancePlaceToday? today, AttendanceDayState? state) {
+    // Today from the server when it sends it; else the month's day.
+    final entered =
+        today?.entered ??
+        (state == AttendanceDayState.entered ||
+            state == AttendanceDayState.question ||
+            state == AttendanceDayState.locked);
+    final rest = !entered && state == AttendanceDayState.off;
+    final by = today?.lastSavedBy;
+    final at = today?.lastSavedAt;
+    final detail = [
+      if (by != null && by.isNotEmpty) by.split(' ').first,
+      if (at != null) DateFormat('HH:mm').format(at.toLocal()),
+    ].join(' · ');
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AccountsV2Chip(
+          AS.t(
+            entered
+                ? AS.dayEntered
+                : rest
+                ? AS.restDay
+                : AS.dayNone,
+            language,
+          ),
+          tone: entered
+              ? AccountsV2ChipTone.ok
+              : rest
+              ? AccountsV2ChipTone.neutral
+              : AccountsV2ChipTone.bad,
+        ),
+        if (entered && detail.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: v2Style(11.5, color: AccountsV2Colors.mut),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final today = overview.today;
     final from = attendanceShift(today, -7);
+    final title = AS.t(sites ? AS.sites : AS.crews, language);
     if (overview.crews.isEmpty) {
       return AccountsV2Panel(
         child: AccountsV2Empty(
           icon: 'users',
-          title: AS.t(AS.crews, language),
+          title: title,
           body: AS.t(AS.noCrews, language),
           action: AccountsV2Button(
             label: AS.t(AS.takeAttendance, language),
@@ -751,7 +848,7 @@ class _CrewsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AccountsV2CardHead(
-            title: AS.t(AS.crews, language),
+            title: title,
             icon: 'users',
             subtitle: AS.t(AS.crewsCardSub, language),
           ),
@@ -761,26 +858,30 @@ class _CrewsCard extends StatelessWidget {
           ),
           AccountsV2Table(
             phoneCards: true,
-            minWidth: 860,
+            minWidth: 940,
             columns: [
-              AccountsV2Column(AS.t(AS.colCrew, language), flex: 3),
+              AccountsV2Column(
+                AS.t(sites ? AS.colSite : AS.colCrew, language),
+                flex: 3,
+              ),
+              AccountsV2Column(AS.t(AS.colToday, language), width: 150),
               AccountsV2Column(AS.t(AS.colLast8, language), width: 200),
               AccountsV2Column(
-                AS.t(AS.colDaysEntered, language),
-                width: 110,
+                AS.t(AS.present, language),
+                width: 84,
                 numeric: true,
               ),
               AccountsV2Column(
                 AS.t(AS.colOtNormal, language),
-                width: 124,
+                width: 116,
                 numeric: true,
               ),
               AccountsV2Column(
                 AS.t(AS.colOtHoliday, language),
-                width: 124,
+                width: 116,
                 numeric: true,
               ),
-              AccountsV2Column(AS.t(AS.colMonth, language), width: 250),
+              AccountsV2Column(AS.t(AS.colMonth, language), width: 220),
             ],
             rows: [
               for (final item in overview.crews)
@@ -790,15 +891,22 @@ class _CrewsCard extends StatelessWidget {
                   [
                     AccountsV2CellStack(
                       primary: item.crew.name,
-                      secondary:
-                          '${item.crew.workLabel} · ${AS.t(AS.workersCount, language, {'n': item.crew.memberCount})}',
+                      secondary: item.crew.workLabel,
+                    ),
+                    _today(
+                      overview.todayByCrew[item.crew.id],
+                      item.month.days
+                          .where((d) => d.date == today)
+                          .firstOrNull
+                          ?.state,
                     ),
                     AttendanceStatusSquares(days: last8(item.month)),
                     Text(
-                      AS.t(AS.daysOf, language, {
-                        'a': item.month.daysEntered,
-                        'b': item.month.workDaysSoFar,
-                      }),
+                      switch (overview.todayByCrew[item.crew.id]) {
+                        final t? when t.entered => '${t.present}',
+                        _ => '—',
+                      },
+                      key: ValueKey('attendance-present-${item.crew.id}'),
                       style: v2Style(13, tabular: true),
                     ),
                     Text(
@@ -834,6 +942,183 @@ class _CrewsCard extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Two cards side by side on a wide screen, one above the other on a phone.
+class _SideBySide extends StatelessWidget {
+  const _SideBySide({required this.first, required this.second});
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AccountsV2Breakpoints.isPhone(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          first,
+          const SizedBox(height: accountsV2Gap),
+          second,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: first),
+        const SizedBox(width: accountsV2Gap),
+        Expanded(child: second),
+      ],
+    );
+  }
+}
+
+/// For the office: places not entered today, questions still open and lines
+/// changed after they were saved, each opening its day.
+class _NeedsLookCard extends StatelessWidget {
+  const _NeedsLookCard({
+    required this.overview,
+    required this.language,
+    required this.onOpen,
+  });
+
+  final AttendanceOverview overview;
+  final AppLanguage language;
+  final void Function(String crewId, String date) onOpen;
+
+  List<({String key, String text, String crewId, String date, bool urgent})>
+  _items() {
+    final today = overview.today;
+    final items =
+        <({String key, String text, String crewId, String date, bool urgent})>[
+          for (final item in overview.crews)
+            if (!(overview.todayByCrew[item.crew.id]?.entered ?? true) &&
+                item.month.days.any(
+                  (d) =>
+                      d.date == today &&
+                      d.state != AttendanceDayState.off &&
+                      d.state != AttendanceDayState.future,
+                ))
+              (
+                key: 'today-${item.crew.id}',
+                text: AS.t(AS.lookNotEntered, language, {
+                  'place': item.crew.name,
+                }),
+                crewId: item.crew.id,
+                date: today,
+                urgent: true,
+              ),
+        ];
+    // The feed is newest first: an answer above a question closes it.
+    final answered = <String>{};
+    for (final event in overview.feed) {
+      final date = event.date;
+      if (date == null) continue;
+      final dayKey = '${event.crewId}|$date';
+      if (event.kind == 'answered') answered.add(dayKey);
+      if (event.kind == 'asked' && !answered.contains(dayKey)) {
+        items.add((
+          key: 'asked-${event.crewId}-$date',
+          text: AS.t(AS.lookQuestion, language, {
+            'place': event.crewName,
+            'date': attendanceShortDate(date),
+          }),
+          crewId: event.crewId,
+          date: date,
+          urgent: false,
+        ));
+      }
+      if (event.kind == 'changed') {
+        items.add((
+          key: 'changed-${event.crewId}-$date-${items.length}',
+          text: AS.t(AS.lookChanged, language, {
+            'place': event.crewName,
+            'by': event.by.split(' ').first,
+            'date': attendanceShortDate(date),
+          }),
+          crewId: event.crewId,
+          date: date,
+          urgent: false,
+        ));
+      }
+    }
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _items();
+    return AccountsV2Panel(
+      key: const ValueKey('attendance-needs-look'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AccountsV2CardHead(
+            title: AS.t(AS.needsLook, language),
+            icon: 'alert',
+            subtitle: AS.t(AS.needsLookSub, language),
+          ),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Text(
+                AS.t(AS.needsNothing, language),
+                style: v2Style(13, color: AccountsV2Colors.mut),
+              ),
+            )
+          else
+            for (final item in items.take(8))
+              InkWell(
+                key: ValueKey('attendance-look-${item.key}'),
+                onTap: () => onOpen(item.crewId, item.date),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: AccountsV2Colors.line2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: item.urgent
+                              ? AccountsV2Colors.bad
+                              : AccountsV2Colors.warn,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item.text,
+                          style: v2Style(13, weight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        AS.t(AS.openDay, language),
+                        style: v2Style(
+                          12.5,
+                          weight: FontWeight.w600,
+                          color: AccountsV2Colors.pri,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
         ],
       ),
     );

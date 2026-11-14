@@ -20,6 +20,7 @@ import 'package:material_ledger/features/workforce/presentation/attendance/atten
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
+import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_project_portfolio_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
@@ -213,6 +214,7 @@ Future<void> _pump(
   _FakeRpc rpc,
   String location, {
   YorksV1FeatureFlags? featureFlags,
+  YorksV1Role? role,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -251,6 +253,7 @@ Future<void> _pump(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+        if (role != null) yorksV1CurrentRoleProvider.overrideWithValue(role),
         if (featureFlags != null)
           yorksV1FeatureFlagsProvider.overrideWithValue(featureFlags),
         yorksAttendanceRepositoryProvider.overrideWithValue(
@@ -1367,7 +1370,21 @@ void main() {
       'today': _today,
       'month': '2026-11-01',
       'crews': [
-        {..._crew(), 'month': _month()},
+        {
+          ..._crew(),
+          'month': _month(),
+          // Today on the overview (PRODUCT_DECISIONS 58).
+          'today': {
+            'entered': true,
+            'entered_by': 'Imran Qureshi',
+            'last_saved_by': 'Imran Qureshi',
+            'last_saved_at': '2026-11-11T03:42:00Z',
+            'present': 9,
+            'absent': 1,
+            'leave': 0,
+            'rest': 0,
+          },
+        },
         {
           ..._crew(),
           'id': 'c2',
@@ -1377,8 +1394,16 @@ void main() {
           'needs_confirmation': false,
           'member_count': 6,
           'month': _month(state: 'not_needed', missing: []),
+          'today': {'entered': false, 'present': 0, 'absent': 0, 'leave': 0},
         },
       ],
+      'today_summary': {
+        'places': 2,
+        'places_entered': 1,
+        'present': 9,
+        'absent': 1,
+        'leave': 0,
+      },
       'feed': [
         {
           'kind': 'entered',
@@ -1441,10 +1466,11 @@ void main() {
       Map<String, FutureOr<Map<String, dynamic>> Function(Map<String, Object?>)>
       handlers,
       String location,
-      String name,
-    ) async {
+      String name, {
+      YorksV1Role? role,
+    }) async {
       _size(tester, size);
-      await _pump(tester, _FakeRpc(handlers), location);
+      await _pump(tester, _FakeRpc(handlers), location, role: role);
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/attendance_v2_$name.png'),
@@ -1508,5 +1534,28 @@ void main() {
         'desktop_overview',
       );
     });
+
+    // A Project Engineer's My sites (PRODUCT_DECISIONS 58).
+    for (final (name, size) in [
+      ('phone', const Size(360, 800)),
+      ('desktop', const Size(1280, 900)),
+    ]) {
+      testWidgets('$name my sites', (tester) async {
+        await shot(
+          tester,
+          size,
+          {'v1_wf_get_overview': (_) => overview()},
+          RoutePaths.yorksV1Workforce,
+          '${name}_my_sites',
+          role: YorksV1Role.projectEngineer,
+        );
+        expect(find.text('My sites'), findsOneWidget);
+        expect(find.text('Sites'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('attendance-needs-look')),
+          findsNothing,
+        );
+      });
+    }
   });
 }
