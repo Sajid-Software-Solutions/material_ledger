@@ -176,10 +176,16 @@ abstract final class PeopleStrings {
     hi: 'कंपनी',
   );
   static const colProfession = _T(
-    en: 'Profession',
-    ar: 'المهنة',
-    ur: 'پیشہ',
-    hi: 'पेशा',
+    en: 'Position',
+    ar: 'المنصب',
+    ur: 'عہدہ',
+    hi: 'पद',
+  );
+  static const colIdProfession = _T(
+    en: 'Profession on ID',
+    ar: 'المهنة في الهوية',
+    ur: 'شناختی کارڈ پر پیشہ',
+    hi: 'पहचान पत्र पर पेशा',
   );
   static const colPasses = _T(
     en: 'Gate passes',
@@ -600,10 +606,10 @@ abstract final class PeopleStrings {
     hi: 'व्यक्ति का विवरण',
   );
   static const personInformationDescription = _T(
-    en: 'Name, company and profession appear across Workforce.',
-    ar: 'يظهر الاسم والشركة والمهنة في كل أقسام القوى العاملة.',
-    ur: 'نام، کمپنی اور پیشہ افرادی قوت میں ہر جگہ نظر آتے ہیں۔',
-    hi: 'नाम, कंपनी और पेशा पूरे कार्यबल में दिखते हैं।',
+    en: 'Name, company and position appear across Workforce. The profession on the visa and ID can differ from the position held.',
+    ar: 'يظهر الاسم والشركة والمنصب في كل أقسام القوى العاملة. قد تختلف المهنة في التأشيرة والهوية عن المنصب.',
+    ur: 'نام، کمپنی اور عہدہ افرادی قوت میں ہر جگہ نظر آتے ہیں۔ ویزا اور شناختی کارڈ پر پیشہ عہدے سے مختلف ہو سکتا ہے۔',
+    hi: 'नाम, कंपनी और पद पूरे कार्यबल में दिखते हैं। वीज़ा और पहचान पत्र पर पेशा पद से अलग हो सकता है।',
   );
   static const fullName = _T(
     en: 'Full name',
@@ -624,10 +630,16 @@ abstract final class PeopleStrings {
     hi: 'कंपनी',
   );
   static const profession = _T(
-    en: 'Profession (optional)',
-    ar: 'المهنة (اختياري)',
-    ur: 'پیشہ (اختیاری)',
-    hi: 'पेशा (वैकल्पिक)',
+    en: 'Position in the company (optional)',
+    ar: 'المنصب في الشركة (اختياري)',
+    ur: 'کمپنی میں عہدہ (اختیاری)',
+    hi: 'कंपनी में पद (वैकल्पिक)',
+  );
+  static const idProfession = _T(
+    en: 'Profession on visa and ID (optional)',
+    ar: 'المهنة في التأشيرة والهوية (اختياري)',
+    ur: 'ویزا اور شناختی کارڈ پر پیشہ (اختیاری)',
+    hi: 'वीज़ा और पहचान पत्र पर पेशा (वैकल्पिक)',
   );
   static const dob = _T(
     en: 'Date of birth (optional)',

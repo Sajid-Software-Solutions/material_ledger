@@ -192,7 +192,7 @@ final class PeoplePerson {
     required this.number,
     required this.name,
     required this.company,
-    required this.profession,
+    required this.position,
     required this.status,
     required this.category,
     required this.recordVersion,
@@ -205,6 +205,7 @@ final class PeoplePerson {
     this.arabicName,
     this.dateOfBirth,
     this.unifiedNumber,
+    this.idProfession,
     this.sourceNote,
     this.nextExpiry,
     this.crewId,
@@ -227,7 +228,8 @@ final class PeoplePerson {
       number: _s(json['number']),
       name: _s(json['name']),
       company: _s(json['company']),
-      profession: _s(json['profession']),
+      // The Workforce designation: the position held in the company.
+      position: _s(json['profession']),
       status: _s(json['status']),
       category: PeopleCategory.from(json['category']),
       recordVersion: _i(json['record_version']),
@@ -243,6 +245,7 @@ final class PeoplePerson {
       arabicName: _ns(json['arabic_name']),
       dateOfBirth: _ns(json['date_of_birth']),
       unifiedNumber: _ns(json['unified_number']),
+      idProfession: _ns(json['id_profession']),
       sourceNote: _ns(json['source_note']),
       nextExpiry: next == null
           ? null
@@ -271,7 +274,14 @@ final class PeoplePerson {
   final String number;
   final String name;
   final String company;
-  final String profession;
+
+  /// The position held in the company (the Workforce designation), e.g.
+  /// Project Engineer; "Not recorded" when unknown.
+  final String position;
+
+  /// The profession written on the visa and Emirates ID, e.g. Mechanical
+  /// Engineer (PRODUCT_DECISIONS section 53).
+  final String? idProfession;
 
   /// The Workforce status: active, inactive, left_company or suspended.
   final String status;
@@ -532,7 +542,8 @@ final class PeopleSavePersonInput {
     required this.expectedVersion,
     required this.idempotencyKey,
     this.workerId,
-    this.profession,
+    this.position,
+    this.idProfession,
     this.arabicName,
     this.dateOfBirth,
     this.unifiedNumber,
@@ -543,7 +554,13 @@ final class PeopleSavePersonInput {
   final String fullName;
   final String company;
   final PeopleCategory category;
-  final String? profession;
+
+  /// The position held in the company (the designation).
+  final String? position;
+
+  /// The profession on the visa and ID; an empty text clears it, null
+  /// leaves it as it is.
+  final String? idProfession;
   final String? arabicName;
   final String? dateOfBirth;
   final String? unifiedNumber;
@@ -556,8 +573,12 @@ final class PeopleSavePersonInput {
     'full_name': fullName.trim(),
     'employer_company': company.trim(),
     'category': category.wire,
-    if (profession != null && profession!.trim().isNotEmpty)
-      'designation': profession!.trim(),
+    if (position != null && position!.trim().isNotEmpty)
+      'designation': position!.trim(),
+    // Editing sends it, so it can be cleared; a new person only when given.
+    if (idProfession != null &&
+        (workerId != null || idProfession!.trim().isNotEmpty))
+      'id_profession': idProfession!.trim(),
     if (arabicName != null && arabicName!.trim().isNotEmpty)
       'arabic_name': arabicName!.trim(),
     if (dateOfBirth != null) 'date_of_birth': dateOfBirth,

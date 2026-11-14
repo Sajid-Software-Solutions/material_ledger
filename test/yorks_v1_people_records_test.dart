@@ -91,6 +91,7 @@ Map<String, Object?> _person({
   'name': name,
   'company': _company,
   'profession': 'Technician',
+  'id_profession': 'Welder',
   'status': 'active',
   'category': category,
   'record_version': 2,
@@ -1298,9 +1299,15 @@ void main() {
         find.byKey(const ValueKey('people-form-company')),
         _company,
       );
+      // The position in the company, and the profession on the visa and ID
+      // (PRODUCT_DECISIONS section 53).
       await tester.enterText(
         find.byKey(const ValueKey('people-form-profession')),
         'Technician',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('people-form-id-profession')),
+        'Mechanical Engineer',
       );
       await tester.tap(find.text('Staff').first);
       await tester.pumpAndSettle();
@@ -1312,6 +1319,7 @@ void main() {
         'employer_company': _company,
         'category': 'staff',
         'designation': 'Technician',
+        'id_profession': 'Mechanical Engineer',
       });
       expect(call['p_expected_version'], 0);
       expect(find.byKey(const ValueKey('people-person')), findsOneWidget);
@@ -1339,6 +1347,8 @@ void main() {
       expect(call['p_expected_version'], 2);
       expect((call['p_payload'] as Map)['worker_id'], _workerId);
       expect((call['p_payload'] as Map)['mobile_number'], '0500000000');
+      // Editing always sends the profession on ID, so it can be cleared.
+      expect((call['p_payload'] as Map)['id_profession'], 'Welder');
       expect(
         find.text('Someone else changed this. Refresh and try again.'),
         findsOneWidget,

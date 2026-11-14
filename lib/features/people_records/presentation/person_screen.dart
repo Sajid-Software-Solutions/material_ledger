@@ -267,7 +267,7 @@ class _Header extends StatelessWidget {
         Text(
           [
             person.company,
-            if (person.profession != 'Not recorded') person.profession,
+            if (person.position != 'Not recorded') person.position,
             if (person.crewName != null) person.crewName!,
           ].join(' · '),
           style: AppTypography.bodyMedium.copyWith(color: AppColors.muted),
@@ -905,8 +905,9 @@ class _DetailsCard extends StatelessWidget {
       (PS.colCompany, person.company),
       (
         PS.colProfession,
-        person.profession == 'Not recorded' ? '' : person.profession,
+        person.position == 'Not recorded' ? '' : person.position,
       ),
+      (PS.colIdProfession, person.idProfession ?? ''),
       (PS.factCategory, peopleCategoryLabel(person.category, language)),
       (PS.factArabicName, person.arabicName ?? ''),
       (PS.factDob, peopleDate(person.dateOfBirth)),

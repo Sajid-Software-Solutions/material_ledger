@@ -2511,6 +2511,28 @@ again without storing a second copy. The staff and labour tracker holds no
 scans, so nothing was uploaded from it. Design:
 [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section Bulk upload.
 
+## 53. Profession on the visa and ID, and position in the company (owner decision, 14 November 2026)
+
+A person keeps two professions: the one written on their visa and Emirates
+ID, and the position they hold in the company. For example Masaud Khan is
+a Mechanical Engineer on his ID and a Project Engineer in the company;
+Noor Zaman is a Mechanical Engineer on his ID and the Senior Mechanical
+Engineer in the company. The position is the Workforce designation shown
+across Workforce; the profession on ID sits with the person's documents.
+
+- The People form, the person page and the People list show both; the
+  list's column is the position.
+- The staff tracker's Profession column is the profession on the visa: an
+  import fills a blank one and never overwrites one kept in the app; a
+  Position in Company column, when the sheet has one, gives the position.
+  The export writes both.
+- When the field was added every record's profession on ID started as its
+  current designation (the tracker's Profession until then), so nothing
+  was lost; positions that differ are corrected per person.
+
+Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) Model and Import and
+export. Migration `20261114220000_people_id_profession.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
