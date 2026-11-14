@@ -60,6 +60,18 @@ abstract final class CompanyStrings {
     ur: 'لائسنس، رجسٹریشن، پرمٹ، پالیسیوں، پاسز اور دیگر کاغذات کی نقول۔',
     hi: 'लाइसेंस, पंजीकरण, परमिट, पॉलिसी, पास और अन्य कागज़ों की प्रतियाँ।',
   );
+  static const bulkHint = _T(
+    en: 'Choose a whole folder of scans at once. Each file is matched to a record by its licence number, plate, LOA or name, and to a document by words such as trade licence, establishment card, mulkiya, Asateel or insurance — for example "CN-1234567 trade licence.pdf" or "11111 mulkiya.jpg". Check every match before uploading.',
+    ar: 'اختر مجلدًا كاملًا من المسحوبات دفعة واحدة. يُطابق كل ملف مع السجل برقم الرخصة أو اللوحة أو LOA أو الاسم، ومع المستند بكلمات مثل trade licence أو mulkiya أو Asateel أو insurance — مثل "CN-1234567 trade licence.pdf". راجع كل مطابقة قبل الرفع.',
+    ur: 'اسکین کا پورا فولڈر ایک ساتھ منتخب کریں۔ ہر فائل لائسنس نمبر، پلیٹ، LOA یا نام سے ریکارڈ سے، اور trade licence، mulkiya، Asateel یا insurance جیسے الفاظ سے دستاویز سے ملائی جاتی ہے — مثلاً "CN-1234567 trade licence.pdf"۔ اپ لوڈ سے پہلے ہر میل دیکھ لیں۔',
+    hi: 'स्कैन का पूरा फ़ोल्डर एक साथ चुनें। हर फ़ाइल को लाइसेंस नंबर, प्लेट, LOA या नाम से रिकॉर्ड से, और trade licence, mulkiya, Asateel या insurance जैसे शब्दों से दस्तावेज़ से मिलाया जाता है — जैसे "CN-1234567 trade licence.pdf"। अपलोड से पहले हर मिलान जाँच लें।',
+  );
+  static const bulkChooseRecord = _T(
+    en: 'Choose a record',
+    ar: 'اختر سجلًا',
+    ur: 'ریکارڈ منتخب کریں',
+    hi: 'रिकॉर्ड चुनें',
+  );
   static const viewContracts = _T(
     en: 'CICPA passes',
     ar: 'تصاريح CICPA',

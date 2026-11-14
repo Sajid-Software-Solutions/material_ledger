@@ -2494,6 +2494,23 @@ who may read Company documents open them; PR, Admin and the Accountant add
 and remove them. Removing needs a reason and keeps the file and history.
 Design: [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) section Attachments.
 
+## 49. Bulk upload of scans (owner decision, 14 November 2026)
+
+PR, Admin and the Accountant attach a whole folder of scans at once, from
+People ("Upload many") and from Company documents. Each file is matched
+from its file name to a person or company record (a document number, then
+a worker number, licence number, plate or LOA, then the name: most words
+wins, at least two, a tie is left to choose) and to one of its documents
+(the document number, or a word such as passport, visa, Emirates ID, trade
+licence, mulkiya or insurance when exactly one current document of that
+kind is held). Every match is shown first and can be changed; files that
+are not PDF, Word, Excel, JPG or PNG up to 20 MB are listed and left out.
+Files upload one at a time through the ordinary attachment commands, so the
+same rights, storage rules and history apply; a failed file can be tried
+again without storing a second copy. The staff and labour tracker holds no
+scans, so nothing was uploaded from it. Design:
+[`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section Bulk upload.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

@@ -17,6 +17,7 @@ import '../../../app/router.dart';
 import '../../../core/constants/constants.dart';
 import '../../../shared/models/app_language.dart';
 import '../../../shared/models/yorks_v1_people.dart';
+import '../../../shared/services/yorks_v1_bulk_attach.dart';
 import '../../../shared/models/yorks_v1_shell_strings.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
@@ -25,6 +26,7 @@ import '../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../shared/services/yorks_v1_people_workbook.dart';
 import 'people_import_dialog.dart';
 import 'people_kit.dart';
+import 'bulk_attachments.dart';
 import 'person_attachments.dart';
 
 enum PeopleView { attention, staff, labour }
@@ -104,6 +106,55 @@ class _PeopleCentreScreenState extends ConsumerState<PeopleCentreScreen> {
 
   void _refresh() => yorksV1RefreshPeople(ref);
 
+  /// A folder of scans attached at once, each matched to a person and a
+  /// document from its file name.
+  Future<void> _bulk(AppLanguage language) async {
+    final repository = ref.read(yorksV1PeopleRepositoryProvider);
+    final attached = await showBulkAttachDialog(
+      context,
+      keyPrefix: 'people',
+      hint: PS.t(PS.bulkHintPeople, language),
+      chooseOwnerLabel: PS.t(PS.bulkChoosePerson, language),
+      kinds: bulkAttachPeopleKinds,
+      loadOwners: () async {
+        final page = await repository.list(const PeopleListQuery(limit: 1000));
+        return [
+          for (final person in page.rows)
+            BulkAttachOwner(
+              id: person.id,
+              name: person.name,
+              subtitle: [person.number, person.company].join(' · '),
+              codes: [person.number, ?person.unifiedNumber],
+              documents: [
+                for (final document in person.documents)
+                  BulkAttachDocument(
+                    id: document.id,
+                    kind: document.kind.wire,
+                    number: document.number,
+                    isCurrent: document.isCurrent,
+                  ),
+              ],
+            ),
+        ];
+      },
+      documentLabel: (document) => [
+        peopleKindLabel(PeopleDocumentKind.from(document.kind), language),
+        ?document.number,
+      ].join(' · '),
+      upload: (upload) => repository.addAttachment(
+        workerId: upload.ownerId,
+        bytes: upload.bytes,
+        fileName: upload.fileName,
+        contentType: upload.contentType,
+        documentId: upload.documentId,
+        idempotencyKey: upload.idempotencyKey,
+      ),
+    );
+    if (!mounted || (attached ?? 0) == 0) return;
+    yorksV1RefreshPeople(ref);
+    peopleToast(context, PS.t(PS.bulkFinished, language, {'n': attached}));
+  }
+
   Future<void> _export(AppLanguage language) async {
     setState(() => _exporting = true);
     try {
@@ -171,6 +222,7 @@ class _PeopleCentreScreenState extends ConsumerState<PeopleCentreScreen> {
               onImport: _import,
               onExport: () => _export(language),
               onAdd: () => context.go(peopleNewPath),
+              onBulk: () => _bulk(language),
             ),
             const SizedBox(height: AppSpacing.lg),
             _ViewBar(
@@ -265,6 +317,7 @@ class _Header extends StatelessWidget {
     required this.onImport,
     required this.onExport,
     required this.onAdd,
+    required this.onBulk,
   });
 
   final AppLanguage language;
@@ -275,6 +328,9 @@ class _Header extends StatelessWidget {
   final VoidCallback onImport;
   final VoidCallback onExport;
   final VoidCallback onAdd;
+
+  /// Bulk upload of a folder of scans (PRODUCT_DECISIONS section 49).
+  final VoidCallback onBulk;
 
   @override
   Widget build(BuildContext context) {
@@ -335,6 +391,16 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
+        if (canManage)
+          SizedBox(
+            height: AppSpacing.minTapTarget,
+            child: OutlinedButton.icon(
+              key: const ValueKey('people-bulk-attach'),
+              onPressed: onBulk,
+              icon: const Icon(Icons.drive_folder_upload_outlined),
+              label: Text(PS.t(PS.bulkUpload, language)),
+            ),
+          ),
         if (canManage)
           SizedBox(
             height: AppSpacing.minTapTarget,

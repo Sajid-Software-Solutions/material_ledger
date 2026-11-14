@@ -18,6 +18,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/constants.dart';
 import '../../../shared/models/app_language.dart';
 import '../../../shared/models/yorks_v1_company_documents.dart';
+import '../../../shared/services/yorks_v1_bulk_attach.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../../shared/providers/yorks_v1_company_documents_provider.dart';
@@ -26,6 +27,7 @@ import '../../../shared/services/yorks_v1_company_workbook.dart';
 import '../../../shared/services/yorks_v1_people_workbook.dart'
     show peopleEncodeWorkbook;
 import 'company_import_dialog.dart';
+import '../../people_records/presentation/bulk_attachments.dart';
 import 'company_attachments.dart';
 import 'company_kit.dart';
 
@@ -117,6 +119,59 @@ class _CompanyCentreScreenState extends ConsumerState<CompanyCentreScreen> {
 
   void _refresh() => yorksV1RefreshCompanyDocuments(ref);
 
+  /// A folder of scans attached at once, each matched to a record and a
+  /// document from its file name.
+  Future<void> _bulk(AppLanguage language) async {
+    final repository = ref.read(yorksV1CompanyDocumentsRepositoryProvider);
+    final attached = await showBulkAttachDialog(
+      context,
+      keyPrefix: 'company',
+      hint: CS.t(CS.bulkHint, language),
+      chooseOwnerLabel: CS.t(CS.bulkChooseRecord, language),
+      kinds: bulkAttachCompanyKinds,
+      loadOwners: () async {
+        final page = await repository.list(const CompanyListQuery(limit: 1000));
+        return [
+          for (final record in page.rows)
+            BulkAttachOwner(
+              id: record.id,
+              name: record.name,
+              subtitle: [
+                companyKindLabel(record.kind, language),
+                ?record.reference,
+                ?record.owner,
+              ].join(' · '),
+              codes: [?record.reference],
+              documents: [
+                for (final document in record.documents)
+                  BulkAttachDocument(
+                    id: document.id,
+                    kind: document.kind.wire,
+                    number: document.number,
+                    isCurrent: document.isCurrent,
+                  ),
+              ],
+            ),
+        ];
+      },
+      documentLabel: (document) => [
+        companyDocumentLabel(CompanyDocumentKind.from(document.kind), language),
+        ?document.number,
+      ].join(' · '),
+      upload: (upload) => repository.addAttachment(
+        recordId: upload.ownerId,
+        bytes: upload.bytes,
+        fileName: upload.fileName,
+        contentType: upload.contentType,
+        documentId: upload.documentId,
+        idempotencyKey: upload.idempotencyKey,
+      ),
+    );
+    if (!mounted || (attached ?? 0) == 0) return;
+    yorksV1RefreshCompanyDocuments(ref);
+    peopleToast(context, PS.t(PS.bulkFinished, language, {'n': attached}));
+  }
+
   Future<void> _export(AppLanguage language) async {
     setState(() => _exporting = true);
     try {
@@ -178,6 +233,7 @@ class _CompanyCentreScreenState extends ConsumerState<CompanyCentreScreen> {
               onRefresh: _refresh,
               onImport: _import,
               onExport: () => _export(language),
+              onBulk: () => _bulk(language),
               onAdd: () => context.go(
                 _view.kinds.isEmpty
                     ? companyNewPath
@@ -283,6 +339,7 @@ class _Header extends StatelessWidget {
     required this.onImport,
     required this.onExport,
     required this.onAdd,
+    required this.onBulk,
   });
 
   final AppLanguage language;
@@ -293,6 +350,9 @@ class _Header extends StatelessWidget {
   final VoidCallback onImport;
   final VoidCallback onExport;
   final VoidCallback onAdd;
+
+  /// Bulk upload of a folder of scans (PRODUCT_DECISIONS section 49).
+  final VoidCallback onBulk;
 
   @override
   Widget build(BuildContext context) {
@@ -353,6 +413,16 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
+        if (canManage)
+          SizedBox(
+            height: AppSpacing.minTapTarget,
+            child: OutlinedButton.icon(
+              key: const ValueKey('company-bulk-attach'),
+              onPressed: onBulk,
+              icon: const Icon(Icons.drive_folder_upload_outlined),
+              label: Text(PS.t(PS.bulkUpload, language)),
+            ),
+          ),
         if (canManage)
           SizedBox(
             height: AppSpacing.minTapTarget,
