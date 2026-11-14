@@ -1,5 +1,5 @@
 /// Company documents: licences and permits per company and branch,
-/// company certificates, vehicles, insurance policies and CICPA contracts
+/// company certificates, vehicles, insurance policies and CICPA passes
 /// (docs/yorks-v1/COMPANY_DOCUMENTS.md). Wire shapes of the
 /// `v1_company_docs_*` functions.
 library;
@@ -178,7 +178,7 @@ final class CompanyDocument {
   final String updatedBy;
 }
 
-/// A CICPA contract's job and pass counts.
+/// A CICPA pass record's job and pass counts (from its LOA).
 final class CompanyContractDetails {
   const CompanyContractDetails({
     this.job,

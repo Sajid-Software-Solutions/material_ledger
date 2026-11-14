@@ -25,10 +25,10 @@ abstract final class CompanyStrings {
     hi: 'कंपनी दस्तावेज़',
   );
   static const centreDescription = _T(
-    en: 'Trade licences, permits, certificates, vehicles, insurance and CICPA contracts for every company and branch.',
-    ar: 'الرخص التجارية والتصاريح والشهادات والمركبات والتأمين وعقود CICPA لكل شركة وفرع.',
-    ur: 'ہر کمپنی اور برانچ کے تجارتی لائسنس، پرمٹ، سرٹیفکیٹ، گاڑیاں، انشورنس اور CICPA معاہدے۔',
-    hi: 'हर कंपनी और शाखा के ट्रेड लाइसेंस, परमिट, प्रमाणपत्र, वाहन, बीमा और CICPA अनुबंध।',
+    en: 'Trade licences, permits, certificates, vehicles, insurance and CICPA passes for every company and branch.',
+    ar: 'الرخص التجارية والتصاريح والشهادات والمركبات والتأمين وتصاريح CICPA لكل شركة وفرع.',
+    ur: 'ہر کمپنی اور برانچ کے تجارتی لائسنس، پرمٹ، سرٹیفکیٹ، گاڑیاں، انشورنس اور CICPA پاسز۔',
+    hi: 'हर कंपनी और शाखा के ट्रेड लाइसेंस, परमिट, प्रमाणपत्र, वाहन, बीमा और CICPA पास।',
   );
   static const addRecord = _T(
     en: 'Add record',
@@ -55,10 +55,10 @@ abstract final class CompanyStrings {
     hi: 'बीमा',
   );
   static const viewContracts = _T(
-    en: 'CICPA contracts',
-    ar: 'عقود CICPA',
-    ur: 'CICPA معاہدے',
-    hi: 'CICPA अनुबंध',
+    en: 'CICPA passes',
+    ar: 'تصاريح CICPA',
+    ur: 'CICPA پاسز',
+    hi: 'CICPA पास',
   );
   static const linkPeople = _T(
     en: 'People',
@@ -91,16 +91,16 @@ abstract final class CompanyStrings {
     hi: 'पंजीकरण, असातील और पास',
   );
   static const kpiCover = _T(
-    en: 'Insurance & contracts',
-    ar: 'التأمين والعقود',
-    ur: 'انشورنس اور معاہدے',
-    hi: 'बीमा और अनुबंध',
+    en: 'Insurance & CICPA passes',
+    ar: 'التأمين وتصاريح CICPA',
+    ur: 'انشورنس اور CICPA پاسز',
+    hi: 'बीमा और CICPA पास',
   );
   static const kpiCoverHint = _T(
-    en: '{p} policies · {c} contracts',
-    ar: '{p} وثائق · {c} عقود',
-    ur: '{p} پالیسیاں · {c} معاہدے',
-    hi: '{p} पॉलिसी · {c} अनुबंध',
+    en: '{p} policies · {c} CICPA passes',
+    ar: '{p} وثائق · {c} تصاريح CICPA',
+    ur: '{p} پالیسیاں · {c} CICPA پاسز',
+    hi: '{p} पॉलिसी · {c} CICPA पास',
   );
   static const kpiExpiredHint = _T(
     en: 'Records with an expired document',
@@ -207,10 +207,10 @@ abstract final class CompanyStrings {
     hi: 'बीमा पॉलिसी',
   );
   static const kindContract = _T(
-    en: 'CICPA contract',
-    ar: 'عقد CICPA',
-    ur: 'CICPA معاہدہ',
-    hi: 'CICPA अनुबंध',
+    en: 'CICPA pass',
+    ar: 'تصريح CICPA',
+    ur: 'CICPA پاس',
+    hi: 'CICPA पास',
   );
   static const docLicence = _T(
     en: 'Trade licence',
@@ -368,10 +368,10 @@ abstract final class CompanyStrings {
     hi: '{name} संग्रहित करें?',
   );
   static const archiveBody = _T(
-    en: 'It leaves the registers and keeps every document and its history. Use this for a sold vehicle or a finished contract.',
-    ar: 'يخرج من السجلات ويحتفظ بكل مستند وسجله. استخدم هذا لمركبة مباعة أو عقد منتهٍ.',
-    ur: 'یہ رجسٹر سے نکل جائے گا اور ہر دستاویز اور اس کی تاریخ محفوظ رہے گی۔ بیچی گئی گاڑی یا ختم شدہ معاہدے کے لیے استعمال کریں۔',
-    hi: 'यह रजिस्टर से हट जाएगा और हर दस्तावेज़ व उसका इतिहास रहेगा। बेचे गए वाहन या समाप्त अनुबंध के लिए उपयोग करें।',
+    en: 'It leaves the registers and keeps every document and its history. Use this for a sold vehicle or an ended CICPA pass.',
+    ar: 'يخرج من السجلات ويحتفظ بكل مستند وسجله. استخدم هذا لمركبة مباعة أو تصريح CICPA منتهٍ.',
+    ur: 'یہ رجسٹر سے نکل جائے گا اور ہر دستاویز اور اس کی تاریخ محفوظ رہے گی۔ بیچی گئی گاڑی یا ختم شدہ CICPA پاس کے لیے استعمال کریں۔',
+    hi: 'यह रजिस्टर से हट जाएगा और हर दस्तावेज़ व उसका इतिहास रहेगा। बेचे गए वाहन या समाप्त CICPA पास के लिए उपयोग करें।',
   );
   static const archivedToast = _T(
     en: '{name} archived',
@@ -442,10 +442,10 @@ abstract final class CompanyStrings {
     hi: 'यह क्या है, इसका नंबर और यह किस कंपनी का है।',
   );
   static const contract = _T(
-    en: 'Contract',
-    ar: 'العقد',
-    ur: 'معاہدہ',
-    hi: 'अनुबंध',
+    en: 'CICPA pass',
+    ar: 'تصريح CICPA',
+    ur: 'CICPA پاس',
+    hi: 'CICPA पास',
   );
   static const contractDescription = _T(
     en: 'The job, and how many people and vehicles the LOA covers.',
@@ -499,10 +499,10 @@ abstract final class CompanyStrings {
     hi: '{n} रिकॉर्ड और {d} दस्तावेज़ मिले',
   );
   static const readKinds = _T(
-    en: '{e} companies · {i} certificates · {v} vehicles · {p} policies · {c} contracts',
-    ar: '{e} شركات · {i} شهادات · {v} مركبات · {p} وثائق · {c} عقود',
-    ur: '{e} کمپنیاں · {i} سرٹیفکیٹ · {v} گاڑیاں · {p} پالیسیاں · {c} معاہدے',
-    hi: '{e} कंपनियाँ · {i} प्रमाणपत्र · {v} वाहन · {p} पॉलिसी · {c} अनुबंध',
+    en: '{e} companies · {i} certificates · {v} vehicles · {p} policies · {c} CICPA passes',
+    ar: '{e} شركات · {i} شهادات · {v} مركبات · {p} وثائق · {c} تصاريح CICPA',
+    ur: '{e} کمپنیاں · {i} سرٹیفکیٹ · {v} گاڑیاں · {p} پالیسیاں · {c} CICPA پاسز',
+    hi: '{e} कंपनियाँ · {i} प्रमाणपत्र · {v} वाहन · {p} पॉलिसी · {c} CICPA पास',
   );
   static const readSkipped = _T(
     en: '{n} note rows not imported',
