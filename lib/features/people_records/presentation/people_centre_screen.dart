@@ -1186,7 +1186,7 @@ class _RegisterTable extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            PeopleAttachmentCount(
+                            RecordAttachmentCount(
                               key: ValueKey('people-attached-${person.id}'),
                               count: attached[person.id] ?? 0,
                               language: language,
@@ -1368,7 +1368,7 @@ class _PersonCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            PeopleAttachmentCount(
+                            RecordAttachmentCount(
                               key: ValueKey('people-attached-${person.id}'),
                               count: attached,
                               language: language,

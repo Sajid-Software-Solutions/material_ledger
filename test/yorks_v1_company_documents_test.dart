@@ -13,6 +13,8 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_centre_screen.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_form_screen.dart';
 import 'package:material_ledger/features/company_documents/presentation/company_record_screen.dart';
+import 'package:material_ledger/features/people_records/presentation/record_attachments.dart'
+    show yorksV1OpenLinkProvider;
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_workbook.dart';
 import 'package:material_ledger/shared/models/yorks_v1_company_documents.dart';
@@ -21,11 +23,13 @@ import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_boq_workbook_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_company_documents_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_document_file_service_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_company_documents_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_company_workbook.dart';
+import 'package:material_ledger/shared/services/yorks_v1_document_file_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_people_workbook.dart'
     show peopleEncodeWorkbook;
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
@@ -326,7 +330,94 @@ final class _Files implements YorksV1BoqWorkbookFileService {
   }
 }
 
+Map<String, Object?> _attachment({
+  String id = 'a-licence',
+  String? documentId = 'd-licence',
+  String fileName = 'Trade licence.pdf',
+}) => {
+  'id': id,
+  'document_id': documentId,
+  'document_kind': documentId == null ? null : 'licence',
+  'document_number': null,
+  'document_current': documentId != null,
+  'title': null,
+  'file_name': fileName,
+  'content_type': 'application/pdf',
+  'size_bytes': 512000,
+  'object_path': 'company/$_entityId/$id.pdf',
+  'uploaded_by': 'Test PR',
+  'uploaded_by_role': 'pr',
+  'uploaded_at': '2026-11-14T08:00:00Z',
+};
+
+Map<String, Object?> _attachments({
+  bool canManage = true,
+  List<Map<String, Object?>>? items,
+}) => {
+  'record_id': _entityId,
+  'can_manage': canManage,
+  'attachments': items ?? [_attachment()],
+};
+
+/// Storage for attachments: records uploads, hands out links.
+final class _StoredFiles implements YorksV1RecordFileClient {
+  final uploads = <(String, int, String)>[];
+  final links = <String>[];
+
+  @override
+  Future<void> upload(
+    String objectPath,
+    Uint8List bytes,
+    String contentType,
+  ) async => uploads.add((objectPath, bytes.length, contentType));
+
+  @override
+  Future<String> signedUrl(String objectPath, {required int seconds}) async {
+    links.add(objectPath);
+    return 'https://files.example.test/$objectPath?expires=$seconds';
+  }
+}
+
+/// The file picker: always the same fictional scan.
+final class _PickedDocument implements YorksV1DocumentFileService {
+  @override
+  Future<YorksV1SelectedDocument?> selectDocument() async =>
+      YorksV1SelectedDocument(
+        fileName: 'Licence scan.png',
+        mimeType: 'image/png',
+        bytes: Uint8List.fromList(List.filled(4096, 1)),
+      );
+
+  @override
+  Future<YorksV1SelectedDocument?> selectImage() async => null;
+
+  @override
+  Future<bool> saveDocument({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+  }) async => false;
+}
+
 _FakeRpc _server({bool canManage = true}) => _FakeRpc({
+  'v1_company_docs_list_attachments': (parameters) =>
+      parameters['p_record_id'] == _entityId
+      ? _attachments(canManage: canManage)
+      : {
+          'record_id': parameters['p_record_id'],
+          'can_manage': canManage,
+          'attachments': <Object>[],
+        },
+  'v1_company_docs_attachment_counts': (_) => {
+    'counts': {_entityId: 1},
+  },
+  'v1_company_docs_add_attachment': (_) => _attachments(
+    items: [
+      _attachment(id: 'a-new', fileName: 'Licence scan.png'),
+      _attachment(),
+    ],
+  ),
+  'v1_company_docs_remove_attachment': (_) => _attachments(items: []),
   'v1_company_docs_overview': (_) => _overview(canManage: canManage),
   'v1_company_docs_list': (parameters) {
     final query = parameters['p_query'] as Map<String, Object?>;
@@ -367,6 +458,8 @@ Future<void> _pump(
   _FakeRpc rpc,
   String location, {
   _Files? files,
+  _StoredFiles? stored,
+  List<Uri>? opened,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -410,11 +503,17 @@ Future<void> _pump(
             featureFlags: _flags,
             connectivity: const _Online(),
             client: rpc,
+            files: stored ?? _StoredFiles(),
           ),
         ),
         yorksV1BoqWorkbookFileServiceProvider.overrideWithValue(
           files ?? _Files(),
         ),
+        yorksV1DocumentFileServiceProvider.overrideWithValue(_PickedDocument()),
+        yorksV1OpenLinkProvider.overrideWithValue((uri) async {
+          opened?.add(uri);
+          return true;
+        }),
       ],
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
@@ -684,6 +783,156 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('attachments (PRODUCT_DECISIONS 48)', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+    const recordAt = '/yorks/company-documents/$_entityId';
+
+    testWidgets('the record lists files and marks the documents they copy', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      await _pump(tester, _server(), recordAt);
+      expect(
+        find.byKey(const ValueKey('company-attachment-a-licence')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('company-document-attached-d-licence')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('PR attaches a copy straight from the document', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      final rpc = _server();
+      final stored = _StoredFiles();
+      await _pump(tester, rpc, recordAt, stored: stored);
+      await tester.tap(
+        find.byKey(const ValueKey('company-document-attach-d-licence')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('company-attachment-choose')));
+      await tester.pumpAndSettle();
+      expect(find.text('Licence scan.png'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('company-attachment-save')));
+      await tester.pumpAndSettle();
+      final (path, size, type) = stored.uploads.single;
+      expect(
+        path,
+        matches(RegExp('^company/$_entityId/[0-9a-f-]{36}\\.png\$')),
+      );
+      expect(size, 4096);
+      expect(type, 'image/png');
+      final sent = rpc.callsTo('v1_company_docs_add_attachment').single;
+      expect(sent['p_record_id'], _entityId);
+      expect(sent['p_payload'], {
+        'object_path': path,
+        'file_name': 'Licence scan.png',
+        'document_id': 'd-licence',
+        'title': null,
+      });
+      expect(find.text('Attachment added.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('opening and removing a file', (tester) async {
+      _size(tester, const Size(1440, 1400));
+      final rpc = _server();
+      final stored = _StoredFiles();
+      final opened = <Uri>[];
+      await _pump(tester, rpc, recordAt, stored: stored, opened: opened);
+      await tester.tap(
+        find.byKey(const ValueKey('company-attachment-open-a-licence')),
+      );
+      await tester.pumpAndSettle();
+      expect(stored.links, ['company/$_entityId/a-licence.pdf']);
+      expect(opened.single.path, contains('a-licence.pdf'));
+
+      await tester.tap(
+        find.byKey(const ValueKey('company-attachment-remove-a-licence')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('attendance-text-dialog-field')),
+        'Superseded by the renewed licence',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-text-dialog-confirm')),
+      );
+      await tester.pumpAndSettle();
+      final sent = rpc.callsTo('v1_company_docs_remove_attachment').single;
+      expect(sent['p_attachment_id'], 'a-licence');
+      expect(sent['p_reason'], 'Superseded by the renewed licence');
+    });
+
+    testWidgets('a reader sees and opens files but cannot add or remove', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1400));
+      await _pump(tester, _server(canManage: false), recordAt);
+      expect(
+        find.byKey(const ValueKey('company-attachment-a-licence')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('company-attachment-add')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('company-attachment-remove-a-licence')),
+        findsNothing,
+      );
+    });
+
+    for (final (size, name) in [
+      (const Size(1440, 1000), 'desktop'),
+      (const Size(360, 800), 'phone'),
+    ]) {
+      testWidgets('the registers show a paperclip beside records ($name)', (
+        tester,
+      ) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _server(),
+          '${RoutePaths.yorksV1CompanyDocuments}?view=licences',
+        );
+        expect(
+          find.byKey(const ValueKey('company-attached-$_entityId')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('the phone record shows the Attachments section', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _server(), recordAt);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('company-attachment-a-licence')),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const ValueKey('company-record')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/company_documents_phone_attachments.png'),
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 

@@ -15,7 +15,9 @@ final yorksV1PeopleRepositoryProvider = Provider<YorksV1PeopleRepository>((
     featureFlags: ref.watch(yorksV1FeatureFlagsProvider),
     connectivity: ref.watch(connectivityProvider),
     client: client == null ? null : SupabaseYorksV1PeopleRpcClient(client),
-    files: client == null ? null : SupabaseYorksV1PeopleFileClient(client),
+    files: client == null
+        ? null
+        : SupabaseYorksV1RecordFileClient(client, yorksV1PeopleFilesBucket),
   );
 });
 

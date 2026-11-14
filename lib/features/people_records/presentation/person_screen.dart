@@ -567,7 +567,7 @@ class _DocumentsSection extends StatelessWidget {
                         ),
                         if (document != null) ...[
                           const SizedBox(width: 6),
-                          PeopleAttachmentCount(
+                          RecordAttachmentCount(
                             key: ValueKey(
                               'people-document-attached-${document.id}',
                             ),
@@ -826,7 +826,7 @@ class _DocumentCard extends StatelessWidget {
                         ),
                         if (doc != null) ...[
                           const SizedBox(width: 6),
-                          PeopleAttachmentCount(
+                          RecordAttachmentCount(
                             key: ValueKey('people-document-attached-${doc.id}'),
                             count: attached,
                             language: language,
