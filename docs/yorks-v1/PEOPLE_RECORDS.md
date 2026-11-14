@@ -197,6 +197,33 @@ other paper (PDF, Word, Excel, JPG or PNG, up to 20 MB each).
   `20261114180000_people_attachments.sql`; rollback: drop the two storage
   policies and revoke the four commands, keeping the bucket, table and files.
 
+## Bulk upload
+
+Owner decision, 14 November 2026 (`PRODUCT_DECISIONS.md` section 49). The
+People header's **Upload many** (holders of `people_records.manage`) attaches
+a folder of scans at once; Company documents has the same button.
+
+- **Matching** (`lib/shared/services/yorks_v1_bulk_attach.dart`, pure Dart,
+  tested): from the file name, a document number first (it also picks the
+  document), then the worker or unified number, then the name: the person
+  with most of their name's words wins, at least two (Muhammad spelt any
+  way is one word); a tie is left to choose. Words such as passport, visa,
+  Emirates ID, labour card, ILOE, CICPA or CMW pick the document when the
+  person holds exactly one current document of that kind. Company records
+  use the licence number, plate or LOA and words such as trade licence,
+  establishment card, mulkiya, Asateel, insurance or LOA.
+- **Check first.** Every file shows its person and document with how it
+  was matched ("Matched by number", "Matched by name", "More than one match
+  — choose", "Not matched — choose"); both can be changed. Files that are
+  not PDF, Word, Excel, JPG or PNG up to 20 MB are listed and left out.
+- **Upload** sends files one at a time through `v1_people_add_attachment`
+  (or the company command), each under its own idempotency key, so the same
+  rights and history apply and a failed file can be tried again without a
+  second stored copy. Files are read from disk only when uploaded. No
+  database change.
+- **The tracker.** The Staff Documents & Passes tracker holds no scans (no
+  images, embedded files or links), so nothing was uploaded from it.
+
 ## Release and rollback
 
 1. Apply `20261114120000_people_records_foundation.sql` (additive,

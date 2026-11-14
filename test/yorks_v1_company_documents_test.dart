@@ -30,6 +30,7 @@ import 'package:material_ledger/shared/repositories/yorks_v1_company_documents_r
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_company_workbook.dart';
 import 'package:material_ledger/shared/services/yorks_v1_document_file_service.dart';
+import 'package:material_ledger/shared/services/yorks_v1_multi_file_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_people_workbook.dart'
     show peopleEncodeWorkbook;
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
@@ -399,6 +400,23 @@ final class _PickedDocument implements YorksV1DocumentFileService {
   }) async => false;
 }
 
+/// A folder of scans, as (file name, size). Bytes are zeros.
+final class _PickedFiles implements YorksV1MultiFileService {
+  _PickedFiles(this.files);
+
+  final List<(String, int)> files;
+
+  @override
+  Future<List<YorksV1PickedFile>> selectFiles() async => [
+    for (final (name, size) in files)
+      YorksV1PickedFile(
+        name: name,
+        size: size,
+        read: () async => Uint8List(size),
+      ),
+  ];
+}
+
 _FakeRpc _server({bool canManage = true}) => _FakeRpc({
   'v1_company_docs_list_attachments': (parameters) =>
       parameters['p_record_id'] == _entityId
@@ -460,6 +478,7 @@ Future<void> _pump(
   _Files? files,
   _StoredFiles? stored,
   List<Uri>? opened,
+  _PickedFiles? folder,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -510,6 +529,9 @@ Future<void> _pump(
           files ?? _Files(),
         ),
         yorksV1DocumentFileServiceProvider.overrideWithValue(_PickedDocument()),
+        yorksV1MultiFileServiceProvider.overrideWithValue(
+          folder ?? _PickedFiles(const []),
+        ),
         yorksV1OpenLinkProvider.overrideWithValue((uri) async {
           opened?.add(uri);
           return true;
@@ -932,6 +954,36 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/company_documents_phone_attachments.png'),
       );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('bulk upload (PRODUCT_DECISIONS 49)', () {
+    testWidgets('licence numbers and plates find their records and documents', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      await _pump(
+        tester,
+        rpc,
+        RoutePaths.yorksV1CompanyDocuments,
+        folder: _PickedFiles(const [
+          ('CN-0000001 trade licence.pdf', 2048),
+          ('11111 mulkiya.jpg', 4096),
+        ]),
+      );
+      await tester.tap(find.byKey(const ValueKey('company-bulk-attach')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('company-bulk-choose')));
+      await tester.pumpAndSettle();
+      expect(find.text('Matched by number'), findsNWidgets(2));
+      await tester.tap(find.byKey(const ValueKey('company-bulk-upload')));
+      await tester.pumpAndSettle();
+      final sent = rpc.callsTo('v1_company_docs_add_attachment');
+      expect(sent.map((call) => call['p_record_id']), [_entityId, _vehicleId]);
+      expect((sent.first['p_payload'] as Map)['document_id'], 'd-licence');
+      expect(find.text('2 attached'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

@@ -132,6 +132,14 @@ JPG or PNG, up to 20 MB each).
   drop the two storage policies and revoke the four commands, keeping the
   bucket, table and files.
 
+## Bulk upload
+
+Company documents' **Upload many** attaches a folder of scans at once, with
+the same screen and rules as People (`PEOPLE_RECORDS.md` section Bulk
+upload): each file is matched to a record by a document number, the
+licence number, plate or LOA, or the name, and to a document by words such
+as trade licence, establishment card, mulkiya, Asateel, insurance or LOA.
+
 ## Release and rollback
 
 1. Apply `20261114140000_company_documents_foundation.sql` (additive,

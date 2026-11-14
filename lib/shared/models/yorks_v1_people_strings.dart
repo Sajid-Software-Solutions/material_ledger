@@ -930,6 +930,151 @@ abstract final class PeopleStrings {
     ur: 'ختم',
     hi: 'समाप्त',
   );
+  // Bulk upload (PRODUCT_DECISIONS section 49).
+  static const bulkUpload = _T(
+    en: 'Upload many',
+    ar: 'رفع عدة ملفات',
+    ur: 'کئی فائلیں اپ لوڈ کریں',
+    hi: 'कई फ़ाइलें अपलोड करें',
+  );
+  static const bulkTitle = _T(
+    en: 'Upload many files',
+    ar: 'رفع عدة ملفات',
+    ur: 'کئی فائلیں اپ لوڈ کریں',
+    hi: 'कई फ़ाइलें अपलोड करें',
+  );
+  static const bulkHintPeople = _T(
+    en: 'Choose a whole folder of scans at once. Each file is matched to a person by the worker number, a document number or the name in its file name, and to a document by words such as passport, visa or Emirates ID — for example "WR-000101 passport.pdf" or "Ravi Kumar visa.jpg". Check every match before uploading.',
+    ar: 'اختر مجلدًا كاملًا من المسحوبات دفعة واحدة. يُطابق كل ملف مع الشخص برقم العامل أو رقم مستند أو الاسم في اسم الملف، ومع المستند بكلمات مثل passport أو visa أو Emirates ID — مثل "WR-000101 passport.pdf". راجع كل مطابقة قبل الرفع.',
+    ur: 'اسکین کا پورا فولڈر ایک ساتھ منتخب کریں۔ ہر فائل فائل کے نام میں ورکر نمبر، دستاویز نمبر یا نام سے شخص سے، اور passport، visa یا Emirates ID جیسے الفاظ سے دستاویز سے ملائی جاتی ہے — مثلاً "WR-000101 passport.pdf"۔ اپ لوڈ سے پہلے ہر میل دیکھ لیں۔',
+    hi: 'स्कैन का पूरा फ़ोल्डर एक साथ चुनें। हर फ़ाइल को फ़ाइल नाम में वर्कर नंबर, दस्तावेज़ नंबर या नाम से व्यक्ति से, और passport, visa या Emirates ID जैसे शब्दों से दस्तावेज़ से मिलाया जाता है — जैसे "WR-000101 passport.pdf"। अपलोड से पहले हर मिलान जाँच लें।',
+  );
+  static const bulkChoose = _T(
+    en: 'Choose files',
+    ar: 'اختر الملفات',
+    ur: 'فائلیں منتخب کریں',
+    hi: 'फ़ाइलें चुनें',
+  );
+  static const bulkAddMore = _T(
+    en: 'Add more files',
+    ar: 'إضافة ملفات أخرى',
+    ur: 'مزید فائلیں شامل کریں',
+    hi: 'और फ़ाइलें जोड़ें',
+  );
+  static const bulkByNumber = _T(
+    en: 'Matched by number',
+    ar: 'مطابق بالرقم',
+    ur: 'نمبر سے ملا',
+    hi: 'नंबर से मिला',
+  );
+  static const bulkByName = _T(
+    en: 'Matched by name',
+    ar: 'مطابق بالاسم',
+    ur: 'نام سے ملا',
+    hi: 'नाम से मिला',
+  );
+  static const bulkAmbiguous = _T(
+    en: 'More than one match — choose',
+    ar: 'أكثر من تطابق — اختر',
+    ur: 'ایک سے زیادہ میل — منتخب کریں',
+    hi: 'एक से अधिक मिलान — चुनें',
+  );
+  static const bulkNotMatched = _T(
+    en: 'Not matched — choose',
+    ar: 'غير مطابق — اختر',
+    ur: 'میل نہیں ملا — منتخب کریں',
+    hi: 'मिलान नहीं — चुनें',
+  );
+  static const bulkChosen = _T(
+    en: 'Chosen by you',
+    ar: 'اخترته أنت',
+    ur: 'آپ نے منتخب کیا',
+    hi: 'आपने चुना',
+  );
+  static const bulkChoosePerson = _T(
+    en: 'Choose a person',
+    ar: 'اختر شخصًا',
+    ur: 'شخص منتخب کریں',
+    hi: 'व्यक्ति चुनें',
+  );
+  static const bulkSearch = _T(
+    en: 'Search name or number',
+    ar: 'ابحث بالاسم أو الرقم',
+    ur: 'نام یا نمبر تلاش کریں',
+    hi: 'नाम या नंबर खोजें',
+  );
+  static const bulkReady = _T(
+    en: '{n} ready',
+    ar: '{n} جاهز',
+    ur: '{n} تیار',
+    hi: '{n} तैयार',
+  );
+  static const bulkToMatch = _T(
+    en: '{n} to match',
+    ar: '{n} للمطابقة',
+    ur: '{n} ملانا باقی',
+    hi: '{n} मिलान बाकी',
+  );
+  static const bulkCannot = _T(
+    en: '{n} cannot be uploaded',
+    ar: '{n} لا يمكن رفعه',
+    ur: '{n} اپ لوڈ نہیں ہو سکتی',
+    hi: '{n} अपलोड नहीं हो सकती',
+  );
+  static const bulkAttached = _T(
+    en: '{n} attached',
+    ar: '{n} مرفق',
+    ur: '{n} منسلک',
+    hi: '{n} संलग्न',
+  );
+  static const bulkFailedCount = _T(
+    en: '{n} failed',
+    ar: '{n} فشل',
+    ur: '{n} ناکام',
+    hi: '{n} विफल',
+  );
+  static const bulkUploadN = _T(
+    en: 'Upload {n}',
+    ar: 'رفع {n}',
+    ur: '{n} اپ لوڈ کریں',
+    hi: '{n} अपलोड करें',
+  );
+  static const bulkUploading = _T(
+    en: 'Uploading {i} of {n}…',
+    ar: 'جارٍ رفع {i} من {n}…',
+    ur: '{n} میں سے {i} اپ لوڈ ہو رہی ہے…',
+    hi: '{n} में से {i} अपलोड हो रही है…',
+  );
+  static const bulkUnsupported = _T(
+    en: 'Not a PDF, Word, Excel, JPG or PNG file of up to 20 MB',
+    ar: 'ليس ملف PDF أو Word أو Excel أو JPG أو PNG حتى 20 ميجابايت',
+    ur: '20 MB تک کی PDF، Word، Excel، JPG یا PNG فائل نہیں',
+    hi: '20 MB तक की PDF, Word, Excel, JPG या PNG फ़ाइल नहीं',
+  );
+  static const bulkUploaded = _T(
+    en: 'Attached',
+    ar: 'مُرفق',
+    ur: 'منسلک',
+    hi: 'संलग्न',
+  );
+  static const bulkWaiting = _T(
+    en: 'Waiting',
+    ar: 'في الانتظار',
+    ur: 'انتظار میں',
+    hi: 'प्रतीक्षा में',
+  );
+  static const bulkFinished = _T(
+    en: '{n} files attached.',
+    ar: 'تم إرفاق {n} ملف.',
+    ur: '{n} فائلیں منسلک ہو گئیں۔',
+    hi: '{n} फ़ाइलें संलग्न हुईं।',
+  );
+  static const close = _T(
+    en: 'Close',
+    ar: 'إغلاق',
+    ur: 'بند کریں',
+    hi: 'बंद करें',
+  );
   static const hAttachmentAdded = _T(
     en: '{name} added an attachment',
     ar: 'أضاف {name} مرفقًا',

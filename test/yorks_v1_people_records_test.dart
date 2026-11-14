@@ -26,6 +26,7 @@ import 'package:material_ledger/shared/providers/yorks_v1_people_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_people_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_boq_workbook_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_document_file_service.dart';
+import 'package:material_ledger/shared/services/yorks_v1_multi_file_service.dart';
 import 'package:material_ledger/shared/services/yorks_v1_people_workbook.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -361,6 +362,23 @@ final class _PickedDocument implements YorksV1DocumentFileService {
   }) async => false;
 }
 
+/// A folder of scans, as (file name, size). Bytes are zeros.
+final class _PickedFiles implements YorksV1MultiFileService {
+  _PickedFiles(this.files);
+
+  final List<(String, int)> files;
+
+  @override
+  Future<List<YorksV1PickedFile>> selectFiles() async => [
+    for (final (name, size) in files)
+      YorksV1PickedFile(
+        name: name,
+        size: size,
+        read: () async => Uint8List(size),
+      ),
+  ];
+}
+
 _FakeRpc _server({bool canManage = true}) => _FakeRpc({
   'v1_people_list_attachments': (_) => _attachments(canManage: canManage),
   'v1_people_attachment_counts': (_) => {
@@ -408,6 +426,7 @@ Future<void> _pump(
   _Files? files,
   _StoredFiles? stored,
   List<Uri>? opened,
+  _PickedFiles? folder,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -459,6 +478,9 @@ Future<void> _pump(
           files ?? _Files(),
         ),
         yorksV1DocumentFileServiceProvider.overrideWithValue(_PickedDocument()),
+        yorksV1MultiFileServiceProvider.overrideWithValue(
+          folder ?? _PickedFiles(const []),
+        ),
         yorksV1OpenLinkProvider.overrideWithValue((uri) async {
           opened?.add(uri);
           return true;
@@ -857,6 +879,177 @@ void main() {
         matchesGoldenFile('goldens/people_records_phone_attachments.png'),
       );
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('bulk upload (PRODUCT_DECISIONS 49)', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+    const staffId = '7b000000-0000-4000-8000-000000000002';
+    _PickedFiles folder() => _PickedFiles(const [
+      ('WR-000101 passport.pdf', 2048),
+      ('Sami Test One visa.jpg', 4096),
+      ('IMG_0012.jpg', 1024),
+      ('notes.txt', 10),
+    ]);
+
+    Future<void> openBulk(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('people-bulk-attach')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('people-bulk-choose')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a folder is matched, checked, then uploaded one by one', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      final stored = _StoredFiles();
+      await _pump(
+        tester,
+        rpc,
+        RoutePaths.yorksV1People,
+        stored: stored,
+        folder: folder(),
+      );
+      await openBulk(tester);
+      expect(find.text('Matched by number'), findsOneWidget);
+      expect(find.text('Matched by name'), findsOneWidget);
+      expect(
+        find.text('Not a PDF, Word, Excel, JPG or PNG file of up to 20 MB'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('2 ready · 1 to match · 1 cannot be uploaded'),
+        findsOneWidget,
+      );
+
+      // The unmatched scan gets its person by hand.
+      await tester.tap(
+        find.byKey(const ValueKey('people-bulk-owner-IMG_0012.jpg')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('people-bulk-owner-search')),
+        'sami',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('people-bulk-owner-$staffId')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Chosen by you'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('people-bulk-upload')));
+      await tester.pumpAndSettle();
+      final sent = rpc.callsTo('v1_people_add_attachment');
+      expect(sent.map((call) => call['p_worker_id']), [
+        _workerId,
+        staffId,
+        staffId,
+      ]);
+      expect(sent.map((call) => (call['p_payload'] as Map)['document_id']), [
+        'd-passport',
+        'd-visa',
+        null,
+      ]);
+      expect(stored.uploads, hasLength(3));
+      expect(find.text('3 attached · 1 cannot be uploaded'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('people-bulk-close')));
+      await tester.pumpAndSettle();
+      expect(find.text('3 files attached.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a file that fails can be tried again without a second copy', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      var refuse = true;
+      rpc.handlers['v1_people_add_attachment'] = (parameters) {
+        final file = (parameters['p_payload'] as Map)['file_name'];
+        if (refuse && file == 'Sami Test One visa.jpg') {
+          throw const PostgrestException(
+            message: 'temporarily unavailable',
+            code: 'PGRST002',
+          );
+        }
+        return _attachments();
+      };
+      final stored = _StoredFiles();
+      await _pump(
+        tester,
+        rpc,
+        RoutePaths.yorksV1People,
+        stored: stored,
+        folder: _PickedFiles(const [
+          ('WR-000101 passport.pdf', 2048),
+          ('Sami Test One visa.jpg', 4096),
+        ]),
+      );
+      await openBulk(tester);
+      await tester.tap(find.byKey(const ValueKey('people-bulk-upload')));
+      await tester.pumpAndSettle();
+      expect(find.text('1 attached · 1 ready · 1 failed'), findsOneWidget);
+      final firstKey = rpc
+          .callsTo('v1_people_add_attachment')
+          .last['p_idempotency_key'];
+
+      refuse = false;
+      await tester.tap(find.byKey(const ValueKey('people-bulk-upload')));
+      await tester.pumpAndSettle();
+      final calls = rpc.callsTo('v1_people_add_attachment');
+      expect(calls, hasLength(3));
+      expect(
+        calls.last['p_idempotency_key'],
+        firstKey,
+        reason: 'the retry reuses the stored file',
+      );
+      expect(stored.uploads.map((upload) => upload.$1).toSet(), hasLength(2));
+      expect(find.text('2 attached'), findsOneWidget);
+    });
+
+    testWidgets('phone: the matches before upload', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(
+        tester,
+        _server(),
+        RoutePaths.yorksV1People,
+        folder: folder(),
+      );
+      await openBulk(tester);
+      expect(find.byKey(const ValueKey('people-bulk-dialog')), findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/people_records_phone_bulk.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('desktop: the matches before upload', (tester) async {
+      _size(tester, const Size(1440, 1000));
+      await _pump(
+        tester,
+        _server(),
+        RoutePaths.yorksV1People,
+        folder: folder(),
+      );
+      await openBulk(tester);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/people_records_desktop_bulk.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('only people who manage records see Upload many', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      await _pump(tester, _server(canManage: false), RoutePaths.yorksV1People);
+      expect(find.byKey(const ValueKey('people-bulk-attach')), findsNothing);
     });
   });
 
