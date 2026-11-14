@@ -21,6 +21,7 @@ import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_boq_workbook_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_document_file_service_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
+import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_people_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_people_repository.dart';
@@ -85,10 +86,14 @@ Map<String, Object?> _person({
   String category = 'labour',
   bool canManage = true,
   bool detail = true,
+  Map<String, Object?>? account,
+  List<Map<String, Object?>> notes = const [],
 }) => {
   'id': id,
   'number': number,
   'name': name,
+  'account': account,
+  'can_link': canManage,
   'company': _company,
   'profession': 'Technician',
   'id_profession': 'Welder',
@@ -140,6 +145,7 @@ Map<String, Object?> _person({
   },
   'crew': {'id': 'crew-1', 'name': 'Crew Alpha'},
   if (detail) ...{
+    'notes': notes,
     'previous_documents': [
       _doc(
         'd-visa-old',
@@ -173,6 +179,51 @@ Map<String, Object?> _person({
     ],
   },
   'can_manage': canManage,
+};
+
+const _linkedAccount = <String, Object?>{
+  'auth_user_id': '10000000-0000-4000-8000-000000000002',
+  'name': 'Ravi Kumar',
+  'email': 'ravi@example.test',
+  'role': 'site_engineer',
+  'active': true,
+};
+
+const _note = <String, Object?>{
+  'id': 'n-1',
+  'message': 'My visa was renewed last week',
+  'at': '2026-11-14T08:00:00Z',
+  'done_at': null,
+  'done_by': null,
+};
+
+const _linkSuggestions = <String, Object?>{
+  'linked_count': 3,
+  'accounts': [
+    {
+      'auth_user_id': '10000000-0000-4000-8000-000000000009',
+      'name': 'Another Account',
+      'email': 'another@example.test',
+      'role': 'project_engineer',
+      'suggestions': <Object?>[],
+    },
+    {
+      'auth_user_id': '10000000-0000-4000-8000-000000000002',
+      'name': 'Ravi Kumar',
+      'email': 'ravi@example.test',
+      'role': 'site_engineer',
+      'suggestions': [
+        {
+          'worker_id': _workerId,
+          'number': 'WR-000101',
+          'name': 'RAVI TEST KUMAR',
+          'company': _company,
+          'position': 'Technician',
+          'category': 'labour',
+        },
+      ],
+    },
+  ],
 };
 
 Map<String, Object?> _overview({bool canManage = true}) => {
@@ -408,6 +459,15 @@ _FakeRpc _server({bool canManage = true}) => _FakeRpc({
     ]);
   },
   'v1_people_get': (_) => _person(canManage: canManage),
+  'v1_people_link_suggestions': (_) => _linkSuggestions,
+  'v1_people_set_account': (parameters) => _person(
+    account: parameters['p_auth_user_id'] == null ? null : _linkedAccount,
+  ),
+  'v1_people_note_done': (_) => _person(
+    notes: [
+      {..._note, 'done_at': '2026-11-14T10:00:00Z', 'done_by': 'Local PR'},
+    ],
+  ),
   'v1_people_save_person': (_) => _person(),
   'v1_people_save_document': (_) => _person(),
   'v1_people_end_document': (_) => _person(),
@@ -428,6 +488,7 @@ Future<void> _pump(
   _StoredFiles? stored,
   List<Uri>? opened,
   _PickedFiles? folder,
+  YorksV1Role? role,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -466,6 +527,7 @@ Future<void> _pump(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-pr'),
+        yorksV1CurrentRoleProvider.overrideWithValue(role),
         yorksV1FeatureFlagsProvider.overrideWithValue(_flags),
         yorksV1PeopleRepositoryProvider.overrideWithValue(
           YorksV1PeopleRepository(
@@ -1140,6 +1202,135 @@ void main() {
         ),
       );
       expect(read.people.length, 2);
+    });
+
+    testWidgets('PR links an account from the person record', (tester) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      await _pump(tester, rpc, '/yorks/people/$_workerId');
+      expect(
+        find.byKey(const ValueKey('people-person-account-none')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('people-person-link')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('people-link-account-dialog')),
+        findsOneWidget,
+      );
+      // The account whose name matches comes first.
+      final matched = tester.getTopLeft(
+        find.byKey(
+          const ValueKey(
+            'people-link-account-10000000-0000-4000-8000-000000000002',
+          ),
+        ),
+      );
+      final other = tester.getTopLeft(
+        find.byKey(
+          const ValueKey(
+            'people-link-account-10000000-0000-4000-8000-000000000009',
+          ),
+        ),
+      );
+      expect(matched.dy, lessThan(other.dy));
+      expect(find.text('Name matches'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey(
+              'people-link-account-10000000-0000-4000-8000-000000000002',
+            ),
+          ),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final call = rpc.callsTo('v1_people_set_account').single;
+      expect(call['p_worker_id'], _workerId);
+      expect(call['p_auth_user_id'], '10000000-0000-4000-8000-000000000002');
+      expect(call['p_expected_version'], 2);
+      expect(call['p_idempotency_key'], isNotEmpty);
+      expect(find.text('Account linked'), findsOneWidget);
+    });
+
+    testWidgets('a linked account is shown and can be unlinked', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      rpc.handlers['v1_people_get'] = (_) => _person(account: _linkedAccount);
+      await _pump(tester, rpc, '/yorks/people/$_workerId');
+      expect(find.text('Ravi Kumar'), findsOneWidget);
+      expect(find.textContaining('ravi@example.test'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('people-person-unlink')));
+      await tester.pumpAndSettle();
+      expect(find.text('Unlink the account?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Unlink'));
+      await tester.pumpAndSettle();
+      final call = rpc.callsTo('v1_people_set_account').single;
+      expect(call['p_auth_user_id'], isNull);
+      expect(call['p_expected_version'], 2);
+      expect(find.text('Account unlinked'), findsOneWidget);
+    });
+
+    testWidgets('a note from the person is read and marked done', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      final rpc = _server();
+      rpc.handlers['v1_people_get'] = (_) => _person(notes: [_note]);
+      await _pump(tester, rpc, '/yorks/people/$_workerId');
+      expect(find.text('“My visa was renewed last week”'), findsOneWidget);
+      expect(find.text('1 open'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('people-note-done-n-1')));
+      await tester.pumpAndSettle();
+      expect(rpc.callsTo('v1_people_note_done').single['p_note_id'], 'n-1');
+      expect(find.text('Marked done'), findsOneWidget);
+    });
+
+    testWidgets('only HR/PRO and Admin see Link accounts on the People home', (
+      tester,
+    ) async {
+      _size(tester, const Size(1440, 1000));
+      await _pump(
+        tester,
+        _server(),
+        '/yorks/people',
+        role: YorksV1Role.accountant,
+      );
+      expect(find.byKey(const ValueKey('people-link-accounts')), findsNothing);
+
+      final rpc = _server();
+      await _pump(tester, rpc, '/yorks/people', role: YorksV1Role.pr);
+      await tester.tap(find.byKey(const ValueKey('people-link-accounts')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('3 linked · 2 accounts not linked · 1 with a name match'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'No name match. Open the person\'s record and choose Link account.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey(
+              'people-link-10000000-0000-4000-8000-000000000002-$_workerId',
+            ),
+          ),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // The record version is read just before linking.
+      expect(rpc.callsTo('v1_people_get'), isNotEmpty);
+      final call = rpc.callsTo('v1_people_set_account').single;
+      expect(call['p_worker_id'], _workerId);
+      expect(call['p_expected_version'], 2);
     });
 
     testWidgets('a viewer sees no edit commands', (tester) async {

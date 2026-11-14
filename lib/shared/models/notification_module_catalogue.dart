@@ -626,6 +626,54 @@ const notificationModuleEvents = <String, Map<String, Object>>{
     "destination": "people",
     "urgent": false,
   },
+  "people_my_documents_overdue": {
+    "title": <String>[
+      "Your document has expired",
+      "انتهت صلاحية مستندك",
+      "آپ کی دستاویز کی میعاد ختم ہو گئی",
+      "आपके दस्तावेज़ की अवधि समाप्त हो गई",
+    ],
+    "body": <String>[
+      "One of your documents has expired. HR/PRO has been told. Open your profile to see which one.",
+      "انتهت صلاحية أحد مستنداتك. تم إبلاغ الموارد البشرية وعلاقات الحكومة. افتح ملفك لترى أيها.",
+      "آپ کی ایک دستاویز کی میعاد ختم ہو گئی ہے۔ HR/PRO کو بتا دیا گیا ہے۔ کون سی، دیکھنے کے لیے اپنی پروفائل کھولیں۔",
+      "आपका एक दस्तावेज़ समाप्त हो गया है। HR/PRO को बता दिया गया है। कौन-सा, देखने के लिए अपनी प्रोफ़ाइल खोलें।",
+    ],
+    "destination": "profile",
+    "urgent": true,
+  },
+  "people_my_documents_due": {
+    "title": <String>[
+      "Your document expires soon",
+      "مستندك ينتهي قريبًا",
+      "آپ کی دستاویز جلد ختم ہو رہی ہے",
+      "आपका दस्तावेज़ जल्द समाप्त हो रहा है",
+    ],
+    "body": <String>[
+      "One of your documents expires within 60 days. Open your profile to see which one, and keep it ready for HR/PRO.",
+      "أحد مستنداتك ينتهي خلال 60 يومًا. افتح ملفك لترى أيها، وجهّزه للموارد البشرية وعلاقات الحكومة.",
+      "آپ کی ایک دستاویز 60 دن میں ختم ہو رہی ہے۔ کون سی، دیکھنے کے لیے اپنی پروفائل کھولیں اور اسے HR/PRO کے لیے تیار رکھیں۔",
+      "आपका एक दस्तावेज़ 60 दिनों में समाप्त हो रहा है। कौन-सा, देखने के लिए अपनी प्रोफ़ाइल खोलें और उसे HR/PRO के लिए तैयार रखें।",
+    ],
+    "destination": "profile",
+    "urgent": false,
+  },
+  "people_note_received": {
+    "title": <String>[
+      "A note about a person's record",
+      "ملاحظة حول سجل شخص",
+      "کسی شخص کے ریکارڈ کے بارے میں نوٹ",
+      "किसी व्यक्ति के रिकॉर्ड के बारे में नोट",
+    ],
+    "body": <String>[
+      "Someone says their record needs a correction. Open it to read the note.",
+      "يقول أحدهم إن سجله يحتاج إلى تصحيح. افتحه لقراءة الملاحظة.",
+      "کسی نے بتایا ہے کہ ان کے ریکارڈ میں درستی کی ضرورت ہے۔ نوٹ پڑھنے کے لیے کھولیں۔",
+      "किसी ने बताया है कि उनके रिकॉर्ड में सुधार की ज़रूरत है। नोट पढ़ने के लिए खोलें।",
+    ],
+    "destination": "people",
+    "urgent": false,
+  },
 };
 String moduleNotificationText(String code, String field, AppLanguage language) {
   final values = notificationModuleEvents[code]![field] as List<String>;

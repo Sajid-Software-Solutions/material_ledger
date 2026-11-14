@@ -17,6 +17,9 @@ import '../../../app/router.dart';
 import '../../../core/constants/constants.dart';
 import '../../../shared/models/app_language.dart';
 import '../../../shared/models/yorks_v1_people.dart';
+import '../../../shared/models/yorks_v1_my_record_strings.dart';
+import '../../../shared/models/yorks_v1_role.dart';
+import '../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../shared/services/yorks_v1_bulk_attach.dart';
 import '../../../shared/models/yorks_v1_shell_strings.dart';
 import '../../../shared/providers/language_provider.dart';
@@ -27,6 +30,7 @@ import '../../../shared/services/yorks_v1_people_workbook.dart';
 import 'people_import_dialog.dart';
 import 'people_kit.dart';
 import 'bulk_attachments.dart';
+import 'person_account.dart' show showPeopleLinkAccounts;
 import 'person_attachments.dart';
 
 enum PeopleView { attention, staff, labour }
@@ -195,6 +199,10 @@ class _PeopleCentreScreenState extends ConsumerState<PeopleCentreScreen> {
     final overview = ref.watch(yorksV1PeopleOverviewProvider);
     final flags = ref.watch(yorksV1FeatureFlagsProvider);
     final canManage = overview.valueOrNull?.canManage ?? false;
+    // Linking accounts is HR/PRO and Admin only; the server rechecks it.
+    final role = ref.watch(yorksV1CurrentRoleProvider);
+    final canLink =
+        canManage && (role == YorksV1Role.pr || role == YorksV1Role.admin);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < AppSpacing.compactBreakpoint;
     final horizontal = width >= AppSpacing.yorksV1DesktopBreakpoint
@@ -217,12 +225,14 @@ class _PeopleCentreScreenState extends ConsumerState<PeopleCentreScreen> {
               language: language,
               compact: compact,
               canManage: canManage,
+              canLink: canLink,
               exporting: _exporting,
               onRefresh: _refresh,
               onImport: _import,
               onExport: () => _export(language),
               onAdd: () => context.go(peopleNewPath),
               onBulk: () => _bulk(language),
+              onLink: () => showPeopleLinkAccounts(context),
             ),
             const SizedBox(height: AppSpacing.lg),
             _ViewBar(
@@ -312,17 +322,23 @@ class _Header extends StatelessWidget {
     required this.language,
     required this.compact,
     required this.canManage,
+    required this.canLink,
     required this.exporting,
     required this.onRefresh,
     required this.onImport,
     required this.onExport,
     required this.onAdd,
     required this.onBulk,
+    required this.onLink,
   });
 
   final AppLanguage language;
   final bool compact;
   final bool canManage;
+
+  /// HR/PRO and Admin link app accounts to people.
+  final bool canLink;
+  final VoidCallback onLink;
   final bool exporting;
   final VoidCallback onRefresh;
   final VoidCallback onImport;
@@ -391,6 +407,18 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
+        if (canLink)
+          SizedBox(
+            height: AppSpacing.minTapTarget,
+            child: OutlinedButton.icon(
+              key: const ValueKey('people-link-accounts'),
+              onPressed: onLink,
+              icon: const Icon(Icons.link_rounded),
+              label: Text(
+                MyRecordStrings.t(MyRecordStrings.linkAccounts, language),
+              ),
+            ),
+          ),
         if (canManage)
           SizedBox(
             height: AppSpacing.minTapTarget,

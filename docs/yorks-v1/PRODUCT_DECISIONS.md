@@ -2623,6 +2623,54 @@ across Workforce; the profession on ID sits with the person's documents.
 Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) Model and Import and
 export. Migration `20261114220000_people_id_profession.sql`.
 
+## 54. My Yorks from the People record (owner decision, 14 November 2026)
+
+My Yorks shows each person their own People record once HR/PRO links
+their app account to it. The owner approved the proposal with these
+defaults:
+
+- **Linking.** HR/PRO and Admin link an account to one person, from the
+  person's record (App account) or from People > Link accounts, which
+  suggests the person whose name matches each unlinked account. One
+  account belongs to one person. A link or unlink is in the person's
+  history and the audit trail; nothing is linked automatically. The
+  Accountant manages People but does not link accounts.
+- **Header.** The account name, the Arabic name, the position in the
+  company with Staff or Labour, the record number and company, and one
+  chip for how the documents stand (valid, *n* expiring soon, or expired).
+  The signed-in email moves to Settings > Your account once linked.
+- **Tabs on phone and tablet: Me, Work, Settings.** Desktop shows Me on
+  the left and Work and Settings on the right. Before a link the page
+  opens on Work and Me says the record is not linked yet.
+  - *Me:* the person's current documents with expiry and status and only
+    the last four characters of each number (a number of four or fewer is
+    not shown); site passes with their sites; the position, the
+    profession on the visa and ID, category, record number, company,
+    joining date and crew. Date of birth and unified number are not shown.
+  - *Work:* Today and quick actions as before, the projects the person is
+    a member of today with their role on each, and this month's
+    attendance so far (days present of days recorded, absent, leave,
+    overtime, crew).
+  - *Settings:* Your account (email and app role), Access and scope,
+    Preferences, Help and security.
+- **Corrections.** A person cannot edit their own record. "Something
+  wrong? Tell HR/PRO" sends a note (up to five a day); PR and Admin are
+  notified, read it on the record and mark it done, and the person sees
+  it as waiting or done. The audit trail records that a note was sent,
+  never its words.
+- **Reminders.** Each linked, active person is also reminded at 08:20
+  Dubai when their own documents expire or are within 60 days, at most
+  once a day and only when that set changed. HR/PRO's daily summary is
+  unchanged.
+- Leave is not on My Yorks: the legacy leave screens do not run on V1
+  data.
+
+The person reads their record through `v1_people_get_mine`, which only
+ever returns the caller's own linked person; no People capability is
+granted to anyone. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) My
+Yorks and linked accounts. Migration
+`20261114230000_people_my_record.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

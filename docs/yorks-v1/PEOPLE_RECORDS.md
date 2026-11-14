@@ -236,6 +236,35 @@ a folder of scans at once; Company documents has the same button.
 - **The tracker.** The Staff Documents & Passes tracker holds no scans (no
   images, embedded files or links), so nothing was uploaded from it.
 
+## My Yorks and linked accounts
+
+Owner decision: 14 November 2026 ([`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md)
+section 54).
+
+A person's app account is linked to their record through
+`v1_workforce_workers.linked_auth_user_id` (already unique: one account,
+one person). The record shows it as **App account**.
+
+| Function | Use |
+| --- | --- |
+| `v1_people_link_suggestions()` | HR/PRO and Admin: every active account not yet linked, each with up to three active People records whose name matches (two names in common, or a single name of four letters or more) |
+| `v1_people_set_account(worker, account, version, key)` | HR/PRO and Admin: link, change or unlink (`null`); record version checked, history and audit written; an account already linked elsewhere is refused (`V1_PEOPLE_ACCOUNT_TAKEN`) |
+| `v1_people_get_mine()` | Anyone signed in: their own linked record (`state` linked or unlinked), current documents with `number_last4` only, this month's attendance, their notes, and the projects they are a dated member of |
+| `v1_people_send_note(message, key)` | The linked person: a note to HR/PRO (1-1000 characters, five a day); notifies active PR and Admin (`people_note_received`) |
+| `v1_people_note_done(note, key)` | `people_records.manage`: marks a note done |
+
+Linking needs `people_records.manage` **and** the PR or Admin role; the
+person JSON gains `account`, `notes` and `can_link`. Notes cannot be
+changed except to mark them done, and are never deleted.
+
+Each morning at 08:20 Dubai (`yorks-people-my-reminders`) every linked,
+active person whose own documents expired or expire within 60 days gets
+`people_my_documents_overdue` or `people_my_documents_due`, opening My
+Yorks, only when that set changed since their last reminder.
+
+My Yorks shows the record when `YORKS_V1_PEOPLE_RECORDS` is on: Me,
+Work and Settings tabs on phone and tablet, two columns on desktop.
+
 ## Release and rollback
 
 1. Apply `20261114120000_people_records_foundation.sql` (additive,
@@ -246,9 +275,16 @@ a folder of scans at once; Company documents has the same button.
 2. Load the tracker through `v1_people_import` as an Admin, from a
    reviewed script. The payload holds personal data and is never committed.
 3. Build with `YORKS_V1_PEOPLE_RECORDS=true`.
+4. My Yorks (section 54): apply `20261114230000_people_my_record.sql`
+   (additive, repeatable) and redeploy `send-push` so the two new
+   notification links open My Yorks and the person's record. No account
+   is linked until HR/PRO links it.
 
 Rollback: build with the flag off, and set the two catalogue rows to
 `is_assignable = false` if access must close at once. Keep every row.
+For My Yorks: `cron.unschedule('yorks-people-my-reminders')` stops the
+personal reminders; restore the three notification functions from their
+`*_before_my_people` versions. Links and notes stay.
 
 ## Tests
 
@@ -257,6 +293,15 @@ Rollback: build with the flag off, and set the two catalogue rows to
   Procurement, Senior Mechanical Engineer refused), table grants closed,
   save/renew/end, single-current rule, stale versions, idempotent retry,
   import classification and re-import.
+- `supabase/tests/database/yorks_people_my_record.test.sql`: only PR and
+  Admin link (Accountant, Site Engineer, Procurement refused), suggestions,
+  stale version, idempotent retry, one account per person, history and
+  audit; the person reads only their own record, never a whole number,
+  date of birth or unified number; notes notify PR and Admin, are
+  immutable and limited to five a day; the personal reminder is sent once.
+- `test/yorks_my_profile_people_test.dart`: Me, Work and Settings, a note
+  to HR/PRO and its limit, the not-linked and failed states, goldens at
+  390 px (English and Arabic) and desktop.
 - `test/yorks_v1_people_records_test.dart`: reader and export round trip,
   home, record and form at desktop and 360 px (goldens), renew, add,
   refusal in place, end with reason, new and edit person, import preview

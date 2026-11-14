@@ -317,6 +317,38 @@ Deno.test("the document expiry summary opens People or Company documents only", 
   );
 });
 
+Deno.test("a person's own reminder opens My Yorks; a note opens the record", () => {
+  assertEquals(
+    routeFor({
+      ...claim(),
+      eventCode: "people_my_documents_overdue",
+      entityType: "people_my_reminder",
+      moduleRoute: "https://evil.test",
+    }),
+    "/profile",
+  );
+  const note = {
+    ...claim(),
+    eventCode: "people_note_received",
+    entityType: "people_note",
+  };
+  assertEquals(
+    routeFor({
+      ...note,
+      moduleRoute: "/yorks/people/84000000-0000-4000-8000-000000000003",
+    }),
+    "/yorks/people/84000000-0000-4000-8000-000000000003",
+  );
+  assertEquals(
+    routeFor({ ...note, moduleRoute: "/yorks/people/../admin" }),
+    "/yorks/people",
+  );
+  assertEquals(
+    routeFor({ ...note, moduleRoute: "https://evil.test" }),
+    "/yorks/people",
+  );
+});
+
 Deno.test("workflow and module copy uses all supported installation languages", async () => {
   const { moduleEvents, workflowEvents } = await import(
     "./module_catalogue.ts"

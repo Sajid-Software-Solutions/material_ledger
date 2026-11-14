@@ -156,7 +156,14 @@ void main() {
           expect(n.title, isNot('Yorks workflow update'));
           expect(
             n.route,
-            startsWith(code.startsWith('rental_') ? '/rentals' : '/yorks/'),
+            startsWith(
+              code.startsWith('rental_')
+                  ? '/rentals'
+                  // A person's own document reminder opens My Yorks.
+                  : code.startsWith('people_my_documents_')
+                  ? '/profile'
+                  : '/yorks/',
+            ),
           );
           expect(n.body, isNotEmpty);
           expect(n.isUrgent, code.endsWith('_overdue'));
