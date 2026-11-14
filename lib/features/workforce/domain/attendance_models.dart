@@ -1193,6 +1193,18 @@ final class AttendancePlaceProject {
   String get label => ref.isEmpty ? name : '$ref · $name';
 }
 
+/// The workshop's place name. Like a project name it is data, stored once:
+/// the Workshop In-Charge's attendance opens the internal place with this
+/// key (`location:workshop`), opening it the first time
+/// (PRODUCT_DECISIONS section 58).
+const attendanceWorkshopPlace = 'Workshop';
+
+/// The key `v1_wf_open_place` gives an internal place, without its
+/// `location:` prefix: the name trimmed, single-spaced and lower case. Two
+/// names with the same key are the same place.
+String attendanceLocationKey(String name) =>
+    name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
 /// An internal location (workshop, store, camp) with its shared sheet.
 final class AttendancePlaceLocation {
   const AttendancePlaceLocation({

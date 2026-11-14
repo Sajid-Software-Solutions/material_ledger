@@ -121,7 +121,7 @@ presentation only; the server decides every right):
 | Site Engineer | none: one Attendance screen, also in the phone bottom bar | Attendance |
 | Project Engineer, Senior Mechanical Engineer, Project Manager | My sites · Take attendance · Month · Month confirmation | My sites |
 | Document Controller | Sites · Month | Sites |
-| Workshop In-Charge | Workshop · Month · Time sheet | Workshop: the workshop's day by default, a project when he chooses one |
+| Workshop In-Charge | Workshop · Month · Time sheet | Workshop: the workshop's day by default (the place keyed `location:workshop`, opened the first time if nobody has), a project when he chooses one |
 | Accountant | Overview · Employees · Time sheets · Attendance | Overview |
 | HR/PRO, Admin | Overview · Employees · Time sheets · Attendance · Confirm | Overview |
 
@@ -131,10 +131,11 @@ sheets links open Attendance, and the Workshop In-Charge's Workforce home
 opens the Workshop. Month confirmation stays reachable from a reminder for
 anyone the server lets confirm. Goldens: `test/goldens/attendance_roles_*`.
 
-With the Workforce Center on (`YORKS_V1_WORKFORCE_CENTER`, as production
-runs), `/yorks/workforce` is the Center (My work, Crew requests, Crews), and
-the Overview, My sites or Sites tab is the **Center** tab. Every role keeps
-its first screen and still reaches the Center:
+If the Workforce Center is turned on again (`YORKS_V1_WORKFORCE_CENTER`;
+production builds keep it off, section 50), `/yorks/workforce` is the Center
+(My work, Crew requests, Crews), and the Overview, My sites or Sites tab is
+the **Center** tab. Every role keeps its first screen and still reaches the
+Center:
 
 - a link naming a Center view (`/yorks/workforce?view=requests`, as the
   overdue-request notification and the buttons below use) always opens the
