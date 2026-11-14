@@ -1468,9 +1468,16 @@ void main() {
       String location,
       String name, {
       YorksV1Role? role,
+      YorksV1FeatureFlags? featureFlags,
     }) async {
       _size(tester, size);
-      await _pump(tester, _FakeRpc(handlers), location, role: role);
+      await _pump(
+        tester,
+        _FakeRpc(handlers),
+        location,
+        role: role,
+        featureFlags: featureFlags,
+      );
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/attendance_v2_$name.png'),
@@ -1554,6 +1561,48 @@ void main() {
         expect(
           find.byKey(const ValueKey('attendance-needs-look')),
           findsNothing,
+        );
+      });
+
+      // As production runs, with the Workforce Center on: the office's My
+      // work with today's figures and what needs a look.
+      testWidgets('$name office, Center on', (tester) async {
+        await shot(
+          tester,
+          size,
+          {
+            'v1_wf_get_overview': (_) => overview(),
+            'v1_wf_list_requests': (_) => {
+              'today': _date,
+              'can_request': true,
+              'requests': <Object>[],
+            },
+          },
+          RoutePaths.yorksV1Workforce,
+          '${name}_center_office',
+          featureFlags: const YorksV1FeatureFlags(
+            foundation: true,
+            projects: true,
+            boq: true,
+            excel: true,
+            requests: true,
+            arrangement: true,
+            logistics: true,
+            returnsDocuments: true,
+            documents: true,
+            workforce: true,
+            workforceAttendanceV2: true,
+            workforceCenter: true,
+          ),
+        );
+        expect(find.text('Workforce Center'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('attendance-kpi-working-today')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('attendance-needs-look')),
+          findsOneWidget,
         );
       });
     }

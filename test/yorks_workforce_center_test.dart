@@ -348,6 +348,7 @@ Future<GoRouter> _pump(
   _FakeRpc rpc,
   String location, {
   YorksV1FeatureFlags flags = _flags,
+  YorksV1Role? role,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -405,6 +406,7 @@ Future<GoRouter> _pump(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+        yorksV1CurrentRoleProvider.overrideWithValue(role),
         yorksV1FeatureFlagsProvider.overrideWithValue(flags),
         yorksAttendanceRepositoryProvider.overrideWithValue(
           YorksAttendanceRepository(
@@ -480,6 +482,47 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.path,
       '/yorks/workforce',
     );
+  });
+
+  testWidgets('the office sees what needs a look on My work; engineers '
+      'see their Sites', (tester) async {
+    _size(tester, const Size(1280, 900));
+    for (final (role, office) in [
+      (YorksV1Role.accountant, true),
+      (YorksV1Role.pr, true),
+      (null, true),
+      (YorksV1Role.projectEngineer, false),
+    ]) {
+      await tester.pumpWidget(const SizedBox());
+      final rpc = _FakeRpc({
+        'v1_wf_get_overview': (_) => _overview(),
+        'v1_wf_list_requests': (_) => _register([]),
+      });
+      await _pump(tester, rpc, RoutePaths.yorksV1Workforce, role: role);
+      expect(
+        find.byKey(const ValueKey('attendance-needs-look')),
+        office ? findsOneWidget : findsNothing,
+        reason: '$role',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('workforce-center-view-crews')),
+          matching: find.textContaining(office ? 'Places' : 'Sites'),
+        ),
+        findsOneWidget,
+        reason: '$role',
+      );
+      // Crews (Places or Sites) always shows it beside the activity feed.
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('workforce-center-view-crews')),
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-needs-look')),
+        office ? findsOneWidget : findsNothing,
+        reason: '$role',
+      );
+    }
   });
 
   testWidgets('the notification link opens the Crew requests view', (

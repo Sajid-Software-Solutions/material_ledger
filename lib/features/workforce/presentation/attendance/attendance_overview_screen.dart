@@ -376,6 +376,8 @@ class _OverviewBody extends ConsumerWidget {
             myWorkCount: myWorkCount,
             requestCount: register?.open ?? 0,
             crewCount: crews.length,
+            // The places table's own name: Sites for engineers.
+            crewsLabel: AS.t(layout.isOffice ? AS.crews : AS.sites, language),
             onView: onView,
           ),
           switch (view) {
@@ -393,7 +395,10 @@ class _OverviewBody extends ConsumerWidget {
             ),
             WorkforceCenterView.crews => crewsCard,
           },
-          if (view == WorkforceCenterView.crews) lowerCards,
+          // The office's My work also shows what needs a look.
+          if (view == WorkforceCenterView.crews ||
+              (layout.isOffice && view == WorkforceCenterView.myWork))
+            lowerCards,
         ],
       ],
     );
@@ -409,6 +414,7 @@ class _CenterViewTabs extends StatelessWidget {
     required this.myWorkCount,
     required this.requestCount,
     required this.crewCount,
+    required this.crewsLabel,
     this.onView,
   });
 
@@ -417,6 +423,7 @@ class _CenterViewTabs extends StatelessWidget {
   final int myWorkCount;
   final int requestCount;
   final int crewCount;
+  final String crewsLabel;
   final ValueChanged<WorkforceCenterView>? onView;
 
   @override
@@ -453,11 +460,7 @@ class _CenterViewTabs extends StatelessWidget {
             requestCount,
           ),
           const SizedBox(width: 8),
-          tab(
-            WorkforceCenterView.crews,
-            CRS.t(CRS.viewCrews, language),
-            crewCount,
-          ),
+          tab(WorkforceCenterView.crews, crewsLabel, crewCount),
         ],
       ),
     );
