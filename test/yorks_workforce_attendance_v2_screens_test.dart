@@ -487,7 +487,7 @@ void main() {
       );
       expect(find.byKey(const ValueKey('crew-doc-status-w1')), findsOneWidget);
       expect(
-        find.byTooltip('Documents expired. Ask PR to renew them.'),
+        find.byTooltip('Documents expired. Ask HR/PRO to renew them.'),
         findsOneWidget,
       );
       await expectLater(
