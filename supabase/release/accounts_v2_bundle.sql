@@ -1,7 +1,7 @@
 -- =============================================================================
 -- R39 Accounts Workspace V2 — bundled migration apply script
 -- =============================================================================
--- Generated from the 34 V2 migration files, concatenated in dependency order.
+-- Generated from the 35 V2 migration files, concatenated in dependency order.
 -- Purpose: apply all V2 database objects in ONE paste in the Supabase SQL
 -- editor, instead of running the files by hand.
 --
@@ -40,7 +40,7 @@ BEGIN;
 
 
 -- #############################################################################
--- FILE 1 / 34 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
+-- FILE 1 / 35 : 20261105094500_accounts_v2_p1_dimension_claim_cap.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P1: dimension claim cap and single eligible source
@@ -260,7 +260,7 @@ revoke all on function public.v1_accounts_validate_claim_lines(uuid, uuid, jsonb
 
 
 -- #############################################################################
--- FILE 2 / 34 : 20261105101500_accounts_v2_p2_item_breakdown.sql
+-- FILE 2 / 35 : 20261105101500_accounts_v2_p2_item_breakdown.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 1): item-quantity billing foundation
@@ -504,7 +504,7 @@ revoke all on function public.v1_accounts_progress_eligible_amount(uuid)
 
 
 -- #############################################################################
--- FILE 3 / 34 : 20261105103000_accounts_v2_p2_save_setup.sql
+-- FILE 3 / 35 : 20261105103000_accounts_v2_p2_save_setup.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P2 (part 2): save-setup command with carry-forward
@@ -801,7 +801,7 @@ grant execute on function public.v1_save_project_commercial_setup(uuid, integer,
 
 
 -- #############################################################################
--- FILE 4 / 34 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
+-- FILE 4 / 35 : 20261105110000_accounts_v2_p3_claim_workbench_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 1): claim workbench read + reopen
@@ -1010,7 +1010,7 @@ grant execute on function public.v1_reopen_client_claim(uuid, uuid, integer, tex
 
 
 -- #############################################################################
--- FILE 5 / 34 : 20261105113000_accounts_v2_p3_invoice_issue.sql
+-- FILE 5 / 35 : 20261105113000_accounts_v2_p3_invoice_issue.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2a): invoice numbering, issue, document
@@ -1300,7 +1300,7 @@ revoke all on function public.v1_accounts_build_invoice_document(uuid, uuid, tex
 
 
 -- #############################################################################
--- FILE 6 / 34 : 20261105120000_accounts_v2_p3_invoice_revise.sql
+-- FILE 6 / 35 : 20261105120000_accounts_v2_p3_invoice_revise.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2b): invoice revision (R.n)
@@ -1530,7 +1530,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 7 / 34 : 20261105130000_accounts_v2_p3_save_workbench.sql
+-- FILE 7 / 35 : 20261105130000_accounts_v2_p3_save_workbench.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part 2c): save claim workbench
@@ -1753,7 +1753,7 @@ grant execute on function public.v1_save_claim_workbench(uuid, text, date, date,
 
 
 -- #############################################################################
--- FILE 8 / 34 : 20261105140000_accounts_v2_p4_company_settings.sql
+-- FILE 8 / 35 : 20261105140000_accounts_v2_p4_company_settings.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part a): company letterhead/bank settings (D9)
@@ -1870,7 +1870,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 9 / 34 : 20261105150000_accounts_v2_p4_workspace.sql
+-- FILE 9 / 35 : 20261105150000_accounts_v2_p4_workspace.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part b): Summary workspace projection
@@ -2086,7 +2086,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 10 / 34 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
+-- FILE 10 / 35 : 20261105160000_accounts_v2_p6_commercial_setup_read.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part a): commercial-setup read
@@ -2269,7 +2269,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 11 / 34 : 20261105170000_accounts_v2_p8_pdc_register.sql
+-- FILE 11 / 35 : 20261105170000_accounts_v2_p8_pdc_register.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P8: project-wide cheque (PDC) register read
@@ -2347,7 +2347,7 @@ grant execute on function public.v1_list_project_client_pdcs(uuid)
 
 
 -- #############################################################################
--- FILE 12 / 34 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
+-- FILE 12 / 35 : 20261106120000_accounts_v2_p7_invoice_document_pages.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P7 (part b): invoice document summary pages
@@ -2535,7 +2535,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 13 / 34 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
+-- FILE 13 / 35 : 20261106140000_accounts_v2_p4_workspace_step_detail.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4 (part c): enrich the Summary workspace steps
@@ -2807,7 +2807,7 @@ grant execute on function public.v1_get_project_accounts_workspace(uuid) to auth
 
 
 -- #############################################################################
--- FILE 14 / 34 : 20261106150000_accounts_v2_p3_claim_payable.sql
+-- FILE 14 / 35 : 20261106150000_accounts_v2_p3_claim_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3 (part c): claim payable figures
@@ -2962,7 +2962,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 
 
 -- #############################################################################
--- FILE 15 / 34 : 20261106160000_accounts_v2_p6_commercial_parties.sql
+-- FILE 15 / 35 : 20261106160000_accounts_v2_p6_commercial_parties.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part b): contract parties on the setup read
@@ -3163,7 +3163,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 16 / 34 : 20261106170000_accounts_v2_p6_contract_references.sql
+-- FILE 16 / 35 : 20261106170000_accounts_v2_p6_contract_references.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part c): editable contract references
@@ -3437,7 +3437,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 17 / 34 : 20261106180000_accounts_v2_p6_retention.sql
+-- FILE 17 / 35 : 20261106180000_accounts_v2_p6_retention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part d): retention percent (display only)
@@ -3718,7 +3718,7 @@ grant execute on function public.v1_get_project_commercial_setup(uuid)
 
 
 -- #############################################################################
--- FILE 18 / 34 : 20261106190000_accounts_v2_p6_variations.sql
+-- FILE 18 / 35 : 20261106190000_accounts_v2_p6_variations.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part e): variations (VO) register
@@ -3846,7 +3846,7 @@ grant execute on function public.v1_save_accounts_variation(
 
 
 -- #############################################################################
--- FILE 19 / 34 : 20261106200000_accounts_v2_p6_retention_payable.sql
+-- FILE 19 / 35 : 20261106200000_accounts_v2_p6_retention_payable.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part f): retention hold-back on payable
@@ -6319,7 +6319,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 20 / 34 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
+-- FILE 20 / 35 : 20261106210000_accounts_v2_p6_claim_retention_preview.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P6 (part g): claim side-panel retention preview
@@ -6488,7 +6488,7 @@ grant execute on function public.v1_get_claim_workbench(uuid, uuid) to authentic
 
 
 -- #############################################################################
--- FILE 21 / 34 : 20261107100000_accounts_v2_p4_workspace_attention.sql
+-- FILE 21 / 35 : 20261107100000_accounts_v2_p4_workspace_attention.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P4: what the workspace says needs attention
@@ -6776,7 +6776,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 22 / 34 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
+-- FILE 22 / 35 : 20261107103000_accounts_v2_p5_supplier_delivery_options.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: confirmed deliveries a supplier bill can cite
@@ -6844,7 +6844,7 @@ grant execute on function public.v1_list_supplier_bill_delivery_options(uuid)
 
 
 -- #############################################################################
--- FILE 23 / 34 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
+-- FILE 23 / 35 : 20261107110000_accounts_v2_p5_document_upload_targets.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P5: only offer records a person may attach a file to
@@ -6989,7 +6989,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 24 / 34 : 20261107113000_accounts_v2_p3_workbench_suggestions.sql
+-- FILE 24 / 35 : 20261107113000_accounts_v2_p3_workbench_suggestions.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — P3: show a site progress suggestion on the workbench
@@ -7158,7 +7158,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 25 / 34 : 20261107120000_accounts_v2_office_receipts_total.sql
+-- FILE 25 / 35 : 20261107120000_accounts_v2_office_receipts_total.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — office: Receipts & PDC total counts money once
@@ -7679,7 +7679,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 26 / 34 : 20261107130000_accounts_v2_owner_contract_access.sql
+-- FILE 26 / 35 : 20261107130000_accounts_v2_owner_contract_access.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — owner decisions of 7 November 2026
@@ -7791,7 +7791,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 27 / 34 : 20261107133000_accounts_v2_client_corrections.sql
+-- FILE 27 / 35 : 20261107133000_accounts_v2_client_corrections.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — easy to reverse, easy to edit (client money)
@@ -8271,7 +8271,7 @@ grant execute on function public.v1_update_client_pdc(uuid,uuid,integer,text,dat
 
 
 -- #############################################################################
--- FILE 28 / 34 : 20261107140000_accounts_v2_supplier_corrections.sql
+-- FILE 28 / 35 : 20261107140000_accounts_v2_supplier_corrections.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — easy to reverse, easy to edit (supplier bills)
@@ -8828,7 +8828,7 @@ grant execute on function public.v1_reopen_supplier_bill(uuid, uuid, integer, te
 
 
 -- #############################################################################
--- FILE 29 / 34 : 20261107150000_accounts_v2_workbench_claim_values.sql
+-- FILE 29 / 35 : 20261107150000_accounts_v2_workbench_claim_values.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — the claim workbench keeps claim money to people
@@ -9411,7 +9411,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 30 / 34 : 20261107160000_accounts_v2_material_boq_links.sql
+-- FILE 30 / 35 : 20261107160000_accounts_v2_material_boq_links.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — link Material Supply items to BOQ folders
@@ -9788,7 +9788,7 @@ grant execute on function public.v1_save_accounts_material_boq_links(uuid, jsonb
 
 
 -- #############################################################################
--- FILE 31 / 34 : 20261108100000_accounts_v2_excel_rounding_and_dates.sql
+-- FILE 31 / 35 : 20261108100000_accounts_v2_excel_rounding_and_dates.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — Excel rounding, business dates and the signed
@@ -13018,7 +13018,7 @@ end;
 $function$;
 
 -- #############################################################################
--- FILE 32 / 34 : 20261109100000_accounts_v2_claim_rights_global_roles.sql
+-- FILE 32 / 35 : 20261109100000_accounts_v2_claim_rights_global_roles.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — owner decision of 9 November 2026
@@ -13139,7 +13139,7 @@ $$;
 
 
 -- #############################################################################
--- FILE 33 / 34 : 20261109110000_accounts_v2_invoice_item_breakdown.sql
+-- FILE 33 / 35 : 20261109110000_accounts_v2_invoice_item_breakdown.sql
 -- #############################################################################
 
 -- R39 Accounts Workspace V2 — the invoice's per-building breakdown, as the
@@ -13618,7 +13618,7 @@ revoke all on function public.v1_accounts_build_invoice_document(uuid, uuid, tex
 
 
 -- #############################################################################
--- FILE 34 / 34 : 20261111130000_accounts_scope_keep_global_claim_rights.sql
+-- FILE 34 / 35 : 20261111130000_accounts_scope_keep_global_claim_rights.sql
 -- #############################################################################
 
 -- R39 Accounts — keep both owner decisions in the Accounts scope function
@@ -13713,6 +13713,94 @@ begin
 end;
 $$;
 
+
+
+-- #############################################################################
+-- FILE 35 / 35 : 20261111140000_accounts_v2_revoke_anon_rpc_execute.sql
+-- #############################################################################
+
+-- R39 Accounts V2 — remove anonymous EXECUTE from nine Accounts RPCs.
+--
+-- Why: the Accounts V2 P2/P3 migrations of 5 November 2026 created these
+-- functions and granted EXECUTE to `authenticated`, but never revoked the
+-- grants every new function receives. PostgreSQL gives PUBLIC EXECUTE on a new
+-- function, and Supabase's default privileges for `postgres` in `public` add
+-- explicit EXECUTE for `anon`, `authenticated` and `service_role`. Later
+-- `create or replace` redefinitions keep that ACL. So `anon` could call:
+--
+--   v1_save_project_commercial_setup     20261105103000_accounts_v2_p2_save_setup
+--   v1_get_claim_workbench               20261105110000_accounts_v2_p3_claim_workbench_read
+--   v1_reopen_client_claim               20261105110000_accounts_v2_p3_claim_workbench_read
+--   v1_save_project_invoice_settings     20261105113000_accounts_v2_p3_invoice_issue
+--   v1_issue_client_invoice              20261105113000_accounts_v2_p3_invoice_issue
+--   v1_get_client_invoice_document       20261105113000_accounts_v2_p3_invoice_issue
+--   v1_preview_client_invoice_document   20261105113000_accounts_v2_p3_invoice_issue
+--   v1_revise_client_invoice             20261105120000_accounts_v2_p3_invoice_revise
+--   v1_save_claim_workbench              20261105130000_accounts_v2_p3_save_workbench
+--
+-- Each one already rejects a caller without a signed-in active user
+-- (`v1_accounts_require_capability` raises 42501), so this is defence in depth,
+-- not a fix for an open hole. Anonymous callers keep getting SQLSTATE 42501;
+-- only the message changes, to PostgreSQL's own "permission denied".
+--
+-- What changes: EXECUTE is revoked from PUBLIC and `anon` on exactly these
+-- nine signatures. `authenticated` and `service_role` keep the explicit grants
+-- they hold today; no function body, table, row, policy or capability changes.
+--
+-- Idempotent: revoking a privilege that is not held is a no-op, so the file
+-- (and the release bundle that contains it) can be re-run. The closing check
+-- rolls the whole transaction back if any of the nine is still callable by
+-- `anon`, or if `authenticated` has lost EXECUTE on any of them.
+--
+-- Rollback (restores the previous ACL exactly; not recommended):
+--   grant execute on function <signature> to public, anon;
+-- for each signature below.
+
+revoke execute on function public.v1_save_project_commercial_setup(uuid, integer, jsonb, text, uuid)
+  from public, anon;
+revoke execute on function public.v1_get_claim_workbench(uuid, uuid)
+  from public, anon;
+revoke execute on function public.v1_reopen_client_claim(uuid, uuid, integer, text, uuid)
+  from public, anon;
+revoke execute on function public.v1_save_project_invoice_settings(uuid, text, text, uuid, text, integer, uuid)
+  from public, anon;
+revoke execute on function public.v1_issue_client_invoice(uuid, uuid, integer, text, date, date, uuid)
+  from public, anon;
+revoke execute on function public.v1_get_client_invoice_document(uuid, uuid)
+  from public, anon;
+revoke execute on function public.v1_preview_client_invoice_document(uuid, uuid)
+  from public, anon;
+revoke execute on function public.v1_revise_client_invoice(uuid, uuid, integer, text, uuid)
+  from public, anon;
+revoke execute on function public.v1_save_claim_workbench(uuid, text, date, date, jsonb, uuid[], text, uuid)
+  from public, anon;
+
+do $$
+declare
+  v_signature text;
+  v_oid oid;
+begin
+  foreach v_signature in array array[
+    'public.v1_save_project_commercial_setup(uuid, integer, jsonb, text, uuid)',
+    'public.v1_get_claim_workbench(uuid, uuid)',
+    'public.v1_reopen_client_claim(uuid, uuid, integer, text, uuid)',
+    'public.v1_save_project_invoice_settings(uuid, text, text, uuid, text, integer, uuid)',
+    'public.v1_issue_client_invoice(uuid, uuid, integer, text, date, date, uuid)',
+    'public.v1_get_client_invoice_document(uuid, uuid)',
+    'public.v1_preview_client_invoice_document(uuid, uuid)',
+    'public.v1_revise_client_invoice(uuid, uuid, integer, text, uuid)',
+    'public.v1_save_claim_workbench(uuid, text, date, date, jsonb, uuid[], text, uuid)'
+  ] loop
+    v_oid := v_signature::regprocedure;
+    if has_function_privilege('anon', v_oid, 'EXECUTE') then
+      raise exception 'R39_ACCOUNTS_ANON_EXECUTE_REMAINS: %', v_signature;
+    end if;
+    if not has_function_privilege('authenticated', v_oid, 'EXECUTE') then
+      raise exception 'R39_ACCOUNTS_AUTHENTICATED_EXECUTE_MISSING: %', v_signature;
+    end if;
+  end loop;
+end;
+$$;
 -- =============================================================================
 COMMIT;
 -- End of bundle. If COMMIT succeeded, all V2 migrations are applied.
