@@ -152,11 +152,12 @@ select lives_ok(
       0, '6d030000-0000-4000-8000-000000000001')$$,
   'A Site Engineer keeps a sheet for a project they are on, with nobody setting it up'
 );
-select lives_ok(
+select throws_ok(
   $$select public.v1_wf_save_crew(
       '{"name":"MP store","kind":"workshop","work_label":"Store","needs_confirmation":true,"shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
       0, '6d030000-0000-4000-8000-000000000002')$$,
-  'A Site Engineer keeps a sheet for an internal location'
+  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
+  'A Site Engineer does not create an internal sheet (PRODUCT_DECISIONS 58)'
 );
 select is(
   (public.v1_wf_list_crews() ->> 'can_create_crew')::boolean, true,
@@ -175,11 +176,11 @@ select is(
   'Procurement is not offered New crew'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000013', 'accountant');
-select throws_ok(
+select lives_ok(
   $$select public.v1_wf_save_crew(
-      '{"name":"MP accountant","kind":"workshop","shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
+      '{"name":"MP accountant","kind":"workshop","needs_confirmation":false,"shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
       0, '6d030000-0000-4000-8000-000000000004')$$,
-  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED', 'The Accountant does not keep sheets'
+  'The Accountant keeps sheets as HR/PRO does, internal ones too'
 );
 
 reset role;
@@ -210,6 +211,12 @@ select lives_ok(
       0, '6d030000-0000-4000-8000-000000000007')$$,
   'Admin keeps a sheet for any project'
 );
+select lives_ok(
+  $$select public.v1_wf_save_crew(
+      '{"name":"MP store","kind":"workshop","work_label":"Store","needs_confirmation":true,"shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
+      0, '6d030000-0000-4000-8000-000000000008')$$,
+  'Admin keeps a sheet for an internal location'
+);
 
 reset role;
 select set_config('mp.a', (select id::text from public.v1_workforce_teams where team_name = 'MP site A'), true);
@@ -222,16 +229,21 @@ set local role authenticated;
 
 select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
 select is(
-  pg_temp.access(current_setting('mp.store')::uuid)
+  pg_temp.access(current_setting('mp.a')::uuid)
     - 'officer',
   '{"view": true, "take": true, "confirm": false, "manage": true, "keeper": true}'::jsonb,
   'The keeper sees, takes and manages their sheet, and does not confirm it'
+);
+select is(
+  (pg_temp.access(current_setting('mp.store')::uuid) ->> 'view')::boolean,
+  false,
+  'A Site Engineer does not see an internal sheet'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
 select is(
   (pg_temp.access(current_setting('mp.store')::uuid) ->> 'view')::boolean,
   false,
-  'Another engineer does not see someone else''s location sheet'
+  'A Project Engineer does not see an internal sheet'
 );
 select is(
   (pg_temp.access(current_setting('mp.a')::uuid) ->> 'take')::boolean,
@@ -250,9 +262,9 @@ select is(
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000013', 'accountant');
 select is(
-  (pg_temp.access(current_setting('mp.a')::uuid) ->> 'take')::boolean,
-  false,
-  'The Accountant reads and does not take attendance'
+  pg_temp.access(current_setting('mp.a')::uuid) - 'keeper',
+  '{"view": true, "take": true, "confirm": false, "manage": false, "officer": false}'::jsonb,
+  'The Accountant takes attendance as HR/PRO does, and neither confirms, reopens nor changes the sheet'
 );
 
 -- Who confirms the month ----------------------------------------------------
@@ -314,6 +326,8 @@ select lives_ok(
       '6d030000-0000-4000-8000-000000000011')$$, current_setting('mp.a')),
   'Labourers join the site sheet'
 );
+-- HR/PRO keeps the store (an internal place).
+select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
 select lives_ok(
   format($$select public.v1_wf_set_crew_members(%L::uuid, array[
       '6d020000-0000-4000-8000-000000000001',
@@ -322,6 +336,7 @@ select lives_ok(
       '6d030000-0000-4000-8000-000000000012')$$, current_setting('mp.store')),
   'The same labourer joins the store sheet without leaving the site'
 );
+select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
 select throws_ok(
   format($$select public.v1_wf_set_crew_members(%L::uuid, array[
       '6d020000-0000-4000-8000-000000000006']::uuid[], null,
@@ -361,6 +376,7 @@ select lives_ok(
     current_setting('mp.a'), current_setting('mp.day')),
   'The site records the morning'
 );
+select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
 -- The store: worker 1 is not required (present at the site) and worker 3 is.
 select throws_ok(
   format($$select public.v1_wf_save_day(%L::uuid, %L::date, jsonb_build_array(

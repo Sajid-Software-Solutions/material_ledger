@@ -2753,6 +2753,51 @@ BOQ, requests, stock or returns. The page around it was wrong or noisy:
 
 No server or permission change.
 
+## 58. Attendance by role (owner decisions, 14 November 2026)
+
+The owner asked for attendance shaped around each job: "for the site
+engineers ... just select a project, add workers and take attendance";
+Project Engineers see and take attendance on their sites; the workshop "is
+managed only by one guy"; HR/PRO, the Accountant and the owner view, edit
+and above all see the overview, the monthly sheet and each employee. The
+owner approved the proposal with these answers:
+
+- **The Accountant keeps attendance as HR/PRO does.** Opens places, adds
+  labourers and corrects lines at every place, with a reason when the line
+  is someone else's. The Accountant does not confirm or reopen a month,
+  keep the public-holiday calendar, or change the settings of a sheet the
+  Accountant did not open. This supersedes "the Accountant reads" in
+  sections 37, 46 and 52 for attendance only; the Accountant gains no
+  project, BOQ, request, stock or project-team authority and is still never
+  a technical project member.
+- **Internal places belong to the workshop.** The workshop and every other
+  internal place (store, camp) are kept only by the Workshop In-Charge,
+  HR/PRO, the Accountant and Admin, and only they add a new internal place.
+  Senior Mechanical Engineers, Project Managers and Document Controllers
+  read them; Site and Project Engineers no longer see them, including a
+  sheet they once created. This supersedes section 51's "anyone who keeps
+  attendance can add a new internal location". Lines saved before stay
+  exactly as saved.
+- **The Workshop In-Charge also works on projects.** His attendance opens on
+  the workshop by default and he may choose a project instead, as today.
+- **No notes are added.** Attendance stays simple: no day note and no new
+  note field.
+- **Senior Mechanical Engineers and Project Managers** get the Project
+  Engineer screens over every project (the Senior Mechanical Engineer
+  confirms); Document Controllers read.
+- **Screens by role** (later pull requests): Site Engineers get one
+  attendance screen with no tabs and only their projects; Project Engineers
+  land on My sites with Take attendance, Month and Confirm; the Workshop
+  In-Charge lands on the workshop with Month and Time sheet; HR/PRO, the
+  Accountant and Admin land on the Overview with Employees (the month by
+  labourer and each labourer's time sheet), Time sheets, Attendance and,
+  for Admin and HR/PRO, Confirm.
+
+Unchanged: Site and Project Engineers keep attendance on projects they are
+on, who confirms and reopens a month, hours, the month lock and staff never
+on sheets. Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Attendance by role. Migration `20261115090000_workforce_attendance_by_role.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

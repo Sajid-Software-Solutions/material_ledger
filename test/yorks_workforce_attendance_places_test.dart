@@ -170,8 +170,13 @@ Map<String, Object?> _row(
   'regular_minutes': 480,
 };
 
-Map<String, Object?> _places({bool withCrew = true, bool second = true}) => {
+Map<String, Object?> _places({
+  bool withCrew = true,
+  bool second = true,
+  bool addLocation = true,
+}) => {
   'can_take': true,
+  'can_add_location': addLocation,
   'projects': [
     {
       'id': 'p1',
@@ -379,6 +384,33 @@ void main() {
       'p_project_id': null,
       'p_location': 'Main Store',
     });
+  });
+
+  testWidgets('only internal-place keepers are offered a new place', (
+    tester,
+  ) async {
+    // Site and Project Engineers keep projects only (PRODUCT_DECISIONS 58).
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) => _places(withCrew: false, addLocation: false),
+      'v1_wf_open_place': (_) => _place(),
+      'v1_wf_get_day': (_) => _day(),
+    });
+    await _pump(tester, rpc, RoutePaths.yorksV1WorkforceAttendance);
+    await tester.enterText(
+      find.byKey(const ValueKey('attendance-place-search')),
+      'Main Store',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('attendance-place-add')), findsNothing);
+    expect(
+      find.text(
+        'Not a project? Type a name such as Workshop, Store or Camp to add it.',
+      ),
+      findsNothing,
+    );
+    expect(find.text('No project or place matches.'), findsOneWidget);
+    expect(rpc.count('v1_wf_open_place'), 0);
   });
 
   testWidgets('added workers start present at 06:30, no overtime, Tower A', (
