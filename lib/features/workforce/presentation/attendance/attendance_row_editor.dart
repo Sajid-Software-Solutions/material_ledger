@@ -12,6 +12,7 @@ import '../../domain/attendance_models.dart';
 import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
 import 'attendance_inputs.dart';
+import 'attendance_place_picker.dart';
 
 enum AttendanceEditorMove { previous, next, close }
 
@@ -95,6 +96,14 @@ class _RowEditorState extends State<_RowEditor> {
   final _note = TextEditingController();
   final _project = TextEditingController();
 
+  /// The row's building, at a project place.
+  String? _scopeId;
+  String? _scopeName;
+
+  bool get _projectPlace =>
+      widget.day.crew.placeKind == 'project' &&
+      widget.day.crew.buildings.isNotEmpty;
+
   AppLanguage get _language => widget.language;
 
   @override
@@ -118,6 +127,8 @@ class _RowEditorState extends State<_RowEditor> {
     _out.text = formatAttendanceTimeInput(_row.finish);
     _note.text = _row.overtimeNote ?? '';
     _project.text = _row.workLabel ?? widget.day.crew.workLabel;
+    _scopeId = _row.workScopeId;
+    _scopeName = _row.workScopeName;
   }
 
   @override
@@ -147,6 +158,7 @@ class _RowEditorState extends State<_RowEditor> {
     final hasBreak = _pBreak.minutes != null && _pBack.minutes != null;
     final note = _note.text.trim();
     final label = _project.text.trim();
+    final crew = widget.day.crew;
     final draft = AttendanceRow(
       worker: _row.worker,
       status: AttendanceStatus.present,
@@ -154,15 +166,22 @@ class _RowEditorState extends State<_RowEditor> {
       breakStart: hasBreak ? _pBreak.minutes : null,
       breakFinish: hasBreak ? _pBack.minutes : null,
       finish: _pOut.minutes,
-      workProjectId: label == widget.day.crew.workLabel
-          ? (_row.workProjectId ?? widget.day.crew.projectId)
+      // At a place the row is on the place's project, at a building.
+      workProjectId: crew.isPlace
+          ? (crew.projectId ?? _row.workProjectId)
+          : label == crew.workLabel
+          ? (_row.workProjectId ?? crew.projectId)
           : null,
-      workLabel: label.isEmpty ? null : label,
+      workLabel: _projectPlace || label.isEmpty ? null : label,
+      workScopeId: _projectPlace ? _scopeId : _row.workScopeId,
+      workScopeName: _projectPlace ? _scopeName : _row.workScopeName,
       overtimeNote: note.isEmpty ? null : note,
       copied: false,
       changedAfterEntry: _row.changedAfterEntry,
       isMember: _row.isMember,
       elsewhere: _row.elsewhere,
+      updatedBy: _row.updatedBy,
+      updatedByMe: _row.updatedByMe,
     );
     return draft;
   }
@@ -552,13 +571,36 @@ class _RowEditorState extends State<_RowEditor> {
           ),
         ),
         const SizedBox(height: 10),
-        AccountsV2TextField(
-          key: const ValueKey('attendance-editor-project'),
-          label: AS.t(AS.colProject, language),
-          hint: AS.t(AS.projectHint, language),
-          controller: _project,
-          onChanged: (_) => setState(() {}),
-        ),
+        if (_projectPlace) ...[
+          Text(
+            AS.t(AS.colBuilding, language),
+            style: v2Style(12, weight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final building in day.crew.buildings)
+                AttendanceChoiceChip(
+                  key: ValueKey('attendance-editor-building-${building.id}'),
+                  label: attendanceBuildingName(building, language),
+                  selected: _scopeId == building.id,
+                  onPressed: () => setState(() {
+                    _scopeId = building.id;
+                    _scopeName = building.name;
+                  }),
+                ),
+            ],
+          ),
+        ] else
+          AccountsV2TextField(
+            key: const ValueKey('attendance-editor-project'),
+            label: AS.t(AS.colProject, language),
+            hint: AS.t(AS.projectHint, language),
+            controller: _project,
+            onChanged: (_) => setState(() {}),
+          ),
         if (minutes.overtime > 0) ...[
           const SizedBox(height: 10),
           Text(
@@ -609,12 +651,16 @@ class AttendanceGrid extends ConsumerWidget {
     required this.controller,
     required this.language,
     required this.onOpenEditor,
+    this.onPickBuilding,
   });
 
   final AttendanceDayEditState state;
   final AttendanceDayController controller;
   final AppLanguage language;
   final ValueChanged<int> onOpenEditor;
+
+  /// At a project place: the Building column, changed by tapping.
+  final ValueChanged<AttendanceRow>? onPickBuilding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -659,7 +705,12 @@ class AttendanceGrid extends ConsumerWidget {
                     head(AS.t(AS.colOtNormalShort, language), 74, end: true),
                     head(AS.t(AS.colOtHolidayShort, language), 74, end: true),
                     const SizedBox(width: 12),
-                    head(AS.t(AS.colProject, language), 170),
+                    head(
+                      onPickBuilding == null
+                          ? AS.t(AS.colProject, language)
+                          : AS.t(AS.colBuilding, language),
+                      170,
+                    ),
                   ],
                 ),
               ),
@@ -672,6 +723,9 @@ class AttendanceGrid extends ConsumerWidget {
                   onChanged: (row) => controller.setRow(row.worker.id, row),
                   presentOnShift: controller.presentOnShift,
                   onOpenEditor: () => onOpenEditor(i),
+                  onPickBuilding: onPickBuilding == null
+                      ? null
+                      : () => onPickBuilding!(state.rows[i]),
                   onRemove: state.rows[i].isMember
                       ? null
                       : () => controller.removeDayOnly(state.rows[i].worker.id),
@@ -694,6 +748,7 @@ class _GridRow extends StatefulWidget {
     required this.presentOnShift,
     required this.onOpenEditor,
     this.onRemove,
+    this.onPickBuilding,
   });
 
   final AttendanceRow row;
@@ -703,6 +758,7 @@ class _GridRow extends StatefulWidget {
   final AttendanceRow Function(AttendanceRow row) presentOnShift;
   final VoidCallback onOpenEditor;
   final VoidCallback? onRemove;
+  final VoidCallback? onPickBuilding;
 
   @override
   State<_GridRow> createState() => _GridRowState();
@@ -771,10 +827,14 @@ class _GridRowState extends State<_GridRow> {
         finish: finish.minutes,
         workProjectId: widget.row.workProjectId,
         workLabel: widget.row.workLabel,
+        workScopeId: widget.row.workScopeId,
+        workScopeName: widget.row.workScopeName,
         overtimeNote: widget.row.overtimeNote,
         changedAfterEntry: widget.row.changedAfterEntry,
         isMember: widget.row.isMember,
         elsewhere: widget.row.elsewhere,
+        updatedBy: widget.row.updatedBy,
+        updatedByMe: widget.row.updatedByMe,
       ),
     );
   }
@@ -891,8 +951,15 @@ class _GridRowState extends State<_GridRow> {
                         ],
                       ),
                       Text(
-                        row.isMember
-                            ? '${row.worker.number} · ${row.worker.designation}'
+                        row.isMember || day.crew.isPlace
+                            ? [
+                                row.worker.number,
+                                row.worker.designation,
+                                if (!row.updatedByMe && row.updatedBy != null)
+                                  AS.t(AS.savedBy, language, {
+                                    'by': row.updatedBy,
+                                  }),
+                              ].where((part) => part.isNotEmpty).join(' · ')
                             : (row.worker.crewName == null
                                   ? AS.t(AS.labourPool, language)
                                   : AS.t(AS.fromCrew, language, {
@@ -901,7 +968,7 @@ class _GridRowState extends State<_GridRow> {
                         overflow: TextOverflow.ellipsis,
                         style: v2Style(
                           11.5,
-                          color: row.isMember
+                          color: row.isMember || day.crew.isPlace
                               ? AccountsV2Colors.mut
                               : AccountsV2Colors.vio,
                         ),
@@ -995,30 +1062,44 @@ class _GridRowState extends State<_GridRow> {
           number(minutes.normalOvertime, AccountsV2Colors.warn),
           number(minutes.holidayOvertime, AccountsV2Colors.vio),
           const SizedBox(width: 12),
-          SizedBox(
-            width: 170,
-            child: Focus(
-              onFocusChange: (focused) {
-                if (!focused) _commitProject();
-              },
-              child: TextField(
-                controller: _project,
-                enabled: present,
-                style: v2Style(12.5),
-                onSubmitted: (_) => _commitProject(),
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+          if (widget.onPickBuilding != null)
+            SizedBox(
+              width: 170,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: AttendanceBuildingChip(
+                  key: ValueKey('attendance-grid-building-${row.worker.id}'),
+                  label: attendanceRowBuilding(row, day.crew, language),
+                  language: language,
+                  onTap: widget.onPickBuilding,
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: 170,
+              child: Focus(
+                onFocusChange: (focused) {
+                  if (!focused) _commitProject();
+                },
+                child: TextField(
+                  controller: _project,
+                  enabled: present,
+                  style: v2Style(12.5),
+                  onSubmitted: (_) => _commitProject(),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           IconButton(
             tooltip: AS.t(AS.editCrew, language),
             onPressed: widget.onOpenEditor,

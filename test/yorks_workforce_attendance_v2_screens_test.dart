@@ -161,6 +161,12 @@ Map<String, Object?> _day({
   'month': _month(),
 };
 
+/// A row another keeper saved: changing it needs a reason.
+const _savedByOther = <String, Object?>{
+  'updated_by': 'Imran Qureshi',
+  'updated_by_me': false,
+};
+
 final class _FakeRpc implements YorksWorkforceRpcClient {
   _FakeRpc(this.handlers);
 
@@ -365,11 +371,13 @@ void main() {
         'break_finish_minute': 780,
         'finish_minute': 1020,
         'worker': _worker('w1', 'Gul Zaman'),
+        ..._savedByOther,
       },
       {
         'worker_id': 'w2',
         'status': 'A',
         'worker': _worker('w2', 'Waqar Ahmed'),
+        ..._savedByOther,
       },
     ];
     final rpc = _FakeRpc({
@@ -744,11 +752,17 @@ void main() {
   ) async {
     _size(tester, const Size(360, 800));
     final enteredRows = [
-      {'worker_id': 'w1', 'status': 'A', 'worker': _worker('w1', 'Gul Zaman')},
+      {
+        'worker_id': 'w1',
+        'status': 'A',
+        'worker': _worker('w1', 'Gul Zaman'),
+        ..._savedByOther,
+      },
       {
         'worker_id': 'w2',
         'status': 'A',
         'worker': _worker('w2', 'Waqar Ahmed'),
+        ..._savedByOther,
       },
     ];
     final rpc = _FakeRpc({
@@ -1125,8 +1139,8 @@ void main() {
         find.byKey(const ValueKey('attendance-picker-worker-w4')),
       );
       await tester.pumpAndSettle();
-      // Noor Alam stays on the Workshop crew too: nothing to confirm.
-      expect(find.text('W-w4 · Helper · On Workshop crew'), findsOneWidget);
+      // The picker names the worker's company, not crews (section 51).
+      expect(find.text('W-w4 · Helper · Example Manpower LLC'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('attendance-picker-add')));
       await tester.pumpAndSettle();
       expect(

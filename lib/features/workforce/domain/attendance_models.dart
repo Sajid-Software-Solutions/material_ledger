@@ -133,6 +133,8 @@ final class AttendanceCrew {
     this.projectRef,
     this.projectName,
     this.isActive = true,
+    this.placeKind,
+    this.buildings = const [],
   });
 
   factory AttendanceCrew.fromJson(Map<String, dynamic> json) => AttendanceCrew(
@@ -152,6 +154,11 @@ final class AttendanceCrew {
     recordVersion: _i(json['record_version']),
     isActive: json['is_active'] != false,
     access: AttendanceCrewAccess.fromJson(_map(json['access'])),
+    placeKind: _ns(json['place_kind']),
+    buildings: [
+      for (final building in _maps(json['buildings']))
+        AttendanceBuilding.fromJson(building),
+    ],
   );
 
   final String id;
@@ -173,7 +180,49 @@ final class AttendanceCrew {
   final bool isActive;
   final AttendanceCrewAccess access;
 
+  /// `project` or `location` for a place (PRODUCT_DECISIONS section 51);
+  /// null for a crew set up before places.
+  final String? placeKind;
+
+  /// The project's active buildings, Common first.
+  final List<AttendanceBuilding> buildings;
+
   bool get isWorkshop => kind == 'workshop';
+
+  /// One shared sheet for a project or an internal location.
+  bool get isPlace => placeKind != null;
+
+  /// The building a new row starts with: the only building, else none.
+  AttendanceBuilding? get defaultBuilding {
+    final real = buildings.where((b) => !b.isCommon).toList();
+    if (real.length == 1) return real.single;
+    if (real.isEmpty && buildings.length == 1) return buildings.single;
+    return null;
+  }
+}
+
+/// A building of a project, or its Common scope.
+final class AttendanceBuilding {
+  const AttendanceBuilding({
+    required this.id,
+    required this.name,
+    this.kind = 'building',
+  });
+
+  factory AttendanceBuilding.fromJson(Map<String, dynamic> json) =>
+      AttendanceBuilding(
+        id: _s(json['id']),
+        name: _s(json['name']),
+        kind: _s(json['kind']),
+      );
+
+  final String id;
+  final String name;
+
+  /// `common` or `building`.
+  final String kind;
+
+  bool get isCommon => kind == 'common';
 }
 
 final class AttendanceWorker {
@@ -321,11 +370,15 @@ final class AttendanceRow {
     this.finish,
     this.workProjectId,
     this.workLabel,
+    this.workScopeId,
+    this.workScopeName,
     this.overtimeNote,
     this.copied = false,
     this.changedAfterEntry = false,
     this.isMember = true,
     this.elsewhere = const [],
+    this.updatedBy,
+    this.updatedByMe = true,
   });
 
   factory AttendanceRow.fromJson(Map<String, dynamic> json) => AttendanceRow(
@@ -337,6 +390,8 @@ final class AttendanceRow {
     finish: _ni(json['finish_minute']),
     workProjectId: _ns(json['work_project_id']),
     workLabel: _ns(json['work_label']),
+    workScopeId: _ns(json['work_scope_id']),
+    workScopeName: _ns(json['work_scope_name']),
     overtimeNote: _ns(json['overtime_note']),
     copied: _b(json['copied']),
     changedAfterEntry: _b(json['changed_after_entry']),
@@ -345,6 +400,10 @@ final class AttendanceRow {
       for (final other in _maps(json['elsewhere']))
         AttendanceElsewhere.fromJson(other),
     ],
+    updatedBy: _ns(json['updated_by']),
+    // Rows from before places, and rows added on this device, are the
+    // keeper's own.
+    updatedByMe: json['updated_by_me'] != false,
   );
 
   final AttendanceWorker worker;
@@ -355,12 +414,21 @@ final class AttendanceRow {
   final int? finish;
   final String? workProjectId;
   final String? workLabel;
+
+  /// The building (or Common) of the project the row was worked on.
+  final String? workScopeId;
+  final String? workScopeName;
   final String? overtimeNote;
   final bool copied;
   final bool changedAfterEntry;
 
   /// False for a worker added to this day only.
   final bool isMember;
+
+  /// Who last saved this row, and whether that was the signed-in person:
+  /// changing or removing someone else's row needs a reason.
+  final String? updatedBy;
+  final bool updatedByMe;
 
   /// The worker's lines on other sheets that day, from the server.
   final List<AttendanceElsewhere> elsewhere;
@@ -461,11 +529,15 @@ final class AttendanceRow {
         finish: finish,
         workProjectId: workProjectId,
         workLabel: workLabel,
+        workScopeId: workScopeId,
+        workScopeName: workScopeName,
         overtimeNote: overtimeNote,
         copied: copied,
         changedAfterEntry: changedAfterEntry,
         isMember: isMember,
         elsewhere: places,
+        updatedBy: updatedBy,
+        updatedByMe: updatedByMe,
       );
 
   AttendanceRow copyWith({
@@ -480,6 +552,9 @@ final class AttendanceRow {
     String? workProjectId,
     String? workLabel,
     bool clearWork = false,
+    String? workScopeId,
+    String? workScopeName,
+    bool clearScope = false,
     String? overtimeNote,
     bool clearNote = false,
     bool? copied,
@@ -499,11 +574,15 @@ final class AttendanceRow {
       finish: keepTimes ? (finish ?? this.finish) : null,
       workProjectId: clearWork ? null : (workProjectId ?? this.workProjectId),
       workLabel: clearWork ? null : (workLabel ?? this.workLabel),
+      workScopeId: clearScope ? null : (workScopeId ?? this.workScopeId),
+      workScopeName: clearScope ? null : (workScopeName ?? this.workScopeName),
       overtimeNote: clearNote ? null : (overtimeNote ?? this.overtimeNote),
       copied: copied ?? this.copied,
       changedAfterEntry: changedAfterEntry,
       isMember: isMember,
       elsewhere: elsewhere,
+      updatedBy: updatedBy,
+      updatedByMe: updatedByMe,
     );
   }
 
@@ -517,6 +596,7 @@ final class AttendanceRow {
     'finish_minute': finish,
     'work_project_id': workProjectId,
     'work_label': workLabel,
+    'work_scope_id': workScopeId,
     'overtime_note': overtimeNote,
     'copied': copied,
   };
@@ -538,7 +618,22 @@ final class AttendanceRow {
     },
     'is_member': isMember,
     'elsewhere': [for (final other in elsewhere) other.toJson()],
+    'work_scope_name': workScopeName,
+    'updated_by': updatedBy,
+    'updated_by_me': updatedByMe,
   };
+
+  /// The same work as [other]: status, times and where (not the note). The
+  /// server asks for a reason when someone else's row differs in these.
+  bool sameWork(AttendanceRow other) =>
+      status == other.status &&
+      start == other.start &&
+      breakStart == other.breakStart &&
+      breakFinish == other.breakFinish &&
+      finish == other.finish &&
+      workProjectId == other.workProjectId &&
+      workScopeId == other.workScopeId &&
+      (workLabel ?? '') == (other.workLabel ?? '');
 
   /// Compares only what is saved, to tell whether a draft differs.
   bool sameEntry(AttendanceRow other) =>
@@ -548,6 +643,7 @@ final class AttendanceRow {
       breakFinish == other.breakFinish &&
       finish == other.finish &&
       workProjectId == other.workProjectId &&
+      workScopeId == other.workScopeId &&
       (workLabel ?? '') == (other.workLabel ?? '') &&
       (overtimeNote ?? '') == (other.overtimeNote ?? '');
 }
@@ -973,4 +1069,111 @@ enum CrewDocumentStatus {
     }
     return null;
   }
+}
+
+/// A project the signed-in person may keep or read attendance at
+/// (PRODUCT_DECISIONS section 51).
+final class AttendancePlaceProject {
+  const AttendancePlaceProject({
+    required this.id,
+    required this.ref,
+    required this.name,
+    this.buildings = const [],
+    this.crewId,
+    this.canTake = false,
+    this.isMember = false,
+  });
+
+  factory AttendancePlaceProject.fromJson(Map<String, dynamic> json) =>
+      AttendancePlaceProject(
+        id: _s(json['id']),
+        ref: _s(json['ref']),
+        name: _s(json['name']),
+        buildings: [
+          for (final building in _maps(json['buildings']))
+            AttendanceBuilding.fromJson(building),
+        ],
+        crewId: _ns(json['crew_id']),
+        canTake: _b(json['can_take']),
+        isMember: _b(json['is_member']),
+      );
+
+  final String id;
+  final String ref;
+  final String name;
+  final List<AttendanceBuilding> buildings;
+
+  /// The project's shared sheet, once someone has opened it.
+  final String? crewId;
+  final bool canTake;
+
+  /// The signed-in person is on the project team.
+  final bool isMember;
+
+  /// "YRA-322 · DF3W".
+  String get label => ref.isEmpty ? name : '$ref · $name';
+}
+
+/// An internal location (workshop, store, camp) with its shared sheet.
+final class AttendancePlaceLocation {
+  const AttendancePlaceLocation({
+    required this.crewId,
+    required this.name,
+    this.canTake = false,
+  });
+
+  factory AttendancePlaceLocation.fromJson(Map<String, dynamic> json) =>
+      AttendancePlaceLocation(
+        crewId: _s(json['crew_id']),
+        name: _s(json['name']),
+        canTake: _b(json['can_take']),
+      );
+
+  final String crewId;
+  final String name;
+  final bool canTake;
+}
+
+/// Where the signed-in person may keep or read attendance.
+final class AttendancePlaces {
+  const AttendancePlaces({
+    this.canTake = false,
+    this.projects = const [],
+    this.locations = const [],
+  });
+
+  factory AttendancePlaces.fromJson(Map<String, dynamic> json) =>
+      AttendancePlaces(
+        canTake: _b(json['can_take']),
+        projects: [
+          for (final project in _maps(json['projects']))
+            AttendancePlaceProject.fromJson(project),
+        ],
+        locations: [
+          for (final location in _maps(json['locations']))
+            AttendancePlaceLocation.fromJson(location),
+        ],
+      );
+
+  /// Keeps attendance somewhere (may add a new internal location).
+  final bool canTake;
+  final List<AttendancePlaceProject> projects;
+  final List<AttendancePlaceLocation> locations;
+
+  /// The project whose shared sheet is [crewId], if any.
+  AttendancePlaceProject? projectOfCrew(String crewId) =>
+      projects.where((project) => project.crewId == crewId).firstOrNull;
+
+  /// The name shown for a sheet: its project, else its location.
+  String? nameOfCrew(String crewId) =>
+      projectOfCrew(crewId)?.label ??
+      locations
+          .where((location) => location.crewId == crewId)
+          .firstOrNull
+          ?.name;
+
+  /// Places the person may take attendance at.
+  int get takeableCount =>
+      projects.where((p) => p.canTake).length +
+      locations.where((l) => l.canTake).length;
 }

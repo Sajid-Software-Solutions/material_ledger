@@ -44,6 +44,13 @@ final yorksAttendanceConfirmationsDueProvider =
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).confirmationsDue(),
     );
 
+/// Projects and internal locations the signed-in person may keep or read
+/// attendance at (PRODUCT_DECISIONS section 51).
+final yorksAttendancePlacesProvider =
+    FutureProvider.autoDispose<AttendancePlaces>(
+      (ref) => ref.watch(yorksAttendanceRepositoryProvider).listPlaces(),
+    );
+
 final yorksAttendanceCrewsProvider =
     FutureProvider.autoDispose<List<AttendanceCrew>>(
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listCrews(),
@@ -190,10 +197,29 @@ final class AttendanceDayEditState {
     (sum, row) => sum + row.minutes(holiday: holiday).holidayOvertime,
   );
 
+  /// Saved rows someone else saved that this edit changes or removes. The
+  /// server asks for a reason for exactly these (PRODUCT_DECISIONS 51).
+  List<AttendanceRow> get othersChanged {
+    final edited = {for (final row in rows) row.worker.id: row};
+    final changed = <AttendanceRow>[];
+    for (final saved in day?.rows ?? const <AttendanceRow>[]) {
+      if (!saved.isMarked || saved.updatedByMe) continue;
+      final mine = edited[saved.worker.id];
+      if (mine == null || !mine.isMarked || !mine.sameWork(saved)) {
+        changed.add(saved);
+      }
+    }
+    return changed;
+  }
+
+  /// Saving needs a reason: it changes or removes someone else's rows.
+  bool get needsReason => othersChanged.isNotEmpty;
+
   /// Ready to save: every worker marked (or recorded at another place),
-  /// every present worker timed, nothing clashing with another place.
+  /// every present worker timed, nothing clashing with another place. A
+  /// saved day may be saved with every row removed.
   bool get canSave =>
-      rows.isNotEmpty &&
+      (rows.isNotEmpty || (day?.saved ?? false)) &&
       unmarkedCount == 0 &&
       timeMissingCount == 0 &&
       conflictCount == 0 &&
@@ -344,18 +370,56 @@ final class AttendanceDayController
     ]);
   }
 
-  /// Present on the usual shift, with the crew's break and place.
+  /// Present on the usual shift, with the crew's break and place. A place's
+  /// shift starts at 06:30 for 8 hours plus its break: no overtime.
   AttendanceRow presentOnShift(AttendanceRow row) {
     final crew = state.day!.crew;
     final holiday = state.holiday;
+    final building = row.workScopeId == null ? crew.defaultBuilding : null;
     return row.copyWith(
       status: AttendanceStatus.present,
       start: row.start ?? crew.shiftStart,
-      finish: row.finish ?? (holiday ? 900 : crew.shiftFinish),
+      finish: row.finish ?? (holiday && !crew.isPlace ? 900 : crew.shiftFinish),
       breakStart: row.start == null ? crew.breakStart : row.breakStart,
       breakFinish: row.start == null ? crew.breakFinish : row.breakFinish,
       workProjectId: row.workProjectId ?? crew.projectId,
-      workLabel: row.workLabel ?? crew.workLabel,
+      workLabel: crew.isPlace ? null : (row.workLabel ?? crew.workLabel),
+      workScopeId: building?.id,
+      workScopeName: building?.name,
+    );
+  }
+
+  /// Sets where a row was worked: the building of the place's project, or
+  /// (at an internal location) a project and one of its buildings.
+  void setWorkPlace(
+    String workerId, {
+    String? projectId,
+    AttendanceBuilding? building,
+  }) {
+    final row = state.rows.firstWhere((row) => row.worker.id == workerId);
+    final crew = state.day!.crew;
+    final project = crew.projectId ?? projectId;
+    setRow(
+      workerId,
+      AttendanceRow(
+        worker: row.worker,
+        status: row.status,
+        start: row.start,
+        breakStart: row.breakStart,
+        breakFinish: row.breakFinish,
+        finish: row.finish,
+        workProjectId: project,
+        workLabel: crew.isPlace ? null : row.workLabel,
+        workScopeId: project == null ? null : building?.id,
+        workScopeName: project == null ? null : building?.name,
+        overtimeNote: row.overtimeNote,
+        copied: row.copied,
+        changedAfterEntry: row.changedAfterEntry,
+        isMember: row.isMember,
+        elsewhere: row.elsewhere,
+        updatedBy: row.updatedBy,
+        updatedByMe: row.updatedByMe,
+      ),
     );
   }
 
@@ -388,8 +452,9 @@ final class AttendanceDayController
     ]);
   }
 
-  /// Copies an earlier saved day of the same kind, keeping only workers who
-  /// are still on this day.
+  /// Copies an earlier saved day of the same kind: the workers on it come
+  /// too, with their status, times and building. Rows already on this day
+  /// that someone else saved are left alone.
   Future<bool> copyFrom(String date) async {
     try {
       final source = await _repository.getDay(crewId: key.crewId, date: date);
@@ -404,13 +469,19 @@ final class AttendanceDayController
             finish: copied.finish,
             workProjectId: copied.workProjectId,
             workLabel: copied.workLabel,
+            workScopeId: copied.workScopeId,
+            workScopeName: copied.workScopeName,
             copied: true,
             isMember: row.isMember,
             elsewhere: row.elsewhere,
+            updatedBy: row.updatedBy,
+            updatedByMe: row.updatedByMe,
           );
+      final here = {for (final row in state.rows) row.worker.id};
       _writeDraft([
         for (final row in state.rows)
-          if (byId[row.worker.id] case final copied? when copied.isMarked)
+          if (byId[row.worker.id] case final copied?
+              when copied.isMarked && row.updatedByMe)
             // A copy that would clash with another place today is skipped.
             if (copyOf(row, copied).placeConflict ==
                 AttendancePlaceConflict.none)
@@ -419,6 +490,12 @@ final class AttendanceDayController
               row
           else
             row,
+        for (final copied in source.rows)
+          if (copied.isMarked && !here.contains(copied.worker.id))
+            copyOf(
+              AttendanceRow(worker: copied.worker, isMember: false),
+              copied,
+            ),
       ]);
       return true;
     } on YorksV1DomainException catch (error) {
@@ -428,14 +505,38 @@ final class AttendanceDayController
   }
 
   /// Adds a worker to this day only (borrowed or from the labour pool).
-  void addWorkerForDay(AttendanceWorker worker) {
-    if (state.rows.any((row) => row.worker.id == worker.id)) return;
-    final added = AttendanceRow(
-      worker: worker,
-      isMember: false,
-      status: state.holiday ? AttendanceStatus.rest : null,
-    );
-    _writeDraft([...state.rows, added]);
+  void addWorkerForDay(AttendanceWorker worker) => addWorkers([worker]);
+
+  /// Adds workers to this day. At a place they start present on the usual
+  /// shift (06:30, no overtime) with the place's building: add, check, save.
+  void addWorkers(
+    List<AttendanceWorker> workers, {
+    AttendanceBuilding? building,
+  }) {
+    final here = {for (final row in state.rows) row.worker.id};
+    final place = state.day?.crew.isPlace ?? false;
+    final added = <AttendanceRow>[];
+    for (final worker in workers) {
+      if (!here.add(worker.id)) continue;
+      final blank = AttendanceRow(worker: worker, isMember: false);
+      if (!place) {
+        added.add(
+          state.holiday ? blank.copyWith(status: AttendanceStatus.rest) : blank,
+        );
+        continue;
+      }
+      final present = presentOnShift(blank);
+      added.add(
+        building == null
+            ? present
+            : present.copyWith(
+                workScopeId: building.id,
+                workScopeName: building.name,
+              ),
+      );
+    }
+    if (added.isEmpty) return;
+    _writeDraft([...state.rows, ...added]);
   }
 
   void removeDayOnly(String workerId) {
@@ -448,19 +549,36 @@ final class AttendanceDayController
   /// Puts back rows saved before a one-tap change (Undo).
   void restoreRows(List<AttendanceRow> rows) => _writeDraft(rows);
 
-  /// After a conflict: load the day someone else saved, keep this person's
-  /// entries on top of it and save against the new version.
+  /// After a conflict: load the day someone else saved and apply only this
+  /// person's own edits on top of it (rows changed, added or removed here),
+  /// then save against the new version.
   Future<void> reloadKeepingMine() async {
     final mine = state.rows;
+    final base = {
+      for (final row in state.day?.rows ?? const <AttendanceRow>[])
+        row.worker.id: row,
+    };
     try {
       final day = await _repository.getDay(crewId: key.crewId, date: key.date);
       if (!mounted) return;
-      final byId = {for (final row in mine) row.worker.id: row};
+      final edits = <String, AttendanceRow>{};
+      for (final row in mine) {
+        final before = base[row.worker.id];
+        if (before == null || !before.sameEntry(row)) {
+          edits[row.worker.id] = row;
+        }
+      }
+      final kept = {for (final row in mine) row.worker.id};
+      final removed = {
+        for (final id in base.keys)
+          if (!kept.contains(id)) id,
+      };
       final merged = [
         for (final row in day.rows)
-          byId.remove(row.worker.id)?.withElsewhere(row.elsewhere) ?? row,
+          if (!removed.contains(row.worker.id))
+            edits.remove(row.worker.id)?.withElsewhere(row.elsewhere) ?? row,
         // Workers added for the day on this device stay too.
-        ...byId.values.where((row) => !row.isMember),
+        ...edits.values.where((row) => !row.isMember),
       ];
       state = AttendanceDayEditState(day: day, rows: merged, loading: false);
       _writeDraft(merged);
@@ -584,4 +702,29 @@ Set<String> attendanceDraftDates(
     for (final key in preferences.getKeys())
       if (key.startsWith(prefix)) key.substring(prefix.length),
   };
+}
+
+String _recentPlacesKey(String actorId) =>
+    'yorks.attendance.places.v1.$actorId';
+
+/// The sheets this person opened most recently, newest first (at most
+/// five), kept on this device to open the usual place straight away.
+List<String> attendanceRecentPlaces(
+  SharedPreferences preferences, {
+  required String actorId,
+}) => preferences.getStringList(_recentPlacesKey(actorId)) ?? const [];
+
+void attendanceRememberPlace(
+  SharedPreferences preferences, {
+  required String actorId,
+  required String crewId,
+}) {
+  final recent = [
+    crewId,
+    ...attendanceRecentPlaces(
+      preferences,
+      actorId: actorId,
+    ).where((id) => id != crewId),
+  ].take(5).toList();
+  preferences.setStringList(_recentPlacesKey(actorId), recent);
 }

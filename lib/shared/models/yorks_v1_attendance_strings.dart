@@ -73,7 +73,12 @@ abstract final class AttendanceStrings {
     ur: 'شیٹس',
     hi: 'शीट',
   );
-  static const crews = _T(en: 'Crews', ar: 'الطواقم', ur: 'عملے', hi: 'दल');
+  static const crews = _T(
+    en: 'Places',
+    ar: 'الأماكن',
+    ur: 'جگہیں',
+    hi: 'स्थान',
+  );
   static const readOnly = _T(
     en: 'Read only',
     ar: 'للعرض فقط',
@@ -195,16 +200,16 @@ abstract final class AttendanceStrings {
 
   // ─── Overview ──────────────────────────────────────────────────────────────
   static const overviewReadOnlyIntro = _T(
-    en: 'Every crew’s attendance as it is entered. Months confirmed by the reviewer are final; until then figures can still change.',
-    ar: 'حضور كل طاقم فور إدخاله. الأشهر التي أكدها المراجع نهائية؛ وحتى ذلك الحين قد تتغير الأرقام.',
-    ur: 'ہر عملے کی حاضری جیسے ہی درج ہو۔ جائزہ لینے والے کے تصدیق شدہ مہینے حتمی ہیں؛ اس سے پہلے اعداد بدل سکتے ہیں۔',
-    hi: 'हर दल की उपस्थिति, जैसे ही दर्ज हो। समीक्षक द्वारा पुष्ट माह अंतिम हैं; तब तक आंकड़े बदल सकते हैं।',
+    en: 'Attendance at every place as it is entered. Months confirmed by the reviewer are final; until then figures can still change.',
+    ar: 'الحضور في كل مكان فور إدخاله. الأشهر التي أكدها المراجع نهائية؛ وحتى ذلك الحين قد تتغير الأرقام.',
+    ur: 'ہر جگہ کی حاضری جیسے ہی درج ہو۔ جائزہ لینے والے کے تصدیق شدہ مہینے حتمی ہیں؛ اس سے پہلے اعداد بدل سکتے ہیں۔',
+    hi: 'हर स्थान की उपस्थिति, जैसे ही दर्ज हो। समीक्षक द्वारा पुष्ट माह अंतिम हैं; तब तक आंकड़े बदल सकते हैं।',
   );
   static const overviewIntro = _T(
-    en: 'Your crews this month. Select a crew to open its days.',
-    ar: 'طواقمك هذا الشهر. اختر طاقمًا لفتح أيامه.',
-    ur: 'اس مہینے آپ کے عملے۔ دن کھولنے کے لیے عملہ منتخب کریں۔',
-    hi: 'इस माह आपके दल। दिन खोलने के लिए दल चुनें।',
+    en: 'Places with attendance this month. Select one to open its days.',
+    ar: 'الأماكن التي فيها حضور هذا الشهر. اختر مكانًا لفتح أيامه.',
+    ur: 'اس مہینے حاضری والی جگہیں۔ دن کھولنے کے لیے کوئی جگہ منتخب کریں۔',
+    hi: 'इस माह उपस्थिति वाले स्थान। दिन खोलने के लिए कोई स्थान चुनें।',
   );
   static const kpiToday = _T(
     en: 'Today · {date}',
@@ -213,10 +218,10 @@ abstract final class AttendanceStrings {
     hi: 'आज · {date}',
   );
   static const kpiCrewsOf = _T(
-    en: '{a} of {b} crews',
-    ar: '{a} من {b} طواقم',
-    ur: '{b} میں سے {a} عملے',
-    hi: '{b} में से {a} दल',
+    en: '{a} of {b} places',
+    ar: '{a} من {b} أماكن',
+    ur: '{b} میں سے {a} جگہیں',
+    hi: '{b} में से {a} स्थान',
   );
   static const kpiNotYet = _T(
     en: '{n} not entered yet',
@@ -225,10 +230,10 @@ abstract final class AttendanceStrings {
     hi: '{n} अभी दर्ज नहीं',
   );
   static const kpiAllEntered = _T(
-    en: 'All crews entered',
-    ar: 'تم إدخال كل الطواقم',
-    ur: 'تمام عملے درج',
-    hi: 'सभी दल दर्ज',
+    en: 'All places entered',
+    ar: 'تم إدخال كل الأماكن',
+    ur: 'تمام جگہیں درج',
+    hi: 'सभी स्थान दर्ज',
   );
   static const kpiEarlierMissing = _T(
     en: 'Earlier days not entered',
@@ -284,7 +289,7 @@ abstract final class AttendanceStrings {
     ur: 'پچھلے 8 دن۔ گھنٹے اس مہینے کا اوور ٹائم ہیں۔',
     hi: 'पिछले 8 दिन। घंटे इस माह का ओवरटाइम हैं।',
   );
-  static const colCrew = _T(en: 'Crew', ar: 'الطاقم', ur: 'عملہ', hi: 'दल');
+  static const colCrew = _T(en: 'Place', ar: 'المكان', ur: 'جگہ', hi: 'स्थान');
   static const colLast8 = _T(
     en: 'Last 8 days',
     ar: 'آخر 8 أيام',
@@ -383,24 +388,24 @@ abstract final class AttendanceStrings {
     hi: 'अभी कुछ नहीं।',
   );
   static const noCrews = _T(
-    en: 'No crews yet. A crew groups the workers you take attendance for.',
-    ar: 'لا توجد طواقم بعد. الطاقم يجمع العمال الذين تسجل حضورهم.',
-    ur: 'ابھی کوئی عملہ نہیں۔ عملہ ان ورکرز کا گروپ ہے جن کی آپ حاضری لگاتے ہیں۔',
-    hi: 'अभी कोई दल नहीं। दल उन कर्मचारियों का समूह है जिनकी आप उपस्थिति दर्ज करते हैं।',
+    en: 'No attendance yet. Choose a place, add the labourers there and save.',
+    ar: 'لا يوجد حضور بعد. اختر مكانًا وأضف العمال الموجودين فيه واحفظ.',
+    ur: 'ابھی کوئی حاضری نہیں۔ جگہ منتخب کریں، وہاں کے مزدور شامل کریں اور محفوظ کریں۔',
+    hi: 'अभी कोई उपस्थिति नहीं। स्थान चुनें, वहाँ के मज़दूर जोड़ें और सहेजें।',
   );
 
   // ─── Take attendance ───────────────────────────────────────────────────────
   static const takeIntro = _T(
-    en: 'Enter your crew for today or any earlier day. The Project Engineer or a Senior Mechanical Engineer sees it straight away and confirms the whole month at month end.',
-    ar: 'أدخل طاقمك لليوم أو لأي يوم سابق. يراه مهندس المشروع أو كبير المهندسين الميكانيكيين فورًا ويؤكد الشهر كاملًا في نهايته.',
-    ur: 'آج یا کسی پچھلے دن کے لیے اپنا عملہ درج کریں۔ پروجیکٹ انجینئر یا سینئر مکینیکل انجینئر فوراً دیکھتا ہے اور مہینے کے آخر میں پورے مہینے کی تصدیق کرتا ہے۔',
-    hi: 'आज या किसी पिछले दिन के लिए अपना दल दर्ज करें। प्रोजेक्ट इंजीनियर या सीनियर मैकेनिकल इंजीनियर तुरंत देखता है और माह के अंत में पूरे माह की पुष्टि करता है।',
+    en: 'Add the labourers at this place and save. The Project Engineer or a Senior Mechanical Engineer sees it straight away and confirms the month at month end.',
+    ar: 'أضف العمال الموجودين في هذا المكان واحفظ. يراه مهندس المشروع أو كبير المهندسين الميكانيكيين فورًا ويؤكد الشهر في نهايته.',
+    ur: 'اس جگہ کے مزدور شامل کریں اور محفوظ کریں۔ پروجیکٹ انجینئر یا سینئر مکینیکل انجینئر فوراً دیکھتا ہے اور مہینے کے آخر میں تصدیق کرتا ہے۔',
+    hi: 'इस स्थान के मज़दूर जोड़ें और सहेजें। प्रोजेक्ट इंजीनियर या सीनियर मैकेनिकल इंजीनियर इसे तुरंत देखते हैं और माह के अंत में पुष्टि करते हैं।',
   );
   static const takeIntroWorkshop = _T(
-    en: 'Enter your crew for today or any earlier day. Workshop attendance needs no confirmation.',
-    ar: 'أدخل طاقمك لليوم أو لأي يوم سابق. حضور الورشة لا يحتاج إلى تأكيد.',
-    ur: 'آج یا کسی پچھلے دن کے لیے اپنا عملہ درج کریں۔ ورکشاپ کی حاضری کو تصدیق کی ضرورت نہیں۔',
-    hi: 'आज या किसी पिछले दिन के लिए अपना दल दर्ज करें। वर्कशॉप उपस्थिति को पुष्टि की आवश्यकता नहीं।',
+    en: 'Add the labourers at this place and save. Attendance here needs no confirmation.',
+    ar: 'أضف العمال الموجودين في هذا المكان واحفظ. الحضور هنا لا يحتاج إلى تأكيد.',
+    ur: 'اس جگہ کے مزدور شامل کریں اور محفوظ کریں۔ یہاں کی حاضری کو تصدیق کی ضرورت نہیں۔',
+    hi: 'इस स्थान के मज़दूर जोड़ें और सहेजें। यहाँ की उपस्थिति को पुष्टि की आवश्यकता नहीं।',
   );
   static const takeIntroViewer = _T(
     en: 'You can see every day as it is entered. Change a day or ask a question if something looks wrong.',
@@ -773,10 +778,10 @@ abstract final class AttendanceStrings {
     hi: 'प्रश्न पूछें',
   );
   static const notEnteredLine = _T(
-    en: 'Not entered. An attendance taker for this crew can enter it.',
-    ar: 'غير مُدخل. يمكن لمسجل حضور هذا الطاقم إدخاله.',
-    ur: 'درج نہیں۔ اس عملے کا حاضری لینے والا اسے درج کر سکتا ہے۔',
-    hi: 'दर्ज नहीं। इस दल का उपस्थिति लेने वाला इसे दर्ज कर सकता है।',
+    en: 'Nobody recorded here this day.',
+    ar: 'لم يُسجَّل أحد هنا في هذا اليوم.',
+    ur: 'اس دن یہاں کوئی درج نہیں۔',
+    hi: 'इस दिन यहाँ कोई दर्ज नहीं।',
   );
   static const reasonTitle = _T(
     en: 'Why are you changing {date}?',
@@ -840,10 +845,10 @@ abstract final class AttendanceStrings {
     hi: 'जो अभी अचिह्नित हैं वे सामान्य शिफ्ट पर उपस्थित हैं। केवल अपवाद बदलें।',
   );
   static const shiftTitle = _T(
-    en: 'Usual shift for this crew',
-    ar: 'الوردية المعتادة لهذا الطاقم',
-    ur: 'اس عملے کی معمول کی شفٹ',
-    hi: 'इस दल की सामान्य शिफ्ट',
+    en: 'Usual shift at this place',
+    ar: 'الوردية المعتادة في هذا المكان',
+    ur: 'اس جگہ کی معمول کی شفٹ',
+    hi: 'इस स्थान की सामान्य शिफ्ट',
   );
   static const shiftToast = _T(
     en: 'Shift set to {start} – {finish} for everyone present.',
@@ -876,10 +881,10 @@ abstract final class AttendanceStrings {
     hi: 'सामान्य शिफ्ट',
   );
   static const chooseCrew = _T(
-    en: 'Choose a crew',
-    ar: 'اختر طاقمًا',
-    ur: 'عملہ منتخب کریں',
-    hi: 'दल चुनें',
+    en: 'Choose a place',
+    ar: 'اختر مكانًا',
+    ur: 'جگہ منتخب کریں',
+    hi: 'स्थान चुनें',
   );
 
   // ─── Month confirmation ────────────────────────────────────────────────────
@@ -1004,10 +1009,10 @@ abstract final class AttendanceStrings {
     hi: '{month} फिर खुला। दिन फिर सुधारे जा सकते हैं।',
   );
   static const noReviewCrews = _T(
-    en: 'No crew you confirm needs attention.',
-    ar: 'لا يوجد طاقم تؤكده يحتاج إلى انتباه.',
-    ur: 'آپ کے تصدیق والے کسی عملے کو توجہ کی ضرورت نہیں۔',
-    hi: 'आपके पुष्टि वाले किसी दल पर ध्यान की ज़रूरत नहीं।',
+    en: 'No place you confirm needs attention.',
+    ar: 'لا يوجد مكان تؤكده يحتاج إلى انتباه.',
+    ur: 'آپ کی تصدیق والی کسی جگہ کو توجہ کی ضرورت نہیں۔',
+    hi: 'आपके पुष्टि वाले किसी स्थान पर ध्यान की ज़रूरत नहीं।',
   );
 
   // ─── Monthly sheets ────────────────────────────────────────────────────────
@@ -1031,7 +1036,7 @@ abstract final class AttendanceStrings {
     hi: 'Excel निर्यात',
   );
   static const workersIn = _T(
-    en: 'Workers — {n} in {crew}',
+    en: 'Workers — {n} at {crew}',
     ar: 'العمال — {n} في {crew}',
     ur: 'ورکرز — {crew} میں {n}',
     hi: 'कर्मचारी — {crew} में {n}',
@@ -1079,10 +1084,10 @@ abstract final class AttendanceStrings {
     hi: 'पद:',
   );
   static const paperCrew = _T(
-    en: 'Crew / project:',
-    ar: 'الطاقم / المشروع:',
-    ur: 'عملہ / پروجیکٹ:',
-    hi: 'दल / प्रोजेक्ट:',
+    en: 'Place / project:',
+    ar: 'المكان / المشروع:',
+    ur: 'جگہ / پروجیکٹ:',
+    hi: 'स्थान / प्रोजेक्ट:',
   );
   static const paperDate = _T(
     en: 'Date',
@@ -1364,10 +1369,10 @@ abstract final class AttendanceStrings {
   );
 
   static const dueToday = _T(
-    en: '{month} ends today — confirm your crews’ attendance',
-    ar: 'ينتهي {month} اليوم — أكد حضور طواقمك',
-    ur: '{month} آج ختم ہو رہا ہے — اپنے عملے کی حاضری کی تصدیق کریں',
-    hi: '{month} आज समाप्त — अपने दलों की उपस्थिति की पुष्टि करें',
+    en: '{month} ends today — confirm attendance at your places',
+    ar: 'ينتهي {month} اليوم — أكد الحضور في أماكنك',
+    ur: '{month} آج ختم ہو رہا ہے — اپنی جگہوں کی حاضری کی تصدیق کریں',
+    hi: '{month} आज समाप्त — अपने स्थानों की उपस्थिति की पुष्टि करें',
   );
   static const dueOverdue = _T(
     en: '{month} is waiting for your confirmation',
@@ -1444,10 +1449,10 @@ abstract final class AttendanceStrings {
     hi: 'विश्राम दिवस केवल रविवार और सार्वजनिक अवकाश के लिए है।',
   );
   static const errOtherCrew = _T(
-    en: 'A worker is already on another crew’s sheet that day.',
-    ar: 'عامل موجود بالفعل في كشف طاقم آخر في ذلك اليوم.',
-    ur: 'ایک ورکر اس دن پہلے ہی کسی اور عملے کی شیٹ پر ہے۔',
-    hi: 'एक कर्मचारी उस दिन पहले से दूसरे दल की शीट पर है।',
+    en: 'A worker is already recorded at another place that day.',
+    ar: 'عامل مسجل بالفعل في مكان آخر في ذلك اليوم.',
+    ur: 'ایک ورکر اس دن پہلے ہی کسی اور جگہ درج ہے۔',
+    hi: 'एक कर्मचारी उस दिन पहले से दूसरे स्थान पर दर्ज है।',
   );
   static const errOverlap = _T(
     en: 'This worker’s times overlap with another place that day. Change the times, or check the other sheet.',
@@ -1546,7 +1551,7 @@ abstract final class AttendanceStrings {
     hi: 'आज यह भी',
   );
   static const onCrews = _T(
-    en: 'On {crews}',
+    en: 'At {crews}',
     ar: 'في {crews}',
     ur: '{crews} میں',
     hi: '{crews} में',
@@ -1570,10 +1575,10 @@ abstract final class AttendanceStrings {
     hi: 'कुछ कार्य दिवस अभी दर्ज नहीं।',
   );
   static const errDenied = _T(
-    en: 'You do not have access to this crew.',
-    ar: 'ليس لديك صلاحية على هذا الطاقم.',
-    ur: 'آپ کو اس عملے تک رسائی نہیں۔',
-    hi: 'आपको इस दल तक पहुँच नहीं।',
+    en: 'You do not have access to this place.',
+    ar: 'ليس لديك صلاحية على هذا المكان.',
+    ur: 'آپ کو اس جگہ تک رسائی نہیں۔',
+    hi: 'आपको इस स्थान तक पहुँच नहीं।',
   );
   static const errCrewName = _T(
     en: 'Another crew already has this name.',
@@ -1598,5 +1603,169 @@ abstract final class AttendanceStrings {
     ar: 'إعادة التحميل',
     ur: 'ری لوڈ',
     hi: 'रीलोड',
+  );
+
+  // ─── Places (PRODUCT_DECISIONS section 51) ────────────────────────────────
+  static const choosePlaceTitle = _T(
+    en: 'Where are you taking attendance?',
+    ar: 'أين تسجل الحضور؟',
+    ur: 'آپ کہاں حاضری لے رہے ہیں؟',
+    hi: 'आप कहाँ उपस्थिति ले रहे हैं?',
+  );
+  static const placeSearch = _T(
+    en: 'Search projects and places',
+    ar: 'ابحث في المشاريع والأماكن',
+    ur: 'پروجیکٹس اور جگہیں تلاش کریں',
+    hi: 'प्रोजेक्ट और स्थान खोजें',
+  );
+  static const placeRecent = _T(
+    en: 'Recent',
+    ar: 'الأخيرة',
+    ur: 'حالیہ',
+    hi: 'हाल के',
+  );
+  static const placeMyProjects = _T(
+    en: 'Your projects',
+    ar: 'مشاريعك',
+    ur: 'آپ کے پروجیکٹس',
+    hi: 'आपके प्रोजेक्ट',
+  );
+  static const placeAllProjects = _T(
+    en: 'All projects',
+    ar: 'كل المشاريع',
+    ur: 'تمام پروجیکٹس',
+    hi: 'सभी प्रोजेक्ट',
+  );
+  static const placeLocations = _T(
+    en: 'Workshop and other places',
+    ar: 'الورشة وأماكن أخرى',
+    ur: 'ورکشاپ اور دیگر جگہیں',
+    hi: 'वर्कशॉप और अन्य स्थान',
+  );
+  static const placeNewLocation = _T(
+    en: 'Add the place “{name}”',
+    ar: 'إضافة المكان «{name}»',
+    ur: 'جگہ “{name}” شامل کریں',
+    hi: 'स्थान “{name}” जोड़ें',
+  );
+  static const placeNewLocationHint = _T(
+    en: 'Not a project? Type a name such as Workshop, Store or Camp to add it.',
+    ar: 'ليس مشروعًا؟ اكتب اسمًا مثل الورشة أو المستودع أو السكن لإضافته.',
+    ur: 'پروجیکٹ نہیں؟ شامل کرنے کے لیے ورکشاپ، اسٹور یا کیمپ جیسا نام لکھیں۔',
+    hi: 'प्रोजेक्ट नहीं? जोड़ने के लिए वर्कशॉप, स्टोर या कैंप जैसा नाम लिखें।',
+  );
+  static const placeNoMatch = _T(
+    en: 'No project or place matches.',
+    ar: 'لا يوجد مشروع أو مكان مطابق.',
+    ur: 'کوئی پروجیکٹ یا جگہ نہیں ملی۔',
+    hi: 'कोई प्रोजेक्ट या स्थान मेल नहीं खाता।',
+  );
+  static const placeNothingRecorded = _T(
+    en: 'Nothing recorded here yet.',
+    ar: 'لم يُسجَّل شيء هنا بعد.',
+    ur: 'یہاں ابھی کچھ درج نہیں۔',
+    hi: 'यहाँ अभी कुछ दर्ज नहीं।',
+  );
+  static const placeOpening = _T(
+    en: 'Opening {place}…',
+    ar: 'جارٍ فتح {place}…',
+    ur: '{place} کھل رہی ہے…',
+    hi: '{place} खुल रहा है…',
+  );
+  static const placeNone = _T(
+    en: 'You have no project to take attendance for. Ask Admin to add you to the project team.',
+    ar: 'ليس لديك مشروع لتسجيل الحضور فيه. اطلب من المسؤول إضافتك إلى فريق المشروع.',
+    ur: 'آپ کے پاس حاضری کے لیے کوئی پروجیکٹ نہیں۔ ایڈمن سے کہیں کہ آپ کو پروجیکٹ ٹیم میں شامل کرے۔',
+    hi: 'आपके पास उपस्थिति के लिए कोई प्रोजेक्ट नहीं। एडमिन से प्रोजेक्ट टीम में जोड़ने को कहें।',
+  );
+  static const changePlace = _T(
+    en: 'Change place',
+    ar: 'تغيير المكان',
+    ur: 'جگہ بدلیں',
+    hi: 'स्थान बदलें',
+  );
+  static const colBuilding = _T(
+    en: 'Building',
+    ar: 'المبنى',
+    ur: 'عمارت',
+    hi: 'भवन',
+  );
+  static const buildingCommon = _T(
+    en: 'Common',
+    ar: 'عام',
+    ur: 'کامن',
+    hi: 'कॉमन',
+  );
+  static const chooseBuilding = _T(
+    en: 'Choose the building',
+    ar: 'اختر المبنى',
+    ur: 'عمارت منتخب کریں',
+    hi: 'भवन चुनें',
+  );
+  static const noBuilding = _T(
+    en: 'No building',
+    ar: 'بدون مبنى',
+    ur: 'کوئی عمارت نہیں',
+    hi: 'कोई भवन नहीं',
+  );
+  static const chooseProject = _T(
+    en: 'Choose the project',
+    ar: 'اختر المشروع',
+    ur: 'پروجیکٹ منتخب کریں',
+    hi: 'प्रोजेक्ट चुनें',
+  );
+  static const noProject = _T(
+    en: 'No project',
+    ar: 'بدون مشروع',
+    ur: 'کوئی پروجیکٹ نہیں',
+    hi: 'कोई प्रोजेक्ट नहीं',
+  );
+  static const reasonBodyRows = _T(
+    en: 'You are changing or removing rows saved by {by}. Say why; they are told.',
+    ar: 'أنت تغيّر أو تحذف صفوفًا حفظها {by}. اذكر السبب؛ سيتم إبلاغهم.',
+    ur: 'آپ {by} کی محفوظ کردہ قطاریں بدل یا ہٹا رہے ہیں۔ وجہ بتائیں؛ انہیں اطلاع دی جائے گی۔',
+    hi: 'आप {by} द्वारा सहेजी पंक्तियाँ बदल या हटा रहे हैं। कारण बताएँ; उन्हें सूचित किया जाएगा।',
+  );
+  static const savedBy = _T(
+    en: 'Saved by {by}',
+    ar: 'حفظه {by}',
+    ur: '{by} نے محفوظ کیا',
+    hi: '{by} ने सहेजा',
+  );
+  static const loadingDate = _T(
+    en: 'Loading {date}…',
+    ar: 'جارٍ تحميل {date}…',
+    ur: '{date} لوڈ ہو رہا ہے…',
+    hi: '{date} लोड हो रहा है…',
+  );
+  static const addWorkersShort = _T(
+    en: 'Add workers',
+    ar: 'إضافة عمال',
+    ur: 'ورکرز شامل کریں',
+    hi: 'कर्मचारी जोड़ें',
+  );
+  static const addedCount = _T(
+    en: '{n} added for {date}. Save when ready.',
+    ar: 'تمت إضافة {n} ليوم {date}. احفظ عند الانتهاء.',
+    ur: '{date} کے لیے {n} شامل۔ تیار ہوں تو محفوظ کریں۔',
+    hi: '{date} के लिए {n} जोड़े गए। तैयार होने पर सहेजें।',
+  );
+  static const emptyDayAdd = _T(
+    en: 'Add the labourers who worked here on {date}.',
+    ar: 'أضف العمال الذين عملوا هنا يوم {date}.',
+    ur: '{date} کو یہاں کام کرنے والے مزدور شامل کریں۔',
+    hi: '{date} को यहाँ काम करने वाले मज़दूर जोड़ें।',
+  );
+  static const placeOtherProjects = _T(
+    en: 'Other projects',
+    ar: 'مشاريع أخرى',
+    ur: 'دیگر پروجیکٹس',
+    hi: 'अन्य प्रोजेक्ट',
+  );
+  static const buildingsCount = _T(
+    en: '{n} buildings',
+    ar: '{n} مبانٍ',
+    ur: '{n} عمارتیں',
+    hi: '{n} भवन',
   );
 }

@@ -1,8 +1,12 @@
 /// Workforce attendance V2 — Take attendance.
 ///
-/// Phone first: a day strip, one card per worker with P / A / Off / ··· pills,
-/// a bottom-sheet editor with smart time entry and a Save bar always in reach.
-/// Desktop and tablet get the same day as a keyboard-friendly grid.
+/// Attendance is taken at a place: a project or an internal location such
+/// as the workshop (PRODUCT_DECISIONS section 51). Choose the place once (it
+/// is remembered), add the labourers there and save: they start present on
+/// the usual shift, 06:30 with no overtime, at the place's building. Phones
+/// get one card per worker with P / A / ··· pills and a bottom-sheet editor;
+/// desktop and tablet get the same day as a keyboard-friendly grid. Changing
+/// the date keeps the page in place while the next day loads.
 library;
 
 import 'package:flutter/material.dart';
@@ -12,6 +16,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../accounts/presentation/v2/accounts_v2_safety.dart'
@@ -24,6 +29,7 @@ import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
 import 'attendance_dialogs.dart';
 import 'attendance_inputs.dart';
+import 'attendance_place_picker.dart';
 import 'attendance_row_editor.dart';
 
 class AttendanceTakeScreen extends ConsumerStatefulWidget {
@@ -40,6 +46,11 @@ class AttendanceTakeScreen extends ConsumerStatefulWidget {
 class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
   String? _crewId;
   String? _date;
+
+  /// A place being opened on the server ("Opening DF3W…").
+  String? _opening;
+  YorksV1DomainException? _openError;
+  bool _autoOpened = false;
 
   @override
   void initState() {
@@ -61,11 +72,18 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     }
   }
 
+  String get _actorId => ref.read(yorksV1AuthUserIdProvider) ?? 'anonymous';
+
   void _open(String crewId, String date) {
     setState(() {
       _crewId = crewId;
       _date = date;
     });
+    attendanceRememberPlace(
+      ref.read(sharedPreferencesProvider),
+      actorId: _actorId,
+      crewId: crewId,
+    );
     context.go(
       Uri(
         path: RoutePaths.yorksV1WorkforceAttendance,
@@ -74,101 +92,310 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     );
   }
 
+  /// Opens the chosen place on the server when it is not open yet.
+  Future<void> _pick(AttendancePlaceChoice choice) async {
+    final date = _date ?? attendanceLocalToday();
+    final existing = switch (choice) {
+      AttendancePickProject(:final project) => project.crewId,
+      AttendancePickLocation(:final crewId) => crewId,
+    };
+    if (existing != null) {
+      _open(existing, date);
+      return;
+    }
+    final language = attendanceLanguage(ref);
+    setState(() {
+      _opening = switch (choice) {
+        AttendancePickProject(:final project) => project.label,
+        AttendancePickLocation(:final name) => name,
+      };
+      _openError = null;
+    });
+    try {
+      final repository = ref.read(yorksAttendanceRepositoryProvider);
+      final crew = await switch (choice) {
+        AttendancePickProject(:final project) => repository.openPlace(
+          projectId: project.id,
+        ),
+        AttendancePickLocation(:final name) => repository.openPlace(
+          location: name,
+        ),
+      };
+      if (!mounted) return;
+      ref.invalidate(yorksAttendancePlacesProvider);
+      setState(() => _opening = null);
+      _open(crew.id, date);
+    } on YorksV1DomainException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _opening = null;
+        _openError = error;
+      });
+      attendanceToast(context, attendanceErrorText(error, language));
+    }
+  }
+
+  Future<void> _choose(AttendancePlaces places) async {
+    final choice = await showAttendancePlacePicker(
+      context,
+      language: attendanceLanguage(ref),
+      places: places,
+      recent: attendanceRecentPlaces(
+        ref.read(sharedPreferencesProvider),
+        actorId: _actorId,
+      ),
+      currentCrewId: _crewId,
+    );
+    if (choice != null && mounted) await _pick(choice);
+  }
+
+  /// The place to show without asking: the last one used here, else the
+  /// only place this person keeps attendance at.
+  String? _remembered(AttendancePlaces places) {
+    final open = {
+      for (final p in places.projects) ?p.crewId,
+      for (final l in places.locations) l.crewId,
+    };
+    for (final crewId in attendanceRecentPlaces(
+      ref.read(sharedPreferencesProvider),
+      actorId: _actorId,
+    )) {
+      if (open.contains(crewId)) return crewId;
+    }
+    return null;
+  }
+
+  AttendancePlaceChoice? _onlyPlace(AttendancePlaces places) {
+    final projects = [
+      for (final p in places.projects)
+        if (p.canTake) p,
+    ];
+    final locations = [
+      for (final l in places.locations)
+        if (l.canTake) l,
+    ];
+    if (projects.length == 1 && locations.isEmpty) {
+      return AttendancePickProject(projects.single);
+    }
+    if (projects.isEmpty && locations.length == 1) {
+      return AttendancePickLocation(
+        name: locations.single.name,
+        crewId: locations.single.crewId,
+      );
+    }
+    // Someone who only reads attendance, at one place.
+    final readable = [
+      for (final p in places.projects)
+        if (p.crewId != null) p,
+    ];
+    if (!places.canTake && readable.length == 1 && places.locations.isEmpty) {
+      return AttendancePickProject(readable.single);
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final language = attendanceLanguage(ref);
-    final crewsAsync = ref.watch(yorksAttendanceCrewsProvider);
-    return crewsAsync.when(
-      loading: () => AttendanceLoadState(language: language),
-      error: (error, _) => AttendanceLoadState(
+    final placesAsync = ref.watch(yorksAttendancePlacesProvider);
+    final places = placesAsync.valueOrNull;
+    final crewId = _crewId ?? (places == null ? null : _remembered(places));
+    final date = _date ?? attendanceLocalToday();
+
+    if (crewId != null) {
+      return _DayView(
+        key: ValueKey(crewId),
+        crewId: crewId,
+        date: date,
         language: language,
-        error: error,
-        onRetry: () => ref.invalidate(yorksAttendanceCrewsProvider),
-      ),
-      data: (crews) {
-        final visible = [
-          for (final crew in crews)
-            if (crew.access.take || crew.access.confirm || crew.access.view)
-              crew,
-        ];
-        if (visible.isEmpty) {
-          return AttendancePage(
-            language: language,
-            title: AS.t(AS.takeAttendance, language),
-            children: [
-              AccountsV2Panel(
-                child: AccountsV2Empty(
-                  icon: 'users',
-                  title: AS.t(AS.crews, language),
-                  body: AS.t(AS.noCrews, language),
-                ),
+        placeName: places?.nameOfCrew(crewId),
+        onOpen: _open,
+        onChangePlace: places == null ? null : () => _choose(places),
+      );
+    }
+    if (places == null) {
+      return AttendanceLoadState(
+        language: language,
+        error: placesAsync.error,
+        onRetry: () => ref.invalidate(yorksAttendancePlacesProvider),
+      );
+    }
+    final only = _onlyPlace(places);
+    if (only != null && !_autoOpened && _openError == null) {
+      _autoOpened = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pick(only);
+      });
+    }
+    final opening = _opening;
+    return AttendancePage(
+      language: language,
+      title: AS.t(AS.takeAttendance, language),
+      children: [
+        if (opening != null || (only != null && _openError == null))
+          AccountsV2Panel(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      AS.t(AS.placeOpening, language, {
+                        'place':
+                            opening ??
+                            switch (only) {
+                              AttendancePickProject(:final project) =>
+                                project.label,
+                              AttendancePickLocation(:final name) => name,
+                              null => '',
+                            },
+                      }),
+                      style: v2Style(13.5, weight: FontWeight.w600),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          );
-        }
-        final crew =
-            visible.where((c) => c.id == _crewId).firstOrNull ??
-            visible.where((c) => c.access.take).firstOrNull ??
-            visible.first;
-        final date = _date ?? attendanceLocalToday();
-        return _DayView(
-          key: ValueKey('${crew.id}|$date'),
-          crews: visible,
-          crew: crew,
-          date: date,
-          language: language,
-          onOpen: _open,
-        );
-      },
+            ),
+          )
+        else if (places.projects.isEmpty &&
+            places.locations.isEmpty &&
+            !places.canTake)
+          AccountsV2Panel(
+            child: AccountsV2Empty(
+              icon: 'users',
+              title: AS.t(AS.crews, language),
+              body: AS.t(AS.placeNone, language),
+            ),
+          )
+        else
+          AccountsV2Panel(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Text(
+                      AS.t(AS.choosePlaceTitle, language),
+                      style: v2Style(16, weight: FontWeight.w700),
+                    ),
+                  ),
+                  if (places.projects.isEmpty && places.canTake)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+                      child: Text(
+                        AS.t(AS.placeNone, language),
+                        style: v2Style(12.5, color: AccountsV2Colors.mut),
+                      ),
+                    ),
+                  AttendancePlaceList(
+                    key: const ValueKey('attendance-place-chooser'),
+                    language: language,
+                    places: places,
+                    shrinkWrap: true,
+                    recent: attendanceRecentPlaces(
+                      ref.read(sharedPreferencesProvider),
+                      actorId: _actorId,
+                    ),
+                    onPick: _pick,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _DayView extends ConsumerWidget {
+/// One place's day. Keyed by place: changing the date keeps this view (and
+/// the last day shown) while the next day loads, so the page never blanks.
+class _DayView extends ConsumerStatefulWidget {
   const _DayView({
     super.key,
-    required this.crews,
-    required this.crew,
+    required this.crewId,
     required this.date,
     required this.language,
     required this.onOpen,
+    this.placeName,
+    this.onChangePlace,
   });
 
-  final List<AttendanceCrew> crews;
-  final AttendanceCrew crew;
+  final String crewId;
   final String date;
   final AppLanguage language;
+  final String? placeName;
   final void Function(String crewId, String date) onOpen;
-
-  AttendanceDayKey get _key => (crewId: crew.id, date: date);
+  final VoidCallback? onChangePlace;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(yorksAttendanceDayControllerProvider(_key));
+  ConsumerState<_DayView> createState() => _DayViewState();
+}
+
+class _DayViewState extends ConsumerState<_DayView> {
+  /// The last day shown, kept on screen while another date loads.
+  AttendanceDayEditState? _shown;
+
+  AttendanceDayKey get _key => (crewId: widget.crewId, date: widget.date);
+
+  @override
+  Widget build(BuildContext context) {
+    final language = widget.language;
+    final current = ref.watch(yorksAttendanceDayControllerProvider(_key));
     final controller = ref.read(
       yorksAttendanceDayControllerProvider(_key).notifier,
     );
-    final day = state.day;
-    if (day == null) {
+    if (current.day != null) _shown = current;
+    final state = current.day != null ? current : _shown;
+    final day = state?.day;
+    if (state == null || day == null) {
       return AttendanceLoadState(
         language: language,
-        error: state.loading ? null : state.error,
+        error: current.loading ? null : current.error,
         onRetry: controller.load,
       );
     }
+    // Showing the previous date while this one loads (or failed to load).
+    final switching = current.day == null;
+    final crew = day.crew;
 
-    final intro = crew.access.take
+    final intro = day.access.take
         ? (crew.isWorkshop || !crew.needsConfirmation
               ? AS.takeIntroWorkshop
               : AS.takeIntro)
         : AS.takeIntroViewer;
+
+    final body = <Widget>[
+      ..._banners(context, current, controller),
+      if (day.editable)
+        _Toolbar(
+          day: day,
+          state: state,
+          controller: controller,
+          language: language,
+        ),
+      _WorkerList(state: state, controller: controller, language: language),
+      _Footer(
+        state: state,
+        controller: controller,
+        language: language,
+        enabled: !switching,
+      ),
+    ];
 
     return AttendancePage(
       language: language,
       title: AS.t(AS.takeAttendance, language),
       subtitle: AS.t(intro, language),
       subtitleOnPhone: false,
-      onRefresh: state.dirty ? null : controller.load,
+      onRefresh: state.dirty || switching ? null : controller.load,
       children: [
         ...AttendanceConfirmationsBanner.forPage(
           ref,
@@ -180,41 +407,61 @@ class _DayView extends ConsumerWidget {
           ),
         ),
         _DayHeader(
-          crews: crews,
           day: day,
+          selected: widget.date,
           language: language,
-          onOpen: onOpen,
-          dirty: state.hasLocalChanges && day.editable,
+          placeName: widget.placeName ?? attendancePlaceName(crew, language),
+          onOpen: widget.onOpen,
+          onChangePlace: widget.onChangePlace,
+          loading: switching && current.loading,
+          dirty: !switching && state.hasLocalChanges && day.editable,
           drafts: {
             ...attendanceDraftDates(
               ref.read(sharedPreferencesProvider),
               actorId: ref.read(yorksV1AuthUserIdProvider) ?? 'anonymous',
               crewId: crew.id,
             ),
-            if (state.hasLocalChanges && day.editable) day.date,
+            if (!switching && state.hasLocalChanges && day.editable) day.date,
           },
         ),
-        ..._banners(context, ref, state, controller),
-        if (day.editable)
-          _Toolbar(
-            day: day,
-            state: state,
-            controller: controller,
-            language: language,
+        if (switching && current.error != null && !current.loading)
+          AccountsV2Note(
+            tone: AccountsV2NoteTone.bad,
+            trailing: AccountsV2Button(
+              label: AS.t(AS.retry, language),
+              size: AccountsV2ButtonSize.small,
+              onPressed: controller.load,
+            ),
+            child: Text(attendanceErrorText(current.error, language)),
+          )
+        else
+          // The previous day stays visible, faded and still, while the
+          // chosen date loads.
+          AnimatedOpacity(
+            opacity: switching ? 0.45 : 1,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 150),
+            child: IgnorePointer(
+              ignoring: switching,
+              child: ExcludeSemantics(
+                excluding: switching,
+                child: AccountsV2Stack(children: body),
+              ),
+            ),
           ),
-        _WorkerList(state: state, controller: controller, language: language),
-        _Footer(state: state, controller: controller, language: language),
       ],
     );
   }
 
   List<Widget> _banners(
     BuildContext context,
-    WidgetRef ref,
     AttendanceDayEditState state,
     AttendanceDayController controller,
   ) {
-    final day = state.day!;
+    final language = widget.language;
+    final day = state.day;
+    if (day == null) return const [];
     final banners = <Widget>[];
     if (state.error != null) {
       banners.add(
@@ -264,7 +511,11 @@ class _DayView extends ConsumerWidget {
         ),
       );
     }
-    if (day.editable && !day.saved && day.date.compareTo(day.today) < 0) {
+    // A place has no members: a day nobody was recorded at it is not late.
+    if (day.editable &&
+        !day.crew.isPlace &&
+        !day.saved &&
+        day.date.compareTo(day.today) < 0) {
       banners.add(
         AccountsV2Note(
           tone: AccountsV2NoteTone.warn,
@@ -329,6 +580,7 @@ class _DayView extends ConsumerWidget {
   }
 
   String _changeWhat(AttendanceChange change) {
+    final language = widget.language;
     String describe(Map<String, dynamic>? data) {
       if (data == null) return AS.t(AS.removedFromDay, language);
       final status = AttendanceStatus.fromCode(data['status']);
@@ -342,204 +594,242 @@ class _DayView extends ConsumerWidget {
   }
 }
 
+/// "YRA-322 · DF3W" for a project place, else the sheet's name.
+String attendancePlaceName(AttendanceCrew crew, AppLanguage language) {
+  final ref = crew.projectRef;
+  final name = crew.projectName;
+  if (crew.placeKind == 'project' && ref != null && name != null) {
+    return '$ref · $name';
+  }
+  return crew.name;
+}
+
 class _DayHeader extends StatelessWidget {
   const _DayHeader({
-    required this.crews,
     required this.day,
+    required this.selected,
     required this.language,
+    required this.placeName,
     required this.onOpen,
+    this.onChangePlace,
     this.drafts = const {},
     this.dirty = false,
+    this.loading = false,
   });
 
-  final List<AttendanceCrew> crews;
   final AttendanceDay day;
+
+  /// The date chosen, which may still be loading.
+  final String selected;
+  final String placeName;
   final Set<String> drafts;
   final bool dirty;
+  final bool loading;
   final AppLanguage language;
   final void Function(String crewId, String date) onOpen;
+  final VoidCallback? onChangePlace;
 
   @override
   Widget build(BuildContext context) {
     final missing = [
       for (final d in day.month.missingDays)
-        if (d != day.date) d,
+        if (d != selected) d,
     ];
     final dayState =
         day.month.days.where((d) => d.date == day.date).firstOrNull?.state ??
         AttendanceDayState.none;
     final phone = AccountsV2Breakpoints.isPhone(context);
+    final crewId = day.crew.id;
     return AccountsV2Panel(
-      child: Padding(
-        padding: EdgeInsets.all(phone ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AttendanceDayStrip(
-              days: day.month.days,
-              selected: day.date,
-              drafts: drafts,
-              onSelect: (date) => onOpen(day.crew.id, date),
-            ),
-            if (drafts.any((d) => d != day.date)) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    AS.t(AS.unsavedDays, language),
-                    style: v2Style(12.5, weight: FontWeight.w600),
-                  ),
-                  for (final date in (drafts.toList()..sort()))
-                    if (date != day.date)
-                      ActionChip(
-                        key: ValueKey('attendance-draft-$date'),
-                        label: Text(attendanceShortDate(date)),
-                        labelStyle: v2Style(
-                          12,
-                          weight: FontWeight.w600,
-                          color: AccountsV2Colors.warn,
-                        ),
-                        backgroundColor: AccountsV2Colors.warn50,
-                        side: BorderSide.none,
-                        materialTapTargetSize: MaterialTapTargetSize.padded,
-                        onPressed: () => onOpen(day.crew.id, date),
-                      ),
-                ],
-              ),
-            ],
-            if (missing.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    AS.t(AS.notEnteredYet, language),
-                    style: v2Style(12.5, weight: FontWeight.w600),
-                  ),
-                  for (final date in missing.take(6))
-                    ActionChip(
-                      key: ValueKey('attendance-missing-$date'),
-                      label: Text(attendanceShortDate(date)),
-                      labelStyle: v2Style(
-                        12,
-                        weight: FontWeight.w600,
-                        color: AccountsV2Colors.bad,
-                      ),
-                      backgroundColor: AccountsV2Colors.bad50,
-                      side: BorderSide.none,
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      onPressed: () => onOpen(day.crew.id, date),
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(phone ? 12 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                _PlaceButton(
+                  name: placeName,
+                  language: language,
+                  onTap: onChangePlace,
+                ),
+                const SizedBox(height: 10),
+                AttendanceDayStrip(
+                  days: day.month.days,
+                  selected: selected,
+                  drafts: drafts,
+                  quietEmpty: day.crew.isPlace,
+                  onSelect: (date) => onOpen(crewId, date),
+                ),
+                if (drafts.any((d) => d != selected)) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      if (crews.length > 1)
-                        _CrewPicker(
-                          crews: crews,
-                          crew: day.crew,
-                          language: language,
-                          onPick: (crew) => onOpen(crew.id, day.date),
-                        )
-                      else
-                        Text(
-                          day.crew.name,
-                          style: v2Style(13, weight: FontWeight.w600),
-                        ),
                       Text(
-                        day.crew.workLabel,
-                        style: v2Style(12, color: AccountsV2Colors.mut),
+                        AS.t(AS.unsavedDays, language),
+                        style: v2Style(12.5, weight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 4),
+                      for (final date in (drafts.toList()..sort()))
+                        if (date != selected)
+                          ActionChip(
+                            key: ValueKey('attendance-draft-$date'),
+                            label: Text(attendanceShortDate(date)),
+                            labelStyle: v2Style(
+                              12,
+                              weight: FontWeight.w600,
+                              color: AccountsV2Colors.warn,
+                            ),
+                            backgroundColor: AccountsV2Colors.warn50,
+                            side: BorderSide.none,
+                            materialTapTargetSize: MaterialTapTargetSize.padded,
+                            onPressed: () => onOpen(crewId, date),
+                          ),
+                    ],
+                  ),
+                ],
+                if (missing.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
                       Text(
-                        attendanceLongDate(day.date),
+                        AS.t(AS.notEnteredYet, language),
+                        style: v2Style(12.5, weight: FontWeight.w600),
+                      ),
+                      for (final date in missing.take(6))
+                        ActionChip(
+                          key: ValueKey('attendance-missing-$date'),
+                          label: Text(attendanceShortDate(date)),
+                          labelStyle: v2Style(
+                            12,
+                            weight: FontWeight.w600,
+                            color: AccountsV2Colors.bad,
+                          ),
+                          backgroundColor: AccountsV2Colors.bad50,
+                          side: BorderSide.none,
+                          materialTapTargetSize: MaterialTapTargetSize.padded,
+                          onPressed: () => onOpen(crewId, date),
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        attendanceLongDate(selected),
                         style: v2Style(
                           phone ? 18 : 20,
                           weight: FontWeight.w700,
                           height: 1.25,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                dirty
-                    ? AccountsV2Chip(
+                    ),
+                    if (loading)
+                      const SizedBox.shrink()
+                    else if (dirty)
+                      AccountsV2Chip(
                         AS.t(AS.unsavedDay, language),
                         tone: AccountsV2ChipTone.warn,
                       )
-                    : AccountsV2Chip(
+                    else if (day.crew.isPlace &&
+                        dayState == AttendanceDayState.none)
+                      // Nobody recorded yet is not "missing" at a place.
+                      const SizedBox.shrink()
+                    else
+                      AccountsV2Chip(
                         attendanceDayStateLabel(dayState).active(language),
                         tone: attendanceDayStateTone(dayState),
                       ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          // A thin bar, not a spinner over the page, while a date loads.
+          SizedBox(
+            height: 3,
+            child: loading
+                ? Semantics(
+                    label: AS.t(AS.loadingDate, language, {
+                      'date': attendanceShortDate(selected),
+                    }),
+                    child: const LinearProgressIndicator(
+                      key: ValueKey('attendance-day-loading'),
+                      minHeight: 3,
+                    ),
+                  )
+                : null,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _CrewPicker extends StatelessWidget {
-  const _CrewPicker({
-    required this.crews,
-    required this.crew,
-    required this.language,
-    required this.onPick,
-  });
+/// The place, as a button that opens the place list.
+class _PlaceButton extends StatelessWidget {
+  const _PlaceButton({required this.name, required this.language, this.onTap});
 
-  final List<AttendanceCrew> crews;
-  final AttendanceCrew crew;
+  final String name;
   final AppLanguage language;
-  final ValueChanged<AttendanceCrew> onPick;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<AttendanceCrew>(
-      key: const ValueKey('attendance-crew-picker'),
-      tooltip: AS.t(AS.chooseCrew, language),
-      onSelected: onPick,
-      itemBuilder: (context) => [
-        for (final item in crews)
-          PopupMenuItem(
-            value: item,
-            child: Text(item.name, style: v2Style(13)),
-          ),
-      ],
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 44),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                crew.name,
-                overflow: TextOverflow.ellipsis,
-                style: v2Style(
-                  14,
-                  weight: FontWeight.w700,
-                  color: AccountsV2Colors.pri,
+    return Semantics(
+      button: onTap != null,
+      label:
+          '${AS.t(AS.colCrew, language)}: $name. ${AS.t(AS.changePlace, language)}',
+      excludeSemantics: true,
+      child: InkWell(
+        key: const ValueKey('attendance-place-button'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(
+            children: [
+              const AccountsV2Icon(
+                'bldg',
+                size: 18,
+                color: AccountsV2Colors.pri,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  name,
+                  overflow: TextOverflow.ellipsis,
+                  style: v2Style(
+                    15,
+                    weight: FontWeight.w700,
+                    color: AccountsV2Colors.pri,
+                  ),
                 ),
               ),
-            ),
-            const Icon(
-              Icons.expand_more_rounded,
-              size: 20,
-              color: AccountsV2Colors.pri,
-            ),
-          ],
+              if (onTap != null) ...[
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.expand_more_rounded,
+                  size: 20,
+                  color: AccountsV2Colors.pri,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  AS.t(AS.changePlace, language),
+                  style: v2Style(12.5, color: AccountsV2Colors.mut),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -643,6 +933,10 @@ class _QuestionBannerState extends State<_QuestionBanner> {
   }
 }
 
+/// The building new rows start with at a place, when the place has several.
+final _newRowBuildingProvider = StateProvider.autoDispose
+    .family<AttendanceBuilding?, String>((ref, crewId) => null);
+
 class _Toolbar extends ConsumerWidget {
   const _Toolbar({
     required this.day,
@@ -680,20 +974,6 @@ class _Toolbar extends ConsumerWidget {
     );
   }
 
-  void _added(BuildContext context, List<AttendanceWorker> workers) {
-    if (workers.isEmpty) return;
-    for (final worker in workers) {
-      controller.addWorkerForDay(worker);
-    }
-    attendanceToast(
-      context,
-      AS.t(AS.addedForDay, language, {
-        'name': workers.map((w) => w.name).join(', '),
-        'date': attendanceShortDate(day.date),
-      }),
-    );
-  }
-
   Future<void> _copy(BuildContext context, String previous) async {
     final before = controller.current.rows;
     final ok = await controller.copyFrom(previous);
@@ -720,12 +1000,45 @@ class _Toolbar extends ConsumerWidget {
     );
   }
 
+  Future<void> _pickBuilding(BuildContext context, WidgetRef ref) async {
+    final chosen = await showAttendanceBuildingPicker(
+      context,
+      language: language,
+      buildings: day.crew.buildings,
+      selectedId: _newRowBuilding(ref)?.id,
+    );
+    if (chosen != null) {
+      ref.read(_newRowBuildingProvider(day.crew.id).notifier).state =
+          chosen.building;
+    }
+  }
+
+  AttendanceBuilding? _newRowBuilding(WidgetRef ref) =>
+      ref.watch(_newRowBuildingProvider(day.crew.id)) ??
+      day.crew.defaultBuilding;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final previous = day.previousSameTypeDate;
     final workers = ref.watch(yorksAttendanceWorkersProvider);
     final phone = AccountsV2Breakpoints.isPhone(context);
     final exclude = {for (final row in state.rows) row.worker.id};
+    final building = _newRowBuilding(ref);
+    final chooseBuilding = day.crew.buildings.length > 1;
+    final buildingLabel = building == null
+        ? AS.t(AS.colBuilding, language)
+        : attendanceBuildingName(building, language);
+    Future<void> openPicker() => _openWorkerPicker(
+      context,
+      ref,
+      day: day,
+      controller: controller,
+      language: language,
+      exclude: exclude,
+    );
+    final canAdd = workers.valueOrNull != null;
+    // Everyone present is for sheets with members still to mark.
+    final showEveryone = !day.holiday && state.unmarkedCount > 0;
     if (phone) {
       // Phones: every action in sight as equal tiles; Add workers opens the
       // picker sheet so the keyboard never hides the matches.
@@ -734,14 +1047,18 @@ class _Toolbar extends ConsumerWidget {
           padding: const EdgeInsets.all(10),
           child: AttendanceActionTiles(
             tiles: [
-              if (!day.holiday)
+              AttendanceActionTile(
+                key: const ValueKey('attendance-add-worker-open'),
+                icon: 'plus',
+                label: AS.t(AS.addWorkers, language),
+                onPressed: canAdd ? openPicker : null,
+              ),
+              if (showEveryone)
                 AttendanceActionTile(
                   key: const ValueKey('attendance-everyone-present'),
                   icon: 'check',
                   label: AS.t(AS.everyonePresent, language),
-                  onPressed: state.unmarkedCount == 0
-                      ? null
-                      : () => _everyone(context),
+                  onPressed: () => _everyone(context),
                 ),
               if (previous != null)
                 AttendanceActionTile(
@@ -751,6 +1068,15 @@ class _Toolbar extends ConsumerWidget {
                     'date': attendanceShortDate(previous),
                   }),
                   onPressed: () => _copy(context, previous),
+                ),
+              if (chooseBuilding)
+                AttendanceActionTile(
+                  key: const ValueKey('attendance-new-row-building'),
+                  icon: 'bldg',
+                  label: buildingLabel,
+                  semanticLabel:
+                      '${AS.t(AS.colBuilding, language)}: $buildingLabel',
+                  onPressed: () => _pickBuilding(context, ref),
                 ),
               AttendanceActionTile(
                 key: const ValueKey('attendance-shift'),
@@ -763,62 +1089,23 @@ class _Toolbar extends ConsumerWidget {
                 }),
                 onPressed: () => _editShift(context),
               ),
-              AttendanceActionTile(
-                key: const ValueKey('attendance-add-worker-open'),
-                icon: 'plus',
-                label: AS.t(AS.addWorkers, language),
-                onPressed: workers.valueOrNull == null
-                    ? null
-                    : () async {
-                        final picked = await showAttendanceWorkerPicker(
-                          context,
-                          language: language,
-                          title: AS.t(AS.addWorkers, language),
-                          workers: workers.valueOrNull ?? const [],
-                          exclude: exclude,
-                        );
-                        if (picked != null && context.mounted) {
-                          _added(context, picked);
-                        }
-                      },
-              ),
             ],
           ),
         ),
       );
     }
-    final buttons = <Widget>[
-      if (previous != null)
-        AccountsV2Button(
-          key: const ValueKey('attendance-copy-previous'),
-          label: AS.t(AS.copyDay, language, {
-            'date': attendanceShortDate(previous),
-          }),
-          icon: 'copy',
-          onPressed: () => _copy(context, previous),
-        ),
-      if (!day.holiday)
-        AccountsV2Button(
-          key: const ValueKey('attendance-everyone-present'),
-          label: AS.t(AS.everyonePresent, language),
-          icon: 'check',
-          onPressed: state.unmarkedCount == 0 ? null : () => _everyone(context),
-        ),
-      AccountsV2Button(
-        key: const ValueKey('attendance-shift'),
-        label: AS.t(AS.shiftButton, language, {
-          'start': formatAttendanceTime(day.crew.shiftStart),
-          'finish': formatAttendanceTime(day.crew.shiftFinish),
-        }),
-        icon: 'clock',
-        onPressed: () => _editShift(context),
-      ),
-    ];
     final addWorker = _AddWorkerField(
       language: language,
       workers: workers.valueOrNull ?? const [],
       exclude: exclude,
-      onAdd: (worker) => _added(context, [worker]),
+      onAdd: (worker) => _added(
+        context,
+        [worker],
+        day: day,
+        controller: controller,
+        language: language,
+        building: building,
+      ),
     );
     return AccountsV2Panel(
       child: Padding(
@@ -828,13 +1115,108 @@ class _Toolbar extends ConsumerWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            ...buttons,
-            SizedBox(width: 320, child: addWorker),
+            AccountsV2Button(
+              key: const ValueKey('attendance-add-worker-open'),
+              label: AS.t(AS.addWorkers, language),
+              icon: 'plus',
+              kind: AccountsV2ButtonKind.primary,
+              onPressed: canAdd ? openPicker : null,
+            ),
+            SizedBox(width: 300, child: addWorker),
+            if (chooseBuilding)
+              AccountsV2Button(
+                key: const ValueKey('attendance-new-row-building'),
+                label: building == null
+                    ? AS.t(AS.chooseBuilding, language)
+                    : '${AS.t(AS.colBuilding, language)}: $buildingLabel',
+                icon: 'bldg',
+                onPressed: () => _pickBuilding(context, ref),
+              ),
+            if (previous != null)
+              AccountsV2Button(
+                key: const ValueKey('attendance-copy-previous'),
+                label: AS.t(AS.copyDay, language, {
+                  'date': attendanceShortDate(previous),
+                }),
+                icon: 'copy',
+                onPressed: () => _copy(context, previous),
+              ),
+            if (showEveryone)
+              AccountsV2Button(
+                key: const ValueKey('attendance-everyone-present'),
+                label: AS.t(AS.everyonePresent, language),
+                icon: 'check',
+                onPressed: () => _everyone(context),
+              ),
+            AccountsV2Button(
+              key: const ValueKey('attendance-shift'),
+              label: AS.t(AS.shiftButton, language, {
+                'start': formatAttendanceTime(day.crew.shiftStart),
+                'finish': formatAttendanceTime(day.crew.shiftFinish),
+              }),
+              icon: 'clock',
+              onPressed: () => _editShift(context),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+/// Opens the worker picker and adds the ticked workers to the day.
+Future<void> _openWorkerPicker(
+  BuildContext context,
+  WidgetRef ref, {
+  required AttendanceDay day,
+  required AttendanceDayController controller,
+  required AppLanguage language,
+  required Set<String> exclude,
+}) async {
+  final workers = ref.read(yorksAttendanceWorkersProvider).valueOrNull;
+  if (workers == null) return;
+  final picked = await showAttendanceWorkerPicker(
+    context,
+    language: language,
+    title: AS.t(AS.addWorkers, language),
+    workers: workers,
+    exclude: exclude,
+  );
+  if (picked == null || !context.mounted) return;
+  _added(
+    context,
+    picked,
+    day: day,
+    controller: controller,
+    language: language,
+    building:
+        ref.read(_newRowBuildingProvider(day.crew.id)) ??
+        day.crew.defaultBuilding,
+  );
+}
+
+void _added(
+  BuildContext context,
+  List<AttendanceWorker> workers, {
+  required AttendanceDay day,
+  required AttendanceDayController controller,
+  required AppLanguage language,
+  AttendanceBuilding? building,
+}) {
+  if (workers.isEmpty) return;
+  controller.addWorkers(workers, building: building);
+  attendanceToast(
+    context,
+    workers.length == 1
+        ? AS.t(AS.addedForDay, language, {
+            'name': workers.single.name,
+            'date': attendanceShortDate(day.date),
+          })
+        : AS.t(AS.addedCount, language, {
+            'n': workers.length,
+            'date': attendanceShortDate(day.date),
+          }),
+  );
 }
 
 class _AddWorkerField extends StatefulWidget {
@@ -947,7 +1329,11 @@ class _AddWorkerFieldState extends State<_AddWorkerField> {
                               style: v2Style(13, weight: FontWeight.w600),
                             ),
                             Text(
-                              '${hit.item.number} · ${hit.item.designation} · ${hit.item.crewName ?? AS.t(AS.labourPool, language)}',
+                              [
+                                hit.item.number,
+                                hit.item.designation,
+                                hit.item.company,
+                              ].where((part) => part.isNotEmpty).join(' · '),
                               style: v2Style(12, color: AccountsV2Colors.mut),
                             ),
                           ],
@@ -1050,7 +1436,7 @@ class _ShiftDialogState extends State<_ShiftDialog> {
   }
 }
 
-class _WorkerList extends StatelessWidget {
+class _WorkerList extends ConsumerWidget {
   const _WorkerList({
     required this.state,
     required this.controller,
@@ -1086,16 +1472,61 @@ class _WorkerList extends StatelessWidget {
     }
   }
 
+  Future<void> _pickBuilding(BuildContext context, AttendanceRow row) async {
+    final day = controller.current.day;
+    if (day == null) return;
+    final chosen = await showAttendanceBuildingPicker(
+      context,
+      language: language,
+      buildings: day.crew.buildings,
+      selectedId: row.workScopeId,
+    );
+    if (chosen == null) return;
+    controller.setWorkPlace(row.worker.id, building: chosen.building);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final day = state.day!;
     final phone = AccountsV2Breakpoints.isNarrow(context);
+    if (state.rows.isEmpty) {
+      return AccountsV2Panel(
+        child: AccountsV2Empty(
+          key: const ValueKey('attendance-empty-day'),
+          icon: 'users',
+          title: day.editable
+              ? AS.t(AS.emptyDayAdd, language, {
+                  'date': attendanceShortDate(day.date),
+                })
+              : AS.t(AS.notEnteredLine, language),
+          action: day.editable
+              ? AccountsV2Button(
+                  key: const ValueKey('attendance-empty-add'),
+                  label: AS.t(AS.addWorkers, language),
+                  icon: 'plus',
+                  kind: AccountsV2ButtonKind.primary,
+                  onPressed: () => _openWorkerPicker(
+                    context,
+                    ref,
+                    day: day,
+                    controller: controller,
+                    language: language,
+                    exclude: const {},
+                  ),
+                )
+              : null,
+        ),
+      );
+    }
+    final buildings =
+        day.crew.placeKind == 'project' && day.crew.buildings.isNotEmpty;
     if (!phone && day.editable) {
       return AttendanceGrid(
         state: state,
         controller: controller,
         language: language,
         onOpenEditor: (index) => _edit(context, index),
+        onPickBuilding: buildings ? (row) => _pickBuilding(context, row) : null,
       );
     }
     return AccountsV2Panel(
@@ -1109,6 +1540,10 @@ class _WorkerList extends StatelessWidget {
               language: language,
               editable: day.editable,
               onEdit: () => _edit(context, i),
+              onPickBuilding: buildings && day.editable
+                  ? () => _pickBuilding(context, state.rows[i])
+                  : null,
+              showBuilding: buildings,
               onStatus: (status) => status == null
                   ? _edit(context, i)
                   : controller.setStatus(state.rows[i].worker.id, status),
@@ -1143,6 +1578,8 @@ class _WorkerCard extends StatelessWidget {
     required this.onEdit,
     required this.onStatus,
     this.onRemove,
+    this.onPickBuilding,
+    this.showBuilding = false,
   });
 
   final AttendanceRow row;
@@ -1150,6 +1587,10 @@ class _WorkerCard extends StatelessWidget {
   final AppLanguage language;
   final bool editable;
   final VoidCallback onEdit;
+
+  /// The row's building at a project place: shown, and changed by tapping.
+  final bool showBuilding;
+  final VoidCallback? onPickBuilding;
 
   /// Null opens the editor (··· or leave).
   final ValueChanged<AttendanceStatus?> onStatus;
@@ -1268,7 +1709,9 @@ class _WorkerCard extends StatelessWidget {
               style: v2Style(13.5, weight: FontWeight.w700),
             ),
             CrewDocumentBadge(crewId: day.crew.id, workerId: row.worker.id),
-            if (!row.isMember)
+            // Sheets set up as crews show who came from elsewhere; at a place
+            // everyone is added for the day.
+            if (!row.isMember && !day.crew.isPlace)
               AccountsV2Chip(
                 row.worker.crewName == null
                     ? AS.t(AS.labourPool, language)
@@ -1285,9 +1728,21 @@ class _WorkerCard extends StatelessWidget {
           ],
         ),
         Text(
-          '${row.worker.number} · ${row.worker.designation}',
+          [
+            row.worker.number,
+            row.worker.designation,
+            if (!row.updatedByMe && row.updatedBy != null)
+              AS.t(AS.savedBy, language, {'by': row.updatedBy}),
+          ].where((part) => part.isNotEmpty).join(' · '),
           style: v2Style(11.5, color: AccountsV2Colors.mut),
         ),
+        if (showBuilding)
+          AttendanceBuildingChip(
+            key: ValueKey('attendance-row-building-$id'),
+            label: attendanceRowBuilding(row, day.crew, language),
+            language: language,
+            onTap: onPickBuilding,
+          ),
         const SizedBox(height: 2),
         Wrap(
           spacing: 6,
@@ -1450,11 +1905,15 @@ class _Footer extends ConsumerWidget {
     required this.state,
     required this.controller,
     required this.language,
+    this.enabled = true,
   });
 
   final AttendanceDayEditState state;
   final AttendanceDayController controller;
   final AppLanguage language;
+
+  /// False while another date loads: the bar stays put but does nothing.
+  final bool enabled;
 
   String get _summary {
     final parts = [
@@ -1486,7 +1945,12 @@ class _Footer extends ConsumerWidget {
   Future<void> _save(BuildContext context, WidgetRef ref) async {
     final day = state.day!;
     AttendanceDay? saved;
-    if (day.changeNeedsReason) {
+    // A reason only when the save changes or removes someone else's rows.
+    final others = {
+      for (final row in state.othersChanged)
+        if ((row.updatedBy ?? '').isNotEmpty) row.updatedBy!,
+    };
+    if (state.needsReason) {
       // The dialog stays open while the server decides and shows a refusal
       // inside it, with the reason still typed.
       final reason = await showAttendanceCommandDialog(
@@ -1496,7 +1960,9 @@ class _Footer extends ConsumerWidget {
           'date': attendanceShortDate(day.date),
         }),
         summary: _summary,
-        body: AS.t(AS.reasonBody, language, {'by': day.enteredBy ?? ''}),
+        body: others.isEmpty
+            ? AS.t(AS.reasonBody, language, {'by': day.enteredBy ?? ''})
+            : AS.t(AS.reasonBodyRows, language, {'by': others.join(', ')}),
         fieldLabel: AS.t(AS.reasonLabel, language),
         confirmLabel: AS.t(AS.saveChanges, language),
         command: (text) async {
@@ -1588,7 +2054,9 @@ class _Footer extends ConsumerWidget {
                   child: AccountsV2Button(
                     label: AS.t(AS.discardChanges, language),
                     kind: AccountsV2ButtonKind.ghost,
-                    onPressed: state.saving ? null : controller.discard,
+                    onPressed: state.saving || !enabled
+                        ? null
+                        : controller.discard,
                   ),
                 ),
               Expanded(
@@ -1603,7 +2071,9 @@ class _Footer extends ConsumerWidget {
                   icon: state.saving ? 'clock' : 'check',
                   kind: AccountsV2ButtonKind.primary,
                   size: AccountsV2ButtonSize.large,
-                  onPressed: state.canSave ? () => _save(context, ref) : null,
+                  onPressed: enabled && state.canSave
+                      ? () => _save(context, ref)
+                      : null,
                 ),
               ),
             ],

@@ -2528,6 +2528,48 @@ scans, so nothing was uploaded from it. Design:
   chore. Attendance is taken by adding the labourers present instead
   (section 51). Crews, members and their history stay stored.
 
+## 51. Attendance at places: add the workers, take attendance, done (owner decisions, 14 November 2026)
+
+Supersedes the crew setup of sections 37 and 46 for taking attendance; the
+several-places-a-day rules, whole-day hours and confirmers of section 46
+stay.
+
+- **Places, not crews.** Attendance is taken at a place: a project, or an
+  internal location such as the workshop, store or camp. The first person
+  who keeps attendance there opens it and it becomes the one shared sheet
+  for that place; everyone who keeps attendance at the place adds the
+  labourers they have that day and saves. Nobody sets up crews or members.
+  A project's existing active sheet (the oldest) becomes its place, keeping
+  every day, row and month; production had one (DF3W).
+- **Choosing the place.** Take attendance opens the place used last on the
+  device, or the person's only project straight away; otherwise it asks
+  where, with the places used recently first, then the person's projects,
+  then other projects and the workshop and other places, all searchable by
+  project number or name. Site and Project Engineers keep attendance on
+  projects they are on; the other keepers on any project. Anyone who keeps
+  attendance can add a new internal location by typing its name.
+- **Defaults.** An added worker starts present on the place's shift: in at
+  06:30 for 8 hours plus the place's break, so overtime is 0 until a later
+  out time is entered. The adopted DF3W sheet's default becomes 06:30 to
+  14:30 for new rows; saved rows are not changed.
+- **Buildings.** Each row records the building (or Common) of the place's
+  project; with one building it is chosen automatically, and the building
+  new rows start with can be set once for the day.
+- **Reasons.** Changing or removing a row someone else saved needs a reason,
+  is logged and tells them. Adding rows to a shared day, or saving a row
+  again unchanged, does not.
+- **Empty and missing days.** A saved day may be saved again with every row
+  removed. A place has no members, so a working day nobody was recorded
+  there is not "missing": it is not flagged, does not hold up the month,
+  and a place is due for confirmation only in a month it has days.
+- **Smooth dates.** Changing the date keeps the page, the place and the day
+  strip in place, fading the previous day under a thin progress bar while
+  the chosen day loads.
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Attendance V2, Places. Migration
+`20261114200000_workforce_attendance_places.sql`.
+
 ## 53. Profession on the visa and ID, and position in the company (owner decision, 14 November 2026)
 
 A person keeps two professions: the one written on their visa and Emirates

@@ -45,6 +45,25 @@ Attendance V2 still carries no pay, passport or licence field. Release:
 `supabase/release/pr_role_and_attendance_v2_bundle.sql`; rollback:
 `supabase/release/attendance_v2_rollback.sql` (keeps every table and row).
 
+### Places (14 November 2026, `PRODUCT_DECISIONS.md` section 51)
+
+Take attendance no longer asks anyone to set up a crew. A place is a crew
+profile with a unique `place_key` (`project:<id>` or `location:<name>`):
+`v1_wf_list_places` lists the projects (with their active buildings) and
+internal locations the person may keep or read, and `v1_wf_open_place`
+finds or creates the place's one shared sheet under an advisory lock,
+taking over the project's oldest active sheet when there is one (its
+default shift for new rows becomes 06:30 for 8 hours plus its break). A
+place offers no members: the day shows exactly the rows saved for it, and
+`v1_wf_save_day` skips the member check. Each row may name a building of
+its project (`work_scope_id`, checked against the project); every row on a
+project's place is on that project. A reason is needed only to change or
+remove a row someone else saved; an unchanged row keeps who saved it. A
+place reports no missing days, its month confirms without them, and it is
+due for confirmation only in months it has days. The Crews tab is hidden
+and crew requests stay behind `YORKS_V1_WORKFORCE_CENTER` (off in
+production, section 50).
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation
