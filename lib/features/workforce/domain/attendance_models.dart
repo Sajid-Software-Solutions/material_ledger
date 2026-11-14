@@ -1138,6 +1138,7 @@ final class AttendancePlaceLocation {
 final class AttendancePlaces {
   const AttendancePlaces({
     this.canTake = false,
+    this.canAddLocation = false,
     this.projects = const [],
     this.locations = const [],
   });
@@ -1145,6 +1146,11 @@ final class AttendancePlaces {
   factory AttendancePlaces.fromJson(Map<String, dynamic> json) =>
       AttendancePlaces(
         canTake: _b(json['can_take']),
+        // A server before PRODUCT_DECISIONS section 58 let every keeper add
+        // one.
+        canAddLocation: json.containsKey('can_add_location')
+            ? _b(json['can_add_location'])
+            : _b(json['can_take']),
         projects: [
           for (final project in _maps(json['projects']))
             AttendancePlaceProject.fromJson(project),
@@ -1155,8 +1161,12 @@ final class AttendancePlaces {
         ],
       );
 
-  /// Keeps attendance somewhere (may add a new internal location).
+  /// Keeps attendance somewhere.
   final bool canTake;
+
+  /// May add a new internal place (workshop, store, camp): the Workshop
+  /// In-Charge, HR/PRO, the Accountant and Admin (PRODUCT_DECISIONS 58).
+  final bool canAddLocation;
   final List<AttendancePlaceProject> projects;
   final List<AttendancePlaceLocation> locations;
 

@@ -241,19 +241,40 @@ select is(
   current_setting('pl.place'),
   'The Accountant reads an open place'
 );
+-- The Accountant keeps attendance as HR/PRO does (PRODUCT_DECISIONS 58).
 select is(
   (pg_temp.place('6e010000-0000-4000-8000-000000000001') ->> 'can_take')::boolean,
-  false,
-  'The Accountant reads but does not keep'
+  true,
+  'The Accountant keeps attendance at an open place'
 );
-select throws_ok(
-  $$select public.v1_wf_open_place('6e010000-0000-4000-8000-000000000002', null)$$,
-  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
-  'The Accountant cannot open a new place'
+select is(
+  (pg_temp.place('6e010000-0000-4000-8000-000000000002') ->> 'can_take')::boolean,
+  true,
+  'The Accountant is offered every project, on it or not'
 );
 
--- Internal locations are kept by everyone who keeps attendance.
+-- Internal places are kept by the Workshop In-Charge, HR/PRO, the Accountant
+-- and Admin (PRODUCT_DECISIONS section 58).
 select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+select throws_ok(
+  $$select public.v1_wf_open_place(null, 'Main Store')$$,
+  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
+  'A Site Engineer cannot open an internal place'
+);
+select is(
+  (public.v1_wf_list_places() ->> 'can_add_location')::boolean,
+  false,
+  'A Site Engineer is not offered a new internal place'
+);
+reset role;
+select pg_temp.as_role('workshop_in_charge');
+set local role authenticated;
+select pg_temp.act('10000000-0000-4000-8000-000000000010', 'workshop_in_charge');
+select is(
+  (public.v1_wf_list_places() ->> 'can_add_location')::boolean,
+  true,
+  'The Workshop In-Charge may add an internal place'
+);
 select set_config('pl.store', (
   public.v1_wf_open_place(null, '  Main   Store ') ->> 'id'
 ), true);
@@ -264,19 +285,28 @@ select is(
   'location:main store',
   'A location is named once, whatever the spacing or case'
 );
-select pg_temp.as_role('workshop_in_charge');
 set local role authenticated;
-select pg_temp.act('10000000-0000-4000-8000-000000000010', 'workshop_in_charge');
+select pg_temp.act('10000000-0000-4000-8000-000000000013', 'accountant');
 select is(
   public.v1_wf_open_place(null, 'main store') ->> 'id',
   current_setting('pl.store'),
   'Another keeper opens the same location'
 );
-select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
 select is(
   (public.v1_wf_open_place(null, 'Main Store') -> 'access' ->> 'take')::boolean,
   true,
-  'A Project Engineer keeps an internal location someone else opened'
+  'The Accountant keeps an internal place someone else opened'
+);
+select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');
+select throws_ok(
+  $$select public.v1_wf_open_place(null, 'Main Store')$$,
+  '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
+  'A Project Engineer does not see an internal place'
+);
+select is(
+  jsonb_array_length(public.v1_wf_list_places() -> 'locations'),
+  0,
+  'Internal places are not listed for a Project Engineer'
 );
 reset role;
 select pg_temp.as_role('document_controller');
