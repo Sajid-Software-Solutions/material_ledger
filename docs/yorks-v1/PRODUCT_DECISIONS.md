@@ -2726,6 +2726,33 @@ People records are on it is replaced by **People record**:
 linking uses the existing `v1_people_set_account`. Migration
 `20261114240000_people_account_person.sql`.
 
+## 57. Scoped Access shows access plainly (owner request, 14 November 2026)
+
+The owner reviewed Scoped Access for an HR/PRO account. The effective
+access itself matched the HR/PRO role (section 37): User Management,
+Worker Records, Workforce, People records, Company Documents, Rentals and
+leave, read-only Projects and Accounts, nothing that changes projects,
+BOQ, requests, stock or returns. The page around it was wrong or noisy:
+
+- **Workforce responsibility warning removed with Attendance V2.** "This
+  user cannot open or maintain Workforce records until a dated organization
+  responsibility is confirmed" was false: with `YORKS_V1_WORKFORCE_ATTENDANCE_V2`
+  on, Workforce access follows role and project (Admin and HR/PRO manage
+  everything), and no screen reachable in that build checks the old
+  organization responsibility. The warning, its "Assign responsibility"
+  action and the matching option in the review dialog now show only while
+  the legacy Workforce screens are in use. Existing responsibility rows are
+  kept.
+- **Rollout diagnostics hidden.** The "Permissions are being enabled
+  progressively" / shadow banners, the "Parity confirmed" chip on every
+  row, the "Shadow mode" and "Candidate access" chips, and the "Revision"
+  pill are gone. A permission that still follows the role (shadow) shows
+  **Set by role** and explains, on its lock, that it cannot be changed here
+  yet. Only when the old and new rules disagree does the row warn ("Rules
+  differ, check") and show the new rule's decision.
+
+No server or permission change.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

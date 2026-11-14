@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/core/constants/constants.dart';
 import 'package:material_ledger/features/admin/presentation/screens/yorks_v1_user_access_screen.dart';
+import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_permission_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_permission_repository.dart';
 import 'package:material_ledger/shared/services/yorks_v1_critical_command_key_store.dart';
@@ -50,9 +52,18 @@ void main() {
         find.byKey(const Key('permission-deactivated-banner')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('permission-shadow-banner')), findsOneWidget);
+      // No rollout banner; the row itself says it follows the role.
+      expect(find.byKey(const Key('permission-shadow-banner')), findsNothing);
+      expect(find.byKey(const Key('permission-mixed-banner')), findsNothing);
       await _openProjectsModule(tester);
       await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const Key('permission-role-managed-projects.view'),
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
       final editFinder = find.byKey(
         const Key('permission-edit-projects.view'),
         skipOffstage: false,
@@ -316,6 +327,107 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'with attendance V2 the Workforce responsibility is neither warned about '
+    'nor offered',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final repository = _FakePermissionRepository(
+        workspace: _workspace(
+          authorizationMode: YorksV1PermissionAuthorizationMode.enforced,
+          capabilityMode: YorksV1PermissionCapabilityAuthorizationMode.enforced,
+          workforceAccess: YorksV1WorkforceAccessStatus(
+            referenceDate: DateTime.utc(2026, 11, 14),
+            hasOperationalAccess: true,
+            canAssignOrganizationResponsibility: true,
+            activeWorkerCount: 138,
+            activeTeamCount: 2,
+            scheduledTeamCount: 0,
+          ),
+        ),
+        canManage: true,
+      );
+      await _pumpScreen(tester, repository, attendanceV2: true);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('permission-workforce-responsibility-banner')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('permission-workforce-empty-setup-banner')),
+        findsNothing,
+      );
+      expect(find.text('Assign responsibility'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('matching rules show no comparison and no revision number', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final agreeing = _FakePermissionRepository(
+      workspace: _workspace(
+        authorizationMode: YorksV1PermissionAuthorizationMode.enforced,
+        capabilityMode: YorksV1PermissionCapabilityAuthorizationMode.enforced,
+      ),
+      canManage: true,
+    );
+    await _pumpScreen(tester, agreeing);
+    await tester.pumpAndSettle();
+    await _openProjectsModule(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Parity confirmed'), findsNothing);
+    expect(find.text('Rules differ, check'), findsNothing);
+    expect(find.text('Shadow mode'), findsNothing);
+    expect(find.text('Revision 7'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('differing rules say so plainly, with the new rule', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final differing = _FakePermissionRepository(
+      workspace: _workspace(
+        authorizationMode: YorksV1PermissionAuthorizationMode.shadow,
+        capabilityMode: YorksV1PermissionCapabilityAuthorizationMode.shadow,
+        parity: false,
+        candidateEffective: false,
+      ),
+      canManage: true,
+    );
+    await _pumpScreen(tester, differing);
+    await tester.pumpAndSettle();
+    await _openProjectsModule(tester);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const Key('permission-rules-differ-projects.view'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('New rule: Denied', skipOffstage: false), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'continuity permissions are immediate and open ended in the editor',
@@ -736,6 +848,7 @@ Future<void> _pumpScreen(
   WidgetTester tester,
   _FakePermissionRepository repository, {
   TextScaler? textScaler,
+  bool attendanceV2 = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -746,6 +859,22 @@ Future<void> _pumpScreen(
     ProviderScope(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
+        if (attendanceV2)
+          yorksV1FeatureFlagsProvider.overrideWithValue(
+            const YorksV1FeatureFlags(
+              foundation: true,
+              projects: true,
+              boq: true,
+              excel: true,
+              requests: true,
+              arrangement: true,
+              logistics: true,
+              returnsDocuments: true,
+              documents: true,
+              workforce: true,
+              workforceAttendanceV2: true,
+            ),
+          ),
         yorksV1CurrentPermissionSnapshotProvider.overrideWith((ref) {
           final controller = YorksV1CurrentPermissionSnapshotController(
             enabled: true,
@@ -811,6 +940,8 @@ YorksV1UserPermissionWorkspace _workspace({
   List<YorksV1PermissionHistoryEvent> recentHistory = const [],
   List<YorksV1PermissionCapabilityAccess>? catalogAccess,
   YorksV1WorkforceAccessStatus? workforceAccess,
+  bool parity = true,
+  bool candidateEffective = true,
   required YorksV1PermissionAuthorizationMode authorizationMode,
   required YorksV1PermissionCapabilityAuthorizationMode capabilityMode,
 }) {
@@ -861,9 +992,9 @@ YorksV1UserPermissionWorkspace _workspace({
             authoritativeSource: active
                 ? YorksV1PermissionEffectiveSource.roleDefault
                 : YorksV1PermissionEffectiveSource.inactive,
-            candidateEffective: true,
+            candidateEffective: candidateEffective,
             candidateSource: YorksV1PermissionEffectiveSource.roleDefault,
-            hasParity: true,
+            hasParity: parity,
             actorCanDelegate: true,
             actorDelegableScopes: actorDelegableScopes ?? catalog.allowedScopes,
             projectOverrides: projectOverrides,

@@ -100,6 +100,11 @@ abstract final class YorksV1PermissionStrings {
     'candidate': 'Candidate access',
     'parity_match': 'Parity confirmed',
     'parity_difference': 'Parity difference',
+    'role_managed': 'Set by role',
+    'role_managed_help':
+        'This permission follows the person\'s role and cannot be changed here yet.',
+    'rules_differ': 'Rules differ, check',
+    'new_rule': 'New rule',
     'protected': 'Protected',
     'protected_help':
         'This permission or workflow rule cannot be weakened from User Management.',
@@ -372,6 +377,11 @@ abstract final class YorksV1PermissionStrings {
       'candidate': 'الصلاحية المرشحة',
       'parity_match': 'تم تأكيد المطابقة',
       'parity_difference': 'اختلاف في المطابقة',
+      'role_managed': 'يحددها الدور',
+      'role_managed_help':
+          'تتبع هذه الصلاحية دور الشخص ولا يمكن تغييرها من هنا بعد.',
+      'rules_differ': 'القواعد مختلفة، تحقق',
+      'new_rule': 'القاعدة الجديدة',
       'protected': 'محمي',
       'planned': 'مخطط',
       'not_assignable': 'للقراءة فقط',
@@ -554,6 +564,11 @@ abstract final class YorksV1PermissionStrings {
       'candidate': 'امیدوار رسائی',
       'parity_match': 'مطابقت کی تصدیق',
       'parity_difference': 'مطابقت میں فرق',
+      'role_managed': 'کردار سے طے',
+      'role_managed_help':
+          'یہ اجازت اس شخص کے کردار کے مطابق ہے اور ابھی یہاں سے تبدیل نہیں ہو سکتی۔',
+      'rules_differ': 'قواعد مختلف، جانچیں',
+      'new_rule': 'نیا قاعدہ',
       'protected': 'محفوظ',
       'planned': 'منصوبہ بند',
       'not_assignable': 'صرف مطالعہ',
@@ -707,6 +722,11 @@ abstract final class YorksV1PermissionStrings {
       'candidate': 'प्रस्तावित पहुँच',
       'parity_match': 'मिलान की पुष्टि',
       'parity_difference': 'मिलान में अंतर',
+      'role_managed': 'भूमिका से तय',
+      'role_managed_help':
+          'यह अनुमति व्यक्ति की भूमिका के अनुसार है और अभी यहाँ से बदली नहीं जा सकती।',
+      'rules_differ': 'नियम अलग, जाँचें',
+      'new_rule': 'नया नियम',
       'protected': 'सुरक्षित',
       'planned': 'योजनाबद्ध',
       'not_assignable': 'केवल पढ़ें',

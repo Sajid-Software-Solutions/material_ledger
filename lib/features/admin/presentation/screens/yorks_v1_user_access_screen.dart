@@ -11,6 +11,7 @@ import '../../../../shared/models/yorks_v1_permission_management.dart';
 import '../../../../shared/models/yorks_v1_permission_strings.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/users_provider.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../widgets/yorks_v1_permission_widgets.dart';
 
@@ -675,29 +676,8 @@ class _YorksV1UserAccessScreenState
         ),
       );
     }
-    if (workspace.authorizationMode ==
-        YorksV1PermissionAuthorizationMode.shadow) {
-      banners.add(
-        _WorkspaceBanner(
-          key: const Key('permission-shadow-banner'),
-          icon: Icons.compare_arrows_rounded,
-          title: _t(language, 'shadow_title'),
-          body: _t(language, 'shadow_body'),
-          tone: _BannerTone.info,
-        ),
-      );
-    } else if (workspace.authorizationMode ==
-        YorksV1PermissionAuthorizationMode.mixed) {
-      banners.add(
-        _WorkspaceBanner(
-          key: const Key('permission-mixed-banner'),
-          icon: Icons.call_split_rounded,
-          title: _t(language, 'mixed_title'),
-          body: _t(language, 'mixed_body'),
-          tone: _BannerTone.info,
-        ),
-      );
-    }
+    // The rollout mode (shadow, mixed) is not shown as a banner: each row
+    // that follows the role says so itself.
     if (workspace.actor.appUserId == workspace.target.appUserId) {
       banners.add(
         _WorkspaceBanner(
@@ -709,7 +689,13 @@ class _YorksV1UserAccessScreenState
         ),
       );
     }
-    final workforceAccess = workspace.workforceAccess;
+    // A dated organization responsibility only gates the legacy Workforce
+    // screens. Attendance V2 decides access by role and project, so the
+    // warning and the assignment are not offered there.
+    final legacyWorkforce = !ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .workforceAttendanceV2;
+    final workforceAccess = legacyWorkforce ? workspace.workforceAccess : null;
     if (workforceAccess != null &&
         workforceAccess.hasOperationalAccess &&
         !workforceAccess.hasOrganizationResponsibility) {
@@ -1022,6 +1008,7 @@ class _YorksV1UserAccessScreenState
       return;
     }
     final offersWorkforceResponsibility =
+        !ref.read(yorksV1FeatureFlagsProvider).workforceAttendanceV2 &&
         workspace.workforceAccess?.canAssignOrganizationResponsibility ==
             true &&
         workspace.workforceAccess?.hasOrganizationResponsibility == false &&
@@ -1438,13 +1425,19 @@ class _PermissionRow extends StatelessWidget {
                 : Icons.block_rounded
           : Icons.account_tree_outlined,
     );
+    final roleManaged =
+        access.authorizationMode ==
+        YorksV1PermissionCapabilityAuthorizationMode.shadow;
     final edit = SizedBox.square(
       dimension: AppSpacing.minTapTarget,
       child: IconButton(
         key: Key('permission-edit-${catalog.key}'),
         tooltip: assignable
             ? YorksV1PermissionStrings.text(language, 'edit_access')
-            : YorksV1PermissionStrings.text(language, 'protected'),
+            : YorksV1PermissionStrings.text(
+                language,
+                roleManaged ? 'role_managed_help' : 'protected',
+              ),
         onPressed: assignable ? onEdit : null,
         icon: Icon(
           assignable ? Icons.tune_rounded : Icons.lock_outline_rounded,
@@ -1482,37 +1475,33 @@ class _PermissionRow extends StatelessWidget {
             label: YorksV1PermissionStrings.text(language, 'protected'),
             tone: YorksPermissionPillTone.warning,
           ),
-        if (access.authorizationMode ==
-            YorksV1PermissionCapabilityAuthorizationMode.shadow)
+        // Follows the role and cannot be customised here yet.
+        if (roleManaged && catalog.canAssignFromThisClient)
           YorksPermissionPill(
-            label: YorksV1PermissionStrings.text(language, 'shadow_mode'),
-            tone: YorksPermissionPillTone.info,
-            icon: Icons.compare_arrows_rounded,
+            key: Key('permission-role-managed-${catalog.key}'),
+            label: YorksV1PermissionStrings.text(language, 'role_managed'),
+            tone: YorksPermissionPillTone.neutral,
+            icon: Icons.lock_outline_rounded,
           ),
-        YorksPermissionPill(
-          label: YorksV1PermissionStrings.text(
-            language,
-            parity ? 'parity_match' : 'parity_difference',
+        // The rollout comparison shows only when the rules disagree.
+        if (!parity) ...[
+          YorksPermissionPill(
+            key: Key('permission-rules-differ-${catalog.key}'),
+            label: YorksV1PermissionStrings.text(language, 'rules_differ'),
+            tone: YorksPermissionPillTone.warning,
+            icon: Icons.difference_outlined,
           ),
-          tone: parity
-              ? YorksPermissionPillTone.neutral
-              : YorksPermissionPillTone.warning,
-          icon: parity
-              ? Icons.check_circle_outline_rounded
-              : Icons.difference_outlined,
-        ),
-        if (access.authorizationMode ==
-            YorksV1PermissionCapabilityAuthorizationMode.shadow)
           YorksPermissionPill(
             label: organizationVisible
-                ? '${YorksV1PermissionStrings.text(language, 'candidate')}: '
+                ? '${YorksV1PermissionStrings.text(language, 'new_rule')}: '
                       '${YorksV1PermissionStrings.text(language, access.candidateEffective == true ? 'allowed' : 'denied')}'
-                : '${YorksV1PermissionStrings.text(language, 'candidate')}: '
+                : '${YorksV1PermissionStrings.text(language, 'new_rule')}: '
                       '${projectCountLabel(candidateProjectCount)}',
             tone: access.candidateEffective == true || candidateProjectCount > 0
                 ? YorksPermissionPillTone.allowed
                 : YorksPermissionPillTone.denied,
           ),
+        ],
         if (draftCount > 0)
           YorksPermissionPill(
             label:
@@ -1645,13 +1634,6 @@ class _UserAccessSummary extends StatelessWidget {
                 tone: target.isActive
                     ? YorksPermissionPillTone.allowed
                     : YorksPermissionPillTone.denied,
-              ),
-              YorksPermissionPill(
-                label: YorksV1PermissionStrings.text(
-                  language,
-                  'revision',
-                ).replaceAll('{revision}', '${workspace.revision}'),
-                tone: YorksPermissionPillTone.neutral,
               ),
             ],
           ),
