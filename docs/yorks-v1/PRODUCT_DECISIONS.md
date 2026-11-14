@@ -2793,6 +2793,12 @@ owner approved the proposal with these answers:
   labourer and each labourer's time sheet), Time sheets, Attendance and,
   for Admin and HR/PRO, Confirm.
 
+- **The Workforce Center stays reachable** (review before merge, 15
+  November 2026, approved by the owner). With the Center on (section 38),
+  each role keeps its first screen; a link to a Center view always opens it;
+  the Site Engineer's Attendance screen has Crew requests and Request crew
+  buttons; the Workshop In-Charge has a Center tab after the Workshop.
+
 Unchanged: Site and Project Engineers keep attendance on projects they are
 on, who confirms and reopens a month, hours, the month lock and staff never
 on sheets. Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)

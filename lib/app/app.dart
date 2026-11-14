@@ -231,6 +231,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     yorksV1WorkforceAttendanceV2Enabled: ref
         .watch(yorksV1FeatureFlagsProvider)
         .workforceAttendanceV2,
+    yorksV1WorkforceCenterEnabled: ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .workforceCenter,
     yorksV1WorkerRecordsEnabled: ref
         .watch(yorksV1FeatureFlagsProvider)
         .workerRecords,

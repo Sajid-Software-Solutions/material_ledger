@@ -17,6 +17,7 @@ import 'package:material_ledger/features/workforce/application/attendance_provid
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
+import 'package:material_ledger/features/workforce/presentation/requests/crew_request_common.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
@@ -44,6 +45,22 @@ const _flags = YorksV1FeatureFlags(
   documents: true,
   workforce: true,
   workforceAttendanceV2: true,
+);
+
+/// As production runs: the Workforce Center on.
+const _centerFlags = YorksV1FeatureFlags(
+  foundation: true,
+  projects: true,
+  boq: true,
+  excel: true,
+  requests: true,
+  arrangement: true,
+  logistics: true,
+  returnsDocuments: true,
+  documents: true,
+  workforce: true,
+  workforceAttendanceV2: true,
+  workforceCenter: true,
 );
 
 const _buildings = [
@@ -242,6 +259,11 @@ final class _FakeRpc implements YorksWorkforceRpcClient {
         handlers[functionName] ??
         switch (functionName) {
           'v1_wf_get_confirmations_due' => (_) => {'due': <Object>[]},
+          'v1_wf_list_requests' => (_) => {
+            'today': _date,
+            'can_request': true,
+            'requests': <Object>[],
+          },
           'v1_wf_list_workers' => (_) => {
             'workers': [
               _worker('w1', 'Gul Zaman'),
@@ -280,12 +302,23 @@ Future<GoRouter> _pump(
   Map<String, Object> preferences = const {},
   YorksV1Role? role,
   bool shell = false,
+  bool center = false,
 }) async {
   SharedPreferences.setMockInitialValues(preferences);
   final prefs = await SharedPreferences.getInstance();
+  final flags = center ? _centerFlags : _flags;
   final router = GoRouter(
     initialLocation: location,
     routes: [
+      // The Workforce Center, reached from the Site Engineer's screen.
+      GoRoute(
+        path: RoutePaths.yorksV1Workforce,
+        builder: (_, _) => const Scaffold(body: Text('Workforce Center')),
+      ),
+      GoRoute(
+        path: crewRequestNewPath,
+        builder: (_, _) => const Scaffold(body: Text('New crew request')),
+      ),
       GoRoute(
         path: RoutePaths.yorksV1WorkforceAttendance,
         builder: (_, state) {
@@ -307,10 +340,11 @@ Future<GoRouter> _pump(
         sharedPreferencesProvider.overrideWithValue(prefs),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
         yorksV1CurrentRoleProvider.overrideWithValue(role),
-        if (shell) yorksV1FeatureFlagsProvider.overrideWithValue(_flags),
+        if (shell || center)
+          yorksV1FeatureFlagsProvider.overrideWithValue(flags),
         yorksAttendanceRepositoryProvider.overrideWithValue(
           YorksAttendanceRepository(
-            featureFlags: _flags,
+            featureFlags: flags,
             connectivity: const _Online(),
             rpcClient: rpc,
           ),
@@ -515,6 +549,74 @@ void main() {
       rpc.calls.firstWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
       _placeId,
     );
+  });
+
+  testWidgets('with the Workforce Center on, the Site Engineer opens crew '
+      'requests from attendance', (tester) async {
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) => _places(),
+      'v1_wf_get_day': (_) => _day(),
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date',
+      role: YorksV1Role.siteEngineer,
+      center: true,
+    );
+    final requests = find.byKey(const ValueKey('attendance-crew-requests'));
+    final request = find.byKey(const ValueKey('attendance-request-crew'));
+    expect(requests, findsOneWidget);
+    expect(request, findsOneWidget);
+    expect(tester.getSize(requests).height, greaterThanOrEqualTo(44));
+
+    await tester.tap(requests);
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      '${RoutePaths.yorksV1Workforce}?view=requests',
+    );
+    router.go(
+      '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('attendance-request-crew')));
+    await tester.pumpAndSettle();
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      crewRequestNewPath,
+    );
+  });
+
+  testWidgets('crew request buttons only for the Site Engineer with the '
+      'Center on', (tester) async {
+    _size(tester, const Size(360, 800));
+    for (final (role, center) in [
+      (YorksV1Role.siteEngineer, false),
+      (YorksV1Role.projectEngineer, true),
+      (YorksV1Role.workshopInCharge, true),
+    ]) {
+      // A fresh app for each case.
+      await tester.pumpWidget(const SizedBox());
+      final rpc = _FakeRpc({
+        'v1_wf_list_places': (_) => _places(),
+        'v1_wf_get_day': (_) => _day(),
+      });
+      await _pump(
+        tester,
+        rpc,
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date',
+        role: role,
+        center: center,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-crew-requests')),
+        findsNothing,
+        reason: '${role.name} center $center',
+      );
+      expect(rpc.count('v1_wf_list_requests'), 0, reason: role.name);
+    }
   });
 
   testWidgets('added workers start present at 06:30, no overtime, Tower A', (
@@ -769,6 +871,59 @@ void main() {
         await expectLater(
           find.byType(MaterialApp),
           matchesGoldenFile('goldens/attendance_roles_${name}_workshop.png'),
+        );
+      });
+
+      // As production runs, with the Workforce Center on: the Site
+      // Engineer's one screen opens crew requests; the Workshop In-Charge has
+      // the Center as a tab.
+      testWidgets('$name site engineer attendance, Center on', (tester) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _FakeRpc(server()),
+          '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date',
+          role: YorksV1Role.siteEngineer,
+          shell: true,
+          center: true,
+        );
+        await _loadImages(tester);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/attendance_roles_${name}_site_engineer_center.png',
+          ),
+        );
+      });
+
+      testWidgets('$name workshop in-charge workshop, Center on', (
+        tester,
+      ) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _FakeRpc({
+            'v1_wf_list_places': (_) => _places(),
+            'v1_wf_get_day': (_) => _day(
+              saved: true,
+              place: _workshopPlace(),
+              rows: [
+                _row('w1', 'Gul Zaman', scope: null),
+                _row('w3', 'Ravi Kumar', mine: false, scope: null),
+              ],
+            ),
+          }),
+          '${RoutePaths.yorksV1WorkforceAttendance}?date=$_date',
+          role: YorksV1Role.workshopInCharge,
+          shell: true,
+          center: true,
+        );
+        await _loadImages(tester);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/attendance_roles_${name}_workshop_center.png',
+          ),
         );
       });
 

@@ -73,6 +73,22 @@ enum AttendanceRoleLayout {
   /// Tabs in the order shown. Empty: the role's one screen has no tab row.
   final List<AttendanceTab> tabs;
 
+  /// The tabs shown. With the Workforce Center on, `/yorks/workforce` is the
+  /// Center (My work, crew requests): a layout with tabs but no Overview gets
+  /// it after its first screen. The Site Engineer keeps one screen and opens
+  /// the Center from it.
+  List<AttendanceTab> tabsFor({required bool center}) {
+    if (!center || tabs.isEmpty || tabs.contains(AttendanceTab.overview)) {
+      return tabs;
+    }
+    return [tabs.first, AttendanceTab.overview, ...tabs.skip(1)];
+  }
+
+  /// Whether the Overview tab is the Center added by [tabsFor]: it is opened
+  /// with an explicit view, as the bare Workforce home opens [landing].
+  bool centerAdded({required bool center}) =>
+      center && tabs.isNotEmpty && !tabs.contains(AttendanceTab.overview);
+
   /// The layout for an exact role. With no role yet (still loading, or a
   /// local test) every screen stays reachable: the server decides.
   static AttendanceRoleLayout of(YorksV1Role? role) => switch (role) {
@@ -98,7 +114,12 @@ enum AttendanceRoleLayout {
   /// A Workforce page this layout has no tab for, other than one that is
   /// reached from a row (a place's day or sheet) or a reminder (Confirm),
   /// opens the layout's first screen instead. Null keeps the page.
-  AttendanceTab? redirectFrom(AttendanceTab tab) {
+  ///
+  /// [centerView]: the Workforce Center is on and the link names one of its
+  /// views (`?view=`), as its tab, a notification or a crew request button
+  /// does. The Center then opens for everyone.
+  AttendanceTab? redirectFrom(AttendanceTab tab, {bool centerView = false}) {
+    if (centerView && tab == AttendanceTab.overview) return null;
     if (tabs.isEmpty) {
       // Site Engineer: attendance, and Confirm when a month waits for them
       // as a project's Project Engineer.

@@ -173,10 +173,18 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
       final center = featureFlags.workforceCenter;
       final layout = AttendanceRoleLayout.of(role);
       // Tabs by role (PRODUCT_DECISIONS section 58). The Site Engineer has one
-      // attendance screen and no tab row.
-      for (final tab in layout.tabs) {
+      // attendance screen and no tab row. With the Workforce Center on, a role
+      // whose Workforce opens elsewhere reaches the Center by its own tab.
+      final centerAdded = layout.centerAdded(center: center);
+      for (final tab in layout.tabsFor(center: center)) {
         sections.add(switch (tab) {
           AttendanceTab.overview => _YorksDestination(
+            link: centerAdded
+                ? Uri(
+                    path: RoutePaths.yorksV1Workforce,
+                    queryParameters: const {'view': 'my_work'},
+                  ).toString()
+                : null,
             label: center
                 ? CrewRequestStrings.centerShort
                 : switch (layout) {
@@ -3056,6 +3064,7 @@ class _YorksDestination {
     this.group,
     this.suffix,
     this.badgeCount = 0,
+    this.link,
   });
 
   final TranslatableString label;
@@ -3063,6 +3072,10 @@ class _YorksDestination {
   final IconData selectedIcon;
   final TranslatableString? compactLabel;
   final String? path;
+
+  /// Where a section tab goes when that differs from [path], which it is
+  /// matched by: the Workforce Center tab opens `?view=my_work`.
+  final String? link;
   final TranslatableString? group;
   final TranslatableString? suffix;
   final int badgeCount;
@@ -3232,7 +3245,11 @@ class _YorksWorkspaceSections extends StatelessWidget {
                       ),
                   ],
                   onChanged: (path) {
-                    if (path != null && path != location) context.go(path);
+                    if (path == null || path == location) return;
+                    final section = sections
+                        .where((s) => s.path == path)
+                        .firstOrNull;
+                    context.go(section?.link ?? path);
                   },
                 ),
               );
@@ -3255,7 +3272,7 @@ class _YorksWorkspaceSections extends StatelessWidget {
                         ),
                         onPressed: () {
                           if (section.path != location) {
-                            context.go(section.path!);
+                            context.go(section.link ?? section.path!);
                           }
                         },
                         icon: Icon(section.icon, size: 18),

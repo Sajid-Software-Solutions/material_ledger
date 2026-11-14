@@ -1181,9 +1181,16 @@ bool _isYorksV1AccountsPath(String path) =>
 
 /// The page a role opens instead of a Workforce page it has no tab for:
 /// the Site Engineer's attendance screen, or the Workshop In-Charge's
-/// Workshop for the Workforce home. Null keeps the page.
-String? _attendanceRoleRedirect(String path, YorksV1Role? role) {
-  final tab = switch (path) {
+/// Workshop for the Workforce home. With the Workforce Center on, a link to
+/// one of its views (`/yorks/workforce?view=requests`) opens the Center for
+/// everyone. Null keeps the page.
+@visibleForTesting
+String? attendanceRoleRedirect(
+  Uri uri,
+  YorksV1Role? role, {
+  required bool center,
+}) {
+  final tab = switch (uri.path) {
     RoutePaths.yorksV1Workforce => AttendanceTab.overview,
     RoutePaths.yorksV1WorkforceAttendance => AttendanceTab.attendance,
     RoutePaths.yorksV1WorkforceMonth => AttendanceTab.month,
@@ -1192,7 +1199,10 @@ String? _attendanceRoleRedirect(String path, YorksV1Role? role) {
     _ => null,
   };
   if (tab == null) return null;
-  return switch (AttendanceRoleLayout.of(role).redirectFrom(tab)) {
+  final centerView = center && uri.queryParameters.containsKey('view');
+  return switch (AttendanceRoleLayout.of(
+    role,
+  ).redirectFrom(tab, centerView: centerView)) {
     null => null,
     AttendanceTab.overview => RoutePaths.yorksV1Workforce,
     AttendanceTab.attendance => RoutePaths.yorksV1WorkforceAttendance,
@@ -1323,6 +1333,7 @@ GoRouter createAppRouter({
   bool yorksV1AccountsWorkspaceV2Enabled = false,
   bool yorksV1WorkforceEnabled = false,
   bool yorksV1WorkforceAttendanceV2Enabled = false,
+  bool yorksV1WorkforceCenterEnabled = false,
   bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1PeopleRecordsEnabled = false,
   bool yorksV1CompanyDocumentsEnabled = false,
@@ -1590,7 +1601,11 @@ GoRouter createAppRouter({
       // Attendance by role (PRODUCT_DECISIONS section 58): a Workforce page a
       // role has no tab for opens that role's first screen.
       if (yorksV1WorkforceAttendanceV2Enabled) {
-        final attendanceRedirect = _attendanceRoleRedirect(path, yorksV1Role);
+        final attendanceRedirect = attendanceRoleRedirect(
+          state.uri,
+          yorksV1Role,
+          center: yorksV1WorkforceCenterEnabled,
+        );
         if (attendanceRedirect != null) return attendanceRedirect;
       }
 
