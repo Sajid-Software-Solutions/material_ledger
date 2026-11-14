@@ -184,11 +184,15 @@ select throws_ok(
   'Procurement cannot read a crew day'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000013', 'accountant');
+-- Since PRODUCT_DECISIONS section 58 the Accountant also keeps attendance,
+-- as HR/PRO does, without reopening a month.
 select ok(
   ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access') ->> 'view')::boolean
+  and ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
+    ->> 'take')::boolean
   and not ((public.v1_wf_get_crew(current_setting('wf.crew')::uuid) -> 'access')
-    ->> 'take')::boolean,
-  'Accountant reads every crew and cannot take attendance'
+    ->> 'officer')::boolean,
+  'Accountant reads and keeps every crew, and is not an officer'
 );
 select pg_temp.act('10000000-0000-4000-8000-000000000014', 'pr');
 select ok(

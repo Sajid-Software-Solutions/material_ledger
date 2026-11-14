@@ -27,7 +27,7 @@ T03–T10 tables, rows and commands are kept and are not migrated.
 | Holidays | Admin and PR keep the public-holiday calendar on the Crews page; a holiday inside a confirmed month is refused. |
 | Month | A Senior Mechanical Engineer, or a Project Engineer of the sheet's project, confirms from the month's last day once every working day is entered (Admin as an override); that locks the month. Workshop sheets need no confirmation unless set to. Only Admin or PR reopen, with a reason. |
 | Reminders | Daily at 08:05 Dubai (`pg_cron` job `yorks-workforce-month-end-reminders`), from the month's last day until it is confirmed (current and previous month): one urgent notification per confirmer naming how many crews wait, opening Month confirmation on that month. A sheet whose project has no Project Engineer, or an internal-location sheet, reminds the Senior Mechanical Engineers. In the app the waiting months come first: a banner on Workforce Overview and Take attendance with Confirm now, and a count on the Month confirmation tab (`v1_wf_get_confirmations_due`). |
-| Access | Decided by role, keeper and dated project membership (section 46): Site and Project Engineers, Senior Mechanical Engineers, Project Managers, Workshop In-Charges, Admin and PR create and keep sheets; Site/Project Engineers on the sheet's project take attendance on it; Document Controllers and the Accountant read every sheet; Admin and PR manage everything. No role template changes, so the T03–T10 commands keep their per-person grants. Admin and PR go through the capability resolver; for everyone else an explicit per-person deny of the matching `workforce.*` key removes the right (`v1_wf_allowed`). |
+| Access | Decided by role, keeper and dated project membership (section 46): Site and Project Engineers, Senior Mechanical Engineers, Project Managers, Workshop In-Charges, Admin and PR create and keep sheets; Site/Project Engineers on the sheet's project take attendance on it; Document Controllers and the Accountant read every sheet; Admin and PR manage everything. Since section 58 the Accountant also keeps attendance and internal places are kept only by the Workshop In-Charge, HR/PRO, the Accountant and Admin (see Attendance by role). No role template changes, so the T03–T10 commands keep their per-person grants. Admin and PR go through the capability resolver; for everyone else an explicit per-person deny of the matching `workforce.*` key removes the right (`v1_wf_allowed`). |
 | Reports | The monthly sheet is the paper DAILY TIME SHEET (print/PDF per worker) plus an Excel register for holders of `workforce.reports.export`. |
 
 On phones (14 November 2026) Take attendance starts with the work: no intro
@@ -81,6 +81,37 @@ The labourer's timesheet prints one A4 DAILY TIME SHEET across places; it
 and the monthly sheet use the shared letterhead
 (`lib/shared/services/yorks_v1_pdf_letterhead.dart`), the same one as the
 Material Request form.
+
+### Attendance by role (14 November 2026, `PRODUCT_DECISIONS.md` section 58)
+
+Migration `20261115090000_workforce_attendance_by_role.sql` changes who
+keeps which sheet; no table, row, day, month or change log is altered. An
+internal place is a sheet without a project (`crew_kind = 'workshop'`,
+including every `location:` place).
+
+| Role | Project sheets | Internal places | Month |
+|---|---|---|---|
+| Site Engineer | Keeps projects they are on | None | No |
+| Project Engineer | Keeps projects they are on | None | Confirms its projects |
+| Senior Mechanical Engineer | Keeps every project | Reads | Confirms |
+| Project Manager | Keeps every project | Reads | No |
+| Workshop In-Charge | Keeps every project | Keeps, adds new ones | No |
+| Document Controller | Reads | Reads | No |
+| Accountant | Keeps every project | Keeps, adds new ones | No |
+| HR/PRO | Keeps every project | Keeps, adds new ones | Reopens |
+| Admin | Keeps every project | Keeps, adds new ones | Confirms (override), reopens |
+
+"Keeps" is `take` in `v1_wf_crew_access`. Sheet settings (`manage`) stay with
+Admin, HR/PRO, each sheet's keeper (the person who opened it), the Workshop
+In-Charge for internal places and the project's engineers for project
+sheets; the Accountant changes days, not sheets. `v1_wf_role_keeps_internal`
+names the internal-place keepers; `v1_wf_open_place` and `v1_wf_save_crew`
+refuse a new internal sheet to anyone else, and `v1_wf_list_places` returns
+`can_add_location` so the place picker offers "Add the place" only to them.
+A per-person deny of a `workforce.*` key still removes the right.
+Release: `supabase/release/attendance_by_role_bundle.sql`; rollback:
+`supabase/release/attendance_by_role_rollback.sql` (restores the previous
+functions; nothing to undo in data).
 
 ## Authority and boundary
 

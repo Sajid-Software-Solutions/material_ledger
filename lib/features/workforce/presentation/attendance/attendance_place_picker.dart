@@ -223,7 +223,7 @@ class _AttendancePlaceListState extends State<AttendancePlaceList> {
       (l) => l.name.toLowerCase() == typed.toLowerCase(),
     );
     final canAdd =
-        widget.places.canTake &&
+        widget.places.canAddLocation &&
         typed.length >= 2 &&
         typed.length <= 80 &&
         !exact;
@@ -275,7 +275,7 @@ class _AttendancePlaceListState extends State<AttendancePlaceList> {
           selected: false,
           onTap: () => widget.onPick(AttendancePickLocation(name: typed)),
         ),
-      if (widget.places.canTake && !canAdd)
+      if (widget.places.canAddLocation && !canAdd)
         Padding(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
           child: Text(
