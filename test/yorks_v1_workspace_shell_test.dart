@@ -16,6 +16,11 @@ import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
 import 'package:material_ledger/features/accounts/presentation/widgets/yorks_accounts_section_tabs.dart';
 import 'package:material_ledger/features/login/presentation/screens/login_screen.dart';
 import 'package:material_ledger/shared/models/app_strings.dart';
+import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
+import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
+import 'package:material_ledger/features/workforce/domain/crew_request_models.dart';
+import 'package:material_ledger/shared/models/yorks_v1_crew_request_strings.dart';
+import 'package:material_ledger/shared/models/yorks_v1_attendance_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
@@ -1286,6 +1291,161 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('Workforce tabs by role (PRODUCT_DECISIONS 58)', () {
+    const expected = <YorksV1Role, List<TranslatableString>>{
+      YorksV1Role.siteEngineer: [],
+      YorksV1Role.projectEngineer: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.seniorMechanicalEngineer: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.projectManager: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.documentController: [
+        AttendanceStrings.sites,
+        AttendanceStrings.monthTab,
+      ],
+      YorksV1Role.workshopInCharge: [
+        AttendanceStrings.workshop,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.timeSheet,
+      ],
+      YorksV1Role.accountant: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+      ],
+      YorksV1Role.pr: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+        AttendanceStrings.confirmTab,
+      ],
+      YorksV1Role.admin: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+        AttendanceStrings.confirmTab,
+      ],
+    };
+    final everyLabel = {for (final labels in expected.values) ...labels};
+
+    for (final entry in expected.entries) {
+      testWidgets('${entry.key.name}: ${entry.value.length} tabs', (
+        tester,
+      ) async {
+        await _pumpWorkforceTabs(tester, entry.key);
+
+        final row = find.byKey(const ValueKey('workspace-internal-sections'));
+        if (entry.value.isEmpty) {
+          // One attendance screen: no tab row, and the sidebar names it.
+          expect(row, findsNothing);
+          expect(
+            find.text(AttendanceStrings.attendanceShort.primary),
+            findsWidgets,
+          );
+          expect(
+            find.text(YorksV1ShellStrings.workforce.primary),
+            findsNothing,
+          );
+        } else {
+          final shown = [
+            for (final label in everyLabel)
+              if (find
+                  .descendant(of: row, matching: find.text(label.primary))
+                  .evaluate()
+                  .isNotEmpty)
+                label,
+          ];
+          expect(
+            shown.map((label) => label.primary).toSet(),
+            entry.value.map((label) => label.primary).toSet(),
+            reason: entry.key.name,
+          );
+          // In this order, left to right.
+          final lefts = [
+            for (final label in entry.value)
+              tester
+                  .getTopLeft(
+                    find.descendant(
+                      of: row,
+                      matching: find.text(label.primary),
+                    ),
+                  )
+                  .dx,
+          ];
+          expect(lefts, [...lefts]..sort(), reason: entry.key.name);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('with the Workforce Center on, the Workshop In-Charge has '
+        'it as a tab', (tester) async {
+      final router = await _pumpWorkforceTabs(
+        tester,
+        YorksV1Role.workshopInCharge,
+        center: true,
+      );
+      final row = find.byKey(const ValueKey('workspace-internal-sections'));
+      Finder tab(TranslatableString label) =>
+          find.descendant(of: row, matching: find.text(label.primary));
+      final lefts = [
+        for (final label in [
+          AttendanceStrings.workshop,
+          CrewRequestStrings.centerShort,
+          AttendanceStrings.monthTab,
+          AttendanceStrings.timeSheet,
+        ])
+          tester.getTopLeft(tab(label)).dx,
+      ];
+      expect(lefts, [...lefts]..sort());
+
+      // The Center tab opens the Center (the bare Workforce home opens the
+      // Workshop for this role) and is the current tab there.
+      await tester.tap(tab(CrewRequestStrings.centerShort));
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '${RoutePaths.yorksV1Workforce}?view=my_work',
+      );
+      Color? background(TranslatableString label) => tester
+          .widget<TextButton>(
+            find.ancestor(of: tab(label), matching: find.byType(TextButton)),
+          )
+          .style
+          ?.backgroundColor
+          ?.resolve(<WidgetState>{});
+      expect(background(CrewRequestStrings.centerShort), isNotNull);
+      expect(background(AttendanceStrings.workshop), isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with the Workforce Center on, the Site Engineer still has '
+        'no tab row', (tester) async {
+      await _pumpWorkforceTabs(tester, YorksV1Role.siteEngineer, center: true);
+      expect(
+        find.byKey(const ValueKey('workspace-internal-sections')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('desktop sidebar contracts immediately and can be reopened', (
     tester,
   ) async {
@@ -1692,3 +1852,92 @@ YorksV1CurrentPermissionSnapshot _permissionSnapshot({
   ],
   'project_access': <Object?>[],
 });
+
+/// The Workforce shell for one exact role at the month page, with the
+/// Workforce home routed too (PRODUCT_DECISIONS 58).
+Future<GoRouter> _pumpWorkforceTabs(
+  WidgetTester tester,
+  YorksV1Role role, {
+  bool center = false,
+}) async {
+  _setViewport(tester, const Size(1366, 900));
+  addTearDown(() => _resetViewport(tester));
+  final preferences = await SharedPreferences.getInstance();
+  final client = SupabaseClient(
+    'https://example.supabase.co',
+    'test-publishable-key',
+    authOptions: const AuthClientOptions(autoRefreshToken: false),
+  );
+  final controller = YorksV1CurrentPermissionSnapshotController(
+    enabled: true,
+    authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    client: null,
+    repository: _ResolvedPermissionRepository(
+      _permissionSnapshot(
+        usersView: false,
+        workforceView: true,
+        exactRole: role.claimValue,
+      ),
+    ),
+    revisionSignalSubscription:
+        ({required onSignal, required onUnavailable}) async => true,
+  );
+  await controller.start();
+  final router = GoRouter(
+    initialLocation: RoutePaths.yorksV1WorkforceMonth,
+    routes: [
+      for (final path in [
+        RoutePaths.yorksV1Workforce,
+        RoutePaths.yorksV1WorkforceMonth,
+      ])
+        GoRoute(
+          path: path,
+          builder: (_, _) => const YorksV1WorkspaceShell(
+            child: Scaffold(body: SizedBox.expand()),
+          ),
+        ),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(preferences),
+        supabaseClientProvider.overrideWithValue(client),
+        yorksV1CurrentRoleProvider.overrideWithValue(role),
+        yorksV1FeatureFlagsProvider.overrideWithValue(
+          YorksV1FeatureFlags(
+            foundation: true,
+            projects: true,
+            boq: true,
+            excel: true,
+            requests: true,
+            arrangement: true,
+            logistics: true,
+            returnsDocuments: true,
+            documents: true,
+            workforce: true,
+            workforceAttendanceV2: true,
+            workforceCenter: center,
+          ),
+        ),
+        yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+          (ref) => controller,
+        ),
+        yorksAttendanceConfirmationsDueProvider.overrideWith(
+          (ref) async => const <AttendanceConfirmationDue>[],
+        ),
+        yorksCrewRequestsProvider.overrideWith(
+          (ref) async => const CrewRequestRegister(
+            today: '2026-11-15',
+            canRequest: false,
+            requests: [],
+          ),
+        ),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return router;
+}

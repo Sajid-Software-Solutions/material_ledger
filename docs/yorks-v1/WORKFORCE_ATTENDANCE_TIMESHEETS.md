@@ -113,6 +113,40 @@ Release: `supabase/release/attendance_by_role_bundle.sql`; rollback:
 `supabase/release/attendance_by_role_rollback.sql` (restores the previous
 functions; nothing to undo in data).
 
+Screens by role (`lib/features/workforce/application/attendance_role_layout.dart`,
+presentation only; the server decides every right):
+
+| Role | Workforce tabs | Opens on |
+|---|---|---|
+| Site Engineer | none: one Attendance screen, also in the phone bottom bar | Attendance |
+| Project Engineer, Senior Mechanical Engineer, Project Manager | My sites · Take attendance · Month · Month confirmation | My sites |
+| Document Controller | Sites · Month | Sites |
+| Workshop In-Charge | Workshop · Month · Time sheet | Workshop: the workshop's day by default, a project when he chooses one |
+| Accountant | Overview · Employees · Time sheets · Attendance | Overview |
+| HR/PRO, Admin | Overview · Employees · Time sheets · Attendance · Confirm | Overview |
+
+A Workforce page a role has no tab for opens its first screen (the router's
+`attendanceRoleRedirect`): a Site Engineer's Overview, Month and Monthly
+sheets links open Attendance, and the Workshop In-Charge's Workforce home
+opens the Workshop. Month confirmation stays reachable from a reminder for
+anyone the server lets confirm. Goldens: `test/goldens/attendance_roles_*`.
+
+With the Workforce Center on (`YORKS_V1_WORKFORCE_CENTER`, as production
+runs), `/yorks/workforce` is the Center (My work, Crew requests, Crews), and
+the Overview, My sites or Sites tab is the **Center** tab. Every role keeps
+its first screen and still reaches the Center:
+
+- a link naming a Center view (`/yorks/workforce?view=requests`, as the
+  overdue-request notification and the buttons below use) always opens the
+  Center; only the bare Workforce home opens a role's first screen;
+- the Site Engineer's one Attendance screen (no tab row) has **Crew
+  requests** (with the number waiting for them) and, when the server allows,
+  **Request crew**;
+- the Workshop In-Charge's tabs are Workshop · Center · Month · Time sheet;
+  the Center tab opens `?view=my_work`.
+
+Goldens: `attendance_roles_{desktop,phone}_{site_engineer,workshop}_center.png`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

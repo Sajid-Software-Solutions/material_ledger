@@ -95,6 +95,7 @@ import '../features/company_documents/presentation/company_record_screen.dart';
 import '../features/people_records/presentation/people_centre_screen.dart';
 import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
+import '../features/workforce/application/attendance_role_layout.dart';
 import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_people_screen.dart'
@@ -1178,6 +1179,39 @@ bool _isYorksV1AccountsPath(String path) =>
     path.startsWith('${RoutePaths.yorksV1Accounts}/') ||
     (path.startsWith('/yorks/projects/') && path.contains('/accounts'));
 
+/// The page a role opens instead of a Workforce page it has no tab for:
+/// the Site Engineer's attendance screen, or the Workshop In-Charge's
+/// Workshop for the Workforce home. With the Workforce Center on, a link to
+/// one of its views (`/yorks/workforce?view=requests`) opens the Center for
+/// everyone. Null keeps the page.
+@visibleForTesting
+String? attendanceRoleRedirect(
+  Uri uri,
+  YorksV1Role? role, {
+  required bool center,
+}) {
+  final tab = switch (uri.path) {
+    RoutePaths.yorksV1Workforce => AttendanceTab.overview,
+    RoutePaths.yorksV1WorkforceAttendance => AttendanceTab.attendance,
+    RoutePaths.yorksV1WorkforceMonth => AttendanceTab.month,
+    RoutePaths.yorksV1WorkforceSheets => AttendanceTab.sheets,
+    RoutePaths.yorksV1WorkforceConfirm => AttendanceTab.confirm,
+    _ => null,
+  };
+  if (tab == null) return null;
+  final centerView = center && uri.queryParameters.containsKey('view');
+  return switch (AttendanceRoleLayout.of(
+    role,
+  ).redirectFrom(tab, centerView: centerView)) {
+    null => null,
+    AttendanceTab.overview => RoutePaths.yorksV1Workforce,
+    AttendanceTab.attendance => RoutePaths.yorksV1WorkforceAttendance,
+    AttendanceTab.month => RoutePaths.yorksV1WorkforceMonth,
+    AttendanceTab.sheets => RoutePaths.yorksV1WorkforceSheets,
+    AttendanceTab.confirm => RoutePaths.yorksV1WorkforceConfirm,
+  };
+}
+
 bool _isYorksV1WorkforcePath(String path) =>
     path == RoutePaths.yorksV1Workforce ||
     path.startsWith('${RoutePaths.yorksV1Workforce}/');
@@ -1299,6 +1333,7 @@ GoRouter createAppRouter({
   bool yorksV1AccountsWorkspaceV2Enabled = false,
   bool yorksV1WorkforceEnabled = false,
   bool yorksV1WorkforceAttendanceV2Enabled = false,
+  bool yorksV1WorkforceCenterEnabled = false,
   bool yorksV1WorkerRecordsEnabled = false,
   bool yorksV1PeopleRecordsEnabled = false,
   bool yorksV1CompanyDocumentsEnabled = false,
@@ -1562,6 +1597,17 @@ GoRouter createAppRouter({
         return _yorksV1ProjectFallbackPath();
       }
       if (yorksV1RouteAllowed == null) return null;
+
+      // Attendance by role (PRODUCT_DECISIONS section 58): a Workforce page a
+      // role has no tab for opens that role's first screen.
+      if (yorksV1WorkforceAttendanceV2Enabled) {
+        final attendanceRedirect = attendanceRoleRedirect(
+          state.uri,
+          yorksV1Role,
+          center: yorksV1WorkforceCenterEnabled,
+        );
+        if (attendanceRedirect != null) return attendanceRedirect;
+      }
 
       // Batch 2 has the normalized creation flow but not the V1 portfolio,
       // workspace, BOQ/plan or request projection. Once V1 Projects is

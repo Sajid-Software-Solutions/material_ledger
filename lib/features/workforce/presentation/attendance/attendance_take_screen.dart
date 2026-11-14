@@ -17,12 +17,15 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../accounts/presentation/v2/accounts_v2_safety.dart'
     show AccountsV2AlertDialog;
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
+import '../../application/attendance_role_layout.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
@@ -31,6 +34,7 @@ import 'attendance_dialogs.dart';
 import 'attendance_inputs.dart';
 import 'attendance_place_picker.dart';
 import 'attendance_row_editor.dart';
+import '../requests/crew_request_common.dart';
 
 class AttendanceTakeScreen extends ConsumerStatefulWidget {
   const AttendanceTakeScreen({super.key, this.initialCrewId, this.initialDate});
@@ -62,8 +66,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
   @override
   void didUpdateWidget(AttendanceTakeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.initialCrewId != oldWidget.initialCrewId &&
-        widget.initialCrewId != null) {
+    if (widget.initialCrewId != oldWidget.initialCrewId) {
+      // The tab itself (no place in the link) starts over at the person's
+      // usual place: the Workshop for the Workshop In-Charge.
       _crewId = widget.initialCrewId;
     }
     if (widget.initialDate != oldWidget.initialDate &&
@@ -165,6 +170,23 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     return null;
   }
 
+  /// The Workshop In-Charge's attendance opens on the workshop unless he
+  /// chooses a project (PRODUCT_DECISIONS section 58).
+  String? _workshop(AttendancePlaces places) {
+    if (ref.read(yorksV1CurrentRoleProvider) != YorksV1Role.workshopInCharge) {
+      return null;
+    }
+    final kept = [
+      for (final location in places.locations)
+        if (location.canTake) location,
+    ];
+    final named = kept.where(
+      (location) => location.name.toLowerCase().contains('workshop'),
+    );
+    if (named.isNotEmpty) return named.first.crewId;
+    return kept.length == 1 ? kept.single.crewId : null;
+  }
+
   AttendancePlaceChoice? _onlyPlace(AttendancePlaces places) {
     final projects = [
       for (final p in places.projects)
@@ -199,7 +221,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     final language = attendanceLanguage(ref);
     final placesAsync = ref.watch(yorksAttendancePlacesProvider);
     final places = placesAsync.valueOrNull;
-    final crewId = _crewId ?? (places == null ? null : _remembered(places));
+    final crewId =
+        _crewId ??
+        (places == null ? null : _workshop(places) ?? _remembered(places));
     final date = _date ?? attendanceLocalToday();
 
     if (crewId != null) {
@@ -231,6 +255,7 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     return AttendancePage(
       language: language,
       title: AS.t(AS.takeAttendance, language),
+      actions: _crewRequestActions(context, ref, language),
       children: [
         if (opening != null || (only != null && _openError == null))
           AccountsV2Panel(
@@ -395,6 +420,7 @@ class _DayViewState extends ConsumerState<_DayView> {
       title: AS.t(AS.takeAttendance, language),
       subtitle: AS.t(intro, language),
       subtitleOnPhone: false,
+      actions: _crewRequestActions(context, ref, language),
       onRefresh: state.dirty || switching ? null : controller.load,
       children: [
         ...AttendanceConfirmationsBanner.forPage(
@@ -2125,4 +2151,42 @@ class _Footer extends ConsumerWidget {
     }
     return AccountsV2Panel(child: panel);
   }
+}
+
+/// With the Workforce Center on, the Site Engineer's one attendance screen
+/// also opens their crew requests and asks for workers (PRODUCT_DECISIONS
+/// section 58); every other role reaches the Center by its tab.
+List<Widget> _crewRequestActions(
+  BuildContext context,
+  WidgetRef ref,
+  AppLanguage language,
+) {
+  if (!ref.watch(yorksV1FeatureFlagsProvider).workforceCenter ||
+      AttendanceRoleLayout.of(ref.watch(yorksV1CurrentRoleProvider)) !=
+          AttendanceRoleLayout.siteEngineer) {
+    return const [];
+  }
+  final register = ref.watch(yorksCrewRequestsProvider).valueOrNull;
+  final mine = register?.mine.length ?? 0;
+  final requests = CRS.t(CRS.viewRequests, language);
+  return [
+    AccountsV2Button(
+      key: const ValueKey('attendance-crew-requests'),
+      label: mine > 0 ? '$requests · $mine' : requests,
+      icon: 'users',
+      onPressed: () => context.go(
+        Uri(
+          path: RoutePaths.yorksV1Workforce,
+          queryParameters: const {'view': 'requests'},
+        ).toString(),
+      ),
+    ),
+    if (register?.canRequest ?? false)
+      AccountsV2Button(
+        key: const ValueKey('attendance-request-crew'),
+        label: CRS.t(CRS.requestCrew, language),
+        icon: 'plus',
+        onPressed: () => context.go(crewRequestNewPath),
+      ),
+  ];
 }
