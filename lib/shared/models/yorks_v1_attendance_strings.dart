@@ -505,10 +505,10 @@ abstract final class AttendanceStrings {
     hi: 'क्या आपका मतलब “{name}” है?',
   );
   static const noMatchWorker = _T(
-    en: 'No match — check the spelling or ask Admin or PR to add the worker.',
-    ar: 'لا تطابق — تحقق من التهجئة أو اطلب من المسؤول أو العلاقات العامة إضافة العامل.',
-    ur: 'کوئی میل نہیں — ہجے دیکھیں یا ایڈمن یا پی آر سے ورکر شامل کروائیں۔',
-    hi: 'कोई मेल नहीं — वर्तनी जाँचें या एडमिन या पीआर से कर्मचारी जुड़वाएँ।',
+    en: 'No match — check the spelling or ask Admin or HR/PRO to add the worker.',
+    ar: 'لا تطابق — تحقق من التهجئة أو اطلب من المسؤول أو الموارد البشرية/المندوب إضافة العامل.',
+    ur: 'کوئی میل نہیں — ہجے دیکھیں یا ایڈمن یا ایچ آر/پی آر او سے ورکر شامل کروائیں۔',
+    hi: 'कोई मेल नहीं — वर्तनी जाँचें या एडमिन या एचआर/पीआरओ से कर्मचारी जुड़वाएँ।',
   );
   static const fromCrew = _T(
     en: 'From {crew}',
@@ -541,10 +541,10 @@ abstract final class AttendanceStrings {
     hi: 'दस्तावेज़ समाप्त',
   );
   static const docsHint = _T(
-    en: 'Ask PR to renew them.',
-    ar: 'اطلب من العلاقات العامة تجديدها.',
-    ur: 'تجدید کے لیے پی آر سے کہیں۔',
-    hi: 'नवीनीकरण के लिए पीआर से कहें।',
+    en: 'Ask HR/PRO to renew them.',
+    ar: 'اطلب من الموارد البشرية/المندوب تجديدها.',
+    ur: 'تجدید کے لیے ایچ آر/پی آر او سے کہیں۔',
+    hi: 'नवीनीकरण के लिए एचआर/पीआरओ से कहें।',
   );
   static const changedChip = _T(
     en: 'Changed',
@@ -974,10 +974,10 @@ abstract final class AttendanceStrings {
     hi: '{month} की पुष्टि करें',
   );
   static const confirmMonthQuestion = _T(
-    en: 'Confirm {month} for {crew}? The month locks and PR and Accounts see it as final.',
-    ar: 'تأكيد {month} لـ {crew}؟ يُقفل الشهر وتراه العلاقات العامة والحسابات نهائيًا.',
+    en: 'Confirm {month} for {crew}? The month locks and HR/PRO and Accounts see it as final.',
+    ar: 'تأكيد {month} لـ {crew}؟ يُقفل الشهر وتراه الموارد البشرية/المندوب والحسابات نهائيًا.',
     ur: '{crew} کے لیے {month} کی تصدیق کریں؟ مہینہ مقفل ہو جائے گا اور پی آر اور اکاؤنٹس اسے حتمی دیکھیں گے۔',
-    hi: '{crew} के लिए {month} की पुष्टि करें? माह लॉक होगा और पीआर व अकाउंट्स इसे अंतिम देखेंगे।',
+    hi: '{crew} के लिए {month} की पुष्टि करें? माह लॉक होगा और एचआर/पीआरओ व अकाउंट्स इसे अंतिम देखेंगे।',
   );
   static const confirmedToast = _T(
     en: '{crew} · {month} confirmed.',
@@ -1376,10 +1376,10 @@ abstract final class AttendanceStrings {
     hi: '{month} आपकी पुष्टि की प्रतीक्षा में है',
   );
   static const dueCrews = _T(
-    en: 'Waiting: {crews}. Confirming locks the month for PR and Accounts.',
+    en: 'Waiting: {crews}. Confirming locks the month for HR/PRO and Accounts.',
     ar: 'بالانتظار: {crews}. التأكيد يقفل الشهر للعلاقات العامة والحسابات.',
     ur: 'منتظر: {crews}۔ تصدیق سے مہینہ پی آر اور اکاؤنٹس کے لیے مقفل ہو جاتا ہے۔',
-    hi: 'प्रतीक्षा में: {crews}। पुष्टि से माह पीआर और अकाउंट्स के लिए लॉक होता है।',
+    hi: 'प्रतीक्षा में: {crews}। पुष्टि से माह एचआर/पीआरओ और अकाउंट्स के लिए लॉक होता है।',
   );
   static const dueMissing = _T(
     en: '{crew} ({n} days not entered)',
@@ -1474,10 +1474,10 @@ abstract final class AttendanceStrings {
     hi: 'एक कर्मचारी दिन में अधिकतम तीन जगहों पर हो सकता है।',
   );
   static const errOtherPlaceLocked = _T(
-    en: 'This would change hours on a sheet whose month is already confirmed. Ask Admin or PR to reopen that month.',
-    ar: 'سيغيّر هذا الساعات في كشف تم تأكيد شهره. اطلب من المسؤول أو العلاقات العامة إعادة فتح ذلك الشهر.',
-    ur: 'اس سے ایسی شیٹ کے گھنٹے بدلیں گے جس کا مہینہ تصدیق ہو چکا ہے۔ ایڈمن یا پی آر سے وہ مہینہ دوبارہ کھلوائیں۔',
-    hi: 'इससे ऐसी शीट के घंटे बदलेंगे जिसका माह पुष्ट हो चुका है। एडमिन या पीआर से वह माह फिर खुलवाएँ।',
+    en: 'This would change hours on a sheet whose month is already confirmed. Ask Admin or HR/PRO to reopen that month.',
+    ar: 'سيغيّر هذا الساعات في كشف تم تأكيد شهره. اطلب من المسؤول أو الموارد البشرية/المندوب إعادة فتح ذلك الشهر.',
+    ur: 'اس سے ایسی شیٹ کے گھنٹے بدلیں گے جس کا مہینہ تصدیق ہو چکا ہے۔ ایڈمن یا ایچ آر/پی آر او سے وہ مہینہ دوبارہ کھلوائیں۔',
+    hi: 'इससे ऐसी शीट के घंटे बदलेंगे जिसका माह पुष्ट हो चुका है। एडमिन या एचआर/पीआरओ से वह माह फिर खुलवाएँ।',
   );
   static const errStaff = _T(
     en: 'Only labour goes on attendance sheets.',

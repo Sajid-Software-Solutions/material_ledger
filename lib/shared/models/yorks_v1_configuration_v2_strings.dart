@@ -446,10 +446,10 @@ abstract final class ConfigStrings {
     hi: '{n} दर्ज',
   );
   static const chkPr = _T(
-    en: 'A PR user to assign crew requests',
+    en: 'An HR/PRO user to assign crew requests',
     ar: 'مستخدم علاقات عامة لتعيين طلبات الطواقم',
-    ur: 'عملے کی درخواستیں مقرر کرنے کے لیے پی آر صارف',
-    hi: 'क्रू अनुरोध सौंपने के लिए पीआर उपयोगकर्ता',
+    ur: 'عملے کی درخواستیں مقرر کرنے کے لیے ایچ آر/پی آر او صارف',
+    hi: 'क्रू अनुरोध सौंपने के लिए एचआर/पीआरओ उपयोगकर्ता',
   );
   static const chkPrNone = _T(
     en: 'None — Admin receives crew requests instead',
@@ -924,10 +924,10 @@ abstract final class ConfigStrings {
     hi: 'किराया अनुस्मारक भेजें',
   );
   static const rentalsEnabledHint = _T(
-    en: 'Renewal windows, expired leases, cheques due and rent overdue, to Admin and PR.',
-    ar: 'نوافذ التجديد والعقود المنتهية والشيكات المستحقة والإيجار المتأخر، إلى المسؤول والعلاقات العامة.',
-    ur: 'تجدید کی مدت، ختم شدہ لیز، واجب چیک اور بقایا کرایہ، ایڈمن اور پی آر کو۔',
-    hi: 'नवीनीकरण अवधि, समाप्त लीज़, देय चेक और बकाया किराया, एडमिन और पीआर को।',
+    en: 'Renewal windows, expired leases, cheques due and rent overdue, to Admin and HR/PRO.',
+    ar: 'نوافذ التجديد والعقود المنتهية والشيكات المستحقة والإيجار المتأخر، إلى المسؤول والموارد البشرية/المندوب.',
+    ur: 'تجدید کی مدت، ختم شدہ لیز، واجب چیک اور بقایا کرایہ، ایڈمن اور ایچ آر/پی آر او کو۔',
+    hi: 'नवीनीकरण अवधि, समाप्त लीज़, देय चेक और बकाया किराया, एडमिन और एचआर/पीआरओ को।',
   );
   static const rentalsPush = _T(
     en: 'Also as phone and browser alerts',

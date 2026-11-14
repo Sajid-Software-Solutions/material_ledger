@@ -96,7 +96,6 @@ import '../features/people_records/presentation/people_centre_screen.dart';
 import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
-import '../features/workforce/presentation/attendance/attendance_crews_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
@@ -2483,8 +2482,10 @@ GoRouter createAppRouter({
           path: RoutePaths.yorksV1WorkforceCrews,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
+            // Crew setup is hidden (PRODUCT_DECISIONS section 50); an old
+            // link opens Take attendance.
             const _WorkforceScreenSwitch(
-              attendanceV2: AttendanceCrewsScreen(),
+              attendanceV2: AttendanceTakeScreen(),
               legacy: YorksWorkforceOverviewScreen(),
             ),
           ),

@@ -333,7 +333,7 @@ abstract final class YorksV1PermissionStrings {
     'role.document_controller': 'Document Controller',
     'role.procurement': 'Procurement',
     'role.accountant': 'Accountant',
-    'role.pr': 'PR',
+    'role.pr': 'HR/PRO',
     'role.admin': 'Admin',
   };
 
@@ -517,7 +517,7 @@ abstract final class YorksV1PermissionStrings {
       'role.document_controller': 'مراقب المستندات',
       'role.procurement': 'المشتريات',
       'role.accountant': 'محاسب',
-      'role.pr': 'العلاقات العامة',
+      'role.pr': 'الموارد البشرية/المندوب',
       'role.admin': 'المسؤول',
     },
     'ur': {
@@ -670,7 +670,7 @@ abstract final class YorksV1PermissionStrings {
       'role.document_controller': 'دستاویز کنٹرولر',
       'role.procurement': 'پروکیورمنٹ',
       'role.accountant': 'اکاؤنٹنٹ',
-      'role.pr': 'پی آر',
+      'role.pr': 'ایچ آر/پی آر او',
       'role.admin': 'ایڈمن',
     },
     'hi': {
@@ -824,7 +824,7 @@ abstract final class YorksV1PermissionStrings {
       'role.document_controller': 'दस्तावेज़ नियंत्रक',
       'role.procurement': 'खरीद',
       'role.accountant': 'लेखाकार',
-      'role.pr': 'पीआर',
+      'role.pr': 'एचआर/पीआरओ',
       'role.admin': 'एडमिन',
     },
   };
