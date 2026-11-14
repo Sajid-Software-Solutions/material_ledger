@@ -10,11 +10,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
+import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
+import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
@@ -78,6 +82,20 @@ Map<String, Object?> _place({
     'manage': false,
     'officer': false,
   },
+};
+
+/// The workshop: an internal place with no project or buildings.
+Map<String, Object?> _workshopPlace() => {
+  ..._place(id: _otherPlaceId, buildings: const []),
+  'name': 'Workshop',
+  'kind': 'workshop',
+  'project_id': null,
+  'project_ref': null,
+  'project_name': null,
+  'work_label': null,
+  'place_key': 'location:workshop',
+  'place_kind': 'location',
+  'needs_confirmation': false,
 };
 
 Map<String, Object?> _worker(String id, String name) => {
@@ -260,6 +278,8 @@ Future<GoRouter> _pump(
   _FakeRpc rpc,
   String location, {
   Map<String, Object> preferences = const {},
+  YorksV1Role? role,
+  bool shell = false,
 }) async {
   SharedPreferences.setMockInitialValues(preferences);
   final prefs = await SharedPreferences.getInstance();
@@ -268,12 +288,16 @@ Future<GoRouter> _pump(
     routes: [
       GoRoute(
         path: RoutePaths.yorksV1WorkforceAttendance,
-        builder: (_, state) => Scaffold(
-          body: AttendanceTakeScreen(
+        builder: (_, state) {
+          final screen = AttendanceTakeScreen(
             initialCrewId: state.uri.queryParameters['crew'],
             initialDate: state.uri.queryParameters['date'],
-          ),
-        ),
+          );
+          // With the workspace shell: the sidebar and the role's tabs.
+          return shell
+              ? YorksV1WorkspaceShell(child: screen)
+              : Scaffold(body: screen);
+        },
       ),
     ],
   );
@@ -282,6 +306,8 @@ Future<GoRouter> _pump(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         yorksV1AuthUserIdProvider.overrideWithValue('actor-1'),
+        yorksV1CurrentRoleProvider.overrideWithValue(role),
+        if (shell) yorksV1FeatureFlagsProvider.overrideWithValue(_flags),
         yorksAttendanceRepositoryProvider.overrideWithValue(
           YorksAttendanceRepository(
             featureFlags: _flags,
@@ -290,11 +316,26 @@ Future<GoRouter> _pump(
           ),
         ),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      // The shell's tabs take their type from the app theme.
+      child: MaterialApp.router(
+        theme: shell ? AppTheme.light : null,
+        routerConfig: router,
+      ),
     ),
   );
   await tester.pumpAndSettle();
   return router;
+}
+
+/// Decodes every image on screen (the shell's logo) before a screenshot, so
+/// the picture never depends on how fast an asset loaded.
+Future<void> _loadImages(WidgetTester tester) async {
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      await precacheImage((element.widget as Image).image, element);
+    }
+  });
+  await tester.pumpAndSettle();
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {
@@ -411,6 +452,69 @@ void main() {
     );
     expect(find.text('No project or place matches.'), findsOneWidget);
     expect(rpc.count('v1_wf_open_place'), 0);
+  });
+
+  testWidgets('the Workshop In-Charge opens on the workshop by default', (
+    tester,
+  ) async {
+    // PRODUCT_DECISIONS 58: workshop work by default; a project when chosen.
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) => _places(),
+      'v1_wf_get_day': (params) => _day(
+        place: params['p_team_id'] == _otherPlaceId ? _workshopPlace() : null,
+      ),
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      // The project was used last on this device.
+      preferences: {
+        'yorks.attendance.places.v1.actor-1': [_placeId],
+      },
+      role: YorksV1Role.workshopInCharge,
+    );
+    expect(
+      rpc.calls.firstWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+
+    // He chooses a project; the Workshop tab starts over at the workshop.
+    router.go('${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId');
+    await tester.pumpAndSettle();
+    expect(
+      rpc.calls.lastWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _placeId,
+    );
+    router.go(RoutePaths.yorksV1WorkforceAttendance);
+    await tester.pumpAndSettle();
+    expect(
+      rpc.calls.lastWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('other roles keep the place used last', (tester) async {
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) => _places(),
+      'v1_wf_get_day': (_) => _day(),
+    });
+    await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      preferences: {
+        'yorks.attendance.places.v1.actor-1': [_placeId],
+      },
+      role: YorksV1Role.accountant,
+    );
+    expect(
+      rpc.calls.firstWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _placeId,
+    );
   });
 
   testWidgets('added workers start present at 06:30, no overtime, Tower A', (
@@ -619,6 +723,52 @@ void main() {
         await expectLater(
           find.byType(MaterialApp),
           matchesGoldenFile('goldens/attendance_places_${name}_day.png'),
+        );
+      });
+
+      // Attendance by role (PRODUCT_DECISIONS 58): the Site Engineer's one
+      // screen, and the Workshop In-Charge's Workshop with its tabs.
+      testWidgets('$name site engineer attendance', (tester) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _FakeRpc(server()),
+          '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date',
+          role: YorksV1Role.siteEngineer,
+          shell: true,
+        );
+        await _loadImages(tester);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile(
+            'goldens/attendance_roles_${name}_site_engineer.png',
+          ),
+        );
+      });
+
+      testWidgets('$name workshop in-charge workshop', (tester) async {
+        _size(tester, size);
+        await _pump(
+          tester,
+          _FakeRpc({
+            'v1_wf_list_places': (_) => _places(),
+            'v1_wf_get_day': (_) => _day(
+              saved: true,
+              place: _workshopPlace(),
+              rows: [
+                _row('w1', 'Gul Zaman', scope: null),
+                _row('w3', 'Ravi Kumar', mine: false, scope: null),
+              ],
+            ),
+          }),
+          '${RoutePaths.yorksV1WorkforceAttendance}?date=$_date',
+          role: YorksV1Role.workshopInCharge,
+          shell: true,
+        );
+        await _loadImages(tester);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/attendance_roles_${name}_workshop.png'),
         );
       });
 

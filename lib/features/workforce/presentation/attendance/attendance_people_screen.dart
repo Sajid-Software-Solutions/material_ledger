@@ -18,8 +18,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../shared/models/app_language.dart';
+import '../../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
+import '../../application/attendance_role_layout.dart';
 import '../../data/attendance_sheet_service.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_month_models.dart';
@@ -188,7 +190,12 @@ class _AttendancePeopleScreenState
 
     return AttendancePage(
       language: language,
-      title: AS.t(AS.monthOverview, language),
+      title: AS.t(
+        AttendanceRoleLayout.of(ref.watch(yorksV1CurrentRoleProvider)).isOffice
+            ? AS.employees
+            : AS.monthOverview,
+        language,
+      ),
       subtitle: AS.t(AS.monthOverviewIntro, language),
       subtitleOnPhone: false,
       actions: [toggle],

@@ -16,6 +16,9 @@ import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
 import 'package:material_ledger/features/accounts/presentation/widgets/yorks_accounts_section_tabs.dart';
 import 'package:material_ledger/features/login/presentation/screens/login_screen.dart';
 import 'package:material_ledger/shared/models/app_strings.dart';
+import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
+import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
+import 'package:material_ledger/shared/models/yorks_v1_attendance_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/models/yorks_v1_role.dart';
@@ -1284,6 +1287,176 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text(YorksV1ShellStrings.projects.primary), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  group('Workforce tabs by role (PRODUCT_DECISIONS 58)', () {
+    const expected = <YorksV1Role, List<TranslatableString>>{
+      YorksV1Role.siteEngineer: [],
+      YorksV1Role.projectEngineer: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.seniorMechanicalEngineer: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.projectManager: [
+        AttendanceStrings.mySites,
+        AttendanceStrings.takeAttendance,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.monthConfirmation,
+      ],
+      YorksV1Role.documentController: [
+        AttendanceStrings.sites,
+        AttendanceStrings.monthTab,
+      ],
+      YorksV1Role.workshopInCharge: [
+        AttendanceStrings.workshop,
+        AttendanceStrings.monthTab,
+        AttendanceStrings.timeSheet,
+      ],
+      YorksV1Role.accountant: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+      ],
+      YorksV1Role.pr: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+        AttendanceStrings.confirmTab,
+      ],
+      YorksV1Role.admin: [
+        AttendanceStrings.overviewShort,
+        AttendanceStrings.employees,
+        AttendanceStrings.timeSheets,
+        AttendanceStrings.attendanceShort,
+        AttendanceStrings.confirmTab,
+      ],
+    };
+    final everyLabel = {for (final labels in expected.values) ...labels};
+
+    for (final entry in expected.entries) {
+      testWidgets('${entry.key.name}: ${entry.value.length} tabs', (
+        tester,
+      ) async {
+        _setViewport(tester, const Size(1366, 900));
+        addTearDown(() => _resetViewport(tester));
+        final preferences = await SharedPreferences.getInstance();
+        final client = SupabaseClient(
+          'https://example.supabase.co',
+          'test-publishable-key',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        );
+        final controller = YorksV1CurrentPermissionSnapshotController(
+          enabled: true,
+          authUserId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          client: null,
+          repository: _ResolvedPermissionRepository(
+            _permissionSnapshot(
+              usersView: false,
+              workforceView: true,
+              exactRole: entry.key.claimValue,
+            ),
+          ),
+          revisionSignalSubscription:
+              ({required onSignal, required onUnavailable}) async => true,
+        );
+        await controller.start();
+        final router = GoRouter(
+          initialLocation: RoutePaths.yorksV1WorkforceMonth,
+          routes: [
+            GoRoute(
+              path: RoutePaths.yorksV1WorkforceMonth,
+              builder: (_, _) => const YorksV1WorkspaceShell(
+                child: Scaffold(body: SizedBox.expand()),
+              ),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sharedPreferencesProvider.overrideWithValue(preferences),
+              supabaseClientProvider.overrideWithValue(client),
+              yorksV1CurrentRoleProvider.overrideWithValue(entry.key),
+              yorksV1FeatureFlagsProvider.overrideWithValue(
+                const YorksV1FeatureFlags(
+                  foundation: true,
+                  projects: true,
+                  boq: true,
+                  excel: true,
+                  requests: true,
+                  arrangement: true,
+                  logistics: true,
+                  returnsDocuments: true,
+                  documents: true,
+                  workforce: true,
+                  workforceAttendanceV2: true,
+                ),
+              ),
+              yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+                (ref) => controller,
+              ),
+              yorksAttendanceConfirmationsDueProvider.overrideWith(
+                (ref) async => const <AttendanceConfirmationDue>[],
+              ),
+            ],
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final row = find.byKey(const ValueKey('workspace-internal-sections'));
+        if (entry.value.isEmpty) {
+          // One attendance screen: no tab row, and the sidebar names it.
+          expect(row, findsNothing);
+          expect(
+            find.text(AttendanceStrings.attendanceShort.primary),
+            findsWidgets,
+          );
+          expect(
+            find.text(YorksV1ShellStrings.workforce.primary),
+            findsNothing,
+          );
+        } else {
+          final shown = [
+            for (final label in everyLabel)
+              if (find
+                  .descendant(of: row, matching: find.text(label.primary))
+                  .evaluate()
+                  .isNotEmpty)
+                label,
+          ];
+          expect(
+            shown.map((label) => label.primary).toSet(),
+            entry.value.map((label) => label.primary).toSet(),
+            reason: entry.key.name,
+          );
+          // In this order, left to right.
+          final lefts = [
+            for (final label in entry.value)
+              tester
+                  .getTopLeft(
+                    find.descendant(
+                      of: row,
+                      matching: find.text(label.primary),
+                    ),
+                  )
+                  .dx,
+          ];
+          expect(lefts, [...lefts]..sort(), reason: entry.key.name);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   testWidgets('desktop sidebar contracts immediately and can be reopened', (

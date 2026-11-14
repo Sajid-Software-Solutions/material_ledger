@@ -95,6 +95,7 @@ import '../features/company_documents/presentation/company_record_screen.dart';
 import '../features/people_records/presentation/people_centre_screen.dart';
 import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
+import '../features/workforce/application/attendance_role_layout.dart';
 import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_people_screen.dart'
@@ -1178,6 +1179,29 @@ bool _isYorksV1AccountsPath(String path) =>
     path.startsWith('${RoutePaths.yorksV1Accounts}/') ||
     (path.startsWith('/yorks/projects/') && path.contains('/accounts'));
 
+/// The page a role opens instead of a Workforce page it has no tab for:
+/// the Site Engineer's attendance screen, or the Workshop In-Charge's
+/// Workshop for the Workforce home. Null keeps the page.
+String? _attendanceRoleRedirect(String path, YorksV1Role? role) {
+  final tab = switch (path) {
+    RoutePaths.yorksV1Workforce => AttendanceTab.overview,
+    RoutePaths.yorksV1WorkforceAttendance => AttendanceTab.attendance,
+    RoutePaths.yorksV1WorkforceMonth => AttendanceTab.month,
+    RoutePaths.yorksV1WorkforceSheets => AttendanceTab.sheets,
+    RoutePaths.yorksV1WorkforceConfirm => AttendanceTab.confirm,
+    _ => null,
+  };
+  if (tab == null) return null;
+  return switch (AttendanceRoleLayout.of(role).redirectFrom(tab)) {
+    null => null,
+    AttendanceTab.overview => RoutePaths.yorksV1Workforce,
+    AttendanceTab.attendance => RoutePaths.yorksV1WorkforceAttendance,
+    AttendanceTab.month => RoutePaths.yorksV1WorkforceMonth,
+    AttendanceTab.sheets => RoutePaths.yorksV1WorkforceSheets,
+    AttendanceTab.confirm => RoutePaths.yorksV1WorkforceConfirm,
+  };
+}
+
 bool _isYorksV1WorkforcePath(String path) =>
     path == RoutePaths.yorksV1Workforce ||
     path.startsWith('${RoutePaths.yorksV1Workforce}/');
@@ -1562,6 +1586,13 @@ GoRouter createAppRouter({
         return _yorksV1ProjectFallbackPath();
       }
       if (yorksV1RouteAllowed == null) return null;
+
+      // Attendance by role (PRODUCT_DECISIONS section 58): a Workforce page a
+      // role has no tab for opens that role's first screen.
+      if (yorksV1WorkforceAttendanceV2Enabled) {
+        final attendanceRedirect = _attendanceRoleRedirect(path, yorksV1Role);
+        if (attendanceRedirect != null) return attendanceRedirect;
+      }
 
       // Batch 2 has the normalized creation flow but not the V1 portfolio,
       // workspace, BOQ/plan or request projection. Once V1 Projects is
