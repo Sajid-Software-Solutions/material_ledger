@@ -40,6 +40,10 @@ import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_worker_record_provider.dart';
 import '../widgets/yorks_v1_user_management_views.dart';
 import '../widgets/yorks_v1_worker_records_tab.dart';
+import '../../../../shared/models/yorks_v1_my_record_strings.dart';
+import '../../../people_records/presentation/account_people_record.dart';
+import '../../../people_records/presentation/people_kit.dart'
+    show peoplePersonPath;
 
 /// Strips the `Exception: ` prefix so remote-provisioning errors read cleanly in
 /// a snackbar.
@@ -156,6 +160,7 @@ class YorksV1UserManagementAccess {
     required this.connectedV1,
     this.canViewWorkerRecords = false,
     this.canManageWorkerRecords = false,
+    this.canViewPeopleRecords = false,
   });
 
   factory YorksV1UserManagementAccess.resolve({
@@ -163,6 +168,7 @@ class YorksV1UserManagementAccess {
     required YorksV1Role? role,
     required YorksV1CurrentPermissionSnapshotState permissionState,
     bool workerRecordsEnabled = false,
+    bool peopleRecordsEnabled = false,
   }) {
     if (!connectedV1) {
       return const YorksV1UserManagementAccess(
@@ -223,6 +229,16 @@ class YorksV1UserManagementAccess {
             requireWrite: true,
             organizationSummary: true,
           ),
+      // The account's People record (PRODUCT_DECISIONS section 56). Only the
+      // server permission snapshot opens it; linking is checked again by
+      // the server for HR/PRO and Admin.
+      canViewPeopleRecords:
+          peopleRecordsEnabled &&
+          permissionState.hybridAllows(
+            YorksV1CapabilityKeys.peopleRecordsView,
+            legacyAllowed: false,
+            organizationSummary: true,
+          ),
     );
   }
 
@@ -243,6 +259,10 @@ class YorksV1UserManagementAccess {
   /// tab without seeing or changing a login account.
   final bool canViewWorkerRecords;
   final bool canManageWorkerRecords;
+
+  /// Shows which person an account belongs to, instead of the legacy HR
+  /// employee link, while People records are on.
+  final bool canViewPeopleRecords;
 
   bool get canManageUser =>
       canEditProfile ||
@@ -500,6 +520,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
       workerRecordsEnabled: ref
           .watch(yorksV1FeatureFlagsProvider)
           .workerRecords,
+      peopleRecordsEnabled: ref
+          .watch(yorksV1FeatureFlagsProvider)
+          .peopleRecords,
     );
     if (!access.canView && access.canViewWorkerRecords) {
       // Accounting and PR staff: the Workers register only. No login account,
@@ -2857,6 +2880,10 @@ class _ManageUserSheetState extends ConsumerState<_ManageUserSheet> {
     );
     final canOpenPermissions = yorksV1Provisioning && access.canViewPermissions;
 
+    final peopleRecordsOn = ref
+        .watch(yorksV1FeatureFlagsProvider)
+        .peopleRecords;
+
     void navigateAway(String location) {
       final router = GoRouter.of(context);
       Navigator.pop(context);
@@ -3003,7 +3030,23 @@ class _ManageUserSheetState extends ConsumerState<_ManageUserSheet> {
             onSuccess: success,
           ),
         ),
-      if (access.canEditProfile)
+      if (peopleRecordsOn && access.canViewPeopleRecords)
+        YorksV1EditPanelSection(
+          icon: Icons.assignment_ind_outlined,
+          title: MyRecordStrings.peopleRecord,
+          subtitle: MyRecordStrings.peopleRecordDescription,
+          language: language,
+          child: AccountPeopleRecordSection(
+            appUserId: user.id,
+            accountName: user.fullName,
+            language: language,
+            onOpenRecord: (workerId) =>
+                navigateAway(peoplePersonPath(workerId)),
+          ),
+        )
+      // The legacy HR employee link only while People records are off; it
+      // holds no V1 people (PRODUCT_DECISIONS section 56).
+      else if (!peopleRecordsOn && access.canEditProfile)
         YorksV1EditPanelSection(
           icon: Icons.assignment_ind_outlined,
           title: YorksV1UserManagementStrings.hrSection,

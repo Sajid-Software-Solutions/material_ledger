@@ -252,6 +252,7 @@ one person). The record shows it as **App account**.
 | `v1_people_get_mine()` | Anyone signed in: their own linked record (`state` linked or unlinked), current documents with `number_last4` only, this month's attendance, their notes, and the projects they are a dated member of |
 | `v1_people_send_note(message, key)` | The linked person: a note to HR/PRO (1-1000 characters, five a day); notifies active PR and Admin (`people_note_received`) |
 | `v1_people_note_done(note, key)` | `people_records.manage`: marks a note done |
+| `v1_people_account_person(app_user_id)` | `people_records.view`: the account, the People record it is linked to (or null) and `can_link`, for User Management ([`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 56) |
 
 Linking needs `people_records.manage` **and** the PR or Admin role; the
 person JSON gains `account`, `notes` and `can_link`. Notes cannot be
@@ -282,12 +283,16 @@ attendance from `v1_people_get_mine` are not shown.
    (additive, repeatable) and redeploy `send-push` so the two new
    notification links open My Yorks and the person's record. No account
    is linked until HR/PRO links it.
+5. User Management People record (section 56): apply
+   `20261114240000_people_account_person.sql` (one read function,
+   repeatable), then release the web app.
 
 Rollback: build with the flag off, and set the two catalogue rows to
 `is_assignable = false` if access must close at once. Keep every row.
 For My Yorks: `cron.unschedule('yorks-people-my-reminders')` stops the
 personal reminders; restore the three notification functions from their
-`*_before_my_people` versions. Links and notes stay.
+`*_before_my_people` versions. Links and notes stay. For section 56: drop
+`v1_people_account_person(text)`; nothing else changes.
 
 ## Tests
 
@@ -307,6 +312,15 @@ personal reminders; restore the three notification functions from their
   kept out of the header, a note to HR/PRO and its limit, the not-linked
   and failed states, goldens at 390 px and 360 px (English and Arabic)
   and desktop.
+- `supabase/tests/database/yorks_people_account_person.test.sql`: Admin,
+  HR/PRO and the Accountant read an account's person (only HR/PRO and Admin
+  may link); Project Engineer, Site Engineer, Procurement and the Senior
+  Mechanical Engineer are refused; an unknown account is refused; reading
+  writes no history.
+- `test/yorks_user_people_record_test.dart`: who sees the People record in
+  User Management, linking through the person picker (name matches first,
+  server search, people linked elsewhere not selectable), open and unlink,
+  read-only and failed states, goldens at desktop and 360 px.
 - `test/yorks_v1_people_records_test.dart`: reader and export round trip,
   home, record and form at desktop and 360 px (goldens), renew, add,
   refusal in place, end with reason, new and edit person, import preview

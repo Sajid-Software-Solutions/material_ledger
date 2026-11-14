@@ -125,6 +125,16 @@ final class YorksV1PeopleRepository {
         _map(await _invoke('v1_people_link_suggestions', const {})),
       );
 
+  /// The People record an app account is linked to (User Management).
+  Future<PeopleAccountPerson> accountPerson(String appUserId) async =>
+      PeopleAccountPerson.fromJson(
+        _map(
+          await _invoke('v1_people_account_person', {
+            'p_app_user_id': appUserId,
+          }),
+        ),
+      );
+
   /// Links [authUserId] to the person, or unlinks when it is null.
   Future<PeoplePerson> setAccount({
     required String workerId,

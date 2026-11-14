@@ -69,12 +69,22 @@ final yorksV1PeopleLinkSuggestionsProvider =
       return ref.watch(yorksV1PeopleRepositoryProvider).linkSuggestions();
     });
 
+/// The People record of one app account, by app user id (User Management).
+final yorksV1PeopleAccountPersonProvider = FutureProvider.autoDispose
+    .family<PeopleAccountPerson, String>((ref, appUserId) {
+      ref.watch(yorksV1AuthUserIdProvider);
+      return ref
+          .watch(yorksV1PeopleRepositoryProvider)
+          .accountPerson(appUserId);
+    });
+
 /// After any write: the home, every register page and the record reload.
 void yorksV1RefreshPeople(WidgetRef ref, {String? workerId}) {
   ref.invalidate(yorksV1PeopleOverviewProvider);
   ref.invalidate(yorksV1PeopleListProvider);
   ref.invalidate(yorksV1PeopleAttachmentCountsProvider);
   ref.invalidate(yorksV1PeopleLinkSuggestionsProvider);
+  ref.invalidate(yorksV1PeopleAccountPersonProvider);
   if (workerId != null) {
     ref.invalidate(yorksV1PeoplePersonProvider(workerId));
     ref.invalidate(yorksV1PeopleAttachmentsProvider(workerId));

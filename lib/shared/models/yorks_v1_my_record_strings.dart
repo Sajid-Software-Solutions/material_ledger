@@ -441,4 +441,78 @@ abstract final class MyRecordStrings {
     ur: 'بند کریں',
     hi: 'बंद करें',
   );
+
+  // ─── User Management: the account's People record (section 56) ─────────────
+  static const peopleRecord = _T(
+    en: 'People record',
+    ar: 'السجل في الأفراد',
+    ur: 'افراد میں ریکارڈ',
+    hi: 'लोग में रिकॉर्ड',
+  );
+  static const peopleRecordDescription = _T(
+    en: 'The person this account belongs to. They see this record in My Yorks.',
+    ar: 'الشخص الذي يخصه هذا الحساب. يرى هذا السجل في يوركس الخاصة بي.',
+    ur: 'وہ شخص جس کا یہ اکاؤنٹ ہے۔ وہ یہ ریکارڈ مائی یورکس میں دیکھتا ہے۔',
+    hi: 'वह व्यक्ति जिसका यह खाता है। वे यह रिकॉर्ड माई यॉर्क्स में देखते हैं।',
+  );
+  static const noPeopleRecord = _T(
+    en: 'Not linked to a person yet',
+    ar: 'غير مرتبط بشخص بعد',
+    ur: 'ابھی کسی شخص سے منسلک نہیں',
+    hi: 'अभी किसी व्यक्ति से जुड़ा नहीं',
+  );
+  static const noPeopleRecordHint = _T(
+    en: 'Link it so My Yorks shows their documents and details.',
+    ar: 'اربطه ليعرض يوركس الخاصة بي مستنداته وبياناته.',
+    ur: 'منسلک کریں تاکہ مائی یورکس ان کی دستاویزات اور تفصیلات دکھائے۔',
+    hi: 'जोड़ें ताकि माई यॉर्क्स उनके दस्तावेज़ और विवरण दिखाए।',
+  );
+  static const hrLinksPeople = _T(
+    en: 'HR/PRO or Admin links accounts to people.',
+    ar: 'تربط الموارد البشرية وعلاقات الحكومة أو الإدارة الحسابات بالأشخاص.',
+    ur: 'HR/PRO یا ایڈمن اکاؤنٹس کو افراد سے منسلک کرتے ہیں۔',
+    hi: 'HR/PRO या एडमिन खातों को लोगों से जोड़ते हैं।',
+  );
+  static const openRecord = _T(
+    en: 'Open record',
+    ar: 'فتح السجل',
+    ur: 'ریکارڈ کھولیں',
+    hi: 'रिकॉर्ड खोलें',
+  );
+  static const choosePerson = _T(
+    en: 'Link {name} to a person',
+    ar: 'ربط {name} بشخص',
+    ur: '{name} کو کسی شخص سے منسلک کریں',
+    hi: '{name} को किसी व्यक्ति से जोड़ें',
+  );
+  static const choosePersonBody = _T(
+    en: 'Choose the person this account belongs to. Names that match come first.',
+    ar: 'اختر الشخص الذي يخصه هذا الحساب. الأسماء المطابقة تظهر أولًا.',
+    ur: 'وہ شخص چنیں جس کا یہ اکاؤنٹ ہے۔ ملتے جلتے نام پہلے آتے ہیں۔',
+    hi: 'वह व्यक्ति चुनें जिसका यह खाता है। मिलते नाम पहले आते हैं।',
+  );
+  static const searchPeople = _T(
+    en: 'Search name or record number',
+    ar: 'ابحث بالاسم أو رقم السجل',
+    ur: 'نام یا ریکارڈ نمبر تلاش کریں',
+    hi: 'नाम या रिकॉर्ड नंबर खोजें',
+  );
+  static const noPersonMatch = _T(
+    en: 'No one matches that search.',
+    ar: 'لا يوجد أحد يطابق هذا البحث.',
+    ur: 'اس تلاش سے کوئی نہیں ملا۔',
+    hi: 'इस खोज से कोई नहीं मिला।',
+  );
+  static const linkedToOther = _T(
+    en: 'Linked to {name}',
+    ar: 'مرتبط بـ {name}',
+    ur: '{name} سے منسلک',
+    hi: '{name} से जुड़ा',
+  );
+  static const unlinkPersonBody = _T(
+    en: '{name} will no longer see their record in My Yorks. The record and its history stay.',
+    ar: 'لن يرى {name} سجله في يوركس الخاصة بي بعد الآن. يبقى السجل وتاريخه.',
+    ur: '{name} اب مائی یورکس میں اپنا ریکارڈ نہیں دیکھے گا۔ ریکارڈ اور اس کی تاریخ باقی رہیں گے۔',
+    hi: '{name} अब माई यॉर्क्स में अपना रिकॉर्ड नहीं देखेंगे। रिकॉर्ड और उसका इतिहास बना रहेगा।',
+  );
 }

@@ -4,6 +4,8 @@
 /// waits for the server; nothing shows as linked before it confirms.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +39,16 @@ Future<bool?> showPeopleLinkAccountDialog(
 }) => showDialog<bool>(
   context: context,
   builder: (_) => _LinkAccountDialog(person: person),
+);
+
+/// Picks the person [account] belongs to and links them, from User
+/// Management (PRODUCT_DECISIONS section 56). Resolves to true once linked.
+Future<bool?> showPeopleLinkPersonDialog(
+  BuildContext context, {
+  required PeopleAccount account,
+}) => showDialog<bool>(
+  context: context,
+  builder: (_) => _LinkPersonDialog(account: account),
 );
 
 /// Every account not yet linked, with the people their names match.
@@ -302,6 +314,331 @@ class _AccountTile extends StatelessWidget {
                 style: FilledButton.styleFrom(minimumSize: const Size(64, 44)),
                 child: Text(actionLabel),
               ),
+      ],
+    ),
+  );
+}
+
+class _LinkPersonDialog extends ConsumerStatefulWidget {
+  const _LinkPersonDialog({required this.account});
+
+  final PeopleAccount account;
+
+  @override
+  ConsumerState<_LinkPersonDialog> createState() => _LinkPersonDialogState();
+}
+
+class _LinkPersonDialogState extends ConsumerState<_LinkPersonDialog> {
+  final _search = TextEditingController();
+  final _idempotencyKey = const Uuid().v4();
+  Timer? _debounce;
+  String _query = '';
+  String? _running;
+  String? _error;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearch(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _query = value.trim());
+    });
+  }
+
+  Future<void> _link(String workerId) async {
+    final language = ref.read(languageProvider);
+    final repository = ref.read(yorksV1PeopleRepositoryProvider);
+    setState(() {
+      _running = workerId;
+      _error = null;
+    });
+    try {
+      // The record's current version, so a change made meanwhile is never
+      // overwritten.
+      final person = await repository.get(workerId);
+      await repository.setAccount(
+        workerId: workerId,
+        authUserId: widget.account.authUserId,
+        expectedVersion: person.recordVersion,
+        idempotencyKey: _idempotencyKey,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _running = null;
+        _error = peopleLinkErrorText(error, language);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final language = ref.watch(languageProvider);
+    final suggestions = ref
+        .watch(yorksV1PeopleLinkSuggestionsProvider)
+        .valueOrNull;
+    final suggested = [
+      for (final item in suggestions?.accounts ?? const <PeopleLinkAccount>[])
+        if (item.account.authUserId == widget.account.authUserId)
+          ...item.suggestions,
+    ];
+    final query = _query.toLowerCase();
+    final suggestedShown = [
+      for (final candidate in suggested)
+        if (query.isEmpty ||
+            candidate.name.toLowerCase().contains(query) ||
+            candidate.number.toLowerCase().contains(query))
+          candidate,
+    ];
+    final suggestedIds = {for (final c in suggested) c.workerId};
+    final page = ref.watch(
+      yorksV1PeopleListProvider(PeopleListQuery(search: _query, limit: 30)),
+    );
+    return PopScope(
+      canPop: _running == null,
+      child: AlertDialog(
+        key: const ValueKey('people-link-person-dialog'),
+        title: Text(
+          _M.t(_M.choosePerson, language, {'name': widget.account.name}),
+        ),
+        content: SizedBox(
+          width: 520,
+          height: 460,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                _M.t(_M.choosePersonBody, language),
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                key: const ValueKey('people-link-person-search'),
+                controller: _search,
+                enabled: _running == null,
+                onChanged: _onSearch,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: _M.t(_M.searchPeople, language),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: page.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => PeopleMessage(
+                    icon: Icons.cloud_off_outlined,
+                    title: peopleErrorText(error, language),
+                    action: _M.t(_M.retry, language),
+                    onPressed: () => ref.invalidate(yorksV1PeopleListProvider),
+                  ),
+                  data: (data) {
+                    final others = [
+                      for (final person in data.rows)
+                        if (!suggestedIds.contains(person.id)) person,
+                    ];
+                    if (suggestedShown.isEmpty && others.isEmpty) {
+                      return Center(
+                        child: Text(
+                          _M.t(_M.noPersonMatch, language),
+                          textAlign: TextAlign.center,
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      );
+                    }
+                    final tiles = <Widget>[
+                      for (final candidate in suggestedShown)
+                        _PersonTile(
+                          key: ValueKey(
+                            'people-link-person-${candidate.workerId}',
+                          ),
+                          name: candidate.name,
+                          details: _personDetails(
+                            candidate.number,
+                            candidate.company,
+                            candidate.position,
+                            candidate.category,
+                            language,
+                          ),
+                          language: language,
+                          suggested: true,
+                          linkedTo: null,
+                          running: _running == candidate.workerId,
+                          enabled: _running == null,
+                          onPressed: () => _link(candidate.workerId),
+                        ),
+                      for (final person in others)
+                        _PersonTile(
+                          key: ValueKey('people-link-person-${person.id}'),
+                          name: person.name,
+                          details: _personDetails(
+                            person.number,
+                            person.company,
+                            person.position,
+                            person.category,
+                            language,
+                          ),
+                          language: language,
+                          suggested: false,
+                          linkedTo: person.account?.name,
+                          running: _running == person.id,
+                          enabled: _running == null,
+                          onPressed: () => _link(person.id),
+                        ),
+                    ];
+                    return ListView.separated(
+                      itemCount: tiles.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (_, index) => tiles[index],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _running == null
+                ? () => Navigator.of(context).pop()
+                : null,
+            child: Text(_M.t(_M.cancel, language)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "WR-000041 · Example Contracting LLC · Site Engineer · Staff", leaving
+/// out anything HR/PRO has not filled in.
+String _personDetails(
+  String number,
+  String company,
+  String position,
+  PeopleCategory category,
+  AppLanguage language,
+) {
+  bool recorded(String value) =>
+      value.trim().isNotEmpty && value.trim() != 'Not recorded';
+  return [
+    number,
+    if (recorded(company)) company,
+    if (recorded(position)) position,
+    peopleCategoryLabel(category, language),
+  ].join(' · ');
+}
+
+class _PersonTile extends StatelessWidget {
+  const _PersonTile({
+    super.key,
+    required this.name,
+    required this.details,
+    required this.language,
+    required this.suggested,
+    required this.linkedTo,
+    required this.running,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String name;
+  final String details;
+  final AppLanguage language;
+  final bool suggested;
+
+  /// The account this person is already linked to; they cannot be chosen.
+  final String? linkedTo;
+  final bool running;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: AppColors.blueContainer,
+          child: Text(
+            name.isEmpty ? '?' : name[0].toUpperCase(),
+            style: AppTypography.labelLarge.copyWith(color: AppColors.blue),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: AppTypography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                details,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.muted),
+              ),
+              if (suggested) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                PeoplePill(
+                  label: _M.t(_M.suggested, language),
+                  icon: Icons.auto_awesome_outlined,
+                  color: AppColors.success,
+                  background: AppColors.successContainer,
+                ),
+              ] else if (linkedTo != null) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                PeoplePill(
+                  label: _M.t(_M.linkedToOther, language, {'name': linkedTo}),
+                  icon: Icons.link_rounded,
+                  color: AppColors.inkSecondary,
+                  background: AppColors.surfaceContainer,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        if (linkedTo == null)
+          running
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : FilledButton.tonal(
+                  onPressed: enabled ? onPressed : null,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(64, 44),
+                  ),
+                  child: Text(_M.t(_M.link, language)),
+                ),
       ],
     ),
   );
