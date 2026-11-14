@@ -404,7 +404,13 @@ class _PickerRow extends StatelessWidget {
                         style: v2Style(14, weight: FontWeight.w600),
                       ),
                       Text(
-                        '${worker.number} · ${worker.designation} · ${attendanceWorkerSheets(worker, language)}',
+                        // Attendance is taken at places, not crews: the
+                        // worker's company tells namesakes apart.
+                        [
+                          worker.number,
+                          worker.designation,
+                          worker.company,
+                        ].where((part) => part.isNotEmpty).join(' · '),
                         style: v2Style(12, color: AccountsV2Colors.mut),
                       ),
                     ],

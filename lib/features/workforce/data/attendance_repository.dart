@@ -50,6 +50,24 @@ final class YorksAttendanceRepository {
     ];
   }
 
+  /// Projects and internal locations the signed-in person may keep or read
+  /// attendance at (PRODUCT_DECISIONS section 51).
+  Future<AttendancePlaces> listPlaces() async =>
+      AttendancePlaces.fromJson(await _invoke('v1_wf_list_places', const {}));
+
+  /// Opens the shared sheet for a project or an internal location: the one
+  /// already open, else the project's old sheet, else a new one. Opening is
+  /// a find-or-create on the place, so a retry gets the same sheet.
+  Future<AttendanceCrew> openPlace({
+    String? projectId,
+    String? location,
+  }) async => AttendanceCrew.fromJson(
+    await _invoke('v1_wf_open_place', {
+      'p_project_id': projectId,
+      'p_location': location,
+    }),
+  );
+
   Future<bool> canCreateCrew() async =>
       (await _invoke('v1_wf_list_crews', const {}))['can_create_crew'] == true;
 

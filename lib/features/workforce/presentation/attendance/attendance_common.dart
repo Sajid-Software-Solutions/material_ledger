@@ -457,6 +457,7 @@ class AttendanceDayStrip extends StatefulWidget {
     required this.selected,
     required this.onSelect,
     this.drafts = const {},
+    this.quietEmpty = false,
   });
 
   final List<({String date, AttendanceDayState state, bool holiday})> days;
@@ -465,6 +466,10 @@ class AttendanceDayStrip extends StatefulWidget {
 
   /// Days with entries kept on this device and not yet saved.
   final Set<String> drafts;
+
+  /// At a place a day with nobody recorded is normal, not missing: it gets
+  /// no red mark (PRODUCT_DECISIONS section 51).
+  final bool quietEmpty;
 
   @override
   State<AttendanceDayStrip> createState() => _AttendanceDayStripState();
@@ -573,7 +578,10 @@ class _AttendanceDayStripState extends State<AttendanceDayStrip> {
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: future
+                          color:
+                              future ||
+                                  (widget.quietEmpty &&
+                                      day.state == AttendanceDayState.none)
                               ? Colors.transparent
                               : selected
                               ? Colors.white
