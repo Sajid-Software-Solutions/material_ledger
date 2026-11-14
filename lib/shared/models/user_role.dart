@@ -13,7 +13,7 @@ enum UserRole {
 
   /// People and HR. Users, worker records, Workforce, People, leave and
   /// Rentals; read-only Projects and Accounts through exact capabilities.
-  pr('PR', 'پی آر', 'पीआर'),
+  pr('HR/PRO', 'ایچ آر/پی آر او', 'एचआर/पीआरओ'),
   admin('Admin', 'ایڈمن', 'एडमिन');
 
   const UserRole(this.label, this.labelUr, this.labelHi);

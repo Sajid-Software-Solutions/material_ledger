@@ -716,9 +716,9 @@ class _CrewsCard extends StatelessWidget {
           title: AS.t(AS.crews, language),
           body: AS.t(AS.noCrews, language),
           action: AccountsV2Button(
-            label: AS.t(AS.newCrew, language),
+            label: AS.t(AS.takeAttendance, language),
             icon: 'plus',
-            onPressed: () => context.go(RoutePaths.yorksV1WorkforceCrews),
+            onPressed: () => context.go(RoutePaths.yorksV1WorkforceAttendance),
           ),
         ),
       );

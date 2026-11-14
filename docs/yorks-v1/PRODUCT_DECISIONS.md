@@ -2511,6 +2511,23 @@ again without storing a second copy. The staff and labour tracker holds no
 scans, so nothing was uploaded from it. Design:
 [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) section Bulk upload.
 
+## 50. HR/PRO, and no crew requests or crew setup (owner decisions, 14 November 2026)
+
+- The PR role is shown as **HR/PRO** everywhere (Arabic الموارد البشرية/المندوب,
+  Urdu ایچ آر/پی آر او, Hindi एचआर/पीआरओ). Only the label changes: the protected
+  claim stays `pr`, so every permission, record, history line and test that
+  names `pr` keeps working and nobody's role is changed.
+- Crew requests (section 38, the Workforce Center) are hidden: production is
+  built with `YORKS_V1_WORKFORCE_CENTER=false`, so the Center tab, the crew
+  request pages and the HR/PRO overview's crew request list are not shown.
+  Nothing is deleted; turning the flag on again brings them back with their
+  history.
+- Crew setup is hidden: the Crews tab is gone and its link opens Take
+  attendance. A labourer can work on several projects in a day and on a
+  different project the next, so keeping crew members up to date would be a
+  chore. Attendance is taken by adding the labourers present instead
+  (section 51). Crews, members and their history stay stored.
+
 ## 53. Profession on the visa and ID, and position in the company (owner decision, 14 November 2026)
 
 A person keeps two professions: the one written on their visa and Emirates

@@ -378,10 +378,10 @@ const notificationModuleEvents = <String, Map<String, Object>>{
       "उपस्थिति पुष्टि में देरी",
     ],
     "body": <String>[
-      "A month has ended and your crews' attendance is not confirmed yet. Confirm it so PR and Accounts can use it.",
-      "انتهى شهر ولم يُؤكَّد حضور طواقمك بعد. أكّده ليتمكن العلاقات العامة والحسابات من استخدامه.",
+      "A month has ended and your crews' attendance is not confirmed yet. Confirm it so HR/PRO and Accounts can use it.",
+      "انتهى شهر ولم يُؤكَّد حضور طواقمك بعد. أكّده ليتمكن الموارد البشرية/المندوب والحسابات من استخدامه.",
       "مہینہ ختم ہو گیا اور آپ کے عملے کی حاضری کی تصدیق ابھی نہیں ہوئی۔ تصدیق کریں تاکہ پی آر اور اکاؤنٹس اسے استعمال کر سکیں۔",
-      "माह समाप्त हो गया और आपके दलों की उपस्थिति की अभी पुष्टि नहीं हुई। पुष्टि करें ताकि पीआर और अकाउंट्स इसका उपयोग कर सकें।",
+      "माह समाप्त हो गया और आपके दलों की उपस्थिति की अभी पुष्टि नहीं हुई। पुष्टि करें ताकि एचआर/पीआरओ और अकाउंट्स इसका उपयोग कर सकें।",
     ],
     "destination": "timesheets",
     "urgent": true,

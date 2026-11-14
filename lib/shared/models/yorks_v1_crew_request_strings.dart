@@ -258,10 +258,10 @@ abstract final class CrewRequestStrings {
     hi: 'अनुरोधकर्ता',
   );
   static const ownerPr = _T(
-    en: 'Approver or PR',
-    ar: 'المعتمِد أو العلاقات العامة',
-    ur: 'منظور کنندہ یا پی آر',
-    hi: 'स्वीकृतकर्ता या पीआर',
+    en: 'Approver or HR/PRO',
+    ar: 'المعتمِد أو الموارد البشرية/المندوب',
+    ur: 'منظور کنندہ یا ایچ آر/پی آر او',
+    hi: 'स्वीकृतकर्ता या एचआर/पीआरओ',
   );
   static const ownerNone = _T(en: '—', ar: '—', ur: '—', hi: '—');
   static const nextApprove = _T(
@@ -688,10 +688,10 @@ abstract final class CrewRequestStrings {
     hi: '{number} स्वीकृत करें?',
   );
   static const approveBody = _T(
-    en: 'It waits for workers. You or PR can assign them later.',
-    ar: 'سينتظر العمال. يمكنك أنت أو العلاقات العامة تعيينهم لاحقًا.',
-    ur: 'یہ کارکنوں کا انتظار کرے گی۔ آپ یا پی آر بعد میں مقرر کر سکتے ہیں۔',
-    hi: 'यह कामगारों की प्रतीक्षा करेगा। आप या पीआर बाद में सौंप सकते हैं।',
+    en: 'It waits for workers. You or HR/PRO can assign them later.',
+    ar: 'سينتظر العمال. يمكنك أنت أو الموارد البشرية/المندوب تعيينهم لاحقًا.',
+    ur: 'یہ کارکنوں کا انتظار کرے گی۔ آپ یا ایچ آر/پی آر او بعد میں مقرر کر سکتے ہیں۔',
+    hi: 'यह कामगारों की प्रतीक्षा करेगा। आप या एचआर/पीआरओ बाद में सौंप सकते हैं।',
   );
   static const returnTitle = _T(
     en: 'Return {number}?',

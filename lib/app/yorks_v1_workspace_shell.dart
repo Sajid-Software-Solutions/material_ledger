@@ -210,12 +210,8 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
           selectedIcon: Icons.description,
           path: RoutePaths.yorksV1WorkforceSheets,
         ),
-        const _YorksDestination(
-          label: AttendanceStrings.crews,
-          icon: Icons.groups_outlined,
-          selectedIcon: Icons.groups,
-          path: RoutePaths.yorksV1WorkforceCrews,
-        ),
+        // Crew setup is hidden (PRODUCT_DECISIONS section 50): attendance is
+        // taken at a place, with no crews or members to set up.
         ...allDestinations.where(
           (d) => d.path == RoutePaths.yorksV1WorkforceAdministration,
         ),

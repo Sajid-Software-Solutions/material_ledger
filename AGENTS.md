@@ -112,7 +112,8 @@ boundaries; do not destructively remove historical records.
   certification, PDC/payment and supplier-bill payment controls. Accountant is
   never a technical project member and inherits no Project, BOQ, MR, Dispatch,
   Receipt, Inventory, Return or team-management mutation authority.
-- **PR** — people and HR (owner decision, 12 November 2026,
+- **PR** (shown as **HR/PRO**, `PRODUCT_DECISIONS.md` section 50) — people
+  and HR (owner decision, 12 November 2026,
   `PRODUCT_DECISIONS.md` section 37). Full User Management (as Senior
   Mechanical Engineer), Worker Records, Workforce, People/leave and Rentals;
   read-only Projects and Accounts. PR is never a technical project member and

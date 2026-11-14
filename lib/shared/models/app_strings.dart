@@ -839,10 +839,10 @@ abstract final class AppStrings {
     hi: 'लेखाकार',
   );
   static const prRole = TranslatableString(
-    en: 'PR',
-    ar: 'العلاقات العامة',
-    ur: 'پی آر',
-    hi: 'पीआर',
+    en: 'HR/PRO',
+    ar: 'الموارد البشرية/المندوب',
+    ur: 'ایچ آر/پی آر او',
+    hi: 'एचआर/पीआरओ',
   );
   static const procurementRole = TranslatableString(
     en: 'Procurement',

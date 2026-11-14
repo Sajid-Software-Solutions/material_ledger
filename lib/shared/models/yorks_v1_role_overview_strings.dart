@@ -1580,12 +1580,12 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'पिछले 7 दिनों में कोई रिक्वेस्ट बंद नहीं हुई।',
   );
 
-  // ─── PR: people, crews and rentals ─────────────────────────────────────
+  // ─── PR (HR/PRO): people, attendance and rentals ─────────────────────────────────────
   static const prDescription = TranslatableString(
-    en: 'People, their documents and crews: what needs attention today.',
-    ar: 'الأفراد ومستنداتهم والطواقم: ما يحتاج إلى متابعة اليوم.',
-    ur: 'افراد، ان کی دستاویزات اور عملے: آج کس پر توجہ درکار ہے۔',
-    hi: 'लोग, उनके दस्तावेज़ और क्रू: आज किस पर ध्यान चाहिए।',
+    en: 'People, their documents and attendance: what needs attention today.',
+    ar: 'الأفراد ومستنداتهم والحضور: ما يحتاج إلى متابعة اليوم.',
+    ur: 'افراد، ان کی دستاویزات اور حاضری: آج کس پر توجہ درکار ہے۔',
+    hi: 'लोग, उनके दस्तावेज़ और हाज़िरी: आज किस पर ध्यान चाहिए।',
   );
   static const people = TranslatableString(
     en: 'People',
@@ -1714,10 +1714,10 @@ abstract final class YorksV1RoleOverviewStrings {
     hi: 'कार्यबल',
   );
   static const workforceToolSub = TranslatableString(
-    en: 'Crews, crew requests, attendance and timesheets',
-    ar: 'الطواقم وطلباتها والحضور وكشوف الدوام',
-    ur: 'عملے، درخواستیں، حاضری اور ٹائم شیٹس',
-    hi: 'क्रू, अनुरोध, हाज़िरी और टाइमशीट',
+    en: 'Attendance, monthly timesheets and the workforce month',
+    ar: 'الحضور وكشوف الدوام الشهرية وشهر القوى العاملة',
+    ur: 'حاضری، ماہانہ ٹائم شیٹس اور افرادی قوت کا مہینہ',
+    hi: 'हाज़िरी, मासिक टाइमशीट और कार्यबल का महीना',
   );
   static const usersToolSub = TranslatableString(
     en: 'Logins, roles and worker records',

@@ -54,10 +54,10 @@ abstract final class YorksV1ShellStrings {
     hi: 'अकाउंटेंट कार्यस्थान',
   );
   static const prWorkspace = TranslatableString(
-    en: 'PR workspace',
-    ar: 'مساحة عمل العلاقات العامة',
-    ur: 'پی آر ورک اسپیس',
-    hi: 'पीआर कार्यस्थान',
+    en: 'HR/PRO workspace',
+    ar: 'مساحة عمل الموارد البشرية/المندوب',
+    ur: 'ایچ آر/پی آر او ورک اسپیس',
+    hi: 'एचआर/पीआरओ कार्यस्थान',
   );
   static const prHero = TranslatableString(
     en: 'People and workforce',
