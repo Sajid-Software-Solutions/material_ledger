@@ -17,9 +17,7 @@ abstract final class MyRecordStrings {
     Map<String, Object?>? v,
   ]) => AttendanceStrings.t(value, language, v);
 
-  // ─── My Yorks tabs ─────────────────────────────────────────────────────────
-  static const tabMe = _T(en: 'Me', ar: 'أنا', ur: 'میں', hi: 'मैं');
-  static const tabWork = _T(en: 'Work', ar: 'العمل', ur: 'کام', hi: 'काम');
+  // ─── Page ──────────────────────────────────────────────────────────────────
   static const tabSettings = _T(
     en: 'Settings',
     ar: 'الإعدادات',
@@ -223,105 +221,6 @@ abstract final class MyRecordStrings {
     ar: 'أعد المحاولة',
     ur: 'دوبارہ کوشش کریں',
     hi: 'फिर कोशिश करें',
-  );
-
-  // ─── Work ──────────────────────────────────────────────────────────────────
-  static const yourProjects = _T(
-    en: 'Your projects',
-    ar: 'مشاريعك',
-    ur: 'آپ کے پروجیکٹس',
-    hi: 'आपके प्रोजेक्ट',
-  );
-  static const yourProjectsDescription = _T(
-    en: 'Projects you are a member of today, with your role on each.',
-    ar: 'المشاريع التي أنت عضو فيها اليوم، مع دورك في كل منها.',
-    ur: 'وہ پروجیکٹس جن کے آپ آج رکن ہیں، ہر ایک میں آپ کے کردار کے ساتھ۔',
-    hi: 'वे प्रोजेक्ट जिनके आप आज सदस्य हैं, हर एक में आपकी भूमिका के साथ।',
-  );
-  static const allProjects = _T(
-    en: 'Your role opens every project ({n})',
-    ar: 'دورك يتيح فتح كل المشاريع ({n})',
-    ur: 'آپ کا کردار ہر پروجیکٹ کھول سکتا ہے ({n})',
-    hi: 'आपकी भूमिका हर प्रोजेक्ट खोल सकती है ({n})',
-  );
-  static const noProjects = _T(
-    en: 'You are not a member of a project today',
-    ar: 'لست عضوًا في أي مشروع اليوم',
-    ur: 'آپ آج کسی پروجیکٹ کے رکن نہیں',
-    hi: 'आप आज किसी प्रोजेक्ट के सदस्य नहीं हैं',
-  );
-  static const moreProjects = _T(
-    en: '{n} more',
-    ar: '{n} أخرى',
-    ur: '{n} مزید',
-    hi: '{n} और',
-  );
-  static const showAll = _T(
-    en: 'Show all',
-    ar: 'عرض الكل',
-    ur: 'سب دکھائیں',
-    hi: 'सभी दिखाएँ',
-  );
-  static const roleProjectEngineer = _T(
-    en: 'Project Engineer',
-    ar: 'مهندس المشروع',
-    ur: 'پروجیکٹ انجینئر',
-    hi: 'प्रोजेक्ट इंजीनियर',
-  );
-  static const roleSiteEngineer = _T(
-    en: 'Site Engineer',
-    ar: 'مهندس الموقع',
-    ur: 'سائٹ انجینئر',
-    hi: 'साइट इंजीनियर',
-  );
-  static const yourAttendance = _T(
-    en: 'Your attendance · {month}',
-    ar: 'حضورك · {month}',
-    ur: 'آپ کی حاضری · {month}',
-    hi: 'आपकी उपस्थिति · {month}',
-  );
-  static const yourAttendanceDescription = _T(
-    en: 'This month so far, from your crew\'s day sheets.',
-    ar: 'هذا الشهر حتى الآن، من كشوف طاقمك اليومية.',
-    ur: 'اس مہینے اب تک، آپ کے عملے کی روزانہ شیٹس سے۔',
-    hi: 'इस महीने अब तक, आपके क्रू की दैनिक शीट से।',
-  );
-  static const daysPresent = _T(
-    en: 'Days present',
-    ar: 'أيام الحضور',
-    ur: 'حاضر دن',
-    hi: 'उपस्थित दिन',
-  );
-  static const ofRecorded = _T(
-    en: '{n} of {m}',
-    ar: '{n} من {m}',
-    ur: '{m} میں سے {n}',
-    hi: '{m} में से {n}',
-  );
-  static const absent = _T(
-    en: 'Absent',
-    ar: 'غائب',
-    ur: 'غیر حاضر',
-    hi: 'अनुपस्थित',
-  );
-  static const leave = _T(en: 'Leave', ar: 'إجازة', ur: 'چھٹی', hi: 'छुट्टी');
-  static const overtime = _T(
-    en: 'Overtime',
-    ar: 'العمل الإضافي',
-    ur: 'اوور ٹائم',
-    hi: 'ओवरटाइम',
-  );
-  static const hoursMinutes = _T(
-    en: '{h} h {m} min',
-    ar: '{h} س {m} د',
-    ur: '{h} گھنٹے {m} منٹ',
-    hi: '{h} घं {m} मि',
-  );
-  static const noAttendance = _T(
-    en: 'No attendance recorded for you this month yet.',
-    ar: 'لم يُسجل حضور لك هذا الشهر بعد.',
-    ur: 'اس مہینے ابھی آپ کی حاضری درج نہیں ہوئی۔',
-    hi: 'इस महीने अभी आपकी उपस्थिति दर्ज नहीं हुई।',
   );
 
   // ─── Settings ──────────────────────────────────────────────────────────────

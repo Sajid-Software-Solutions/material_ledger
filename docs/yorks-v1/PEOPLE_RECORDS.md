@@ -262,8 +262,11 @@ active person whose own documents expired or expire within 60 days gets
 `people_my_documents_overdue` or `people_my_documents_due`, opening My
 Yorks, only when that set changed since their last reminder.
 
-My Yorks shows the record when `YORKS_V1_PEOPLE_RECORDS` is on: Me,
-Work and Settings tabs on phone and tablet, two columns on desktop.
+My Yorks shows the record when `YORKS_V1_PEOPLE_RECORDS` is on, inside
+one profile card with the header, documents, *You at Yorks* and notes;
+the settings follow it on phone and tablet and sit to its right on desktop
+([`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 55). Projects and
+attendance from `v1_people_get_mine` are not shown.
 
 ## Release and rollback
 
@@ -299,9 +302,11 @@ personal reminders; restore the three notification functions from their
   audit; the person reads only their own record, never a whole number,
   date of birth or unified number; notes notify PR and Admin, are
   immutable and limited to five a day; the personal reminder is sent once.
-- `test/yorks_my_profile_people_test.dart`: Me, Work and Settings, a note
-  to HR/PRO and its limit, the not-linked and failed states, goldens at
-  390 px (English and Arabic) and desktop.
+- `test/yorks_my_profile_people_test.dart`: the record inside one
+  profile card, no Work section, settings after the card, "Not recorded"
+  kept out of the header, a note to HR/PRO and its limit, the not-linked
+  and failed states, goldens at 390 px and 360 px (English and Arabic)
+  and desktop.
 - `test/yorks_v1_people_records_test.dart`: reader and export round trip,
   home, record and form at desktop and 360 px (goldens), renew, add,
   refusal in place, end with reason, new and edit person, import preview

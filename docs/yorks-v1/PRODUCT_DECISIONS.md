@@ -2639,7 +2639,8 @@ defaults:
   company with Staff or Labour, the record number and company, and one
   chip for how the documents stand (valid, *n* expiring soon, or expired).
   The signed-in email moves to Settings > Your account once linked.
-- **Tabs on phone and tablet: Me, Work, Settings.** Desktop shows Me on
+- **Tabs on phone and tablet: Me, Work, Settings.** *Superseded the same
+  day by section 55: no tabs and no Work section.* Desktop shows Me on
   the left and Work and Settings on the right. Before a link the page
   opens on Work and Me says the record is not linked yet.
   - *Me:* the person's current documents with expiry and status and only
@@ -2670,6 +2671,34 @@ ever returns the caller's own linked person; no People capability is
 granted to anyone. Design: [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) My
 Yorks and linked accounts. Migration
 `20261114230000_people_my_record.sql`.
+
+## 55. One profile card and a plain account menu (owner decision, 14 November 2026)
+
+After seeing section 54 in production, the owner simplified My Yorks and
+the desktop account menu:
+
+- **No tabs and no Work section.** Today and its shortcuts, the projects
+  list and this month's attendance are no longer on My Yorks.
+- **One profile card.** The header (name, Arabic name, position with Staff
+  or Labour, record number and company, status and documents chips) and
+  the person's own record share one card: their documents, then *You at
+  Yorks* (position, profession on the visa and ID, company, joining date,
+  crew), then their notes and "Something wrong? Tell HR/PRO". The header
+  no longer repeats a field HR/PRO has not filled in ("Not recorded");
+  *You at Yorks* shows it as not recorded instead. Before a link, or while
+  the record loads or fails, the card says so.
+- **Settings unchanged**, below the card on phone and tablet (Your
+  account, Access and scope, Preferences, Help and security) and to the
+  right of it on desktop.
+- **Account menu.** The sidebar account menu shows the name, app role and
+  email, then My Yorks, Notifications and Sign out. It no longer shows
+  "Account active"/"Verifying account", workspace sync, About or the zoom
+  controls; it warns only when the account cannot be read. Workspace sync
+  stays in the sidebar, top bar and My Yorks > Help and security; About is
+  in Help and security; zoom stays on Ctrl/⌘ +, −, 0 and pinch.
+
+`v1_people_get_mine` is unchanged and still returns projects and
+attendance; the app does not show them. No migration.
 
 ## Procurement preparation refinement — October 2026
 

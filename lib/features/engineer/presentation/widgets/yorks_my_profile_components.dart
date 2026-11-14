@@ -7,24 +7,9 @@ import '../../../../shared/models/yorks_v1_my_profile_workspace.dart';
 import '../../../../shared/models/yorks_v1_profile_strings.dart';
 import '../../../../shared/models/yorks_v1_role.dart';
 
-/// The My Yorks tabs: the person's own record, their work, and settings.
-enum YorksMyProfileSection { me, work, settings }
-
 enum YorksMyProfileLayout { compact, medium, expanded }
 
 enum YorksAccountEvidenceState { loading, verified, unavailable }
-
-class YorksProfileSectionDefinition {
-  const YorksProfileSectionDefinition({
-    required this.section,
-    required this.label,
-    required this.icon,
-  });
-
-  final YorksMyProfileSection section;
-  final String label;
-  final IconData icon;
-}
 
 /// Resolves the profile presentation without changing its content model.
 YorksMyProfileLayout yorksMyProfileLayoutFor(double width) {
@@ -35,122 +20,6 @@ YorksMyProfileLayout yorksMyProfileLayoutFor(double width) {
     return YorksMyProfileLayout.medium;
   }
   return YorksMyProfileLayout.expanded;
-}
-
-class YorksProfileSectionNavigation extends StatelessWidget {
-  const YorksProfileSectionNavigation({
-    super.key,
-    required this.language,
-    required this.sections,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final AppLanguage language;
-  final List<YorksProfileSectionDefinition> sections;
-  final YorksMyProfileSection selected;
-  final ValueChanged<YorksMyProfileSection> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: YorksV1ProfileStrings.sectionNavigation.active(language),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final tabs = [
-              for (final definition in sections)
-                _ProfileSectionTab(
-                  definition: definition,
-                  selected: selected == definition.section,
-                  onPressed: () => onSelected(definition.section),
-                ),
-            ];
-            // The tabs share the width when each still fits its label;
-            // otherwise (large text) they scroll sideways.
-            final fits =
-                constraints.maxWidth / sections.length >=
-                112 * MediaQuery.textScalerOf(context).scale(1);
-            return FocusTraversalGroup(
-              policy: OrderedTraversalPolicy(),
-              child: fits
-                  ? Row(
-                      children: [for (final tab in tabs) Expanded(child: tab)],
-                    )
-                  : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(children: tabs),
-                    ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileSectionTab extends StatelessWidget {
-  const _ProfileSectionTab({
-    required this.definition,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final YorksProfileSectionDefinition definition;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(112, 52)),
-      padding: const WidgetStatePropertyAll(
-        EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      ),
-      shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      foregroundColor: WidgetStatePropertyAll(
-        selected ? AppColors.blue : AppColors.inkSecondary,
-      ),
-      backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-      overlayColor: const WidgetStatePropertyAll(AppColors.blueContainer),
-      side: const WidgetStatePropertyAll(BorderSide(color: Colors.transparent)),
-    );
-    final key = ValueKey('my-yorks-section-${definition.section.name}');
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: Container(
-        decoration: BoxDecoration(
-          border: selected
-              ? const Border(
-                  bottom: BorderSide(color: AppColors.blue, width: 3),
-                )
-              : null,
-        ),
-        child: selected
-            ? FilledButton.tonalIcon(
-                key: key,
-                onPressed: onPressed,
-                style: style,
-                icon: Icon(definition.icon, size: 20),
-                label: Text(definition.label),
-              )
-            : TextButton.icon(
-                key: key,
-                onPressed: onPressed,
-                style: style,
-                icon: Icon(definition.icon, size: 20),
-                label: Text(definition.label),
-              ),
-      ),
-    );
-  }
 }
 
 class YorksIdentityHero extends StatelessWidget {
@@ -168,6 +37,7 @@ class YorksIdentityHero extends StatelessWidget {
     this.detailLine,
     this.documentsLabel,
     this.documentsColor,
+    this.attached = false,
   });
 
   final AppLanguage language;
@@ -188,6 +58,9 @@ class YorksIdentityHero extends StatelessWidget {
   final String? detailLine;
   final String? documentsLabel;
   final Color? documentsColor;
+
+  /// The top of a larger card: square lower corners and no shadow of its own.
+  final bool attached;
 
   @override
   Widget build(BuildContext context) {
@@ -217,14 +90,20 @@ class YorksIdentityHero extends StatelessWidget {
         padding: EdgeInsets.all(compact ? AppSpacing.lg : AppSpacing.xxl),
         decoration: BoxDecoration(
           color: AppColors.navy,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x1A0D2F57),
-              blurRadius: 28,
-              offset: Offset(0, 12),
-            ),
-          ],
+          borderRadius: attached
+              ? const BorderRadius.vertical(
+                  top: Radius.circular(AppSpacing.radiusXl),
+                )
+              : BorderRadius.circular(AppSpacing.radiusXl),
+          boxShadow: attached
+              ? null
+              : const [
+                  BoxShadow(
+                    color: Color(0x1A0D2F57),
+                    blurRadius: 28,
+                    offset: Offset(0, 12),
+                  ),
+                ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -654,213 +533,6 @@ class YorksProfileSectionCard extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-/// A server-confirmed operational signal. It intentionally accepts a plain
-/// value rather than deriving a total from client state, so a loading/error
-/// profile can never be rendered as a misleading zero.
-class YorksRoleMetricCard extends StatelessWidget {
-  const YorksRoleMetricCard({
-    super.key,
-    required this.title,
-    required this.description,
-    required this.value,
-    required this.icon,
-  });
-
-  final String title;
-  final String description;
-  final int value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label: '$title: $value. $description',
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 108),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.blueContainer,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  ),
-                  child: Icon(icon, size: 19, color: AppColors.blue),
-                ),
-                const Spacer(),
-                Directionality(
-                  textDirection: TextDirection.ltr,
-                  child: Text(
-                    '$value',
-                    style: AppTypography.headlineMedium.copyWith(
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(title, style: AppTypography.titleSmall),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              description,
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.inkSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class YorksProfileQuickAction {
-  const YorksProfileQuickAction({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-  final IconData icon;
-  final VoidCallback onPressed;
-}
-
-/// Responsive, keyboard-accessible navigation only. Every item has already
-/// been confirmed by P01 and still passes ordinary route/RPC guards after tap.
-class YorksQuickActionGrid extends StatelessWidget {
-  const YorksQuickActionGrid({
-    super.key,
-    required this.actions,
-    required this.compact,
-  });
-
-  final List<YorksProfileQuickAction> actions;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textScale = MediaQuery.textScalerOf(context).scale(1);
-        final columns = compact || textScale >= 1.6
-            ? 1
-            : constraints.maxWidth >= 720
-            ? 3
-            : constraints.maxWidth >= 480
-            ? 2
-            : 1;
-        final width = columns == 1
-            ? constraints.maxWidth
-            : (constraints.maxWidth - AppSpacing.sm * (columns - 1)) / columns;
-        return FocusTraversalGroup(
-          policy: OrderedTraversalPolicy(),
-          child: Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              for (final action in actions)
-                SizedBox(
-                  width: width,
-                  child: Semantics(
-                    button: true,
-                    label: action.title,
-                    value: action.description,
-                    child: Material(
-                      color: AppColors.surfaceContainerLow,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                      child: InkWell(
-                        key: ValueKey('my-yorks-action-${action.id}'),
-                        onTap: action.onPressed,
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusLg,
-                        ),
-                        focusColor: AppColors.blueContainer,
-                        hoverColor: AppColors.blueContainer,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            minHeight: AppSpacing.minTapTarget,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.blueContainer,
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.radiusMd,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    action.icon,
-                                    color: AppColors.blue,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        action.title,
-                                        style: AppTypography.titleSmall,
-                                      ),
-                                      const SizedBox(height: AppSpacing.xxs),
-                                      Text(
-                                        action.description,
-                                        style: AppTypography.bodySmall.copyWith(
-                                          color: AppColors.inkSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.xs),
-                                const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 19,
-                                  color: AppColors.inkSecondary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

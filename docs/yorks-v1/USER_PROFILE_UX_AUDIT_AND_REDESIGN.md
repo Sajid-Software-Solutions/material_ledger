@@ -79,17 +79,25 @@ never infers authority.
 
 ### Desktop account popover
 
-The sidebar account stamp opens a compact launcher, not a second profile:
+The sidebar account stamp opens a compact launcher, not a second profile
+(simplified by [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 55):
 
-- avatar or initials, name and exact role;
-- account status and separately labelled sync state;
-- primary action: **Open My Yorks**;
-- Notifications, Help and Sign out.
+- avatar or initials, name, exact role and email;
+- an account warning only when the protected profile cannot be read;
+- **My Yorks**, Notifications and Sign out.
+
+Workspace sync, About and zoom are not in the menu: sync stays in the
+sidebar, top bar and My Yorks; About is in My Yorks > Help and security;
+zoom stays on the keyboard shortcuts and pinch.
 
 It contains no unique statistics or business rules. All detailed information
 lives in My Yorks.
 
 ### Canonical My Yorks page
+
+> Since [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 55 the page
+> is one profile card (identity and the person's own People record) followed
+> by the settings; *Your Yorks today* and the section tabs below are retired.
 
 1. **Identity hero**
    - Yorks account name, exact role and workspace;

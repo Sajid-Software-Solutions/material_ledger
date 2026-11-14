@@ -1,6 +1,6 @@
-// My Yorks from the People record (PRODUCT_DECISIONS section 54): the Me,
-// Work and Settings tabs, the person's own documents, and a note to HR/PRO.
-// Fictional fixtures only.
+// My Yorks from the People record (PRODUCT_DECISIONS section 54): one
+// profile card with the person's own record, the settings below it, and a
+// note to HR/PRO. Fictional fixtures only.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -48,7 +48,11 @@ const _flags = YorksV1FeatureFlags(
   peopleRecords: true,
 );
 
-Map<String, Object?> _mine({bool linked = true}) => {
+Map<String, Object?> _mine({
+  bool linked = true,
+  String company = 'Example Contracting LLC',
+  String position = 'Site Engineer',
+}) => {
   'state': linked ? 'linked' : 'unlinked',
   'today': '2026-11-14',
   'person': linked
@@ -57,8 +61,8 @@ Map<String, Object?> _mine({bool linked = true}) => {
           'number': 'WR-000041',
           'name': 'TEST ENGINEER ONE',
           'arabic_name': 'مهندس تجريبي',
-          'company': 'Example Contracting LLC',
-          'position': 'Site Engineer',
+          'company': company,
+          'position': position,
           'id_profession': 'Civil Engineer',
           'category': 'staff',
           'status': 'active',
@@ -131,7 +135,7 @@ void main() {
   setUpAll(loadAccountsV2GoldenFonts);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('a linked person opens on Me with their own documents', (
+  testWidgets('a linked person sees their own record inside the profile card', (
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 844));
@@ -145,44 +149,73 @@ void main() {
     expect(find.text('Site Engineer · Staff'), findsOneWidget);
     expect(find.text('WR-000041 · Example Contracting LLC'), findsOneWidget);
     expect(find.text('1 expiring soon'), findsOneWidget);
-    // The email moves to Settings once the record is linked.
-    expect(find.text('engineer@example.test'), findsNothing);
 
-    expect(find.byKey(const ValueKey('my-yorks-documents')), findsOneWidget);
+    // Documents, facts and the note button sit in the same card.
+    final card = find.byKey(const ValueKey('my-yorks-profile-card'));
+    for (final key in const [
+      'my-yorks-identity-hero',
+      'my-yorks-documents',
+      'my-yorks-identity-facts',
+      'my-yorks-tell-hr',
+    ]) {
+      expect(
+        find.descendant(of: card, matching: find.byKey(ValueKey(key))),
+        findsOneWidget,
+      );
+    }
     expect(find.text('ends 6789'), findsOneWidget);
     expect(find.text('41 days left'), findsOneWidget);
     expect(find.text('ends 0001 · Ruwais, Habshan'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('my-yorks-id-profession')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     expect(find.text('Civil Engineer'), findsOneWidget);
+    // The header already shows the record number and category.
+    expect(find.text('WR-000041'), findsNothing);
+    expect(find.text('Record number'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Work shows projects and this month; Settings the account', (
-    tester,
-  ) async {
+  testWidgets('no Work section; the settings follow the card', (tester) async {
     await _setViewport(tester, const Size(390, 844));
     await _pumpProfile(
       tester,
       _FakeRpc({'v1_people_get_mine': (_) => _mine()}),
     );
 
-    await _openTab(tester, 'work');
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('my-yorks-attendance')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Example Tower'), findsOneWidget);
-    expect(find.text('PRJ-102 · Project Engineer'), findsOneWidget);
-    expect(find.text('11 of 12'), findsOneWidget);
-    expect(find.text('6 h 30 min'), findsOneWidget);
-
-    await _openTab(tester, 'settings');
+    expect(find.text('Example Tower'), findsNothing);
+    expect(find.byKey(const ValueKey('my-yorks-attendance')), findsNothing);
+    expect(find.byKey(const ValueKey('my-yorks-projects')), findsNothing);
+    expect(find.text('Work'), findsNothing);
+    // The email moves to Settings > Your account once the record is linked.
     expect(find.byKey(const ValueKey('my-yorks-account')), findsOneWidget);
     expect(find.text('engineer@example.test'), findsOneWidget);
+    final card = tester.getBottomLeft(
+      find.byKey(const ValueKey('my-yorks-profile-card')),
+    );
+    final settings = tester.getTopLeft(
+      find.byKey(const ValueKey('my-yorks-settings-heading')),
+    );
+    expect(settings.dy, greaterThan(card.dy));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a field HR/PRO has not filled in says so, outside the header', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(390, 844));
+    await _pumpProfile(
+      tester,
+      _FakeRpc({
+        'v1_people_get_mine': (_) =>
+            _mine(company: 'Not recorded', position: 'Not recorded'),
+      }),
+    );
+    expect(find.text('Staff'), findsOneWidget);
+    expect(find.text('WR-000041'), findsOneWidget);
+    expect(find.textContaining('· Not recorded'), findsNothing);
+    final facts = find.byKey(const ValueKey('my-yorks-identity-facts'));
+    expect(
+      find.descendant(of: facts, matching: find.text('Not recorded')),
+      findsNWidgets(2),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -240,7 +273,7 @@ void main() {
     expect(find.text('Sent to HR/PRO'), findsNothing);
   });
 
-  testWidgets('before a link the page opens on Work and Me says why', (
+  testWidgets('before a link the card says why and keeps the email', (
     tester,
   ) async {
     await _setViewport(tester, const Size(390, 844));
@@ -248,11 +281,15 @@ void main() {
       tester,
       _FakeRpc({'v1_people_get_mine': (_) => _mine(linked: false)}),
     );
-    expect(find.byKey(const ValueKey('my-yorks-tab-work')), findsOneWidget);
     // The email stays in the header until the record is linked.
     expect(find.text('engineer@example.test'), findsOneWidget);
-    await _openTab(tester, 'me');
-    expect(find.text('Not linked to your People record yet'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('my-yorks-profile-card')),
+        matching: find.text('Not linked to your People record yet'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('my-yorks-documents')), findsNothing);
   });
 
@@ -273,7 +310,6 @@ void main() {
         },
       }),
     );
-    await _openTab(tester, 'me');
     expect(find.text('Your record could not be loaded'), findsOneWidget);
     await tester.tap(find.text('Try again').last);
     await tester.pumpAndSettle();
@@ -281,9 +317,9 @@ void main() {
   });
 
   for (final visual in const [
-    (name: 'phone_me_390x844', size: Size(390, 844), language: 'en'),
-    (name: 'phone_me_360x800', size: Size(360, 800), language: 'en'),
-    (name: 'phone_me_rtl_ar_390x844', size: Size(390, 844), language: 'ar'),
+    (name: 'phone_390x844', size: Size(390, 844), language: 'en'),
+    (name: 'phone_360x800', size: Size(360, 800), language: 'en'),
+    (name: 'phone_rtl_ar_390x844', size: Size(390, 844), language: 'ar'),
     (name: 'desktop_1440x900', size: Size(1440, 900), language: 'en'),
   ]) {
     testWidgets('My Yorks visual ${visual.name}', (tester) async {
@@ -302,14 +338,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-}
-
-Future<void> _openTab(WidgetTester tester, String section) async {
-  final tab = find.byKey(ValueKey('my-yorks-section-$section'));
-  await tester.ensureVisible(tab);
-  await tester.pumpAndSettle();
-  await tester.tap(tab);
-  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpProfile(WidgetTester tester, _FakeRpc rpc) async {

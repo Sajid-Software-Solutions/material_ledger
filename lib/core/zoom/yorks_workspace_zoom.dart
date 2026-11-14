@@ -4,7 +4,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared/models/app_language.dart';
-import '../../shared/models/yorks_v1_zoom_strings.dart';
 import 'yorks_inspection_gesture.dart';
 
 /// The transform authority for one R35 workspace route.
@@ -699,45 +698,6 @@ class _YorksZoomOutIntent extends Intent {
 
 class _YorksZoomResetIntent extends Intent {
   const _YorksZoomResetIntent();
-}
-
-/// Accessible alternatives live in the existing account/drawer menu, never
-/// above business content.
-class YorksWorkspaceZoomMenu extends StatelessWidget {
-  const YorksWorkspaceZoomMenu({super.key, required this.language});
-  final AppLanguage language;
-
-  @override
-  Widget build(BuildContext context) {
-    final controller = YorksWorkspaceZoomScope.maybeOf(context);
-    if (controller == null) return const SizedBox.shrink();
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.zoom_in),
-            title: Text(YorksV1ZoomStrings.zoomIn.active(language)),
-            enabled: controller.canZoomIn,
-            onTap: controller.canZoomIn ? controller.zoomIn : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.zoom_out),
-            title: Text(YorksV1ZoomStrings.zoomOut.active(language)),
-            enabled: controller.canZoomOut,
-            onTap: controller.canZoomOut ? controller.zoomOut : null,
-          ),
-          ListTile(
-            leading: const Icon(Icons.fit_screen),
-            title: Text(YorksV1ZoomStrings.resetZoom.active(language)),
-            enabled: controller.canZoomOut,
-            onTap: controller.canZoomOut ? controller.reset : null,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class YorksWorkspaceZoomScope extends InheritedWidget {
