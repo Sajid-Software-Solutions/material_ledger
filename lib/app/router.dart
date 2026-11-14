@@ -97,6 +97,7 @@ import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_people_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_assign_screen.dart';
@@ -236,6 +237,10 @@ abstract final class RoutePaths {
       '/yorks/workforce/timesheets';
   static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
   static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
+
+  /// Everyone's month, a labourer's timesheet and the workforce year
+  /// (PRODUCT_DECISIONS section 52).
+  static const String yorksV1WorkforceMonth = '/yorks/workforce/month';
   static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
   static const String yorksV1WorkforceRequests = '/yorks/workforce/requests';
   static const String yorksV1WorkforceRequestNew =
@@ -2459,6 +2464,23 @@ GoRouter createAppRouter({
             _WorkforceScreenSwitch(
               attendanceV2: AttendanceConfirmScreen(
                 initialMonth: state.uri.queryParameters['month'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
+          path: RoutePaths.yorksV1WorkforceMonth,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceScreenSwitch(
+              attendanceV2: AttendancePeopleScreen(
+                initialView: state.uri.queryParameters['view'],
+                initialMonth: state.uri.queryParameters['month'],
+                initialYear: state.uri.queryParameters['year'],
+                initialWorkerId: state.uri.queryParameters['worker'],
+                initialPlaceId: state.uri.queryParameters['place'],
               ),
               legacy: const YorksWorkforceOverviewScreen(),
             ),

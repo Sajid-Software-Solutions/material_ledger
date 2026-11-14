@@ -1768,4 +1768,291 @@ abstract final class AttendanceStrings {
     ur: '{n} عمارتیں',
     hi: '{n} भवन',
   );
+
+  // ─── Monthly overview and year (PRODUCT_DECISIONS section 52) ──────────────
+  static const monthOverview = _T(
+    en: 'Monthly overview',
+    ar: 'النظرة الشهرية',
+    ur: 'ماہانہ جائزہ',
+    hi: 'मासिक अवलोकन',
+  );
+  static const monthOverviewIntro = _T(
+    en: 'Everyone\'s attendance at the places you can see, for this month or any earlier one. Open a labourer for their timesheet.',
+    ar: 'حضور الجميع في الأماكن التي يمكنك رؤيتها، لهذا الشهر أو أي شهر سابق. افتح عاملًا لعرض كشف دوامه.',
+    ur: 'جن جگہوں تک آپ کی رسائی ہے وہاں سب کی حاضری، اس مہینے یا کسی پچھلے مہینے کی۔ ٹائم شیٹ کے لیے کسی مزدور کو کھولیں۔',
+    hi: 'जिन स्थानों तक आपकी पहुँच है वहाँ सबकी उपस्थिति, इस महीने या किसी पिछले महीने की। टाइमशीट के लिए किसी मज़दूर को खोलें।',
+  );
+  static const viewMonth = _T(
+    en: 'Month',
+    ar: 'الشهر',
+    ur: 'مہینہ',
+    hi: 'महीना',
+  );
+  static const viewYear = _T(en: 'Year', ar: 'السنة', ur: 'سال', hi: 'वर्ष');
+  static const previousPeriod = _T(
+    en: 'Previous',
+    ar: 'السابق',
+    ur: 'پچھلا',
+    hi: 'पिछला',
+  );
+  static const nextPeriod = _T(
+    en: 'Next',
+    ar: 'التالي',
+    ur: 'اگلا',
+    hi: 'अगला',
+  );
+  static const allPlaces = _T(
+    en: 'All places',
+    ar: 'كل الأماكن',
+    ur: 'تمام جگہیں',
+    hi: 'सभी स्थान',
+  );
+  static const searchPeople = _T(
+    en: 'Search labourers',
+    ar: 'ابحث عن العمال',
+    ur: 'مزدور تلاش کریں',
+    hi: 'मज़दूर खोजें',
+  );
+  static const kpiLabourers = _T(
+    en: 'Labourers',
+    ar: 'العمال',
+    ur: 'مزدور',
+    hi: 'मज़दूर',
+  );
+  static const kpiLabourersMonth = _T(
+    en: 'Recorded this month',
+    ar: 'مسجلون هذا الشهر',
+    ur: 'اس مہینے درج',
+    hi: 'इस महीने दर्ज',
+  );
+  static const kpiLabourersYear = _T(
+    en: 'Present at least once this year',
+    ar: 'حضروا مرة واحدة على الأقل هذا العام',
+    ur: 'اس سال کم از کم ایک بار حاضر',
+    hi: 'इस वर्ष कम से कम एक बार उपस्थित',
+  );
+  static const kpiHeadcount = _T(
+    en: '{n} labourers on the books',
+    ar: '{n} عاملًا في السجلات',
+    ur: 'ریکارڈ میں {n} مزدور',
+    hi: 'रिकॉर्ड में {n} मज़दूर',
+  );
+  static const kpiPresentDays = _T(
+    en: 'Days present',
+    ar: 'أيام الحضور',
+    ur: 'حاضری کے دن',
+    hi: 'उपस्थिति के दिन',
+  );
+  static const kpiPresentDaysCaption = _T(
+    en: 'One per labourer per day',
+    ar: 'يوم واحد لكل عامل في اليوم',
+    ur: 'ہر مزدور کا ایک دن میں ایک',
+    hi: 'हर मज़दूर का प्रति दिन एक',
+  );
+  static const kpiNormalHours = _T(
+    en: 'Normal hours',
+    ar: 'الساعات العادية',
+    ur: 'عام گھنٹے',
+    hi: 'सामान्य घंटे',
+  );
+  static const kpiNormalHoursCaption = _T(
+    en: 'Up to 8 hours a day',
+    ar: 'حتى 8 ساعات في اليوم',
+    ur: 'روزانہ 8 گھنٹے تک',
+    hi: 'प्रतिदिन 8 घंटे तक',
+  );
+  static const hoursValue = _T(
+    en: '{h} h',
+    ar: '{h} س',
+    ur: '{h} گھنٹے',
+    hi: '{h} घं',
+  );
+  static const colDays = _T(en: 'Days', ar: 'الأيام', ur: 'دن', hi: 'दिन');
+  static const colNormalH = _T(
+    en: 'Normal h',
+    ar: 'عادي س',
+    ur: 'عام گھنٹے',
+    hi: 'सामान्य घं',
+  );
+  static const colOtH = _T(
+    en: 'OT h',
+    ar: 'إضافي س',
+    ur: 'اوور ٹائم گھنٹے',
+    hi: 'ओटी घं',
+  );
+  static const colHolH = _T(
+    en: 'Holiday h',
+    ar: 'عطلة س',
+    ur: 'چھٹی گھنٹے',
+    hi: 'छुट्टी घं',
+  );
+  static const colAbsentDays = _T(
+    en: 'Absent',
+    ar: 'غياب',
+    ur: 'غیر حاضر',
+    hi: 'अनुपस्थित',
+  );
+  static const colLeaveDays = _T(
+    en: 'Leave',
+    ar: 'إجازة',
+    ur: 'چھٹی',
+    hi: 'अवकाश',
+  );
+  static const colMonthName = _T(
+    en: 'Month',
+    ar: 'الشهر',
+    ur: 'مہینہ',
+    hi: 'महीना',
+  );
+  static const colLabourers = _T(
+    en: 'Labourers',
+    ar: 'العمال',
+    ur: 'مزدور',
+    hi: 'मज़दूर',
+  );
+  static const colWhere = _T(
+    en: 'Place · building',
+    ar: 'المكان · المبنى',
+    ur: 'جگہ · عمارت',
+    hi: 'स्थान · भवन',
+  );
+  static const colSavedBy = _T(
+    en: 'Saved by',
+    ar: 'حفظه',
+    ur: 'محفوظ کرنے والا',
+    hi: 'सहेजने वाला',
+  );
+  static const byMonth = _T(
+    en: 'By month',
+    ar: 'حسب الشهر',
+    ur: 'مہینے کے لحاظ سے',
+    hi: 'महीने के अनुसार',
+  );
+  static const byPlace = _T(
+    en: 'By place',
+    ar: 'حسب المكان',
+    ur: 'جگہ کے لحاظ سے',
+    hi: 'स्थान के अनुसार',
+  );
+  static const byLabourer = _T(
+    en: 'By labourer',
+    ar: 'حسب العامل',
+    ur: 'مزدور کے لحاظ سے',
+    hi: 'मज़दूर के अनुसार',
+  );
+  static const monthEmpty = _T(
+    en: 'No attendance recorded at your places in {month}.',
+    ar: 'لم يُسجَّل حضور في أماكنك في {month}.',
+    ur: '{month} میں آپ کی جگہوں پر کوئی حاضری درج نہیں۔',
+    hi: '{month} में आपके स्थानों पर कोई उपस्थिति दर्ज नहीं।',
+  );
+  static const yearEmpty = _T(
+    en: 'No attendance recorded at your places in {year}.',
+    ar: 'لم يُسجَّل حضور في أماكنك في {year}.',
+    ur: '{year} میں آپ کی جگہوں پر کوئی حاضری درج نہیں۔',
+    hi: '{year} में आपके स्थानों पर कोई उपस्थिति दर्ज नहीं।',
+  );
+  static const monthLegend = _T(
+    en: 'Numbers are hours worked that day, at every place shown; amber has overtime, violet is holiday work. A absent · L leave · – rest day',
+    ar: 'الأرقام هي ساعات العمل في ذلك اليوم في كل الأماكن المعروضة؛ الكهرماني فيه ساعات إضافية والبنفسجي عمل في عطلة. A غياب · L إجازة · – يوم راحة',
+    ur: 'نمبر اس دن دکھائی گئی تمام جگہوں پر کام کے گھنٹے ہیں؛ پیلے میں اوور ٹائم ہے، جامنی چھٹی کا کام ہے۔ A غیر حاضر · L چھٹی · – آرام کا دن',
+    hi: 'संख्याएँ उस दिन दिखाए गए सभी स्थानों पर काम के घंटे हैं; पीले में ओवरटाइम है, बैंगनी छुट्टी का काम है। A अनुपस्थित · L अवकाश · – विश्राम दिवस',
+  );
+  static const timesheetTitle = _T(
+    en: 'Timesheet · {month}',
+    ar: 'كشف الدوام · {month}',
+    ur: 'ٹائم شیٹ · {month}',
+    hi: 'टाइमशीट · {month}',
+  );
+  static const timesheetEmpty = _T(
+    en: 'Nothing recorded for {name} in {month} at the places you can see.',
+    ar: 'لا شيء مسجل لـ {name} في {month} في الأماكن التي يمكنك رؤيتها.',
+    ur: 'جن جگہوں تک آپ کی رسائی ہے وہاں {month} میں {name} کا کچھ درج نہیں۔',
+    hi: 'जिन स्थानों तक आपकी पहुँच है वहाँ {month} में {name} का कुछ दर्ज नहीं।',
+  );
+  static const backToEveryone = _T(
+    en: 'Everyone',
+    ar: 'الجميع',
+    ur: 'سب',
+    hi: 'सभी',
+  );
+  static const timesheetConfirmed = _T(
+    en: 'Every place confirmed this month.',
+    ar: 'تم تأكيد هذا الشهر في كل الأماكن.',
+    ur: 'اس مہینے ہر جگہ کی تصدیق ہو چکی۔',
+    hi: 'इस महीने हर स्थान की पुष्टि हो चुकी।',
+  );
+  static const timesheetNotConfirmed = _T(
+    en: 'Not every place has confirmed this month yet: figures can still change.',
+    ar: 'لم تؤكد كل الأماكن هذا الشهر بعد: قد تتغير الأرقام.',
+    ur: 'ابھی ہر جگہ نے اس مہینے کی تصدیق نہیں کی: اعداد بدل سکتے ہیں۔',
+    hi: 'अभी हर स्थान ने इस महीने की पुष्टि नहीं की: आंकड़े बदल सकते हैं।',
+  );
+  static const openTimesheet = _T(
+    en: 'Open the timesheet of {name}',
+    ar: 'افتح كشف دوام {name}',
+    ur: '{name} کی ٹائم شیٹ کھولیں',
+    hi: '{name} की टाइमशीट खोलें',
+  );
+  static const placesWorked = _T(
+    en: '{n} places',
+    ar: '{n} أماكن',
+    ur: '{n} جگہیں',
+    hi: '{n} स्थान',
+  );
+  static const daysPresentShort = _T(
+    en: '{n} days',
+    ar: '{n} أيام',
+    ur: '{n} دن',
+    hi: '{n} दिन',
+  );
+  static const colDate = _T(
+    en: 'Date',
+    ar: 'التاريخ',
+    ur: 'تاریخ',
+    hi: 'तारीख',
+  );
+  static const colTotal = _T(en: 'Total', ar: 'المجموع', ur: 'کل', hi: 'कुल');
+  static const kpiOvertimeShort = _T(
+    en: 'Overtime',
+    ar: 'الساعات الإضافية',
+    ur: 'اوور ٹائم',
+    hi: 'ओवरटाइम',
+  );
+  static const kpiOvertimeHoliday = _T(
+    en: '{h} h on Sundays and holidays',
+    ar: '{h} س أيام الأحد والعطل',
+    ur: 'اتوار اور چھٹیوں پر {h} گھنٹے',
+    hi: 'रविवार और छुट्टियों में {h} घं',
+  );
+  static const printTimesheet = _T(
+    en: 'Print timesheet',
+    ar: 'طباعة كشف الدوام',
+    ur: 'ٹائم شیٹ پرنٹ کریں',
+    hi: 'टाइमशीट प्रिंट करें',
+  );
+  static const loadingPeriod = _T(
+    en: 'Loading {period}…',
+    ar: 'جارٍ تحميل {period}…',
+    ur: '{period} لوڈ ہو رہا ہے…',
+    hi: '{period} लोड हो रहा है…',
+  );
+  static const daysPresentOne = _T(
+    en: '1 day',
+    ar: 'يوم واحد',
+    ur: '1 دن',
+    hi: '1 दिन',
+  );
+  static const absentCount = _T(
+    en: '{n} absent',
+    ar: '{n} غياب',
+    ur: '{n} غیر حاضر',
+    hi: '{n} अनुपस्थित',
+  );
+  static const leaveCount = _T(
+    en: '{n} on leave',
+    ar: '{n} في إجازة',
+    ur: '{n} چھٹی پر',
+    hi: '{n} अवकाश पर',
+  );
 }

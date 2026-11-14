@@ -2570,6 +2570,37 @@ Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.m
 Attendance V2, Places. Migration
 `20261114200000_workforce_attendance_places.sql`.
 
+## 52. Monthly overview, labour timesheets and the workforce year (owner decisions, 14 November 2026)
+
+- **Everyone's month.** Workforce has a Monthly overview tab: every
+  labourer recorded at the places the reader may see, day by day, for this
+  month or any earlier one, filterable by place and searchable by name or
+  number. A labourer's day counts once across places: present when present
+  anywhere, else on leave, absent or resting, with that day's hours added
+  up. Desktop shows the month as a grid with the names, the days and the
+  totals always in view; phones show one card per labourer. Changing the
+  month keeps the page in place while the next one loads.
+- **Who sees what.** Exactly the sheets the reader may view (section 46):
+  Site and Project Engineers their projects; Admin, HR/PRO, the Accountant
+  and the organization-wide engineers every place. Procurement and other
+  roles without Workforce are refused.
+- **A labourer's timesheet.** Opening a labourer shows their month at every
+  place shown: date, place and building, status, times, hours, overtime and
+  who saved each line, whether every place has confirmed the month, and a
+  Print button.
+- **The workforce year.** The Year view totals labourers, days present,
+  normal hours and overtime by month, by place and by labourer; Admin,
+  HR/PRO, the Accountant and the organization-wide engineers also see the
+  active labour headcount.
+- **Printed time sheets.** The monthly DAILY TIME SHEET and the labourer's
+  timesheet carry the company letterhead of the Material Request form (the
+  English name, the logo and the Arabic name), name the place and building,
+  and leave a place's empty days blank rather than "Not entered".
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Attendance V2, Monthly overview. Migration
+`20261114210000_workforce_month_overview.sql`.
+
 ## 53. Profession on the visa and ID, and position in the company (owner decision, 14 November 2026)
 
 A person keeps two professions: the one written on their visa and Emirates

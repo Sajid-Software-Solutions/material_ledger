@@ -291,6 +291,10 @@ insert into t13_authenticated_rpc_inventory(signature) values
   -- Attendance at places, with no crews to set up (section 51).
   ('v1_wf_list_places()'),
   ('v1_wf_open_place(p_project_id uuid, p_location text)'),
+  -- Month overview, labour timesheets and the year (section 52).
+  ('v1_wf_people_month(p_month date)'),
+  ('v1_wf_worker_month(p_worker_id uuid, p_month date)'),
+  ('v1_wf_workforce_year(p_year integer)'),
   ('v1_wf_list_workers()'),
   ('v1_wf_reopen_month(p_team_id uuid, p_month date, p_reason text, p_idempotency_key uuid)'),
   ('v1_wf_save_crew(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),

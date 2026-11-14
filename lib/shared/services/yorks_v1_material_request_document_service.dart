@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -14,7 +13,7 @@ import '../models/yorks_v1_material_request_strings.dart';
 import '../models/yorks_v1_project_strings.dart';
 import '../models/yorks_v1_quantity.dart';
 import 'yorks_v1_boq_workbook_service.dart';
-import 'yorks_v1_pdf_arabic.dart';
+import 'yorks_v1_pdf_letterhead.dart';
 
 /// Produces a controlled MR export from the role-safe projection already held
 /// by the caller. Commercial fields are included only when the server supplied
@@ -289,36 +288,11 @@ class YorksV1MaterialRequestDocumentService {
     return document.save(enableEventLoopBalancing: true);
   }
 
-  static Future<pw.MemoryImage>? _logoFuture;
-  static Future<pw.ThemeData>? _themeFuture;
+  // The logo and fonts are shared with every Yorks print
+  // (yorks_v1_pdf_letterhead.dart).
+  static Future<pw.MemoryImage> _loadLogo() => yorksV1PdfLogo();
 
-  static Future<pw.MemoryImage> _loadLogo() =>
-      _logoFuture ??= _loadLogoUncached();
-
-  static Future<pw.MemoryImage> _loadLogoUncached() async {
-    final data = await rootBundle.load('assets/logo.png');
-    return pw.MemoryImage(data.buffer.asUint8List());
-  }
-
-  static Future<pw.ThemeData> _buildTheme() =>
-      _themeFuture ??= _buildThemeUncached();
-
-  static Future<pw.ThemeData> _buildThemeUncached() async {
-    final base = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
-    );
-    final bold = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
-    );
-    final arabic = pw.Font.ttf(
-      await rootBundle.load('assets/fonts/NotoSansArabic-Regular.ttf'),
-    );
-    return pw.ThemeData.withFont(
-      base: base,
-      bold: bold,
-      fontFallback: [arabic],
-    );
-  }
+  static Future<pw.ThemeData> _buildTheme() => yorksV1PdfTheme();
 
   static pw.Widget _formalHeader(
     pw.MemoryImage? logo,
@@ -392,54 +366,8 @@ class YorksV1MaterialRequestDocumentService {
     );
   }
 
-  static pw.Widget _companyHeader(pw.MemoryImage? logo) => pw.Container(
-    width: double.infinity,
-    padding: pw.EdgeInsets.symmetric(horizontal: 4.5 * _mm, vertical: 3 * _mm),
-    decoration: pw.BoxDecoration(
-      border: pw.Border.all(color: _documentGrid, width: .8),
-    ),
-    child: pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.center,
-      children: [
-        pw.Expanded(
-          flex: 10,
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              pw.Text(
-                YorksV1MaterialRequestStrings.companyLegalName.primary,
-                style: pw.TextStyle(
-                  fontSize: 10.2,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        pw.SizedBox(width: 3 * _mm),
-        pw.SizedBox(
-          width: 20 * _mm,
-          height: 20 * _mm,
-          child: logo == null
-              ? pw.SizedBox()
-              : pw.Image(logo, fit: pw.BoxFit.contain),
-        ),
-        pw.SizedBox(width: 3 * _mm),
-        pw.Expanded(
-          flex: 10,
-          child: pw.Text(
-            yorksV1ShapeArabicForPdf(
-              YorksV1CompanyDocumentStrings.legalName.ar,
-            ),
-            textDirection: pw.TextDirection.ltr,
-            textAlign: pw.TextAlign.right,
-            style: const pw.TextStyle(fontSize: 7.4),
-          ),
-        ),
-      ],
-    ),
-  );
+  static pw.Widget _companyHeader(pw.MemoryImage? logo) =>
+      yorksV1PdfLetterhead(logo);
 
   static pw.TableRow _metaRow(
     String leftLabel,
