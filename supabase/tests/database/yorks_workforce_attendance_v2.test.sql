@@ -97,12 +97,14 @@ select is(
 
 set local role authenticated;
 select pg_temp.act('10000000-0000-4000-8000-000000000002', 'site_engineer');
+-- A Site Engineer keeps sheets only for projects they are on
+-- (PRODUCT_DECISIONS section 46; positive case in the multi-place test).
 select throws_ok(
   $$select public.v1_wf_save_crew(
-      '{"name":"SE crew","kind":"project","project_id":"5a010000-0000-4000-8000-000000000001","shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
+      '{"name":"SE crew","kind":"project","project_id":"5a010000-0000-4000-8000-000000000002","shift_start_minute":390,"shift_finish_minute":1020}'::jsonb,
       0, '5a030000-0000-4000-8000-000000000001')$$,
   '42501', 'V1_WORKFORCE_CREW_ACCESS_DENIED',
-  'A Site Engineer cannot create a crew'
+  'A Site Engineer cannot create a sheet for a project they are not on'
 );
 
 select pg_temp.act('10000000-0000-4000-8000-000000000001', 'project_engineer');

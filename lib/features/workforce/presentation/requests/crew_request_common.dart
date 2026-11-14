@@ -118,6 +118,9 @@ String crewRequestErrorText(Object? error, AppLanguage language) {
     if (message.contains('WORKER_ON_CREW')) {
       return CRS.t(CRS.errWorkerOnCrew, language);
     }
+    if (message.contains('STAFF_NOT_ON_SHEETS')) {
+      return AS.t(AS.errStaff, language);
+    }
     if (message.contains('OVER_ASSIGNED')) {
       return CRS.t(CRS.errOverAssigned, language);
     }

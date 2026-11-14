@@ -1163,7 +1163,8 @@ class _WorkerCard extends StatelessWidget {
       holiday: day.holiday,
       language: language,
     );
-    final missing = !row.isMarked || minutes.timeMissing;
+    final missing = row.needsMarking || minutes.timeMissing;
+    final places = attendancePlaceLines(row, language);
     final phone = AccountsV2Breakpoints.isPhone(context);
     Widget pill(String label, AttendanceStatus? status, {String? key}) {
       final selected =
@@ -1293,14 +1294,17 @@ class _WorkerCard extends StatelessWidget {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              summary,
-              style: v2Style(
-                12.5,
-                weight: FontWeight.w600,
-                color: missing ? AccountsV2Colors.bad : AccountsV2Colors.ink2,
+            // Recorded at another place and not marked here: no "Not
+            // marked" warning; the place line below says where.
+            if (row.isMarked || !row.busyElsewhere)
+              Text(
+                summary,
+                style: v2Style(
+                  12.5,
+                  weight: FontWeight.w600,
+                  color: missing ? AccountsV2Colors.bad : AccountsV2Colors.ink2,
+                ),
               ),
-            ),
             if (minutes.normalOvertime > 0)
               AccountsV2Chip(
                 AS.t(AS.otHours, language, {
@@ -1317,6 +1321,41 @@ class _WorkerCard extends StatelessWidget {
               ),
           ],
         ),
+        for (final line in places)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              key: ValueKey('attendance-place-${row.worker.id}'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(
+                    line.bad
+                        ? Icons.error_outline_rounded
+                        : Icons.place_outlined,
+                    size: 14,
+                    color: line.bad
+                        ? AccountsV2Colors.bad
+                        : AccountsV2Colors.mut,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    line.text,
+                    style: v2Style(
+                      12,
+                      weight: line.bad ? FontWeight.w600 : FontWeight.w500,
+                      color: line.bad
+                          ? AccountsV2Colors.bad
+                          : AccountsV2Colors.mut,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
     final avatarSize = phone ? 30.0 : 34.0;
@@ -1428,6 +1467,10 @@ class _Footer extends ConsumerWidget {
         AS.t(AS.footerUnmarked, language, {'n': state.unmarkedCount}),
       if (state.timeMissingCount > 0)
         AS.t(AS.footerMissing, language, {'n': state.timeMissingCount}),
+      if (state.conflictCount > 0)
+        AS.t(AS.footerConflicts, language, {'n': state.conflictCount}),
+      if (state.elsewhereCount > 0)
+        AS.t(AS.footerElsewhere, language, {'n': state.elsewhereCount}),
       if (state.normalOvertime > 0)
         AS.t(AS.otHours, language, {
           'h': formatAttendanceHours(state.normalOvertime),

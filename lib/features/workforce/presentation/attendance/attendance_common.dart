@@ -126,6 +126,12 @@ String attendanceErrorText(Object? error, AppLanguage language) {
     if (message.contains('TIME_MISSING')) return AS.errTime;
     if (message.contains('REST_DAY_NOT_ALLOWED')) return AS.errRest;
     if (message.contains('WORKER_ON_OTHER_CREW')) return AS.errOtherCrew;
+    if (message.contains('TIME_OVERLAP')) return AS.errOverlap;
+    if (message.contains('ON_LEAVE_ELSEWHERE')) return AS.errLeaveElsewhere;
+    if (message.contains('PRESENT_ELSEWHERE')) return AS.errPresentElsewhere;
+    if (message.contains('TOO_MANY_PLACES')) return AS.errTooManyPlaces;
+    if (message.contains('OTHER_PLACE_LOCKED')) return AS.errOtherPlaceLocked;
+    if (message.contains('STAFF_NOT_ON_SHEETS')) return AS.errStaff;
     if (message.contains('CHANGE_REASON_REQUIRED') ||
         message.contains('REASON_REQUIRED')) {
       return AS.errReason;
@@ -613,6 +619,57 @@ class AttendanceAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What a worker does at another place: "6:30 AM – 12 PM" or "Sick leave".
+String attendancePlaceTime(AttendanceElsewhere other, AppLanguage language) =>
+    other.isPresent
+    ? '${formatAttendanceTime(other.start)} – ${formatAttendanceTime(other.finish)}'
+    : attendanceStatusLabel(other.status).active(language);
+
+/// The lines under a worker's name about their other places today: where
+/// else they are, or what clashes with this sheet.
+List<({String text, bool bad})> attendancePlaceLines(
+  AttendanceRow row,
+  AppLanguage language,
+) {
+  final conflict = row.placeConflict;
+  final clash = row.conflictingPlace;
+  final lines = <({String text, bool bad})>[];
+  if (conflict == AttendancePlaceConflict.tooManyPlaces) {
+    lines.add((text: AS.t(AS.conflictTooMany, language), bad: true));
+  }
+  for (final other in row.elsewhere) {
+    final values = {
+      'place': other.crewName,
+      'time': attendancePlaceTime(other, language),
+    };
+    if (identical(other, clash)) {
+      lines.add((
+        text: AS.t(
+          switch (conflict) {
+            AttendancePlaceConflict.overlap => AS.conflictOverlap,
+            AttendancePlaceConflict.onLeaveElsewhere =>
+              AS.conflictLeaveElsewhere,
+            _ => AS.conflictPresentElsewhere,
+          },
+          language,
+          values,
+        ),
+        bad: true,
+      ));
+    } else {
+      lines.add((
+        text: AS.t(
+          row.isMarked ? AS.alsoAt : AS.atPlaceToday,
+          language,
+          values,
+        ),
+        bad: false,
+      ));
+    }
+  }
+  return lines;
 }
 
 /// Summary of one row: "6:30 AM – 5 PM · break 12:30 PM–1 PM".

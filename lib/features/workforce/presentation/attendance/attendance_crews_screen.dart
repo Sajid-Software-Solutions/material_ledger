@@ -36,13 +36,17 @@ class AttendanceCrewsScreen extends ConsumerWidget {
         title: AS.t(AS.crews, language),
         onRefresh: () async => ref.invalidate(yorksAttendanceCrewsProvider),
         actions: [
-          AccountsV2Button(
-            key: const ValueKey('attendance-new-crew'),
-            label: AS.t(AS.newCrew, language),
-            icon: 'plus',
-            kind: AccountsV2ButtonKind.primary,
-            onPressed: () => _openEditor(context, ref, null, language),
-          ),
+          // Engineers, Workshop In-Charge, Admin and PR keep sheets
+          // (PRODUCT_DECISIONS section 46); the server rechecks.
+          if (ref.watch(yorksAttendanceCanCreateCrewProvider).valueOrNull ??
+              false)
+            AccountsV2Button(
+              key: const ValueKey('attendance-new-crew'),
+              label: AS.t(AS.newCrew, language),
+              icon: 'plus',
+              kind: AccountsV2ButtonKind.primary,
+              onPressed: () => _openEditor(context, ref, null, language),
+            ),
         ],
         children: [
           if (crews.isEmpty)
@@ -242,28 +246,8 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
     }
   }
 
-  Future<void> _add(AttendanceWorker worker) async {
-    final language = _language;
-    final elsewhere = worker.crewId != null && worker.crewId != widget.crew?.id;
-    if (elsewhere) {
-      final move = await showAttendanceCommandDialog(
-        context,
-        language: language,
-        title: AS.t(AS.move, language),
-        body: AS.t(AS.moveWorker, language, {
-          'name': worker.name,
-          'crew': worker.crewName,
-        }),
-        confirmLabel: AS.t(AS.move, language),
-      );
-      if (move == null) return;
-    }
-    setState(() {
-      _removed.remove(worker.id);
-      if (!_added.any((w) => w.id == worker.id)) _added.add(worker);
-    });
-  }
-
+  /// A labourer may work at several places a day, so adding them here keeps
+  /// every other sheet they are on: there is nothing to confirm.
   Future<void> _pickWorkers(
     List<AttendanceWorker> workers,
     Set<String> memberIds,
@@ -275,12 +259,13 @@ class _CrewEditorState extends ConsumerState<_CrewEditor> {
       workers: workers,
       exclude: memberIds,
     );
-    if (picked == null) return;
-    // One at a time: a worker on another crew is moved only once confirmed.
-    for (final worker in picked) {
-      if (!mounted) return;
-      await _add(worker);
-    }
+    if (picked == null || !mounted) return;
+    setState(() {
+      for (final worker in picked) {
+        _removed.remove(worker.id);
+        if (!_added.any((w) => w.id == worker.id)) _added.add(worker);
+      }
+    });
   }
 
   @override

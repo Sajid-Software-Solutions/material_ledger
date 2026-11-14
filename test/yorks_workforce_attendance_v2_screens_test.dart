@@ -1050,7 +1050,10 @@ void main() {
     }) async {
       _size(tester, size);
       final rpc = _FakeRpc({
-        'v1_wf_list_crews': (_) => _crews(_access(confirm: true)),
+        'v1_wf_list_crews': (_) => {
+          ..._crews(_access(confirm: true)),
+          'can_create_crew': true,
+        },
         'v1_wf_list_public_holidays': (_) => {
           'year': DateTime.now().year,
           'can_manage': false,
@@ -1122,17 +1125,14 @@ void main() {
         find.byKey(const ValueKey('attendance-picker-worker-w4')),
       );
       await tester.pumpAndSettle();
+      // Noor Alam stays on the Workshop crew too: nothing to confirm.
+      expect(find.text('W-w4 · Helper · On Workshop crew'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('attendance-picker-add')));
       await tester.pumpAndSettle();
-      // Noor Alam is on another crew: moving needs a yes.
       expect(
-        find.text('Noor Alam is in Workshop crew. Move to this crew?'),
-        findsOneWidget,
-      );
-      await tester.tap(
         find.byKey(const ValueKey('attendance-text-dialog-confirm')),
+        findsNothing,
       );
-      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('attendance-crew-member-w3')),
         findsOneWidget,
@@ -1206,6 +1206,143 @@ void main() {
         find.byKey(const ValueKey('attendance-crew-save')),
       );
       expect(save.bottom, lessThanOrEqualTo(340), reason: 'above the keyboard');
+    });
+  });
+
+  group('several places a day (PRODUCT_DECISIONS 46)', () {
+    setUpAll(loadAccountsV2GoldenFonts);
+
+    const store = {
+      'crew_id': 'store',
+      'crew_name': 'MP Store',
+      'status': 'P',
+      'start_minute': 390,
+      'finish_minute': 720,
+      'worked_minutes': 330,
+      'locked': false,
+    };
+    List<Map<String, Object?>> rows({Map<String, Object?>? first}) => [
+      {
+        'worker_id': 'w1',
+        'status': null,
+        ...?first,
+        'worker': _worker('w1', 'Gul Zaman'),
+        'elsewhere': [store],
+      },
+      {
+        'worker_id': 'w2',
+        'status': null,
+        'worker': _worker('w2', 'Waqar Ahmed'),
+      },
+    ];
+    const dayAt =
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_crewId&date=$_date';
+
+    testWidgets('a worker at another place need not be marked here', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      Map<String, Object?>? saved;
+      final rpc = _FakeRpc({
+        'v1_wf_list_crews': (_) => _crews(_access()),
+        'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+        'v1_wf_get_day': (_) => _day(rows: rows()),
+        'v1_wf_save_day': (params) {
+          saved = params;
+          return _day(saved: true, rows: rows());
+        },
+      });
+      await _pump(tester, rpc, dayAt);
+      expect(find.text('At MP Store today · 6:30 AM – 12 PM'), findsOneWidget);
+      expect(find.text('Not marked'), findsOneWidget, reason: 'only Waqar');
+      expect(find.textContaining('1 at another place'), findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_v2_phone_places.png'),
+      );
+
+      // Everyone present leaves the worker at the store for the keeper.
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-everyone-present')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('At MP Store today · 6:30 AM – 12 PM'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 9));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('attendance-save-day')));
+      await tester.pumpAndSettle();
+      final sent = saved!['p_rows'] as List;
+      expect(sent.map((row) => (row as Map)['worker_id']), ['w2']);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('times that overlap another place stop the save', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      final rpc = _FakeRpc({
+        'v1_wf_list_crews': (_) => _crews(_access()),
+        'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+        'v1_wf_get_day': (_) => _day(rows: rows()),
+      });
+      await _pump(tester, rpc, dayAt);
+      await tester.tap(find.byKey(const ValueKey('attendance-pill-p-w1')));
+      await tester.tap(find.byKey(const ValueKey('attendance-pill-a-w2')));
+      await tester.pumpAndSettle();
+      expect(find.text('Overlaps MP Store · 6:30 AM – 12 PM'), findsOneWidget);
+      expect(find.textContaining('1 clash with another place'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('attendance-save-day')));
+      await tester.pumpAndSettle();
+      expect(rpc.calls.where((c) => c.$1 == 'v1_wf_save_day'), isEmpty);
+
+      // The editor shows the other place and the clash.
+      await tester.tap(find.byKey(const ValueKey('attendance-pill-more-w1')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('attendance-editor-elsewhere')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-editor-conflict')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('overtime counts the hours already worked elsewhere', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      final rpc = _FakeRpc({
+        'v1_wf_list_crews': (_) => _crews(_access()),
+        'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+        'v1_wf_get_day': (_) => _day(
+          rows: rows(
+            first: {'status': 'P', 'start_minute': 780, 'finish_minute': 1140},
+          ),
+        ),
+      });
+      await _pump(tester, rpc, dayAt);
+      // 5.5 h at the store, then 6 h here: 2.5 h normal and 3.5 h overtime.
+      expect(find.text('OT 3.5 h'), findsWidgets);
+      expect(find.text('Also at MP Store · 6:30 AM – 12 PM'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the desktop grid names the other place', (tester) async {
+      _size(tester, const Size(1280, 860));
+      final rpc = _FakeRpc({
+        'v1_wf_list_crews': (_) => _crews(_access()),
+        'v1_wf_list_workers': (_) => {'workers': <Object>[]},
+        'v1_wf_get_day': (_) => _day(rows: rows()),
+      });
+      await _pump(tester, rpc, dayAt);
+      expect(
+        find.byKey(const ValueKey('attendance-grid-place-w1')),
+        findsOneWidget,
+      );
+      expect(find.text('At MP Store today · 6:30 AM – 12 PM'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 
