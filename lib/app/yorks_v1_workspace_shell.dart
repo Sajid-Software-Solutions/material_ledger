@@ -205,6 +205,12 @@ class _YorksV1WorkspaceShellState extends ConsumerState<YorksV1WorkspaceShell> {
               0,
         ),
         const _YorksDestination(
+          label: AttendanceStrings.monthOverview,
+          icon: Icons.calendar_view_month_outlined,
+          selectedIcon: Icons.calendar_view_month,
+          path: RoutePaths.yorksV1WorkforceMonth,
+        ),
+        const _YorksDestination(
           label: AttendanceStrings.monthlySheets,
           icon: Icons.description_outlined,
           selectedIcon: Icons.description,

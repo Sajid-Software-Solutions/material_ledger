@@ -97,6 +97,8 @@ import '../features/people_records/presentation/person_form_screen.dart';
 import '../features/people_records/presentation/person_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_confirm_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_overview_screen.dart';
+import '../features/workforce/presentation/attendance/attendance_people_screen.dart'
+    deferred as attendance_people;
 import '../features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import '../features/workforce/presentation/attendance/attendance_take_screen.dart';
 import '../features/workforce/presentation/requests/crew_request_assign_screen.dart';
@@ -236,6 +238,10 @@ abstract final class RoutePaths {
       '/yorks/workforce/timesheets';
   static const String yorksV1WorkforceConfirm = '/yorks/workforce/confirm';
   static const String yorksV1WorkforceSheets = '/yorks/workforce/sheets';
+
+  /// Everyone's month, a labourer's timesheet and the workforce year
+  /// (PRODUCT_DECISIONS section 52).
+  static const String yorksV1WorkforceMonth = '/yorks/workforce/month';
   static const String yorksV1WorkforceCrews = '/yorks/workforce/crews';
   static const String yorksV1WorkforceRequests = '/yorks/workforce/requests';
   static const String yorksV1WorkforceRequestNew =
@@ -2466,6 +2472,23 @@ GoRouter createAppRouter({
         ),
       if (yorksV1WorkforceEnabled)
         GoRoute(
+          path: RoutePaths.yorksV1WorkforceMonth,
+          pageBuilder: (context, state) => _yorksV1Slide(
+            state.pageKey,
+            _WorkforceScreenSwitch(
+              attendanceV2: _DeferredAttendancePeopleScreen(
+                view: state.uri.queryParameters['view'],
+                month: state.uri.queryParameters['month'],
+                year: state.uri.queryParameters['year'],
+                workerId: state.uri.queryParameters['worker'],
+                placeId: state.uri.queryParameters['place'],
+              ),
+              legacy: const YorksWorkforceOverviewScreen(),
+            ),
+          ),
+        ),
+      if (yorksV1WorkforceEnabled)
+        GoRoute(
           path: RoutePaths.yorksV1WorkforceSheets,
           pageBuilder: (context, state) => _yorksV1Slide(
             state.pageKey,
@@ -2879,6 +2902,73 @@ GoRouter createAppRouter({
               _slide(state.pageKey, const MaterialLineGridDemoScreen()),
         ),
     ],
+  );
+}
+
+/// Keeps the Workforce monthly overview out of the initial web download; it
+/// loads when the Monthly overview tab is opened (PRODUCT_DECISIONS 52).
+class _DeferredAttendancePeopleScreen extends StatefulWidget {
+  const _DeferredAttendancePeopleScreen({
+    this.view,
+    this.month,
+    this.year,
+    this.workerId,
+    this.placeId,
+  });
+
+  final String? view;
+  final String? month;
+  final String? year;
+  final String? workerId;
+  final String? placeId;
+
+  @override
+  State<_DeferredAttendancePeopleScreen> createState() =>
+      _DeferredAttendancePeopleScreenState();
+}
+
+class _DeferredAttendancePeopleScreenState
+    extends State<_DeferredAttendancePeopleScreen> {
+  static Future<void>? _sharedLoad;
+  late Future<void> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = _sharedLoad ??= loadOrRecover(attendance_people.loadLibrary());
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _load,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.done &&
+          !snapshot.hasError) {
+        return attendance_people.AttendancePeopleScreen(
+          initialView: widget.view,
+          initialMonth: widget.month,
+          initialYear: widget.year,
+          initialWorkerId: widget.workerId,
+          initialPlaceId: widget.placeId,
+        );
+      }
+      if (snapshot.hasError) {
+        return Center(
+          child: IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: MaterialLocalizations.of(
+              context,
+            ).refreshIndicatorSemanticLabel,
+            onPressed: () => setState(() {
+              _load = _sharedLoad = loadOrRecover(
+                attendance_people.loadLibrary(),
+              );
+            }),
+          ),
+        );
+      }
+      return const Center(child: CircularProgressIndicator());
+    },
   );
 }
 

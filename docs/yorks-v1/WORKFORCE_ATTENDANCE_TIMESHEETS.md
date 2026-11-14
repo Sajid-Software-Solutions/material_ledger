@@ -64,6 +64,24 @@ due for confirmation only in months it has days. The Crews tab is hidden
 and crew requests stay behind `YORKS_V1_WORKFORCE_CENTER` (off in
 production, section 50).
 
+### Monthly overview (14 November 2026, `PRODUCT_DECISIONS.md` section 52)
+
+The Monthly overview tab (`/yorks/workforce/month`) reads three stable,
+role-gated functions that see exactly the sheets `v1_wf_crew_access` lets
+the reader view (`v1_wf_visible_teams`); roles without Workforce are
+refused (`v1_wf_reads_workforce`):
+
+| Function | Returns |
+|---|---|
+| `v1_wf_people_month(p_month)` | The month's days, the labourers and places with rows, and one compact entry per labourer, place and day (status, worked, normal, overtime and holiday minutes). The app adds a labourer's day up once across the places shown. |
+| `v1_wf_worker_month(p_worker_id, p_month)` | One labourer's rows at every visible place, with times, building, hours, who saved each and whether the place's month is confirmed. |
+| `v1_wf_workforce_year(p_year)` | Totals by month, by place and by labourer for a year; the active labour headcount for Admin, HR/PRO, the Accountant and the organization-wide engineers. |
+
+The labourer's timesheet prints one A4 DAILY TIME SHEET across places; it
+and the monthly sheet use the shared letterhead
+(`lib/shared/services/yorks_v1_pdf_letterhead.dart`), the same one as the
+Material Request form.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

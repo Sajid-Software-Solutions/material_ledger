@@ -9,6 +9,7 @@ import '../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../shared/models/yorks_v1_feature_flags.dart';
 import '../../../shared/sync/connectivity_service.dart';
 import '../domain/attendance_models.dart';
+import '../domain/attendance_month_models.dart';
 import '../domain/crew_request_models.dart';
 import 'workforce_repository.dart';
 
@@ -67,6 +68,29 @@ final class YorksAttendanceRepository {
       'p_location': location,
     }),
   );
+
+  /// Everyone's month (`YYYY-MM-01`) at the places the reader may see.
+  Future<AttendancePeopleMonth> peopleMonth(String month) async =>
+      AttendancePeopleMonth.fromJson(
+        await _invoke('v1_wf_people_month', {'p_month': month}),
+      );
+
+  /// One labourer's month at every place the reader may see.
+  Future<AttendanceWorkerMonth> workerMonth({
+    required String workerId,
+    required String month,
+  }) async => AttendanceWorkerMonth.fromJson(
+    await _invoke('v1_wf_worker_month', {
+      'p_worker_id': workerId,
+      'p_month': month,
+    }),
+  );
+
+  /// The workforce year: by month, place and labourer.
+  Future<AttendanceWorkforceYear> workforceYear(int year) async =>
+      AttendanceWorkforceYear.fromJson(
+        await _invoke('v1_wf_workforce_year', {'p_year': year}),
+      );
 
   Future<bool> canCreateCrew() async =>
       (await _invoke('v1_wf_list_crews', const {}))['can_create_crew'] == true;

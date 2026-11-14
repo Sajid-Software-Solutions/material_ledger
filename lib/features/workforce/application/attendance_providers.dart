@@ -17,6 +17,7 @@ import '../../../shared/providers/yorks_v1_identity_provider.dart';
 import '../../../shared/sync/connectivity_service.dart';
 import '../data/attendance_repository.dart';
 import '../domain/attendance_models.dart';
+import '../domain/attendance_month_models.dart';
 import '../domain/crew_request_models.dart';
 import '../domain/attendance_time.dart';
 import 'workforce_providers.dart';
@@ -49,6 +50,28 @@ final yorksAttendanceConfirmationsDueProvider =
 final yorksAttendancePlacesProvider =
     FutureProvider.autoDispose<AttendancePlaces>(
       (ref) => ref.watch(yorksAttendanceRepositoryProvider).listPlaces(),
+    );
+
+/// Everyone's month (`YYYY-MM-01`), PRODUCT_DECISIONS section 52.
+final yorksAttendancePeopleMonthProvider = FutureProvider.autoDispose
+    .family<AttendancePeopleMonth, String>(
+      (ref, month) =>
+          ref.watch(yorksAttendanceRepositoryProvider).peopleMonth(month),
+    );
+
+/// One labourer's month at every place the reader may see.
+final yorksAttendanceWorkerMonthProvider = FutureProvider.autoDispose
+    .family<AttendanceWorkerMonth, ({String workerId, String month})>(
+      (ref, key) => ref
+          .watch(yorksAttendanceRepositoryProvider)
+          .workerMonth(workerId: key.workerId, month: key.month),
+    );
+
+/// The workforce year: by month, place and labourer.
+final yorksAttendanceWorkforceYearProvider = FutureProvider.autoDispose
+    .family<AttendanceWorkforceYear, int>(
+      (ref, year) =>
+          ref.watch(yorksAttendanceRepositoryProvider).workforceYear(year),
     );
 
 final yorksAttendanceCrewsProvider =
