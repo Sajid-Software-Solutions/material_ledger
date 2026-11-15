@@ -202,7 +202,7 @@ class _AttendanceSheetsScreenState
                       label: AS.t(AS.colCrew, language),
                       value: crew.id,
                       width: 260,
-                      options: [for (final c in crews) (c.id, c.name)],
+                      options: [for (final c in crews) (c.id, c.label)],
                       onChanged: (id) => setState(() {
                         _crewId = id;
                         _workerId = null;
@@ -298,7 +298,7 @@ class _SheetBody extends StatelessWidget {
               AccountsV2CardHead(
                 title: AS.t(AS.workersIn, language, {
                   'n': sheet.workers.length,
-                  'crew': sheet.crew.name,
+                  'crew': sheet.crew.label,
                 }),
                 icon: 'users',
                 actions: [AccountsV2Chip(chip.text, tone: chip.tone)],
@@ -385,7 +385,11 @@ String _statusText(
   bool holiday,
   AppLanguage language,
 ) {
-  if (row == null) return holiday ? '' : AS.t(AS.dayNone, language);
+  // At a place a day with nobody recorded is normal, not missing
+  // (PRODUCT_DECISIONS section 52): it stays blank, as on the print.
+  if (row == null) {
+    return holiday || sheet.crew.isPlace ? '' : AS.t(AS.dayNone, language);
+  }
   if (sheet.month.isConfirmed) return AS.t(AS.statusConfirmed, language);
   return (sheet.enteredBy[date]?.changed ?? false)
       ? AS.t(AS.statusEnteredChanged, language)
@@ -481,10 +485,7 @@ class _PaperSheet extends StatelessWidget {
               (formatAttendanceTime(row?.finish), false),
               (formatAttendanceHours(m?.normalOvertime ?? 0), false),
               (formatAttendanceHours(m?.holidayOvertime ?? 0), false),
-              (
-                row == null ? '' : (row.workLabel ?? sheet.crew.workLabel),
-                false,
-              ),
+              (row == null ? '' : attendancePrintWhere(sheet.crew, row), false),
               (
                 future ? '' : _statusText(sheet, iso, row, holiday, language),
                 false,
@@ -608,7 +609,7 @@ class _PaperSheet extends StatelessWidget {
             ),
             field(
               AS.t(AS.paperCrew, language),
-              '${sheet.crew.name} · ${sheet.crew.workLabel}',
+              attendancePrintPlace(sheet.crew),
             ),
             const SizedBox(height: 10),
             Table(
@@ -706,9 +707,14 @@ class _PhoneSheet extends StatelessWidget {
             Builder(
               builder: (context) {
                 final row = byDate[day.date];
+                // A place's empty day is quiet: the labourer was not
+                // recorded here, which is not "missing".
+                final quiet = row == null && sheet.crew.isPlace;
                 final summary = row == null
                     ? (day.holiday
                           ? AS.t(AS.restDay, language)
+                          : quiet
+                          ? '—'
                           : AS.t(AS.dayNone, language))
                     : attendanceRowSummary(
                         row,
@@ -740,8 +746,10 @@ class _PhoneSheet extends StatelessWidget {
                           summary,
                           style: v2Style(
                             12.5,
-                            color: row == null && !day.holiday
+                            color: row == null && !day.holiday && !quiet
                                 ? AccountsV2Colors.bad
+                                : quiet
+                                ? AccountsV2Colors.mut
                                 : AccountsV2Colors.ink2,
                           ),
                         ),

@@ -1363,6 +1363,150 @@ void main() {
     });
   });
 
+  // One name for a place and a month that reads right for each role
+  // (PRODUCT_DECISIONS section 59).
+  group('places read the same on every screen', () {
+    Map<String, Object?> place({Map<String, Object?>? access}) => {
+      ..._crew(access: access),
+      'name': 'YRA-321 Sweihan',
+      'place_key': 'project:p1',
+      'place_kind': 'project',
+    };
+    Map<String, dynamic> overview(Map<String, Object?> crew) => {
+      'today': _today,
+      'month': '2026-11-01',
+      'crews': [
+        {...crew, 'month': _month(missing: [])},
+      ],
+      'feed': [
+        {
+          'kind': 'entered',
+          'crew_id': _crewId,
+          // The server sends the sheet's stored name.
+          'crew_name': 'YRA-321 Sweihan',
+          'date': '2026-11-11',
+          'by': 'Imran Qureshi',
+          'at': '2026-11-11T15:05:00Z',
+          'summary': {'present': 9, 'absent': 1, 'leave': 0},
+        },
+      ],
+    };
+    Map<String, dynamic> sheet(Map<String, Object?> crew) => {
+      'crew': crew,
+      'month': _month(missing: []),
+      'workers': [
+        {
+          ..._worker('w1', 'Gul Zaman'),
+          'days': [
+            {
+              'date': '2026-11-02',
+              'status': 'P',
+              'start_minute': 390,
+              'finish_minute': 870,
+              'work_scope_name': 'Tower A',
+            },
+          ],
+        },
+      ],
+      'sheets': [
+        {'date': '2026-11-02', 'entered_by': 'Imran Qureshi', 'changed': false},
+      ],
+      'holidays': <Object>[],
+      'can_export': false,
+    };
+
+    testWidgets('the overview names a place once', (tester) async {
+      _size(tester, const Size(1280, 900));
+      await _pump(
+        tester,
+        _FakeRpc({'v1_wf_get_overview': (_) => overview(place())}),
+        RoutePaths.yorksV1Workforce,
+      );
+      expect(find.text('YRA-321 · Sweihan'), findsOneWidget);
+      // The work label repeated the name the other way round.
+      expect(find.text('Sweihan · YRA-321'), findsNothing);
+      // The activity feed names it the same way.
+      expect(find.textContaining('entered YRA-321 · Sweihan'), findsOneWidget);
+    });
+
+    testWidgets('HR/PRO watches the month: told who confirms, and when', (
+      tester,
+    ) async {
+      _size(tester, const Size(1280, 900));
+      final watcher = place(access: _access(officer: true));
+      await _pump(
+        tester,
+        _FakeRpc({
+          'v1_wf_get_overview': (_) => overview(watcher),
+          'v1_wf_get_month_sheet': (_) => sheet(watcher),
+        }),
+        RoutePaths.yorksV1WorkforceConfirm,
+        role: YorksV1Role.pr,
+      );
+      expect(find.text('YRA-321 · Sweihan · November 2026'), findsOneWidget);
+      expect(
+        find.textContaining('you can reopen a confirmed month'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Reviewers are reminded from Mon 30 Nov until confirmed'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('You will get a notification'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('attendance-confirm-month-$_crewId')),
+        findsNothing,
+      );
+      // A place has no missing days, so no "Not entered" count.
+      expect(find.text('Days entered'), findsOneWidget);
+      expect(find.text('Not entered'), findsNothing);
+    });
+
+    testWidgets('a confirmer is told the notification comes', (tester) async {
+      _size(tester, const Size(1280, 900));
+      final confirmer = place(access: _access(confirm: true));
+      await _pump(
+        tester,
+        _FakeRpc({
+          'v1_wf_get_overview': (_) => overview(confirmer),
+          'v1_wf_get_month_sheet': (_) => sheet(confirmer),
+        }),
+        RoutePaths.yorksV1WorkforceConfirm,
+        role: YorksV1Role.projectEngineer,
+      );
+      expect(
+        find.text('Opens on Mon 30 Nov. You will get a notification.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('On the last day of the month you get'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a place\'s time sheet leaves empty days blank, as printed', (
+      tester,
+    ) async {
+      _size(tester, const Size(1280, 900));
+      final reader = place(access: _access(take: false));
+      await _pump(
+        tester,
+        _FakeRpc({
+          'v1_wf_list_crews': (_) => {
+            'crews': [reader],
+            'can_create_crew': false,
+          },
+          'v1_wf_get_month_sheet': (_) => sheet(reader),
+        }),
+        RoutePaths.yorksV1WorkforceSheets,
+      );
+      expect(find.text('YRA-321 · Sweihan'), findsWidgets);
+      expect(find.text('Workers — 1 at YRA-321 · Sweihan'), findsOneWidget);
+      expect(find.text('YRA-321 · Sweihan · Tower A'), findsOneWidget);
+      expect(find.text('Not entered'), findsNothing);
+    });
+  });
+
   group('screenshots (desktop and 360px phone)', () {
     setUpAll(loadAccountsV2GoldenFonts);
 

@@ -4,12 +4,14 @@
 // for a reason only for someone else's rows, and keep the page in place
 // while another date loads.
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/app/yorks_v1_workspace_shell.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
@@ -17,6 +19,7 @@ import 'package:material_ledger/features/workforce/application/attendance_provid
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
 import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
+import 'package:material_ledger/features/workforce/presentation/attendance/attendance_row_editor.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_common.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
@@ -24,6 +27,10 @@ import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+// ignore: implementation_imports
+import 'package:printing/src/interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/accounts_v2_golden_fonts.dart';
@@ -48,7 +55,8 @@ const _flags = YorksV1FeatureFlags(
   workforceAttendanceV2: true,
 );
 
-/// As production runs: the Workforce Center on.
+/// The Workforce Center on. Production keeps it off (PRODUCT_DECISIONS
+/// section 50); these cover the screens if it is turned on again.
 const _centerFlags = YorksV1FeatureFlags(
   foundation: true,
   projects: true,
@@ -279,6 +287,32 @@ final class _FakeRpc implements YorksWorkforceRpcClient {
   }
 
   int count(String name) => calls.where((c) => c.$1 == name).length;
+}
+
+/// Catches what would go to the printer.
+class _CapturePrinting extends PrintingPlatform {
+  Uint8List? bytes;
+  String? name;
+
+  @override
+  Future<bool> layoutPdf(
+    Printer? printer,
+    LayoutCallback onLayout,
+    String name,
+    PdfPageFormat format,
+    bool dynamicLayout,
+    bool usePrinterSettings,
+    OutputType outputType,
+    bool forceCustomPrintPaper,
+    bool windowsModernDialog,
+  ) async {
+    this.name = name;
+    bytes = await onLayout(format);
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _Online implements ConnectivityService {
@@ -930,6 +964,170 @@ void main() {
     expect(find.byKey(const ValueKey('attendance-day-loading')), findsNothing);
     expect(find.text('Gul Zaman'), findsNothing);
     expect(find.byKey(const ValueKey('attendance-empty-add')), findsOneWidget);
+  });
+
+  // Printing a day (PRODUCT_DECISIONS section 59) and the desktop grid on a
+  // laptop beside the sidebar.
+  group('printing a day and the laptop grid', () {
+    Map<String, FutureOr<Map<String, dynamic>> Function(Map<String, Object?>)>
+    saved({Map<String, Object?>? place}) => {
+      'v1_wf_list_places': (_) => _places(),
+      'v1_wf_get_day': (_) => _day(
+        saved: true,
+        place: place,
+        rows: [
+          _row('w1', 'Gul Zaman'),
+          _row('w2', 'Waqar Ahmed', mine: false, scope: null),
+          _row('w3', 'Ravi Kumar', status: 'A', scope: null),
+        ],
+      ),
+    };
+    const day =
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date';
+
+    testWidgets('a saved day prints as saved, under its name and date', (
+      tester,
+    ) async {
+      _size(tester, const Size(1280, 860));
+      final previous = PrintingPlatform.instance;
+      final printer = _CapturePrinting();
+      PrintingPlatform.instance = printer;
+      addTearDown(() => PrintingPlatform.instance = previous);
+
+      await _pump(tester, _FakeRpc(saved()), day);
+      final print = find.byKey(const ValueKey('attendance-day-print'));
+      expect(print, findsOneWidget);
+      expect(
+        find.descendant(of: print, matching: find.text('Print')),
+        findsOneWidget,
+      );
+      await _tap(tester, print);
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100 && printer.bytes == null; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      });
+      await tester.pumpAndSettle();
+      expect(printer.name, 'Yorks-attendance-YRA-322-DF3W-$_date');
+      expect(String.fromCharCodes(printer.bytes!.take(4)), '%PDF');
+    });
+
+    testWidgets('unsaved changes hold Print until the day is saved', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _FakeRpc(saved()), day);
+      AccountsV2Button button() => tester.widget<AccountsV2Button>(
+        find.byKey(const ValueKey('attendance-day-print')),
+      );
+      expect(button().onPressed, isNotNull);
+      // Phones keep the place's name: the icon alone, named by its tooltip.
+      expect(button().label, isEmpty);
+      expect(button().tooltip, 'Print this day');
+
+      await _tap(tester, find.byKey(const ValueKey('attendance-pill-a-w1')));
+      expect(button().onPressed, isNull);
+      expect(button().tooltip, 'Save the day to print it');
+    });
+
+    testWidgets('a day nobody saved has nothing to print', (tester) async {
+      _size(tester, const Size(1280, 860));
+      await _pump(
+        tester,
+        _FakeRpc({
+          'v1_wf_list_places': (_) => _places(),
+          'v1_wf_get_day': (_) => _day(),
+        }),
+        day,
+      );
+      expect(find.byKey(const ValueKey('attendance-day-print')), findsNothing);
+    });
+
+    testWidgets('someone who only reads a day may print it', (tester) async {
+      _size(tester, const Size(1280, 860));
+      final readOnly = {
+        ..._place(),
+        'access': {
+          'view': true,
+          'take': false,
+          'confirm': false,
+          'manage': false,
+          'officer': false,
+        },
+      };
+      await _pump(
+        tester,
+        _FakeRpc({
+          ...saved(place: readOnly),
+          'v1_wf_get_day': (_) => {
+            ..._day(
+              saved: true,
+              place: readOnly,
+              rows: [_row('w1', 'Gul Zaman')],
+            ),
+            'access': readOnly['access'],
+          },
+        }),
+        day,
+        role: YorksV1Role.documentController,
+      );
+      final button = tester.widget<AccountsV2Button>(
+        find.byKey(const ValueKey('attendance-day-print')),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('a whole row fits a 1366px laptop beside the sidebar', (
+      tester,
+    ) async {
+      _size(tester, const Size(1366, 900));
+      await _pump(
+        tester,
+        _FakeRpc(saved()),
+        day,
+        role: YorksV1Role.siteEngineer,
+        shell: true,
+      );
+      final scroll = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(AttendanceGrid),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(scroll.position.maxScrollExtent, 0);
+      // Edit and remove are on screen without scrolling sideways.
+      expect(
+        tester.getRect(find.byTooltip('Remove').last).right,
+        lessThan(1366),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('only a present worker is asked for a building', (
+      tester,
+    ) async {
+      _size(tester, const Size(1280, 860));
+      await _pump(tester, _FakeRpc(saved()), day);
+      // Present without a building: asked.
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-grid-building-w2')),
+          matching: find.text('Choose the building'),
+        ),
+        findsOneWidget,
+      );
+      // Absent: worked at no building, so not asked.
+      expect(
+        find.byKey(const ValueKey('attendance-grid-building-w3')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-grid-building-w1')),
+        findsOneWidget,
+      );
+    });
   });
 
   group('screenshots (desktop and 360px phone)', () {

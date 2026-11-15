@@ -19,6 +19,44 @@ import '../domain/attendance_models.dart';
 import '../domain/attendance_month_models.dart';
 import '../domain/attendance_time.dart';
 
+/// A status as the printed sheets write it.
+String attendancePrintStatus(AttendanceStatus? status) => switch (status) {
+  AttendanceStatus.present => 'Present',
+  AttendanceStatus.absent => 'Absent',
+  AttendanceStatus.rest => 'Rest day',
+  AttendanceStatus.annualLeave => 'Annual leave',
+  AttendanceStatus.sickLeave => 'Sick leave',
+  AttendanceStatus.officialLeave => 'Official leave',
+  AttendanceStatus.unpaidLeave => 'Unpaid leave',
+  null => '',
+};
+
+/// The place a printed sheet is for: "YRA-322 · DF3W" (with a crew's own
+/// work label for a crew set up before places).
+String attendancePrintPlace(AttendanceCrew crew) {
+  final detail = crew.detail;
+  return detail == null ? crew.label : '${crew.label} · $detail';
+}
+
+/// Where a row was worked, as the sheets print it: the place's project and
+/// building ("YRA-322 · DF3W · Tower A"); at an internal place the project
+/// typed on the row, else the place; on a crew set up before places, the
+/// row's or the crew's work label.
+String attendancePrintWhere(AttendanceCrew crew, AttendanceRow row) {
+  if (!crew.isPlace) return row.workLabel ?? crew.workLabel;
+  if (crew.placeKind != 'project') return row.workLabel ?? crew.label;
+  final building = row.workScopeName;
+  final named = building != null && building != 'Common / All Buildings';
+  return named ? '${crew.label} · $building' : crew.label;
+}
+
+/// The line under a printed sheet: whether its month can still change.
+String attendancePrintMonthNote(AttendanceMonth month) => month.isConfirmed
+    ? 'Month confirmed by ${month.confirmedBy ?? ''}.'
+    : month.state == AttendanceMonthState.notNeeded
+    ? 'No month confirmation needed for this place.'
+    : 'Not yet confirmed: figures can still change.';
+
 class YorksAttendanceSheetService {
   const YorksAttendanceSheetService();
 
@@ -27,7 +65,7 @@ class YorksAttendanceSheetService {
   static const pdfMimeType = 'application/pdf';
 
   String fileStem(AttendanceMonthSheet sheet) {
-    final crew = sheet.crew.name
+    final crew = sheet.crew.label
         .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
         .replaceAll(RegExp(r'-+$'), '');
     final month = DateFormat(
@@ -35,17 +73,6 @@ class YorksAttendanceSheetService {
     ).format(attendanceDate(sheet.month.month));
     return 'Yorks-time-sheet-$crew-$month';
   }
-
-  static String _status(AttendanceRow row) => switch (row.status) {
-    AttendanceStatus.present => 'Present',
-    AttendanceStatus.absent => 'Absent',
-    AttendanceStatus.rest => 'Rest day',
-    AttendanceStatus.annualLeave => 'Annual leave',
-    AttendanceStatus.sickLeave => 'Sick leave',
-    AttendanceStatus.officialLeave => 'Official leave',
-    AttendanceStatus.unpaidLeave => 'Unpaid leave',
-    null => '',
-  };
 
   static bool _holiday(AttendanceMonthSheet sheet, String date) =>
       sheet.month.days.where((d) => d.date == date).firstOrNull?.holiday ??
@@ -58,7 +85,7 @@ class YorksAttendanceSheetService {
       'Worker',
       'Emp ID',
       'Designation',
-      'Crew',
+      'Place',
       'Date',
       'Day',
       'Status',
@@ -86,10 +113,10 @@ class YorksAttendanceSheetService {
           worker.worker.name,
           worker.worker.number,
           worker.worker.designation,
-          sheet.crew.name,
+          sheet.crew.label,
           day.date,
           DateFormat('EEEE').format(attendanceDate(day.date)),
-          _status(day.row),
+          attendancePrintStatus(day.row.status),
           formatAttendanceTime(day.row.start),
           formatAttendanceTime(day.row.breakStart),
           formatAttendanceTime(day.row.breakFinish),
@@ -97,7 +124,7 @@ class YorksAttendanceSheetService {
           minutes.worked / 60,
           minutes.normalOvertime / 60,
           minutes.holidayOvertime / 60,
-          day.row.workLabel ?? sheet.crew.workLabel,
+          attendancePrintWhere(sheet.crew, day.row),
           sheet.enteredBy[day.date]?.by ?? '',
           confirmed,
         ]);
@@ -317,7 +344,7 @@ class YorksAttendanceSheetService {
           ? formatAttendanceTime(row.start)
           : row.status == AttendanceStatus.rest
           ? ''
-          : _status(row);
+          : attendancePrintStatus(row.status);
       rows.add(
         pw.TableRow(
           decoration: holiday
@@ -341,7 +368,7 @@ class YorksAttendanceSheetService {
               formatAttendanceHours(minutes?.holidayOvertime ?? 0),
               align: pw.Alignment.centerRight,
             ),
-            c(row == null ? '' : _where(sheet.crew, row)),
+            c(row == null ? '' : attendancePrintWhere(sheet.crew, row)),
             c(status),
           ],
         ),
@@ -359,7 +386,8 @@ class YorksAttendanceSheetService {
               pw.Container(),
               pw.Container(),
               c(
-                'Site in-charge: ${weekTakers.isEmpty ? '—' : weekTakers.join(', ')}',
+                'Site in-charge: '
+                '${weekTakers.isEmpty ? '—' : 'entered by ${weekTakers.join(', ')}'}',
                 bold: true,
               ),
               pw.Container(),
@@ -432,12 +460,7 @@ class YorksAttendanceSheetService {
         field('Log for the month of:', DateFormat('MMMM y').format(monthStart)),
         field('Emp. ID No.:', worker.worker.number),
         field('Designation:', worker.worker.designation),
-        field(
-          'Place / project:',
-          sheet.crew.isPlace
-              ? sheet.crew.workLabel
-              : '${sheet.crew.name} · ${sheet.crew.workLabel}',
-        ),
+        field('Place / project:', attendancePrintPlace(sheet.crew)),
         pw.SizedBox(height: 8),
         pw.Table(
           border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.5),
@@ -457,11 +480,7 @@ class YorksAttendanceSheetService {
         ),
         pw.Spacer(),
         pw.Text(
-          sheet.month.isConfirmed
-              ? 'Month confirmed by ${sheet.month.confirmedBy ?? ''}.'
-              : sheet.month.state == AttendanceMonthState.notNeeded
-              ? 'No month confirmation needed for this place.'
-              : 'Not yet confirmed: figures can still change.',
+          attendancePrintMonthNote(sheet.month),
           style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700),
         ),
       ],
@@ -470,17 +489,6 @@ class YorksAttendanceSheetService {
 
   static String _daysPresent(int days) =>
       days == 1 ? '1 day present' : '$days days present';
-
-  /// Where a row was worked: the place's project and building, else the
-  /// sheet's label or the row's own.
-  static String _where(AttendanceCrew crew, AttendanceRow row) {
-    final building = row.workScopeName;
-    final named = building != null && building != 'Common / All Buildings';
-    if (crew.isPlace) {
-      return named ? '${crew.workLabel} · $building' : crew.workLabel;
-    }
-    return row.workLabel ?? crew.workLabel;
-  }
 
   // ─── One labourer's month ─────────────────────────────────────────────────
 
@@ -580,7 +588,7 @@ class YorksAttendanceSheetService {
               c(
                 present
                     ? formatAttendanceTime(line.row.start)
-                    : _status(line.row),
+                    : attendancePrintStatus(line.row.status),
                 bold: !present,
               ),
               c(formatAttendanceTime(line.row.breakStart)),

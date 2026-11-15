@@ -451,6 +451,18 @@ String? attendanceRowBuilding(
       : name;
 }
 
+/// Whether a line shows its building: always once one is chosen; to ask
+/// for one only while the worker is present (or not marked yet), since an
+/// absent or resting worker worked at no building.
+bool attendanceAsksBuilding(
+  AttendanceRow row,
+  AttendanceCrew crew,
+  AppLanguage language,
+) =>
+    row.status == null ||
+    row.status == AttendanceStatus.present ||
+    attendanceRowBuilding(row, crew, language) != null;
+
 /// Chooses one of the place's buildings. Resolves to the chosen building
 /// (null for No building), or to null when closed: callers read
 /// `.building` from the record.

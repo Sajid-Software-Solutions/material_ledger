@@ -168,6 +168,24 @@ is its Crews view (labelled Sites for engineers), and the office sees Needs a
 look and the activity feed under both My work and Crews. Goldens:
 `attendance_v2_{desktop,phone}_center_office.png`.
 
+### Print the day and one name for a place (15 November 2026, `PRODUCT_DECISIONS.md` section 59)
+
+Presentation only: no migration, RPC or permission changes.
+
+| Part | Behaviour |
+|---|---|
+| Print the day | Take attendance shows **Print** beside the place on a saved day (the icon alone on a phone), for anyone the server lets see the day. It prints the day as the server returned it (`lib/features/workforce/data/attendance_day_print.dart`, loaded with the deferred Take attendance screen): A4 under the shared letterhead, the place, date, kind of day, entered and last saved by, the count, one line per labourer (number, name, designation, building or the project typed at the workshop, status, In / Brk / In / Out, hours, normal and holiday overtime, saved by) with totals, changes after entry with their reasons, and the month note. The heading row repeats on every page. While a change is unsaved Print is disabled ("Save the day to print it"); a day nobody saved has none. |
+| One name | `AttendanceCrew.label` is "YRA-322 · DF3W" for a project's place and the sheet's name otherwise; `detail` is a crew-before-places work label, else none. The Overview, My sites and Sites tables, Needs a look, the activity feed (by place id, `AttendanceOverview.placeName`), Month confirmation, Time sheets (place list, preview, PDF and Excel) and the printed day use them, as Take attendance, Employees and the labourer's timesheet already did. |
+| Shared print pieces | `attendancePrintStatus`, `attendancePrintPlace`, `attendancePrintWhere` and `attendancePrintMonthNote` in `attendance_sheet_service.dart` are used by the monthly sheet, its on-screen preview and the printed day, so the screen and the paper read the same: a place's empty day is blank on both, the Project name column is "YRA-322 · DF3W · Tower A" (the typed project at the workshop), and the weekly line reads "Site in-charge: entered by …". The Excel register's place column is headed Place. |
+| Desktop grid | Fixed columns (status 136, times 66, hours 48, overtime 60 each, building 150, edit and remove 48 each) and a worker column that takes the rest (at least 160): a row fits 1366px beside the sidebar; narrower, the grid scrolls sideways. The heading row spans the whole row. |
+| Buildings | `attendanceAsksBuilding`: the building chip asks only on a present or unmarked line; an absent, resting or on-leave line shows a building only when one is saved. |
+| Month confirmation | The card shows Days entered and overtime; a place has no "Not entered" count. Someone who watches but does not confirm (HR/PRO) reads `confirmIntroWatch` and "Reviewers are reminded from … until confirmed", or "Waiting for the reviewer to confirm" once everything is entered. The overview's Month column fits "Recording · confirm on Mon 30 Nov". |
+
+Tests: `test/yorks_workforce_attendance_print_test.dart` and the
+"printing a day and the laptop grid" and "places read the same on every
+screen" groups. Goldens updated: `attendance_places_*_day`,
+`attendance_roles_*`, `attendance_v2_desktop_{take,overview,my_sites,doc_status}`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

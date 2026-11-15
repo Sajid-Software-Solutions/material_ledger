@@ -544,7 +544,7 @@ class _MyWorkCard extends StatelessWidget {
       for (final item in dayCrews)
         _WorkItem(
           key: 'day-${item.crew.id}',
-          title: CRS.t(CRS.itemDayMissing, language, {'crew': item.crew.name}),
+          title: CRS.t(CRS.itemDayMissing, language, {'crew': item.crew.label}),
           detail: item.month.missingDays
               .take(4)
               .map(attendanceShortDate)
@@ -867,7 +867,7 @@ class _CrewsCard extends StatelessWidget {
                 AS.t(sites ? AS.colSite : AS.colCrew, language),
                 flex: 3,
               ),
-              AccountsV2Column(AS.t(AS.colToday, language), width: 150),
+              AccountsV2Column(AS.t(AS.colToday, language), width: 136),
               AccountsV2Column(AS.t(AS.colLast8, language), width: 200),
               AccountsV2Column(
                 AS.t(AS.present, language),
@@ -876,15 +876,16 @@ class _CrewsCard extends StatelessWidget {
               ),
               AccountsV2Column(
                 AS.t(AS.colOtNormal, language),
-                width: 116,
+                width: 112,
                 numeric: true,
               ),
               AccountsV2Column(
                 AS.t(AS.colOtHoliday, language),
-                width: 116,
+                width: 112,
                 numeric: true,
               ),
-              AccountsV2Column(AS.t(AS.colMonth, language), width: 220),
+              // Wide enough for "Recording · confirm on Mon 30 Nov".
+              AccountsV2Column(AS.t(AS.colMonth, language), width: 252),
             ],
             rows: [
               for (final item in overview.crews)
@@ -893,8 +894,8 @@ class _CrewsCard extends StatelessWidget {
                   onTap: () => onOpen(item.crew, item.month),
                   [
                     AccountsV2CellStack(
-                      primary: item.crew.name,
-                      secondary: item.crew.workLabel,
+                      primary: item.crew.label,
+                      secondary: item.crew.detail,
                     ),
                     _today(
                       overview.todayByCrew[item.crew.id],
@@ -1010,7 +1011,7 @@ class _NeedsLookCard extends StatelessWidget {
               (
                 key: 'today-${item.crew.id}',
                 text: AS.t(AS.lookNotEntered, language, {
-                  'place': item.crew.name,
+                  'place': item.crew.label,
                 }),
                 crewId: item.crew.id,
                 date: today,
@@ -1028,7 +1029,7 @@ class _NeedsLookCard extends StatelessWidget {
         items.add((
           key: 'asked-${event.crewId}-$date',
           text: AS.t(AS.lookQuestion, language, {
-            'place': event.crewName,
+            'place': overview.placeName(event.crewId, event.crewName),
             'date': attendanceShortDate(date),
           }),
           crewId: event.crewId,
@@ -1040,7 +1041,7 @@ class _NeedsLookCard extends StatelessWidget {
         items.add((
           key: 'changed-${event.crewId}-$date-${items.length}',
           text: AS.t(AS.lookChanged, language, {
-            'place': event.crewName,
+            'place': overview.placeName(event.crewId, event.crewName),
             'by': event.by.split(' ').first,
             'date': attendanceShortDate(date),
           }),
@@ -1137,7 +1138,7 @@ class _FeedCard extends StatelessWidget {
   String _line(AttendanceFeedItem item) {
     final values = {
       'by': item.by,
-      'crew': item.crewName,
+      'crew': overview.placeName(item.crewId, item.crewName),
       'date': item.date == null
           ? ''
           : item.kind == 'confirmed' || item.kind == 'reopened'

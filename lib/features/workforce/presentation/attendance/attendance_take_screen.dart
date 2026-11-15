@@ -26,6 +26,7 @@ import '../../../accounts/presentation/v2/accounts_v2_safety.dart'
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../application/attendance_providers.dart';
 import '../../application/attendance_role_layout.dart';
+import '../../data/attendance_day_print.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
 import '../../domain/attendance_time.dart';
@@ -389,6 +390,21 @@ class _DayView extends ConsumerStatefulWidget {
 class _DayViewState extends ConsumerState<_DayView> {
   /// The last day shown, kept on screen while another date loads.
   AttendanceDayEditState? _shown;
+  bool _printing = false;
+
+  /// Prints the day as saved on the server (PRODUCT_DECISIONS section 59).
+  Future<void> _print(AttendanceDay day) async {
+    setState(() => _printing = true);
+    try {
+      await const YorksAttendanceDayPrint().printDay(day);
+    } catch (_) {
+      if (mounted) {
+        attendanceToast(context, AS.t(AS.fileFailed, widget.language));
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
 
   AttendanceDayKey get _key => (crewId: widget.crewId, date: widget.date);
 
@@ -458,11 +474,14 @@ class _DayViewState extends ConsumerState<_DayView> {
           day: day,
           selected: widget.date,
           language: language,
-          placeName: widget.placeName ?? attendancePlaceName(crew, language),
+          placeName: widget.placeName ?? crew.label,
           onOpen: widget.onOpen,
           onChangePlace: widget.onChangePlace,
           loading: switching && current.loading,
           dirty: !switching && state.hasLocalChanges && day.editable,
+          // Anyone who sees a saved day may print it, as saved.
+          onPrint: day.saved && !switching ? () => _print(day) : null,
+          printing: _printing,
           drafts: {
             ...attendanceDraftDates(
               ref.read(sharedPreferencesProvider),
@@ -642,16 +661,6 @@ class _DayViewState extends ConsumerState<_DayView> {
   }
 }
 
-/// "YRA-322 · DF3W" for a project place, else the sheet's name.
-String attendancePlaceName(AttendanceCrew crew, AppLanguage language) {
-  final ref = crew.projectRef;
-  final name = crew.projectName;
-  if (crew.placeKind == 'project' && ref != null && name != null) {
-    return '$ref · $name';
-  }
-  return crew.name;
-}
-
 class _DayHeader extends StatelessWidget {
   const _DayHeader({
     required this.day,
@@ -663,6 +672,8 @@ class _DayHeader extends StatelessWidget {
     this.drafts = const {},
     this.dirty = false,
     this.loading = false,
+    this.onPrint,
+    this.printing = false,
   });
 
   final AttendanceDay day;
@@ -676,6 +687,10 @@ class _DayHeader extends StatelessWidget {
   final AppLanguage language;
   final void Function(String crewId, String date) onOpen;
   final VoidCallback? onChangePlace;
+
+  /// Prints the saved day; null hides Print (nothing saved yet).
+  final VoidCallback? onPrint;
+  final bool printing;
 
   @override
   Widget build(BuildContext context) {
@@ -697,10 +712,32 @@ class _DayHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _PlaceButton(
-                  name: placeName,
-                  language: language,
-                  onTap: onChangePlace,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PlaceButton(
+                        name: placeName,
+                        language: language,
+                        onTap: onChangePlace,
+                      ),
+                    ),
+                    if (onPrint != null) ...[
+                      const SizedBox(width: 8),
+                      AccountsV2Button(
+                        key: const ValueKey('attendance-day-print'),
+                        // Phones keep the place's name: the icon alone.
+                        label: phone ? '' : AS.t(AS.print, language),
+                        icon: printing ? 'clock' : 'print',
+                        size: AccountsV2ButtonSize.small,
+                        // Unsaved changes are not on the server: save first.
+                        tooltip: AS.t(
+                          dirty ? AS.printSaveFirst : AS.printDay,
+                          language,
+                        ),
+                        onPressed: dirty || printing ? null : onPrint,
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 10),
                 AttendanceDayStrip(
@@ -1784,7 +1821,7 @@ class _WorkerCard extends StatelessWidget {
           ].where((part) => part.isNotEmpty).join(' · '),
           style: v2Style(11.5, color: AccountsV2Colors.mut),
         ),
-        if (showBuilding)
+        if (showBuilding && attendanceAsksBuilding(row, day.crew, language))
           AttendanceBuildingChip(
             key: ValueKey('attendance-row-building-$id'),
             label: attendanceRowBuilding(row, day.crew, language),

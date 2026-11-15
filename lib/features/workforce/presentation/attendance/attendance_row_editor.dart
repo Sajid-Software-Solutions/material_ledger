@@ -2,6 +2,8 @@
 /// a dialog on desktop) and the desktop day grid.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -662,6 +664,30 @@ class AttendanceGrid extends ConsumerWidget {
   /// At a project place: the Building column, changed by tapping.
   final ValueChanged<AttendanceRow>? onPickBuilding;
 
+  // The fixed columns. The worker column takes the rest, so a whole row
+  // fits a 1366px laptop beside the sidebar; narrower, the grid scrolls.
+  static const double _pad = 14;
+  static const double _status = 136;
+  static const double _time = 66;
+  static const double _hours = 48;
+  static const double _overtime = 60;
+  static const double _gap = 8;
+  static const double _place = 150;
+
+  /// Edit and remove, 48px each: a tap target on a tablet too.
+  static const double _action = 48;
+  static const double _actions = _action * 2;
+  static const double _workerMin = 160;
+  static const double _fixed =
+      _pad * 2 +
+      _status +
+      _time * 4 +
+      _hours +
+      _overtime * 2 +
+      _gap +
+      _place +
+      _actions;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final day = state.day!;
@@ -680,59 +706,80 @@ class AttendanceGrid extends ConsumerWidget {
       ),
     );
     return AccountsV2Panel(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 1040),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                color: AccountsV2Colors.tableHead,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    head(AS.t(AS.colWorker, language), 230),
-                    head(AS.t(AS.colStatus, language), 150),
-                    head(AS.t(AS.colIn, language), 78),
-                    head(AS.t(AS.colBreak, language), 78),
-                    head(AS.t(AS.colBack, language), 78),
-                    head(AS.t(AS.colOut, language), 78),
-                    head(AS.t(AS.colHours, language), 60, end: true),
-                    head(AS.t(AS.colOtNormalShort, language), 74, end: true),
-                    head(AS.t(AS.colOtHolidayShort, language), 74, end: true),
-                    const SizedBox(width: 12),
-                    head(
-                      onPickBuilding == null
-                          ? AS.t(AS.colProject, language)
-                          : AS.t(AS.colBuilding, language),
-                      170,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = math.max(constraints.maxWidth, _fixed + _workerMin);
+          final worker = width - _fixed;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: width,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    color: AccountsV2Colors.tableHead,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _pad,
+                      vertical: 10,
                     ),
-                  ],
-                ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        head(AS.t(AS.colWorker, language), worker),
+                        head(AS.t(AS.colStatus, language), _status),
+                        head(AS.t(AS.colIn, language), _time),
+                        head(AS.t(AS.colBreak, language), _time),
+                        head(AS.t(AS.colBack, language), _time),
+                        head(AS.t(AS.colOut, language), _time),
+                        head(AS.t(AS.colHours, language), _hours, end: true),
+                        head(
+                          AS.t(AS.colOtNormalShort, language),
+                          _overtime,
+                          end: true,
+                        ),
+                        head(
+                          AS.t(AS.colOtHolidayShort, language),
+                          _overtime,
+                          end: true,
+                        ),
+                        const SizedBox(width: _gap),
+                        head(
+                          onPickBuilding == null
+                              ? AS.t(AS.colProject, language)
+                              : AS.t(AS.colBuilding, language),
+                          _place,
+                        ),
+                        const SizedBox(width: _actions),
+                      ],
+                    ),
+                  ),
+                  for (var i = 0; i < state.rows.length; i++)
+                    _GridRow(
+                      key: ValueKey(
+                        'attendance-grid-${state.rows[i].worker.id}',
+                      ),
+                      row: state.rows[i],
+                      day: day,
+                      language: language,
+                      workerWidth: worker,
+                      onChanged: (row) => controller.setRow(row.worker.id, row),
+                      presentOnShift: controller.presentOnShift,
+                      onOpenEditor: () => onOpenEditor(i),
+                      onPickBuilding: onPickBuilding == null
+                          ? null
+                          : () => onPickBuilding!(state.rows[i]),
+                      onRemove: state.rows[i].isMember
+                          ? null
+                          : () => controller.removeDayOnly(
+                              state.rows[i].worker.id,
+                            ),
+                    ),
+                ],
               ),
-              for (var i = 0; i < state.rows.length; i++)
-                _GridRow(
-                  key: ValueKey('attendance-grid-${state.rows[i].worker.id}'),
-                  row: state.rows[i],
-                  day: day,
-                  language: language,
-                  onChanged: (row) => controller.setRow(row.worker.id, row),
-                  presentOnShift: controller.presentOnShift,
-                  onOpenEditor: () => onOpenEditor(i),
-                  onPickBuilding: onPickBuilding == null
-                      ? null
-                      : () => onPickBuilding!(state.rows[i]),
-                  onRemove: state.rows[i].isMember
-                      ? null
-                      : () => controller.removeDayOnly(state.rows[i].worker.id),
-                ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -747,6 +794,7 @@ class _GridRow extends StatefulWidget {
     required this.onChanged,
     required this.presentOnShift,
     required this.onOpenEditor,
+    required this.workerWidth,
     this.onRemove,
     this.onPickBuilding,
   });
@@ -754,6 +802,9 @@ class _GridRow extends StatefulWidget {
   final AttendanceRow row;
   final AttendanceDay day;
   final AppLanguage language;
+
+  /// The worker column's share of the grid's width.
+  final double workerWidth;
   final ValueChanged<AttendanceRow> onChanged;
   final AttendanceRow Function(AttendanceRow row) presentOnShift;
   final VoidCallback onOpenEditor;
@@ -868,7 +919,7 @@ class _GridRowState extends State<_GridRow> {
     ];
 
     Widget time(TextEditingController controller, String key) => SizedBox(
-      width: 78,
+      width: AttendanceGrid._time,
       child: Padding(
         padding: const EdgeInsetsDirectional.only(end: 6),
         child: Focus(
@@ -900,7 +951,7 @@ class _GridRowState extends State<_GridRow> {
     );
 
     Widget number(int value, Color color) => SizedBox(
-      width: present ? (value == 0 ? 74 : 74) : 74,
+      width: AttendanceGrid._overtime,
       child: Text(
         present && minutes.timeMissing ? '?' : formatAttendanceHours(value),
         textAlign: TextAlign.end,
@@ -914,7 +965,10 @@ class _GridRowState extends State<_GridRow> {
     );
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AttendanceGrid._pad,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: row.copied
             ? AccountsV2Colors.pri50.withValues(alpha: 0.45)
@@ -924,7 +978,7 @@ class _GridRowState extends State<_GridRow> {
       child: Row(
         children: [
           SizedBox(
-            width: 230,
+            width: widget.workerWidth,
             child: Row(
               children: [
                 AttendanceAvatar(initials: row.worker.initials, size: 30),
@@ -1002,7 +1056,7 @@ class _GridRowState extends State<_GridRow> {
             ),
           ),
           SizedBox(
-            width: 150,
+            width: AttendanceGrid._status,
             child: Padding(
               padding: const EdgeInsetsDirectional.only(end: 8),
               child: DropdownButtonFormField<AttendanceStatus?>(
@@ -1050,7 +1104,7 @@ class _GridRowState extends State<_GridRow> {
           time(_back, 'attendance-grid-back'),
           time(_out, 'attendance-grid-out'),
           SizedBox(
-            width: 60,
+            width: AttendanceGrid._hours,
             child: Text(
               present && minutes.timeMissing
                   ? '?'
@@ -1061,23 +1115,27 @@ class _GridRowState extends State<_GridRow> {
           ),
           number(minutes.normalOvertime, AccountsV2Colors.warn),
           number(minutes.holidayOvertime, AccountsV2Colors.vio),
-          const SizedBox(width: 12),
+          const SizedBox(width: AttendanceGrid._gap),
           if (widget.onPickBuilding != null)
             SizedBox(
-              width: 170,
+              width: AttendanceGrid._place,
               child: Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: AttendanceBuildingChip(
-                  key: ValueKey('attendance-grid-building-${row.worker.id}'),
-                  label: attendanceRowBuilding(row, day.crew, language),
-                  language: language,
-                  onTap: widget.onPickBuilding,
-                ),
+                child: attendanceAsksBuilding(row, day.crew, language)
+                    ? AttendanceBuildingChip(
+                        key: ValueKey(
+                          'attendance-grid-building-${row.worker.id}',
+                        ),
+                        label: attendanceRowBuilding(row, day.crew, language),
+                        language: language,
+                        onTap: widget.onPickBuilding,
+                      )
+                    : const SizedBox.shrink(),
               ),
             )
           else
             SizedBox(
-              width: 170,
+              width: AttendanceGrid._place,
               child: Focus(
                 onFocusChange: (focused) {
                   if (!focused) _commitProject();
@@ -1100,19 +1158,29 @@ class _GridRowState extends State<_GridRow> {
                 ),
               ),
             ),
-          IconButton(
-            tooltip: AS.t(AS.editCrew, language),
-            onPressed: widget.onOpenEditor,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          ),
-          if (widget.onRemove != null)
-            IconButton(
-              tooltip: AS.t(AS.remove, language),
-              onPressed: widget.onRemove,
-              icon: const Icon(Icons.close_rounded, size: 18),
+          SizedBox(
+            width: AttendanceGrid._action,
+            child: IconButton(
+              tooltip: AS.t(AS.editCrew, language),
+              onPressed: widget.onOpenEditor,
+              icon: const Icon(Icons.edit_outlined, size: 18),
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
+          ),
+          SizedBox(
+            width: AttendanceGrid._action,
+            child: widget.onRemove == null
+                ? null
+                : IconButton(
+                    tooltip: AS.t(AS.remove, language),
+                    onPressed: widget.onRemove,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                  ),
+          ),
         ],
       ),
     );

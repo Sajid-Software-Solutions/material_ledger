@@ -69,6 +69,11 @@ class _AttendanceConfirmScreenState
               item,
         ];
         final lastDay = crews.isEmpty ? null : crews.first.month.lastDay;
+        // HR/PRO watches every month and reopens a confirmed one, but
+        // confirms none (PRODUCT_DECISIONS sections 46 and 58).
+        final watching =
+            !data.crews.any((c) => c.crew.access.confirm) &&
+            data.crews.any((c) => c.crew.access.officer);
         final current = attendanceMonthOf(data.today);
         final months = [
           for (var i = 0; i < 3; i++)
@@ -84,7 +89,10 @@ class _AttendanceConfirmScreenState
         return AttendancePage(
           language: language,
           title: AS.t(AS.monthConfirmation, language),
-          subtitle: AS.t(AS.confirmIntro, language),
+          subtitle: AS.t(
+            watching ? AS.confirmIntroWatch : AS.confirmIntro,
+            language,
+          ),
           onRefresh: () async =>
               ref.invalidate(yorksAttendanceOverviewProvider(_month)),
           actions: [
@@ -116,7 +124,10 @@ class _AttendanceConfirmScreenState
                 child: AccountsV2Empty(
                   icon: 'shield',
                   title: AS.t(AS.monthConfirmation, language),
-                  body: AS.t(AS.noReviewCrews, language),
+                  body: AS.t(
+                    watching ? AS.noReviewCrewsWatch : AS.noReviewCrews,
+                    language,
+                  ),
                 ),
               ),
             for (final item in crews)
@@ -220,7 +231,7 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
   /// The crew, month and totals the confirmer is about to lock.
   String get _summary {
     final month = widget.month;
-    return '${widget.crew.name} · ${attendanceMonthYear(month.month)} · '
+    return '${widget.crew.label} · ${attendanceMonthYear(month.month)} · '
         '${AS.t(AS.daysOf, _language, {'a': month.daysEntered, 'b': month.workDaysSoFar})} '
         '${AS.t(AS.daysEnteredLabel, _language)} · '
         '${AS.t(AS.otHours, _language, {'h': formatAttendanceHours(month.normalOvertimeMinutes, zeroAsDash: true)})} · '
@@ -237,7 +248,7 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
       summary: _summary,
       body: AS.t(AS.confirmMonthQuestion, language, {
         'month': monthName,
-        'crew': widget.crew.name,
+        'crew': widget.crew.label,
       }),
       confirmLabel: AS.t(AS.confirmMonthButton, language, {'month': monthName}),
       command: (_) => _command(
@@ -253,7 +264,7 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
     if (done == null || !mounted) return;
     _finished(
       AS.t(AS.confirmedToast, language, {
-        'crew': widget.crew.name,
+        'crew': widget.crew.label,
         'month': monthName,
       }),
     );
@@ -269,7 +280,7 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
       summary: _summary,
       body: AS.t(AS.reopenQuestion, language, {
         'month': monthName,
-        'crew': widget.crew.name,
+        'crew': widget.crew.label,
       }),
       fieldLabel: AS.t(AS.reasonLabel, language),
       confirmLabel: AS.t(AS.reopen, language),
@@ -332,9 +343,12 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
         });
       }
       if (beforeEnd) {
-        return AS.t(AS.opensOn, language, {
-          'date': attendanceShortDate(month.lastDay),
-        });
+        // Only a confirmer is notified; anyone else is told who is.
+        return AS.t(
+          crew.access.confirm ? AS.opensOn : AS.kpiNotified,
+          language,
+          {'date': attendanceShortDate(month.lastDay)},
+        );
       }
       if (missingNow.isNotEmpty) {
         return AS.t(AS.daysMissingList, language, {
@@ -342,7 +356,10 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
           'list': missingNow.map(attendanceShortDate).join(', '),
         });
       }
-      return AS.t(AS.allEnteredLocks, language);
+      return AS.t(
+        crew.access.confirm ? AS.allEnteredLocks : AS.waitingForReviewer,
+        language,
+      );
     }
 
     return AccountsV2Panel(
@@ -350,9 +367,9 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AccountsV2CardHead(
-            title: '${crew.name} · ${attendanceMonthYear(month.month)}',
+            title: '${crew.label} · ${attendanceMonthYear(month.month)}',
             icon: 'shield',
-            subtitle: crew.workLabel,
+            subtitle: crew.detail,
             actions: [AccountsV2Chip(chip.text, tone: chip.tone)],
           ),
           Padding(
@@ -373,24 +390,28 @@ class _CrewMonthCardState extends ConsumerState<_CrewMonthCard> {
           Padding(
             padding: const EdgeInsets.all(18),
             child: AccountsV2Grid(
-              columns: AccountsV2Breakpoints.isPhone(context) ? 2 : 4,
+              columns: AccountsV2Breakpoints.isPhone(context)
+                  ? 2
+                  : (crew.isPlace ? 3 : 4),
               children: [
                 AccountsV2MiniStat(
-                  label: AS.t(AS.daysEnteredLabel, language),
+                  label: AS.t(AS.colDaysEntered, language),
                   value: AS.t(AS.daysOf, language, {
                     'a': month.daysEntered,
                     'b': month.workDaysSoFar,
                   }),
                   caption: '',
                 ),
-                AccountsV2MiniStat(
-                  label: AS.t(AS.notEnteredLabel, language),
-                  value: '${missingNow.length}',
-                  caption: '',
-                  tone: missingNow.isEmpty
-                      ? AccountsV2ValueTone.ok
-                      : AccountsV2ValueTone.bad,
-                ),
+                // A place has no missing days (PRODUCT_DECISIONS section 51).
+                if (!crew.isPlace)
+                  AccountsV2MiniStat(
+                    label: AS.t(AS.dayNone, language),
+                    value: '${missingNow.length}',
+                    caption: '',
+                    tone: missingNow.isEmpty
+                        ? AccountsV2ValueTone.ok
+                        : AccountsV2ValueTone.bad,
+                  ),
                 AccountsV2MiniStat(
                   label: AS.t(AS.colOtNormal, language),
                   value: formatAttendanceHours(
