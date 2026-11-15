@@ -121,6 +121,23 @@ carries `basis_kind`, which the constraint requires).
   (`lib/features/projects/presentation/widgets/yorks_v1_boq_contract_status_view.dart`):
   a full-width table on desktop, one card per line at 360px. Editing stays on
   the Sheet.
+- Links both ways. Each building's sheet under Accounts › Materials has
+  "Open Progress & claims" (that building and stage) and, when the viewer may
+  read the BOQ and is not the Accountant, "Open BOQ sheet" (the folder holding
+  most of the building's tied rows). The BOQ status has "Open in Accounts"
+  when the server sent Accounts quantities (`can_view_progress`); it opens
+  `/yorks/projects/:projectId/accounts/materials?building=<scope id>`
+  (`RoutePaths.yorksV1ProjectAccountsMaterialsPath`). Every link is a
+  convenience: the target route and its reads check access again.
+- On the status view the sheet-only actions (Add material, Import, Save)
+  are hidden unless edits are pending; phones show the request button in Add
+  material's place. Nothing requested or on site reads "—"; people who may
+  see values get a total row; a lump-sum line's On site reads as a share.
+- A tied row whose sheet quantity or unit differs from its contract line is
+  flagged with the contract's ("The contract says 55 Nos"). Units compare as
+  `v1_accounts_unit_key` does (Nos = No. = pcs; Lot = LS) and quantities as
+  `v1_accounts_boq_number` (thousands commas allowed). Procurement, who
+  cannot read the contract's quantities, gets no comparison.
 
 ## Rollout
 

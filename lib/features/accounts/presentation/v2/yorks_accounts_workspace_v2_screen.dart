@@ -18,18 +18,24 @@ import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../app/router.dart' show RoutePaths;
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
+import '../../../../shared/models/yorks_v1_permission_management.dart'
+    show YorksV1CapabilityKeys;
+import '../../../../shared/models/yorks_v1_role.dart';
 import '../../../../shared/providers/language_provider.dart';
 import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_repository_provider.dart';
+import '../../../../shared/providers/yorks_v1_identity_provider.dart';
+import '../../../../shared/providers/yorks_v1_permission_provider.dart';
 import '../../application/accounts_controller.dart'
     show YorksAccountsViewStatus;
 import '../../application/accounts_records_providers.dart';
@@ -143,10 +149,14 @@ class YorksAccountsWorkspaceV2Screen extends ConsumerStatefulWidget {
     super.key,
     required this.projectId,
     this.initialTab = YorksAccountsWorkspaceV2Tab.summary,
+    this.initialMaterialsBuildingId,
   });
 
   final String projectId;
   final YorksAccountsWorkspaceV2Tab initialTab;
+
+  /// The building Materials opens on (from a BOQ sheet's "Open in Accounts").
+  final String? initialMaterialsBuildingId;
 
   @override
   ConsumerState<YorksAccountsWorkspaceV2Screen> createState() =>
@@ -172,9 +182,13 @@ class _YorksAccountsWorkspaceV2ScreenState
   String? _focusBillId;
   bool _focusRevise = false;
 
-  /// A building and stage the Overview asked the claims tab to open.
+  /// A building and stage the Overview or Materials asked the claims tab to
+  /// open.
   String? _focusBuildingId;
   String? _focusStageKey;
+
+  /// The building a deep link asked Materials to open (until it is left).
+  late String? _materialsFocus = widget.initialMaterialsBuildingId;
 
   void _select(YorksAccountsWorkspaceV2Tab tab) {
     if (tab == _tab) return;
@@ -198,6 +212,13 @@ class _YorksAccountsWorkspaceV2ScreenState
         accountsV2Text(ref.read(languageProvider), keptKey),
       );
     }
+    // A building a link asked a tab to open holds until that tab is left, so
+    // it survives the tab's first load.
+    if (_tab == YorksAccountsWorkspaceV2Tab.claims) {
+      _focusBuildingId = null;
+      _focusStageKey = null;
+    }
+    if (_tab == YorksAccountsWorkspaceV2Tab.materials) _materialsFocus = null;
     setState(() => _tab = tab);
     _refreshTab(tab);
     _rememberTab(tab);
@@ -456,21 +477,23 @@ class _YorksAccountsWorkspaceV2ScreenState
           tabKey: _contractKey,
         );
       case YorksAccountsWorkspaceV2Tab.materials:
+        // A BOQ sheet's "Open in Accounts" opens its building.
         return _MaterialsBody(
           projectId: widget.projectId,
           language: language,
-          onOpenClaims: () => _select(YorksAccountsWorkspaceV2Tab.claims),
+          initialBuildingId: _materialsFocus,
+          onOpenClaims: (buildingScopeId, stageKey) {
+            _focusBuildingId = buildingScopeId;
+            _focusStageKey = stageKey;
+            _select(YorksAccountsWorkspaceV2Tab.claims);
+          },
         );
       case YorksAccountsWorkspaceV2Tab.claims:
-        final building = _focusBuildingId;
-        final stage = _focusStageKey;
-        _focusBuildingId = null;
-        _focusStageKey = null;
         return _ClaimsBody(
           projectId: widget.projectId,
           language: language,
-          focusBuildingId: building,
-          focusStageKey: stage,
+          focusBuildingId: _focusBuildingId,
+          focusStageKey: _focusStageKey,
           onOpenContract: () => _select(YorksAccountsWorkspaceV2Tab.contract),
           onOpenInvoice: (invoiceId, {bool revise = false}) {
             _focusInvoiceId = invoiceId;
@@ -1467,12 +1490,14 @@ class _MaterialsBody extends ConsumerWidget {
   const _MaterialsBody({
     required this.projectId,
     required this.language,
+    this.initialBuildingId,
     this.onOpenClaims,
   });
 
   final String projectId;
   final AppLanguage language;
-  final VoidCallback? onOpenClaims;
+  final String? initialBuildingId;
+  final AccountsV2OpenClaims? onOpenClaims;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1482,6 +1507,19 @@ class _MaterialsBody extends ConsumerWidget {
     final controller = ref.read(
       yorksAccountsMaterialRegisterControllerProvider(projectId).notifier,
     );
+    // The BOQ link is a convenience only: the BOQ route and its reads check
+    // access again. An Accountant never reads the BOQ.
+    final role = ref.watch(yorksV1CurrentRoleProvider);
+    final canOpenBoq =
+        ref.watch(yorksV1FeatureFlagsProvider.select((f) => f.boq)) &&
+        role != YorksV1Role.accountant &&
+        ref
+            .watch(yorksV1CurrentPermissionSnapshotProvider)
+            .hybridAllows(
+              YorksV1CapabilityKeys.boqView,
+              legacyAllowed: role != null,
+              projectId: projectId,
+            );
     final register = state.valueOrNull;
     if (state.isLoading && register == null) return const _Loading();
     if (state.hasError && register == null) {
@@ -1499,7 +1537,13 @@ class _MaterialsBody extends ConsumerWidget {
         AccountsV2MaterialsTab(
           register: register!,
           language: language,
+          initialBuildingScopeId: initialBuildingId,
           onOpenClaims: onOpenClaims,
+          onOpenBoqSheet: canOpenBoq
+              ? (groupId) => context.push(
+                  RoutePaths.yorksV1BoqWorksheetPath(projectId, groupId),
+                )
+              : null,
         ),
       ],
     );

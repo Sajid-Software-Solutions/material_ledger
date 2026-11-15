@@ -2941,6 +2941,25 @@ answer. The design, server contract and rollout are in
   YRA-322 is loaded, and the production web is built with
   `YORKS_V1_CONTRACT_MATERIALS=true` beside the other module flags. Evidence
   is in [`CONTRACT_MATERIALS.md`](CONTRACT_MATERIALS.md).
+- **Refined the same day** (owner: make it easy to work, remove anything
+  unnecessary). Screens only; no server, data or permission change:
+  - Each building's sheet under Accounts › Materials opens Progress & claims
+    on that building and stage and, for someone who may read the BOQ (never
+    the Accountant), that building's Contract Materials sheet. The BOQ
+    Contract status offers "Open in Accounts" to whoever may read the
+    project's Accounts and lands on the same building.
+  - While the read-only Contract status shows, the sheet-only actions (Add
+    material, Import, Save) stay out of the way unless edits are pending;
+    the request button stays.
+  - Shorter notes; "—" rather than 0 for nothing requested or on site; a
+    total row for people who may see values; a lump-sum line's On site reads
+    as a share (62%), as its delivery does.
+  - A sheet row whose quantity or unit no longer matches its contract line
+    says so ("The contract says 55 Nos"). The usual spellings of one unit
+    compare equal, as on the server.
+  - A building or stage that a link asks a tab to open now holds through the
+    tab's first load. Before, it was lost whenever the tab still had to load,
+    including the Overview's link into Progress & claims.
 
 ## Procurement preparation refinement — October 2026
 
