@@ -2521,7 +2521,8 @@ scans, so nothing was uploaded from it. Design:
   built with `YORKS_V1_WORKFORCE_CENTER=false`, so the Center tab, the crew
   request pages and the HR/PRO overview's crew request list are not shown.
   Nothing is deleted; turning the flag on again brings them back with their
-  history.
+  history. *Superseded by section 60: the Workforce Center is on in
+  production again from 15 November 2026.*
 - Crew setup is hidden: the Crews tab is gone and its link opens Take
   attendance. A labourer can work on several projects in a day and on a
   different project the next, so keeping crew members up to date would be a
@@ -2803,7 +2804,8 @@ owner approved the proposal with these answers:
   on and showed it until rebuilt. With the Center on (section 38), each role
   keeps its first screen; a link to a Center view always opens it; the Site
   Engineer's Attendance screen has Crew requests and Request crew buttons;
-  the Workshop In-Charge has a Center tab after the Workshop.
+  the Workshop In-Charge has a Center tab after the Workshop. *Production
+  turned it on on 15 November 2026 (section 60).*
 
 Unchanged: Site and Project Engineers keep attendance on projects they are
 on, who confirms and reopens a month, hours, the month lock and staff never
@@ -2855,6 +2857,28 @@ there is no database change.
 
 Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 Print the day and one name for a place.
+
+## 60. The Workforce Center is on in production (owner request, 15 November 2026)
+
+The owner asked to "turn on the Workforce Center in production". Production
+web is now built with `YORKS_V1_WORKFORCE_CENTER=true` beside the other
+module flags (Accounts workspace V2, Role overview V2, Worker records,
+Attendance V2, People records, Company documents). This supersedes the crew
+request bullet of section 50.
+
+- **Crew requests are back** (sections 38, 40 and 41) with the history kept
+  while they were hidden. Workforce shows the Center's My work, Crew requests
+  and Sites (Places for the office) views. The HR/PRO overview lists crew
+  requests again. Each role still lands on its first screen of section 58:
+  the Site Engineer's Attendance screen gains Crew requests and Request crew,
+  and the Workshop In-Charge gets a Center tab after the Workshop.
+- **Crew setup stays hidden** (section 50). The Center's third view is the
+  places table, not crew setup; attendance is still taken by adding the
+  labourers present at a place (section 51).
+- **No server change.** Every crew request, attendance and notification
+  function in production matched `main` before the release; only the web
+  build changed. Turning the flag off again in a later build hides the
+  Center as before and deletes nothing.
 
 ## Procurement preparation refinement — October 2026
 
