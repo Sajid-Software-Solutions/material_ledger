@@ -10,6 +10,7 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_boq_screens.dart';
 import 'package:material_ledger/shared/models/app_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq.dart';
+import 'package:material_ledger/shared/models/yorks_v1_boq_contract_status.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_workbook.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
@@ -884,6 +885,70 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  group('contract materials (section 61)', () {
+    final status = YorksV1BoqContractStatus.fromJson(const {
+      'group_id': _groupId,
+      'can_view_progress': true,
+      'can_view_values': false,
+      'rows': [
+        {
+          'boq_row_id': 'row-1',
+          'project_scope_id': 'scope',
+          'item_key': '1',
+          'requested_qty': '4',
+          'received_qty': '2',
+          'deliveries': 1,
+          'stages': [
+            {
+              'stage_key': 'material_supply',
+              'stage_label': 'Material Supply',
+              'quantity': '4',
+              'unit_code': 'Nos',
+              'confirmed_qty': '2',
+            },
+          ],
+        },
+      ],
+    });
+
+    testWidgets('a folder with contract lines opens on its status', (
+      tester,
+    ) async {
+      await _setViewport(tester, const Size(1366, 900));
+      await _pumpWorksheet(
+        tester,
+        overrides: [
+          yorksV1BoqContractStatusProvider(
+            _groupId,
+          ).overrideWith((ref) async => status),
+        ],
+      );
+      expect(
+        find.byKey(const ValueKey('boq-contract-view-toggle')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('boq-contract-status')), findsOneWidget);
+      expect(find.text('Delivered 2 of 4'), findsOneWidget);
+
+      await tester.tap(find.text(YorksV1BoqStrings.contractSheet.primary));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('boq-contract-status')), findsNothing);
+      expect(find.byType(YorksV1BoqSpreadsheet), findsOneWidget);
+    });
+
+    testWidgets('a folder without contract lines keeps only the sheet', (
+      tester,
+    ) async {
+      await _setViewport(tester, const Size(1366, 900));
+      await _pumpWorksheet(tester);
+      expect(
+        find.byKey(const ValueKey('boq-contract-view-toggle')),
+        findsNothing,
+      );
+      expect(find.byType(YorksV1BoqSpreadsheet), findsOneWidget);
+    });
+  });
 }
 
 Future<_BoqHarness> _pumpGroups(
@@ -947,6 +1012,7 @@ Future<_BoqHarness> _pumpWorksheet(
   _FixtureBoqRepository? repository,
   bool canManageCommercials = false,
   YorksV1BoqWorksheet? importWorksheet,
+  List<Override> overrides = const [],
 }) async {
   final effectiveRepository =
       repository ??
@@ -977,6 +1043,7 @@ Future<_BoqHarness> _pumpWorksheet(
       canManageCommercialsProvider.overrideWithValue(canManageCommercials),
       yorksV1BoqRepositoryProvider.overrideWithValue(effectiveRepository),
       yorksV1BoqWorkbookFileServiceProvider.overrideWithValue(fileService),
+      ...overrides,
     ],
   );
   addTearDown(container.dispose);

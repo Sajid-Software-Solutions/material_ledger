@@ -34,6 +34,7 @@ import '../../../../shared/services/yorks_v1_boq_workbook_service.dart';
 import '../../../../shared/services/yorks_v1_boq_document_service.dart';
 import '../../../../shared/services/analytics_service.dart';
 import '../../../materials/presentation/yorks_v1_feature_action_access.dart';
+import '../widgets/yorks_v1_boq_contract_status_view.dart';
 
 /// Ordered BOQ folder view for the normalized R35 project workspace.
 ///
@@ -4484,6 +4485,10 @@ void _invalidateFolderManagement(
   );
 }
 
+/// Whether a folder with contract lines shows its status (true) or the sheet.
+final _boqContractStatusShownProvider = StateProvider.autoDispose
+    .family<bool, String>((ref, groupId) => true);
+
 class _WorksheetBody extends ConsumerWidget {
   const _WorksheetBody({
     required this.state,
@@ -4533,6 +4538,14 @@ class _WorksheetBody extends ConsumerWidget {
     String columnWidthKey(String columnId) =>
         'yorks_v1_boq_column_width_v1:$ownerAuthUserId:${worksheet.group.id}:$columnId';
     final compact = YorksMobileUi.isActive(context);
+    // Rows tied to contract lines (section 61) get a read-only status view.
+    final contractStatus = ref
+        .watch(yorksV1BoqContractStatusProvider(worksheet.group.id))
+        .valueOrNull;
+    final hasContractStatus = contractStatus != null && !contractStatus.isEmpty;
+    final showContractStatus =
+        hasContractStatus &&
+        ref.watch(_boqContractStatusShownProvider(worksheet.group.id));
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -4594,6 +4607,28 @@ class _WorksheetBody extends ConsumerWidget {
             onOpenRequests: onOpenRequests,
           ),
           const SizedBox(height: AppSpacing.sm),
+          if (hasContractStatus) ...[
+            _ContractViewToggle(
+              language: language,
+              showStatus: showContractStatus,
+              onChanged: (status) {
+                ref
+                        .read(
+                          _boqContractStatusShownProvider(
+                            worksheet.group.id,
+                          ).notifier,
+                        )
+                        .state =
+                    status;
+                if (status) {
+                  ref.invalidate(
+                    yorksV1BoqContractStatusProvider(worksheet.group.id),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           if (!editable && !showEditActions)
             _ReadOnlyBanner(language: language),
           if (!editable && !showEditActions)
@@ -4603,74 +4638,125 @@ class _WorksheetBody extends ConsumerWidget {
           if (state.status == YorksV1BoqSyncStatus.conflict)
             const SizedBox(height: AppSpacing.md),
           Expanded(
-            child: YorksV1BoqSpreadsheet(
-              worksheet: worksheet,
-              editable: editable,
-              showEditActions: showEditActions,
-              canViewCommercials: canViewCommercials,
-              canManageCommercials: canManageCommercials,
-              canUndo: controller.canUndo,
-              canRedo: controller.canRedo,
-              initialColumnWidths: {
-                for (final column in worksheet.columns)
-                  if (!column.isCommercial &&
-                      preferences.getDouble(columnWidthKey(column.id)) != null)
-                    column.id: preferences.getDouble(
-                      columnWidthKey(column.id),
-                    )!,
-              },
-              onColumnWidthChanged: (columnId, width) {
-                final column = worksheet.columns
-                    .where((item) => item.id == columnId)
-                    .firstOrNull;
-                if (column == null || column.isCommercial) return;
-                preferences.setDouble(columnWidthKey(columnId), width);
-              },
-              onUndo: controller.undo,
-              onRedo: controller.redo,
-              mobileConflict: state.status == YorksV1BoqSyncStatus.conflict,
-              mobileLanguage: language,
-              onMobileRefresh: controller.load,
-              onSearchMaterials: scopeId == null
-                  ? null
-                  : (query, excludedRowId) async {
-                      final suggestions = await ref.read(
-                        yorksV1MaterialRequestInventorySearchProvider(
-                          YorksV1MaterialRequestInventorySearchKey(
-                            projectId: worksheet.group.projectId,
-                            scopeId: scopeId,
-                            query: query,
-                          ),
-                        ).future,
-                      );
-                      return suggestions
-                          .where(
-                            (suggestion) =>
-                                suggestion.sourceBoqRowId != excludedRowId,
-                          )
-                          .toList(growable: false);
+            child: showContractStatus
+                ? YorksV1BoqContractStatusView(
+                    worksheet: worksheet,
+                    status: contractStatus,
+                    language: language,
+                    compact: compact,
+                  )
+                : YorksV1BoqSpreadsheet(
+                    worksheet: worksheet,
+                    editable: editable,
+                    showEditActions: showEditActions,
+                    canViewCommercials: canViewCommercials,
+                    canManageCommercials: canManageCommercials,
+                    canUndo: controller.canUndo,
+                    canRedo: controller.canRedo,
+                    initialColumnWidths: {
+                      for (final column in worksheet.columns)
+                        if (!column.isCommercial &&
+                            preferences.getDouble(columnWidthKey(column.id)) !=
+                                null)
+                          column.id: preferences.getDouble(
+                            columnWidthKey(column.id),
+                          )!,
                     },
-              onApplyMaterialSuggestion: (rowId, suggestion) =>
-                  controller.updateMaterialCells(
-                    rowId: rowId,
-                    values: _boqMaterialValues(suggestion),
+                    onColumnWidthChanged: (columnId, width) {
+                      final column = worksheet.columns
+                          .where((item) => item.id == columnId)
+                          .firstOrNull;
+                      if (column == null || column.isCommercial) return;
+                      preferences.setDouble(columnWidthKey(columnId), width);
+                    },
+                    onUndo: controller.undo,
+                    onRedo: controller.redo,
+                    mobileConflict:
+                        state.status == YorksV1BoqSyncStatus.conflict,
+                    mobileLanguage: language,
+                    onMobileRefresh: controller.load,
+                    onSearchMaterials: scopeId == null
+                        ? null
+                        : (query, excludedRowId) async {
+                            final suggestions = await ref.read(
+                              yorksV1MaterialRequestInventorySearchProvider(
+                                YorksV1MaterialRequestInventorySearchKey(
+                                  projectId: worksheet.group.projectId,
+                                  scopeId: scopeId,
+                                  query: query,
+                                ),
+                              ).future,
+                            );
+                            return suggestions
+                                .where(
+                                  (suggestion) =>
+                                      suggestion.sourceBoqRowId !=
+                                      excludedRowId,
+                                )
+                                .toList(growable: false);
+                          },
+                    onApplyMaterialSuggestion: (rowId, suggestion) =>
+                        controller.updateMaterialCells(
+                          rowId: rowId,
+                          values: _boqMaterialValues(suggestion),
+                        ),
+                    onMaterialSuggestionSelected: (suggestion) {
+                      ref
+                          .read(analyticsServiceProvider)
+                          .recordMaterialSearchSelection();
+                    },
+                    onUpdateCell: controller.updateCell,
+                    onPasteCells: controller.pasteCells,
+                    onAddBlankRow: controller.addBlankRow,
+                    onAddSimilarRow: controller.addSimilarRow,
+                    onRemoveRow: controller.removeRow,
+                    onAddColumn: controller.addColumn,
+                    onRenameColumn: controller.renameColumn,
+                    onRemoveColumn: controller.removeColumn,
                   ),
-              onMaterialSuggestionSelected: (suggestion) {
-                ref
-                    .read(analyticsServiceProvider)
-                    .recordMaterialSearchSelection();
-              },
-              onUpdateCell: controller.updateCell,
-              onPasteCells: controller.pasteCells,
-              onAddBlankRow: controller.addBlankRow,
-              onAddSimilarRow: controller.addSimilarRow,
-              onRemoveRow: controller.removeRow,
-              onAddColumn: controller.addColumn,
-              onRenameColumn: controller.renameColumn,
-              onRemoveColumn: controller.removeColumn,
-            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Contract status or the editable sheet, for a folder with contract lines.
+class _ContractViewToggle extends StatelessWidget {
+  const _ContractViewToggle({
+    required this.language,
+    required this.showStatus,
+    required this.onChanged,
+  });
+
+  final AppLanguage language;
+  final bool showStatus;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: SegmentedButton<bool>(
+        key: const ValueKey('boq-contract-view-toggle'),
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          minimumSize: const Size(0, AppSpacing.minTapTarget),
+        ),
+        segments: [
+          ButtonSegment<bool>(
+            value: true,
+            icon: const Icon(Icons.fact_check_outlined, size: 18),
+            label: Text(YorksV1BoqStrings.contractStatus.active(language)),
+          ),
+          ButtonSegment<bool>(
+            value: false,
+            icon: const Icon(Icons.grid_on_outlined, size: 18),
+            label: Text(YorksV1BoqStrings.contractSheet.active(language)),
+          ),
+        ],
+        selected: {showStatus},
+        onSelectionChanged: (selection) => onChanged(selection.first),
       ),
     );
   }
