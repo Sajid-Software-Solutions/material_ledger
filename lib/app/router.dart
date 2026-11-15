@@ -188,6 +188,8 @@ abstract final class RoutePaths {
       '/yorks/projects/:projectId/accounts/overview';
   static const String yorksV1ProjectAccountsContract =
       '/yorks/projects/:projectId/accounts/contract';
+  static const String yorksV1ProjectAccountsMaterials =
+      '/yorks/projects/:projectId/accounts/materials';
   static const String yorksV1ProjectAccountsClaims =
       '/yorks/projects/:projectId/accounts/claims';
   static const String yorksV1ProjectAccountsHistory =
@@ -2044,6 +2046,16 @@ GoRouter createAppRouter({
       ),
       GoRoute(
         path: RoutePaths.yorksV1ProjectAccountsContract,
+        pageBuilder: (context, state) => _yorksV1Slide(
+          state.pageKey,
+          _ProjectAccountsRoute(
+            projectId: state.pathParameters['projectId'] ?? '',
+            path: state.uri.path,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.yorksV1ProjectAccountsMaterials,
         pageBuilder: (context, state) => _yorksV1Slide(
           state.pageKey,
           _ProjectAccountsRoute(

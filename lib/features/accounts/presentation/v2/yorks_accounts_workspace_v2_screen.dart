@@ -25,6 +25,7 @@ import '../../../../shared/models/app_language.dart';
 import '../../../../shared/models/yorks_v1_document.dart';
 import '../../../../shared/models/yorks_v1_domain_error.dart';
 import '../../../../shared/providers/language_provider.dart';
+import '../../../../shared/providers/yorks_v1_feature_flags_provider.dart';
 import '../../../../shared/providers/yorks_v1_boq_workbook_provider.dart';
 import '../../../../shared/providers/yorks_v1_document_file_service_provider.dart';
 import '../../../../shared/providers/yorks_v1_documents_provider.dart';
@@ -45,6 +46,7 @@ import 'accounts_v2_common.dart';
 import 'accounts_v2_contract_tab.dart';
 import 'accounts_v2_history_tab.dart';
 import 'accounts_v2_invoices_tab.dart';
+import 'accounts_v2_materials_tab.dart';
 import 'accounts_v2_pdc_register_card.dart';
 import 'accounts_v2_safety.dart';
 import 'accounts_v2_summary_tab.dart';
@@ -155,6 +157,16 @@ class _YorksAccountsWorkspaceV2ScreenState
     extends ConsumerState<YorksAccountsWorkspaceV2Screen> {
   late YorksAccountsWorkspaceV2Tab _tab = widget.initialTab;
 
+  @override
+  void initState() {
+    super.initState();
+    // A link to Materials opens Summary while contract materials are off.
+    if (_tab == YorksAccountsWorkspaceV2Tab.materials &&
+        !ref.read(yorksV1FeatureFlagsProvider).contractMaterials) {
+      _tab = YorksAccountsWorkspaceV2Tab.summary;
+    }
+  }
+
   /// A record the Overview asked to open: the tab opens it once, then clears it.
   String? _focusInvoiceId;
   String? _focusBillId;
@@ -216,6 +228,10 @@ class _YorksAccountsWorkspaceV2ScreenState
         final variations = yorksAccountsVariationsControllerProvider(id);
         refreshIfLoaded(variations.notifier, variations, (c) => c.refresh());
         refreshIfLoaded(materials.notifier, materials, (c) => c.refresh());
+      case YorksAccountsWorkspaceV2Tab.materials:
+        // Confirmations, invoices and deliveries all change the register.
+        final register = yorksAccountsMaterialRegisterControllerProvider(id);
+        refreshIfLoaded(register.notifier, register, (c) => c.refresh());
       case YorksAccountsWorkspaceV2Tab.claims:
         final workbench = yorksAccountsWorkbenchControllerProvider(id);
         refreshIfLoaded(workbench.notifier, workbench, (c) => c.refresh());
@@ -245,6 +261,7 @@ class _YorksAccountsWorkspaceV2ScreenState
     final segment = switch (tab) {
       YorksAccountsWorkspaceV2Tab.summary => 'overview',
       YorksAccountsWorkspaceV2Tab.contract => 'contract',
+      YorksAccountsWorkspaceV2Tab.materials => 'materials',
       YorksAccountsWorkspaceV2Tab.claims => 'claims',
       YorksAccountsWorkspaceV2Tab.invoices => 'client-invoices',
       YorksAccountsWorkspaceV2Tab.supplierBills => 'supplier-bills',
@@ -292,6 +309,7 @@ class _YorksAccountsWorkspaceV2ScreenState
             onPressed: () => _contractKey.currentState?.startImport(),
           ),
         ];
+      case YorksAccountsWorkspaceV2Tab.materials:
       case YorksAccountsWorkspaceV2Tab.claims:
       case YorksAccountsWorkspaceV2Tab.invoices:
       case YorksAccountsWorkspaceV2Tab.supplierBills:
@@ -367,6 +385,16 @@ class _YorksAccountsWorkspaceV2ScreenState
             children: [
               _SubBar(
                 selected: _tab,
+                tabs: [
+                  for (final tab in YorksAccountsWorkspaceV2Tab.values)
+                    if (tab != YorksAccountsWorkspaceV2Tab.materials ||
+                        ref.watch(
+                          yorksV1FeatureFlagsProvider.select(
+                            (flags) => flags.contractMaterials,
+                          ),
+                        ))
+                      tab,
+                ],
                 language: language,
                 badges: {
                   if (drafts.has(YorksAccountsDraftSection.contract))
@@ -427,6 +455,12 @@ class _YorksAccountsWorkspaceV2ScreenState
           language: language,
           tabKey: _contractKey,
         );
+      case YorksAccountsWorkspaceV2Tab.materials:
+        return _MaterialsBody(
+          projectId: widget.projectId,
+          language: language,
+          onOpenClaims: () => _select(YorksAccountsWorkspaceV2Tab.claims),
+        );
       case YorksAccountsWorkspaceV2Tab.claims:
         final building = _focusBuildingId;
         final stage = _focusStageKey;
@@ -483,6 +517,7 @@ class _YorksAccountsWorkspaceV2ScreenState
 String _tabIcon(YorksAccountsWorkspaceV2Tab tab) => switch (tab) {
   YorksAccountsWorkspaceV2Tab.summary => 'grid',
   YorksAccountsWorkspaceV2Tab.contract => 'doc',
+  YorksAccountsWorkspaceV2Tab.materials => 'box',
   YorksAccountsWorkspaceV2Tab.claims => 'chart',
   YorksAccountsWorkspaceV2Tab.invoices => 'receipt',
   YorksAccountsWorkspaceV2Tab.supplierBills => 'archive',
@@ -494,6 +529,7 @@ String _tabIcon(YorksAccountsWorkspaceV2Tab tab) => switch (tab) {
 class _SubBar extends StatelessWidget {
   const _SubBar({
     required this.selected,
+    required this.tabs,
     required this.language,
     required this.badges,
     required this.actions,
@@ -501,6 +537,9 @@ class _SubBar extends StatelessWidget {
   });
 
   final YorksAccountsWorkspaceV2Tab selected;
+
+  /// The tabs this build offers, in order.
+  final List<YorksAccountsWorkspaceV2Tab> tabs;
   final AppLanguage language;
 
   /// Badge text and whether it is a warning in red, per tab.
@@ -519,8 +558,7 @@ class _SubBar extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            for (final (i, tab)
-                in YorksAccountsWorkspaceV2Tab.values.indexed) ...[
+            for (final (i, tab) in this.tabs.indexed) ...[
               if (i > 0) const SizedBox(width: 4),
               _KeepInViewWhenSelected(
                 selected: tab == selected,
@@ -1419,6 +1457,49 @@ class _InvoicesBody extends ConsumerWidget {
           focusInvoiceId: focusInvoiceId,
           focusRevise: focusRevise,
           onFocusHandled: onFocusHandled,
+        ),
+      ],
+    );
+  }
+}
+
+class _MaterialsBody extends ConsumerWidget {
+  const _MaterialsBody({
+    required this.projectId,
+    required this.language,
+    this.onOpenClaims,
+  });
+
+  final String projectId;
+  final AppLanguage language;
+  final VoidCallback? onOpenClaims;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(
+      yorksAccountsMaterialRegisterControllerProvider(projectId),
+    );
+    final controller = ref.read(
+      yorksAccountsMaterialRegisterControllerProvider(projectId).notifier,
+    );
+    final register = state.valueOrNull;
+    if (state.isLoading && register == null) return const _Loading();
+    if (state.hasError && register == null) {
+      return _ErrorState(
+        language: language,
+        onRetry: controller.load,
+        error: state.error,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (state.hasError)
+          _ErrorBanner(language: language, onRetry: controller.load),
+        AccountsV2MaterialsTab(
+          register: register!,
+          language: language,
+          onOpenClaims: onOpenClaims,
         ),
       ],
     );

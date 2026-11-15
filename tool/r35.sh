@@ -47,6 +47,7 @@ operator_attendance_v2_flag="${YORKS_V1_WORKFORCE_ATTENDANCE_V2:-}"
 operator_workforce_center_flag="${YORKS_V1_WORKFORCE_CENTER:-}"
 operator_people_records_flag="${YORKS_V1_PEOPLE_RECORDS:-}"
 operator_company_documents_flag="${YORKS_V1_COMPANY_DOCUMENTS:-}"
+operator_contract_materials_flag="${YORKS_V1_CONTRACT_MATERIALS:-}"
 operator_analytics_flag="${YORKS_V1_ANALYTICS:-}"
 operator_posthog_enabled="${POSTHOG_ENABLED:-}"
 operator_posthog_project_token="${POSTHOG_PROJECT_TOKEN:-}"
@@ -87,6 +88,8 @@ workforce_center_flag="${operator_workforce_center_flag:-${YORKS_V1_WORKFORCE_CE
 # People records (staff, labour and their documents) is default-off.
 people_records_flag="${operator_people_records_flag:-${YORKS_V1_PEOPLE_RECORDS:-false}}"
 company_documents_flag="${operator_company_documents_flag:-${YORKS_V1_COMPANY_DOCUMENTS:-false}}"
+# Contract materials (Accounts › Materials and BOQ line status) is default-off.
+contract_materials_flag="${operator_contract_materials_flag:-${YORKS_V1_CONTRACT_MATERIALS:-false}}"
 analytics_flag="${operator_analytics_flag:-${YORKS_V1_ANALYTICS:-false}}"
 posthog_enabled="${operator_posthog_enabled:-${POSTHOG_ENABLED:-false}}"
 posthog_project_token="${operator_posthog_project_token:-${POSTHOG_PROJECT_TOKEN:-}}"
@@ -223,6 +226,13 @@ case "$company_documents_flag" in
     exit 64
     ;;
 esac
+case "$contract_materials_flag" in
+  true|false) ;;
+  *)
+    echo "YORKS_V1_CONTRACT_MATERIALS must be true or false." >&2
+    exit 64
+    ;;
+esac
 case "$analytics_flag" in
   true|false) ;;
   *)
@@ -344,6 +354,7 @@ r35_defines=(
   "--dart-define=YORKS_V1_WORKFORCE_CENTER=${workforce_center_flag}"
   "--dart-define=YORKS_V1_PEOPLE_RECORDS=${people_records_flag}"
   "--dart-define=YORKS_V1_COMPANY_DOCUMENTS=${company_documents_flag}"
+  "--dart-define=YORKS_V1_CONTRACT_MATERIALS=${contract_materials_flag}"
   "--dart-define=YORKS_V1_ANALYTICS=${analytics_flag}"
   "--dart-define=POSTHOG_ENABLED=${posthog_enabled}"
   "--dart-define=POSTHOG_PROJECT_TOKEN=${posthog_project_token}"
@@ -367,6 +378,7 @@ echo "Yorks Workforce attendance V2 rollout: ${attendance_v2_flag}" >&2
 echo "Yorks Workforce Center rollout: ${workforce_center_flag}" >&2
 echo "Yorks People records rollout: ${people_records_flag}" >&2
 echo "Yorks Company documents rollout: ${company_documents_flag}" >&2
+echo "Yorks Contract materials rollout: ${contract_materials_flag}" >&2
 echo "Yorks Analytics rollout: retired (requested ${analytics_flag})" >&2
 echo "Yorks PostHog telemetry: ${posthog_enabled}" >&2
 

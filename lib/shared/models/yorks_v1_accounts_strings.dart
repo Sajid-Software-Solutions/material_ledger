@@ -9387,6 +9387,259 @@ abstract final class YorksV1AccountsStrings {
       'ur': "محفوظ نہیں ہوا۔ وجہ اوپر دکھائی گئی ہے۔",
       'hi': "सहेजा नहीं गया। कारण ऊपर दिखाया गया है।",
     },
+    'v2_tab_materials': {
+      'en': "Materials",
+      'ar': "المواد",
+      'ur': "میٹریل",
+      'hi': "सामग्री",
+    },
+    'v2mat_all': {
+      'en': "All buildings",
+      'ar': "كل المباني",
+      'ur': "تمام عمارتیں",
+      'hi': "सभी भवन",
+    },
+    'v2mat_building': {
+      'en': "Building",
+      'ar': "المبنى",
+      'ur': "عمارت",
+      'hi': "भवन",
+    },
+    'v2mat_stage': {'en': "Stage", 'ar': "المرحلة", 'ur': "مرحلہ", 'hi': "चरण"},
+    'v2mat_ref': {'en': "Ref", 'ar': "المرجع", 'ur': "حوالہ", 'hi': "संदर्भ"},
+    'v2mat_description': {
+      'en': "Description",
+      'ar': "الوصف",
+      'ur': "تفصیل",
+      'hi': "विवरण",
+    },
+    'v2mat_qty': {'en': "Qty", 'ar': "الكمية", 'ur': "مقدار", 'hi': "मात्रा"},
+    'v2mat_unit': {'en': "Unit", 'ar': "الوحدة", 'ur': "یونٹ", 'hi': "इकाई"},
+    'v2mat_rate': {'en': "Rate", 'ar': "السعر", 'ur': "ریٹ", 'hi': "दर"},
+    'v2mat_amount': {'en': "Amount", 'ar': "المبلغ", 'ur': "رقم", 'hi': "राशि"},
+    'v2mat_delivered': {
+      'en': "Delivered",
+      'ar': "المورَّد",
+      'ur': "فراہم شدہ",
+      'hi': "आपूर्ति",
+    },
+    'v2mat_installed': {
+      'en': "Installed",
+      'ar': "المركَّب",
+      'ur': "نصب شدہ",
+      'hi': "स्थापित",
+    },
+    'v2mat_on_site': {
+      'en': "On site",
+      'ar': "في الموقع",
+      'ur': "سائٹ پر",
+      'hi': "साइट पर",
+    },
+    'v2mat_invoiced': {
+      'en': "Invoiced",
+      'ar': "المفوتر",
+      'ur': "انوائس شدہ",
+      'hi': "इनवॉइस किया",
+    },
+    'v2mat_state': {
+      'en': "State",
+      'ar': "الحالة",
+      'ur': "حالت",
+      'hi': "स्थिति",
+    },
+    'v2mat_total': {'en': "Total", 'ar': "الإجمالي", 'ur': "کل", 'hi': "कुल"},
+    'v2mat_of': {
+      'en': "{done} of {total}",
+      'ar': "{done} من {total}",
+      'ur': "{total} میں سے {done}",
+      'hi': "{total} में से {done}",
+    },
+    'v2mat_lines': {
+      'en': "{n} lines",
+      'ar': "{n} بنود",
+      'ur': "{n} لائنیں",
+      'hi': "{n} लाइनें",
+    },
+    'v2mat_line_one': {
+      'en': "1 line",
+      'ar': "بند واحد",
+      'ur': "1 لائن",
+      'hi': "1 लाइन",
+    },
+    'v2mat_not_delivered': {
+      'en': "Not delivered",
+      'ar': "لم يورَّد",
+      'ur': "فراہم نہیں ہوا",
+      'hi': "आपूर्ति नहीं",
+    },
+    'v2mat_part_delivered': {
+      'en': "Part delivered",
+      'ar': "ورِّد جزئياً",
+      'ur': "جزوی فراہم",
+      'hi': "आंशिक आपूर्ति",
+    },
+    'v2mat_delivered_state': {
+      'en': "Delivered",
+      'ar': "ورِّد بالكامل",
+      'ur': "مکمل فراہم",
+      'hi': "पूरी आपूर्ति",
+    },
+    'v2mat_not_started': {
+      'en': "Not started",
+      'ar': "لم يبدأ",
+      'ur': "شروع نہیں ہوا",
+      'hi': "शुरू नहीं",
+    },
+    'v2mat_installing': {
+      'en': "Installing",
+      'ar': "قيد التركيب",
+      'ur': "تنصیب جاری",
+      'hi': "स्थापना जारी",
+    },
+    'v2mat_installed_state': {
+      'en': "Installed",
+      'ar': "رُكِّب",
+      'ur': "نصب ہو گیا",
+      'hi': "स्थापित हुआ",
+    },
+    'v2mat_ready_to_invoice': {
+      'en': "Ready to invoice",
+      'ar': "جاهز للفوترة",
+      'ur': "انوائس کے لیے تیار",
+      'hi': "इनवॉइस के लिए तैयार",
+    },
+    'v2mat_over_invoiced': {
+      'en': "Invoiced above confirmed",
+      'ar': "مفوتر أكثر من المؤكد",
+      'ur': "تصدیق سے زیادہ انوائس",
+      'hi': "पुष्टि से अधिक इनवॉइस",
+    },
+    'v2mat_check_qty': {
+      'en': "Check quantity",
+      'ar': "راجع الكمية",
+      'ur': "مقدار چیک کریں",
+      'hi': "मात्रा जाँचें",
+    },
+    'v2mat_kpi_delivered': {
+      'en': "Delivered",
+      'ar': "المورَّد",
+      'ur': "فراہم شدہ",
+      'hi': "आपूर्ति",
+    },
+    'v2mat_kpi_installed': {
+      'en': "Installed",
+      'ar': "المركَّب",
+      'ur': "نصب شدہ",
+      'hi': "स्थापित",
+    },
+    'v2mat_kpi_invoiced': {
+      'en': "Invoiced",
+      'ar': "المفوتر",
+      'ur': "انوائس شدہ",
+      'hi': "इनवॉइस किया",
+    },
+    'v2mat_kpi_invoiced_none': {
+      'en': "Nothing invoiced yet",
+      'ar': "لم يُفوتر شيء بعد",
+      'ur': "ابھی کچھ انوائس نہیں ہوا",
+      'hi': "अभी कुछ इनवॉइस नहीं",
+    },
+    'v2mat_kpi_not_invoiced': {
+      'en': "Not yet invoiced",
+      'ar': "لم يُفوتر بعد",
+      'ur': "ابھی انوائس نہیں ہوا",
+      'hi': "अभी इनवॉइस नहीं",
+    },
+    'v2mat_kpi_next_claim': {
+      'en': "The next claim can bill it",
+      'ar': "يمكن فوترته في المطالبة التالية",
+      'ur': "اگلے کلیم میں بل ہو سکتا ہے",
+      'hi': "अगले क्लेम में बिल हो सकता है",
+    },
+    'v2mat_kpi_correction': {
+      'en': "Contract value correction",
+      'ar': "تصحيح قيمة العقد",
+      'ur': "کنٹریکٹ ویلیو کی درستگی",
+      'hi': "अनुबंध मूल्य सुधार",
+    },
+    'v2mat_kpi_all_invoiced': {
+      'en': "Everything done is invoiced",
+      'ar': "كل ما أُنجز مفوتر",
+      'ur': "جو ہو چکا سب انوائس ہو گیا",
+      'hi': "जो हो चुका सब इनवॉइस हो गया",
+    },
+    'v2mat_kpi_lines': {
+      'en': "Lines complete",
+      'ar': "البنود المكتملة",
+      'ur': "مکمل لائنیں",
+      'hi': "पूरी लाइनें",
+    },
+    'v2mat_kpi_lines_supply': {
+      'en': "{part} part delivered · {none} not delivered",
+      'ar': "{part} ورِّد جزئياً · {none} لم يورَّد",
+      'ur': "{part} جزوی فراہم · {none} فراہم نہیں",
+      'hi': "{part} आंशिक आपूर्ति · {none} आपूर्ति नहीं",
+    },
+    'v2mat_kpi_lines_install': {
+      'en': "{part} installing · {none} not started",
+      'ar': "{part} قيد التركيب · {none} لم يبدأ",
+      'ur': "{part} تنصیب جاری · {none} شروع نہیں",
+      'hi': "{part} स्थापना जारी · {none} शुरू नहीं",
+    },
+    'v2mat_from_requests': {
+      'en': "From Material Requests",
+      'ar': "من طلبات المواد",
+      'ur': "میٹریل ریکویسٹس سے",
+      'hi': "सामग्री अनुरोधों से",
+    },
+    'v2mat_open_claims': {
+      'en': "Open Progress & claims",
+      'ar': "افتح التقدم والمطالبات",
+      'ur': "پیش رفت اور کلیمز کھولیں",
+      'hi': "प्रगति और क्लेम खोलें",
+    },
+    'v2mat_note_how': {
+      'en':
+          "Delivered and installed quantities are confirmed on Progress & claims, with evidence. On site counts what reached site through Material Requests raised from the BOQ's Contract Materials lines; it is a guide.",
+      'ar':
+          "تُؤكَّد الكميات المورَّدة والمركَّبة في التقدم والمطالبات مع الدليل. يحسب \"في الموقع\" ما وصل عبر طلبات المواد المرفوعة من بنود مواد العقد في جدول الكميات، وهو للاسترشاد فقط.",
+      'ur':
+          "فراہم اور نصب شدہ مقداریں پیش رفت اور کلیمز میں ثبوت کے ساتھ تصدیق ہوتی ہیں۔ \"سائٹ پر\" وہ گنتا ہے جو BOQ کی کنٹریکٹ میٹریل لائنوں سے بنی میٹریل ریکویسٹس کے ذریعے سائٹ پہنچا؛ یہ صرف رہنمائی ہے۔",
+      'hi':
+          "आपूर्ति और स्थापित मात्राएँ प्रगति और क्लेम में साक्ष्य के साथ पुष्टि होती हैं। \"साइट पर\" वह गिनता है जो BOQ की अनुबंध सामग्री लाइनों से बने सामग्री अनुरोधों से साइट पहुँचा; यह केवल मार्गदर्शन है।",
+    },
+    'v2mat_rates_note': {
+      'en':
+          "Rate is the line amount divided by its quantity, rounded to the fil; part quantities are worked out from the line amount, as on the invoice.",
+      'ar':
+          "السعر هو مبلغ البند مقسوماً على كميته ومقرّباً إلى الفلس؛ وتُحسب الكميات الجزئية من مبلغ البند كما في الفاتورة.",
+      'ur':
+          "ریٹ لائن کی رقم کو اس کی مقدار سے تقسیم کر کے فلس تک گول کیا جاتا ہے؛ جزوی مقداریں انوائس کی طرح لائن کی رقم سے نکالی جاتی ہیں۔",
+      'hi':
+          "दर लाइन की राशि को उसकी मात्रा से भाग देकर फ़िल तक पूर्णांकित है; आंशिक मात्राएँ इनवॉइस की तरह लाइन की राशि से निकाली जाती हैं।",
+    },
+    'v2mat_no_prices': {
+      'en': "Prices are not shown to you.",
+      'ar': "الأسعار غير معروضة لك.",
+      'ur': "قیمتیں آپ کو نہیں دکھائی جاتیں۔",
+      'hi': "कीमतें आपको नहीं दिखाई जातीं।",
+    },
+    'v2mat_empty_title': {
+      'en': "No material lines yet",
+      'ar': "لا توجد بنود مواد بعد",
+      'ur': "ابھی کوئی میٹریل لائن نہیں",
+      'hi': "अभी कोई सामग्री लाइन नहीं",
+    },
+    'v2mat_empty_body': {
+      'en':
+          "Lines appear here once the contract measures Material Supply or Installation by items (Contract tab).",
+      'ar':
+          "تظهر البنود هنا عندما يقيس العقد توريد المواد أو التركيب بالبنود (تبويب العقد).",
+      'ur':
+          "لائنیں یہاں تب دکھائی دیں گی جب کنٹریکٹ میٹریل سپلائی یا تنصیب کو آئٹمز سے ناپے (کنٹریکٹ ٹیب)۔",
+      'hi':
+          "लाइनें यहाँ तब दिखेंगी जब अनुबंध सामग्री आपूर्ति या स्थापना को आइटम से मापे (अनुबंध टैब)।",
+    },
   };
 
   static String text(AppLanguage language, String key) {

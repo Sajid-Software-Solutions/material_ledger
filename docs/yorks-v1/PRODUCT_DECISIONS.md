@@ -2880,6 +2880,64 @@ request bullet of section 50.
   build changed. Turning the flag off again in a later build hides the
   Center as before and deletes nothing.
 
+## 61. Contract materials: the invoice's lines in the BOQ and under Accounts (owner decisions, 15 November 2026)
+
+The owner asked for YRA-322's materials to appear in the BOQ and under Project
+› Accounts the way the signed invoice shows them, building by building, with
+prices and clear states, and approved the design with every recommended
+answer. The design, server contract and rollout are in
+[`CONTRACT_MATERIALS.md`](CONTRACT_MATERIALS.md).
+
+- **One Contract Materials sheet per building.** Each physical building's BOQ
+  gets a "Contract Materials" folder holding the contract's lines in invoice
+  order and numbering (A for the first building, A.10.1 under A.10 …): Ref,
+  Description, Qty, Unit. Common / All Buildings gets none (FR-031). Each row is
+  tied to its contract line (building and item key) for every item-measured
+  stage, so the tie survives a contract revision. A row stands for one line
+  and a line has one row per building. A folder holding a tied row cannot also
+  be linked as a whole, so a delivery is counted once.
+- **Price is today's contract value.** A line's amount and rate come from the
+  current baseline (YRA-322: AED 18,085,468, so AC Units supply is
+  AED 813,846.06 per building). Issued invoices keep their amounts; work billed
+  before a contract correction is topped up on the next claim as a contract
+  value correction (section 35). Rate is the amount divided by the quantity,
+  rounded to the fil for display; part quantities are worked out from the line
+  amount, as the invoice does.
+- **Prices in the BOQ for people who may see contract values.** Read-only Rate
+  and Amount on Contract Materials rows come from Accounts
+  (`view_project_commercial_values`). Client contract prices are never written
+  to the BOQ's own cost columns, which `view_commercials` guards and
+  Procurement holds.
+- **Who sees what.** Admin, a Project Engineer on the project, Senior
+  Mechanical Engineer, Project Manager, Workshop In-Charge, Document
+  Controller, Accountant and HR/PRO see lines, prices and states. HR/PRO
+  already reads Accounts with values (section 37), so it sees prices
+  read-only; the design page had said otherwise and is corrected here. A Site
+  Engineer sees quantities and states without prices. Procurement sees the BOQ
+  sheet's requested and received quantities only, and no Accounts. The
+  Accountant still has no BOQ. The server leaves money fields out of every
+  answer to someone without the capability.
+- **States.** Supply: Not delivered, Part delivered, Delivered. Installation:
+  Not started, Installing, Installed. Billing, per stage: Ready to invoice,
+  Invoiced, then the invoice's own Certified and Paid. Confirmed quantities
+  move only on Progress & claims, with evidence, by those who confirm progress;
+  a Site Engineer suggests. "On site" is a guide: good quantity received
+  through Material Requests raised from the tied row or a linked folder, less
+  confirmed returns.
+- **YRA-322's BOQ is tidied while loading.** The empty "Test material" folders
+  (DF3W's holds 40 blank rows) and the empty duplicate "Workshop Material"
+  folders are archived, and DF4W's "AC Units" folder, which holds duct sheets
+  and flanges, is renamed "Ductwork Materials". All can be restored or renamed
+  back.
+- **DF3W's VCD folder counts toward A.7 Air Outlets / Inlets & Dampers**
+  (a folder link on Material Supply).
+- **Rollout.** Flag `YORKS_V1_CONTRACT_MATERIALS`, default off and chained
+  under Accounts Workspace V2. Migration
+  `20261115120000_accounts_contract_materials.sql`, applied by hand through
+  `supabase/release/contract_materials_bundle.sql` (rollback and preflight
+  beside it). YRA-322's sheets, ties and tidy-up are loaded by a reviewed,
+  repeatable script, staging first, production only with the owner's yes.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

@@ -210,6 +210,44 @@ void main() {
     );
 
     test(
+      'Contract materials stay off by default and need Accounts Workspace V2',
+      () {
+        const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();
+        const withoutV2 = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          arrangement: true,
+          logistics: true,
+          returnsDocuments: true,
+          documents: true,
+          accounts: true,
+          contractMaterials: true,
+        );
+        const enabled = YorksV1FeatureFlags(
+          foundation: true,
+          projects: true,
+          boq: true,
+          excel: true,
+          requests: true,
+          arrangement: true,
+          logistics: true,
+          returnsDocuments: true,
+          documents: true,
+          accounts: true,
+          accountsWorkspaceV2: true,
+          contractMaterials: true,
+        );
+
+        expect(defaultEnvironment.contractMaterials, false);
+        expect(withoutV2.contractMaterials, false);
+        expect(enabled.contractMaterials, true);
+      },
+    );
+
+    test(
       'Workforce stays off by default and fails closed without documents',
       () {
         const defaultEnvironment = YorksV1FeatureFlags.fromEnvironment();

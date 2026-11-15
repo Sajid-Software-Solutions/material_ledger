@@ -36,6 +36,7 @@ import '../../domain/v2/accounts_workspace_models.dart';
 import '../../domain/v2/claim_workbench_models.dart';
 import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/commercial_setup_models.dart';
+import '../../domain/v2/material_register_models.dart';
 import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
@@ -916,6 +917,75 @@ final yorksAccountsMaterialSourcesControllerProvider = StateNotifierProvider
       return YorksAccountsMaterialSourcesController(
         repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         commandKeys: _commandKeys(ref),
+        projectId: projectId,
+      );
+    });
+
+/// Loads the contract materials register behind Accounts › Materials: every
+/// line per building with what is delivered, installed and on site, and prices
+/// only when the server sends them. Read-only; it keeps the last data on
+/// screen while refreshing.
+final class YorksAccountsMaterialRegisterController
+    extends StateNotifier<AsyncValue<YorksAccountsMaterialRegister>> {
+  YorksAccountsMaterialRegisterController({
+    required YorksAccountsWorkspaceRepository? repository,
+    required String projectId,
+  }) : _repository = repository,
+       _projectId = projectId,
+       super(const AsyncValue.loading()) {
+    load();
+  }
+
+  final YorksAccountsWorkspaceRepository? _repository;
+  final String _projectId;
+  int _generation = 0;
+
+  Future<void> load() async {
+    state = const AsyncValue<YorksAccountsMaterialRegister>.loading()
+        .copyWithPrevious(state);
+    await _fetch();
+  }
+
+  Future<void> refresh() => _fetch();
+
+  Future<void> _fetch() async {
+    final repository = _repository;
+    final generation = ++_generation;
+    if (repository == null) {
+      if (!mounted) return;
+      state = AsyncValue<YorksAccountsMaterialRegister>.error(
+        StateError('accounts_backend_unavailable'),
+        StackTrace.current,
+      );
+      return;
+    }
+    try {
+      final register = await repository.getMaterialRegister(_projectId);
+      // A later read has started: its answer wins.
+      if (!mounted || generation != _generation) return;
+      state = AsyncValue<YorksAccountsMaterialRegister>.data(register);
+    } catch (error, stackTrace) {
+      if (!mounted || generation != _generation) return;
+      state = AsyncValue<YorksAccountsMaterialRegister>.error(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
+    }
+  }
+}
+
+final yorksAccountsMaterialRegisterControllerProvider = StateNotifierProvider
+    .autoDispose
+    .family<
+      YorksAccountsMaterialRegisterController,
+      AsyncValue<YorksAccountsMaterialRegister>,
+      String
+    >((ref, projectId) {
+      ref.keepAlive();
+      ref.watch(yorksV1CurrentRoleProvider);
+      ref.watch(yorksAccountsPermissionEpochProvider);
+      return YorksAccountsMaterialRegisterController(
+        repository: ref.watch(yorksAccountsWorkspaceRepositoryProvider),
         projectId: projectId,
       );
     });

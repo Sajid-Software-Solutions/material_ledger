@@ -104,9 +104,9 @@ insert into public.v1_receipt_review_lines(id,receipt_review_id,dispatch_line_id
 insert into public.v1_material_returns(id,project_id,scope_id,state,drafted_by_auth_user_id,drafted_by_role) values
 ('39fa1000-0000-4000-8000-000000000091','39fa1000-0000-4000-8000-000000000001','39fa1000-0000-4000-8000-000000000002','confirmed','10000000-0000-4000-8000-000000000001','project_engineer'),
 ('39fa1000-0000-4000-8000-000000000092','39fa1000-0000-4000-8000-000000000001','39fa1000-0000-4000-8000-000000000002','draft','10000000-0000-4000-8000-000000000001','project_engineer');
-insert into public.v1_material_return_lines(id,material_return_id,receipt_review_line_id,dispatch_line_id,request_line_id,source_kind,item_description,unit,good_quantity_snapshot,eligible_quantity_at_submit,return_quantity,received_good_quantity,display_order,origin_kind) values
-('39fa1000-0000-4000-8000-0000000000a1','39fa1000-0000-4000-8000-000000000091','39fa1000-0000-4000-8000-000000000081','39fa1000-0000-4000-8000-000000000061','39fa1000-0000-4000-8000-000000000041','external_supplier','Package unit 10TR','Nos',3,3,1,1,1,'delivered'),
-('39fa1000-0000-4000-8000-0000000000a2','39fa1000-0000-4000-8000-000000000092','39fa1000-0000-4000-8000-000000000081','39fa1000-0000-4000-8000-000000000061','39fa1000-0000-4000-8000-000000000041','external_supplier','Package unit 10TR','Nos',3,2,2,2,1,'delivered');
+insert into public.v1_material_return_lines(id,material_return_id,receipt_review_line_id,dispatch_line_id,request_line_id,source_kind,item_description,unit,good_quantity_snapshot,eligible_quantity_at_submit,return_quantity,received_good_quantity,display_order,origin_kind,basis_kind) values
+('39fa1000-0000-4000-8000-0000000000a1','39fa1000-0000-4000-8000-000000000091','39fa1000-0000-4000-8000-000000000081','39fa1000-0000-4000-8000-000000000061','39fa1000-0000-4000-8000-000000000041','external_supplier','Package unit 10TR','Nos',3,3,1,1,1,'delivered','received'),
+('39fa1000-0000-4000-8000-0000000000a2','39fa1000-0000-4000-8000-000000000092','39fa1000-0000-4000-8000-000000000081','39fa1000-0000-4000-8000-000000000061','39fa1000-0000-4000-8000-000000000041','external_supplier','Package unit 10TR','Nos',3,2,2,2,1,'delivered','received');
 set local session_replication_role = origin;
 
 create function pg_temp.link(p_scope text, p_item text, p_group text) returns jsonb language sql as $$
