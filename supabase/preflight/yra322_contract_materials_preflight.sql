@@ -51,8 +51,14 @@ with p as (
           or exists (select 1 from public.v1_document_links dl where dl.entity_type = 'boq_group'
             and dl.entity_id = g.id and dl.removed_at is null))) as to_archive_in_use,
     (select count(*) from public.v1_accounts_material_boq_links l join p on p.id = l.project_id) as folder_links,
+    -- Counted through a query string, so this preflight also runs before the
+    -- bundle has created the table (a plain reference fails at parse time).
     case when to_regclass('public.v1_accounts_material_boq_row_links') is null then null
-      else (select count(*) from public.v1_accounts_material_boq_row_links l join p on p.id = l.project_id) end as ties
+      else (xpath('/row/n/text()', query_to_xml(
+        'select count(*) as n from public.v1_accounts_material_boq_row_links l '
+        || 'join public.v1_projects p on p.id = l.project_id '
+        || 'where p.project_ref = ''YRA-322''', false, true, '')))[1]::text::bigint
+      end as ties
 )
 select jsonb_build_object(
   'ready', f.project_state = 'active' and f.bundle_applied and f.contract_lines = 120
