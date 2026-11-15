@@ -9456,16 +9456,20 @@ class _ProjectAccountsEmbed extends ConsumerWidget {
     if (useV2) {
       // V1 has no Contract or Materials tab to map from, so their deep links
       // are read directly.
-      final path =
-          GoRouter.maybeOf(context)?.routeInformationProvider.value.uri.path ??
-          '';
+      final uri = GoRouter.maybeOf(context)?.routeInformationProvider.value.uri;
+      final path = uri?.path ?? '';
+      final materials = path.endsWith('/accounts/materials');
       return YorksAccountsWorkspaceV2Deferred(
         projectId: projectId,
         initialTab: path.endsWith('/accounts/contract')
             ? YorksAccountsWorkspaceV2Tab.contract
-            : path.endsWith('/accounts/materials')
+            : materials
             ? YorksAccountsWorkspaceV2Tab.materials
             : _mapTab(initialTab),
+        // A BOQ sheet's "Open in Accounts" names its building.
+        initialMaterialsBuildingId: materials
+            ? uri?.queryParameters['building']
+            : null,
       );
     }
     return YorksProjectAccountsScreen(

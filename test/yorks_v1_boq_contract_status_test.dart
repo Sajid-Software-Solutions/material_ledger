@@ -7,6 +7,7 @@ import 'package:material_ledger/features/projects/presentation/widgets/yorks_v1_
 import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq_contract_status.dart';
+import 'package:material_ledger/shared/models/yorks_v1_boq_strings.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_boq_contract_status_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_boq_repository.dart'
@@ -180,7 +181,8 @@ final _group = YorksV1BoqGroup.fromRpcJson(const {
   'updated_at': '2026-11-15T00:00:00Z',
 });
 
-YorksV1BoqWorksheet _worksheet() {
+/// [r2Qty] and [r1Unit] let a test change the sheet away from the contract.
+YorksV1BoqWorksheet _worksheet({String r2Qty = '55', String r1Unit = 'Nos'}) {
   YorksV1BoqRow row(
     String id,
     int order,
@@ -218,15 +220,21 @@ YorksV1BoqWorksheet _worksheet() {
       ),
     ],
     rows: [
-      row('r1', 1, 'A.1', 'AC Units (Package Unit)', '6', 'Nos'),
-      row('r2', 2, 'A.2', 'Motorized Fire Dampers', '55', 'Nos'),
+      row('r1', 1, 'A.1', 'AC Units (Package Unit)', '6', r1Unit),
+      row('r2', 2, 'A.2', 'Motorized Fire Dampers', r2Qty, 'Nos'),
       row('r3', 3, 'A.3.1', 'Ducting — Basement Floor', '1', 'Lot'),
       row('r9', 4, '', 'Spare line, not tied', '2', 'Nos'),
     ],
   );
 }
 
-Future<void> _pump(WidgetTester tester, Size size, int level) async {
+Future<void> _pump(
+  WidgetTester tester,
+  Size size,
+  int level, {
+  YorksV1BoqWorksheet? worksheet,
+  VoidCallback? onOpenAccounts,
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -238,10 +246,11 @@ Future<void> _pump(WidgetTester tester, Size size, int level) async {
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: YorksV1BoqContractStatusView(
-            worksheet: _worksheet(),
+            worksheet: worksheet ?? _worksheet(),
             status: YorksV1BoqContractStatus.fromJson(_statusJson(level)),
             language: _en,
             compact: size.width < 600,
+            onOpenAccounts: onOpenAccounts,
           ),
         ),
       ),
@@ -329,6 +338,121 @@ void main() {
       expect(find.textContaining('of 55'), findsNothing);
     });
 
+    testWidgets('Open in Accounts: offered only with a way to open it', (
+      tester,
+    ) async {
+      var opened = 0;
+      await _pump(
+        tester,
+        const Size(1366, 800),
+        1,
+        onOpenAccounts: () {
+          opened += 1;
+        },
+      );
+      final button = find.byKey(const ValueKey('boq-contract-open-accounts'));
+      expect(button, findsOneWidget);
+      expect(find.text('Open in Accounts'), findsOneWidget);
+      await tester.tap(button);
+      expect(opened, 1);
+
+      // Procurement reads no Accounts quantities, so the screen passes no
+      // link: none is drawn, and the note names only what it can see.
+      await _pump(tester, const Size(1366, 800), 0);
+      expect(button, findsNothing);
+      expect(
+        find.textContaining(
+          YorksV1BoqStrings.contractStatusNoteRequests.primary,
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Installed come from Accounts'), findsNothing);
+    });
+
+    testWidgets('nothing requested or on site reads as a dash, not 0', (
+      tester,
+    ) async {
+      await _pump(tester, const Size(1366, 800), 2);
+      // r1 asked for 4 and has 2 on site; r2 and r3 have neither.
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('—'), findsNWidgets(4));
+      expect(find.text('0'), findsNothing);
+    });
+
+    testWidgets('the contract total, for people who may see values', (
+      tester,
+    ) async {
+      await _pump(tester, const Size(1366, 800), 2);
+      final total = find.byKey(const ValueKey('boq-contract-total'));
+      expect(total, findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
+      // 200,000.00 + 50,000.00 + 30,000.00; the untied spare line is left out.
+      expect(find.text('280,000.00'), findsOneWidget);
+
+      await _pump(tester, const Size(1366, 800), 1);
+      expect(total, findsNothing);
+      expect(find.text('Total'), findsNothing);
+    });
+
+    testWidgets('a sheet row that no longer matches its contract line', (
+      tester,
+    ) async {
+      // Usual spellings of one unit are the same unit.
+      await _pump(
+        tester,
+        const Size(1366, 800),
+        1,
+        worksheet: _worksheet(r1Unit: 'No.'),
+      );
+      expect(
+        find.byKey(const ValueKey('boq-contract-qty-differs')),
+        findsNothing,
+      );
+
+      await _pump(
+        tester,
+        const Size(1366, 800),
+        1,
+        worksheet: _worksheet(r2Qty: '50'),
+      );
+      final flag = find.byKey(const ValueKey('boq-contract-qty-differs'));
+      expect(flag, findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is Tooltip && w.message == 'The contract says 55 Nos',
+        ),
+        findsOneWidget,
+      );
+
+      // A thousands comma is still the same number.
+      await _pump(
+        tester,
+        const Size(1366, 800),
+        1,
+        worksheet: _worksheet(r2Qty: '0,055'),
+      );
+      expect(flag, findsNothing);
+
+      // Procurement cannot read the contract's quantities: nothing to compare.
+      await _pump(
+        tester,
+        const Size(1366, 800),
+        0,
+        worksheet: _worksheet(r2Qty: '50'),
+      );
+      expect(flag, findsNothing);
+
+      // Phones say it on the card.
+      await _pump(
+        tester,
+        const Size(360, 900),
+        1,
+        worksheet: _worksheet(r2Qty: '50'),
+      );
+      expect(find.text('The contract says 55 Nos'), findsOneWidget);
+    });
+
     testWidgets('phone at 360px: one card per tied line', (tester) async {
       await _pump(tester, const Size(360, 900), 2);
       expect(tester.takeException(), isNull);
@@ -337,6 +461,11 @@ void main() {
       expect(tester.getSize(card).height, greaterThanOrEqualTo(44));
       expect(find.text('A.2  Motorized Fire Dampers'), findsOneWidget);
       expect(find.textContaining('Rate 909.09'), findsOneWidget);
+      // Only what has happened gets a pill.
+      expect(find.text('Requested 4'), findsOneWidget);
+      expect(find.text('On site 2'), findsOneWidget);
+      expect(find.text('Requested 0'), findsNothing);
+      expect(find.text('On site 0'), findsNothing);
     });
   });
 

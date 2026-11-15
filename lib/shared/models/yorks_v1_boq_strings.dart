@@ -1155,16 +1155,22 @@ abstract final class YorksV1BoqStrings {
     hi: 'शीट',
   );
   static const contractStatusNote = TranslatableString(
-    en: 'These lines are tied to the contract. Delivered and Installed are confirmed in Accounts › Progress & claims; Requested and On site count Material Requests raised from these lines.',
-    ar: 'هذه البنود مرتبطة بالعقد. يُؤكَّد المورَّد والمركَّب في الحسابات › التقدم والمطالبات؛ ويحسب المطلوب وفي الموقع طلبات المواد المرفوعة من هذه البنود.',
-    ur: 'یہ لائنیں کنٹریکٹ سے جڑی ہیں۔ فراہم اور نصب شدہ اکاؤنٹس › پیش رفت اور کلیمز میں تصدیق ہوتے ہیں؛ مطلوب اور سائٹ پر ان لائنوں سے بنی میٹریل ریکویسٹس گنتے ہیں۔',
-    hi: 'ये लाइनें अनुबंध से जुड़ी हैं। आपूर्ति और स्थापित की पुष्टि अकाउंट्स › प्रगति और क्लेम में होती है; अनुरोधित और साइट पर इन लाइनों से बने सामग्री अनुरोध गिनते हैं।',
+    en: 'Tied to the contract. Delivered and Installed come from Accounts; Requested and On site from Material Requests raised from these lines.',
+    ar: 'مرتبطة بالعقد. المورَّد والمركَّب من الحسابات؛ والمطلوب وفي الموقع من طلبات المواد المرفوعة من هذه البنود.',
+    ur: 'کنٹریکٹ سے جڑی لائنیں۔ فراہم اور نصب شدہ اکاؤنٹس سے؛ مطلوب اور سائٹ پر ان لائنوں کی میٹریل ریکویسٹس سے۔',
+    hi: 'अनुबंध से जुड़ी लाइनें। आपूर्ति और स्थापित अकाउंट्स से; अनुरोधित और साइट पर इन लाइनों के सामग्री अनुरोधों से।',
+  );
+  static const contractStatusNoteRequests = TranslatableString(
+    en: 'Tied to the contract. Requested and On site count Material Requests raised from these lines.',
+    ar: 'مرتبطة بالعقد. يحسب المطلوب وفي الموقع طلبات المواد المرفوعة من هذه البنود.',
+    ur: 'کنٹریکٹ سے جڑی لائنیں۔ مطلوب اور سائٹ پر ان لائنوں سے بنی میٹریل ریکویسٹس گنتے ہیں۔',
+    hi: 'अनुबंध से जुड़ी लाइनें। अनुरोधित और साइट पर इन लाइनों से बने सामग्री अनुरोध गिनते हैं।',
   );
   static const contractStatusPriceNote = TranslatableString(
-    en: 'Rate and Amount come from the contract and are not stored in this sheet.',
-    ar: 'السعر والمبلغ من العقد ولا يُخزَّنان في هذا الجدول.',
-    ur: 'ریٹ اور رقم کنٹریکٹ سے آتے ہیں اور اس شیٹ میں محفوظ نہیں ہوتے۔',
-    hi: 'दर और राशि अनुबंध से आती हैं और इस शीट में संग्रहीत नहीं होतीं।',
+    en: 'Rate and Amount come from the contract, not this sheet.',
+    ar: 'السعر والمبلغ من العقد، لا من هذا الجدول.',
+    ur: 'ریٹ اور رقم کنٹریکٹ سے ہیں، اس شیٹ سے نہیں۔',
+    hi: 'दर और राशि अनुबंध से हैं, इस शीट से नहीं।',
   );
   static const contractRef = TranslatableString(
     en: 'Ref',
@@ -1255,5 +1261,23 @@ abstract final class YorksV1BoqStrings {
     ar: '{done} من {total}',
     ur: '{total} میں سے {done}',
     hi: '{total} में से {done}',
+  );
+  static const contractOpenAccounts = TranslatableString(
+    en: 'Open in Accounts',
+    ar: 'افتح في الحسابات',
+    ur: 'اکاؤنٹس میں کھولیں',
+    hi: 'अकाउंट्स में खोलें',
+  );
+  static const contractTotal = TranslatableString(
+    en: 'Total',
+    ar: 'الإجمالي',
+    ur: 'کل',
+    hi: 'कुल',
+  );
+  static const contractQtyDiffers = TranslatableString(
+    en: 'The contract says {qty}',
+    ar: 'العقد يذكر {qty}',
+    ur: 'کنٹریکٹ میں {qty} ہے',
+    hi: 'अनुबंध में {qty} है',
   );
 }

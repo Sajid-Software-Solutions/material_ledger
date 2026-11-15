@@ -5,7 +5,8 @@
 /// project Accounts, what is confirmed delivered and installed, then, for
 /// people who may see contract values, the line's rate and amount. Everything
 /// comes from `v1_get_boq_contract_status`; a field the server left out is
-/// not shown. Editing stays on the sheet.
+/// not shown. Editing stays on the sheet. A row whose quantity or unit no
+/// longer matches its contract line says so.
 library;
 
 import 'package:flutter/material.dart';
@@ -79,6 +80,59 @@ String _partText(AppLanguage language, YorksV1BoqContractStageStatus stage) {
       .replaceAll('{total}', total.displayText(maximumFractionDigits: 4));
 }
 
+/// A count for the Requested and On site columns: "—" for nothing yet.
+String _count(String text) => _decimal(text).isPositive ? _qty(text) : '—';
+
+/// A unit spelled the way `v1_accounts_unit_key` compares units, so the usual
+/// spellings of one unit (Nos, No., pcs; Lot, LS) count as the same.
+String _unitKey(String unit) {
+  final u = unit.trim().toLowerCase().replaceAll(RegExp(r'\.$'), '');
+  const nos = {
+    'no', 'nos', 'nr', 'nrs', 'number', 'numbers', 'pc', 'pcs', 'piece', //
+    'pieces', 'ea', 'each', 'unit', 'units',
+  };
+  const lot = {'lot', 'lots', 'ls', 'l.s', 'lump sum', 'lumpsum', 'job'};
+  const m2 = {'m2', 'sqm', 'sq.m', 'sq m', 'm²'};
+  const m = {
+    'm', 'lm', 'rm', 'mtr', 'mtrs', 'meter', 'meters', 'metre', 'metres', //
+  };
+  if (nos.contains(u)) return 'nos';
+  if (lot.contains(u)) return 'lot';
+  if (m2.contains(u)) return 'm2';
+  if (m.contains(u)) return 'm';
+  if (u == 'set' || u == 'sets') return 'set';
+  return u;
+}
+
+/// A sheet cell as a number the way `v1_accounts_boq_number` reads it
+/// (thousands commas allowed), or null when it is not one.
+YorksAccountsDecimal? _sheetNumber(String text) {
+  final cleaned = text.replaceAll(',', '').trim();
+  if (cleaned.isEmpty) return null;
+  return YorksAccountsDecimal.tryParse(cleaned);
+}
+
+/// The sheet's own quantity as typed, tidied when it is a number.
+String _sheetQty(String text) =>
+    _sheetNumber(text)?.displayText(maximumFractionDigits: 4) ?? text.trim();
+
+/// The contract line's quantity and unit ("6 Nos") when the sheet row no
+/// longer says the same, or null when they agree (or the caller may not see
+/// the contract's quantities).
+String? _contractDiffers(
+  _SheetCells cells,
+  YorksV1BoqContractRowStatus status,
+) {
+  final contract = status.stage(_supply) ?? status.stage(_installation);
+  if (contract == null) return null;
+  final sheetQty = _sheetNumber(cells.quantity);
+  final sameQty =
+      sheetQty != null && sheetQty.compareTo(_decimal(contract.quantity)) == 0;
+  final sameUnit = _unitKey(cells.unit) == _unitKey(contract.unitCode);
+  if (sameQty && sameUnit) return null;
+  return '${_qty(contract.quantity)} ${contract.unitCode}'.trim();
+}
+
 /// The sheet row's own cells, read the way the Contract Materials sheet
 /// stores them: Ref by heading, the rest by canonical mapping.
 final class _SheetCells {
@@ -113,12 +167,16 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
     required this.status,
     required this.language,
     required this.compact,
+    this.onOpenAccounts,
   });
 
   final YorksV1BoqWorksheet worksheet;
   final YorksV1BoqContractStatus status;
   final AppLanguage language;
   final bool compact;
+
+  /// Opens this building in Accounts › Materials; null when not allowed.
+  final VoidCallback? onOpenAccounts;
 
   String _t(TranslatableString s) => s.active(language);
 
@@ -129,7 +187,10 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
         if (status.row(row.id) case final s?) (row, s),
     ];
     final note = [
-      YorksV1BoqStrings.contractStatusNote.active(language),
+      (status.canViewProgress
+              ? YorksV1BoqStrings.contractStatusNote
+              : YorksV1BoqStrings.contractStatusNoteRequests)
+          .active(language),
       if (status.canViewValues)
         YorksV1BoqStrings.contractStatusPriceNote.active(language),
     ].join(' ');
@@ -161,19 +222,46 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
             color: AppColors.blueContainer,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
             children: [
-              const Icon(Icons.info_outline, size: 18, color: AppColors.blue),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  note,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.inkSecondary,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppColors.blue,
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: Text(
+                        note,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.inkSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              if (onOpenAccounts != null)
+                OutlinedButton.icon(
+                  key: const ValueKey('boq-contract-open-accounts'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, AppSpacing.minTapTarget),
+                    backgroundColor: AppColors.surfaceContainerLowest,
+                  ),
+                  onPressed: onOpenAccounts,
+                  icon: const Icon(Icons.account_balance_outlined, size: 18),
+                  label: Text(_t(YorksV1BoqStrings.contractOpenAccounts)),
+                ),
             ],
           ),
         ),
@@ -260,7 +348,7 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
                         style: textStyle.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
-                    cell(Text(_qty(c.quantity), style: textStyle), end: true),
+                    cell(_qtyCell(c, s, textStyle), end: true),
                     cell(Text(c.unit, style: textStyle)),
                     if (values)
                       cell(
@@ -278,13 +366,23 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
                         end: true,
                       ),
                     cell(
-                      Text(_qty(s.requestedQty), style: textStyle),
+                      Text(
+                        _count(s.requestedQty),
+                        style: _decimal(s.requestedQty).isPositive
+                            ? textStyle
+                            : textStyle.copyWith(color: AppColors.muted),
+                      ),
                       end: true,
                     ),
                     cell(
                       Tooltip(
                         message: s.lastDeliveryReference ?? '',
-                        child: Text(_qty(s.receivedQty), style: textStyle),
+                        child: Text(
+                          _count(s.receivedQty),
+                          style: _decimal(s.receivedQty).isPositive
+                              ? textStyle
+                              : textStyle.copyWith(color: AppColors.muted),
+                        ),
                       ),
                       end: true,
                     ),
@@ -295,6 +393,71 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
                 }(),
               ],
             ),
+          if (values)
+            TableRow(
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+              ),
+              children: [
+                for (final (i, _) in headings.indexed)
+                  switch (i) {
+                    1 => cell(
+                      Text(
+                        _t(YorksV1BoqStrings.contractTotal),
+                        style: textStyle.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    5 => cell(
+                      Text(
+                        key: const ValueKey('boq-contract-total'),
+                        _money(_total(rows)),
+                        style: textStyle.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      end: true,
+                    ),
+                    _ => const SizedBox.shrink(),
+                  },
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The tied lines' contract amount, added in exact decimals.
+  String _total(List<(YorksV1BoqRow, YorksV1BoqContractRowStatus)> rows) {
+    var total = YorksAccountsDecimal.zero;
+    for (final (_, s) in rows) {
+      final amount = s.stage(_supply)?.amount;
+      if (amount != null) total = total + _decimal(amount);
+    }
+    return total.canonicalText;
+  }
+
+  /// The sheet's quantity, flagged when the contract line says otherwise.
+  Widget _qtyCell(
+    _SheetCells cells,
+    YorksV1BoqContractRowStatus status,
+    TextStyle style,
+  ) {
+    final contract = _contractDiffers(cells, status);
+    final text = Text(_sheetQty(cells.quantity), style: style);
+    if (contract == null) return text;
+    return Tooltip(
+      message: _t(
+        YorksV1BoqStrings.contractQtyDiffers,
+      ).replaceAll('{qty}', contract),
+      child: Row(
+        key: const ValueKey('boq-contract-qty-differs'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: AppColors.warning,
+          ),
+          const SizedBox(width: 4),
+          text,
         ],
       ),
     );
@@ -340,7 +503,7 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                '${_qty(c.quantity)} ${c.unit}',
+                '${_sheetQty(c.quantity)} ${c.unit}',
                 style: AppTypography.bodySmall.copyWith(
                   color: AppColors.inkSecondary,
                 ),
@@ -360,18 +523,25 @@ class YorksV1BoqContractStatusView extends StatelessWidget {
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              _Pill(
-                '${_t(YorksV1BoqStrings.contractRequested)} ${_qty(s.requestedQty)}',
-              ),
-              _Pill(
-                '${_t(YorksV1BoqStrings.contractOnSite)} ${_qty(s.receivedQty)}',
-                tone: _decimal(s.receivedQty).isPositive
-                    ? _PillTone.warn
-                    : _PillTone.neutral,
-              ),
               if (status.canViewProgress) _stagePill(s.stage(_supply), true),
               if (status.canViewProgress)
                 _stagePill(s.stage(_installation), false),
+              if (_decimal(s.requestedQty).isPositive)
+                _Pill(
+                  '${_t(YorksV1BoqStrings.contractRequested)} ${_qty(s.requestedQty)}',
+                ),
+              if (_decimal(s.receivedQty).isPositive)
+                _Pill(
+                  '${_t(YorksV1BoqStrings.contractOnSite)} ${_qty(s.receivedQty)}',
+                  tone: _PillTone.warn,
+                ),
+              if (_contractDiffers(c, s) case final contract?)
+                _Pill(
+                  _t(
+                    YorksV1BoqStrings.contractQtyDiffers,
+                  ).replaceAll('{qty}', contract),
+                  tone: _PillTone.warn,
+                ),
             ],
           ),
         ],

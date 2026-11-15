@@ -9600,23 +9600,37 @@ abstract final class YorksV1AccountsStrings {
     },
     'v2mat_note_how': {
       'en':
-          "Delivered and installed quantities are confirmed on Progress & claims, with evidence. On site counts what reached site through Material Requests raised from the BOQ's Contract Materials lines; it is a guide.",
+          "Delivered and Installed are confirmed on Progress & claims. On site is a guide: what Material Requests from the BOQ's Contract Materials sheet brought to site.",
       'ar':
-          "تُؤكَّد الكميات المورَّدة والمركَّبة في التقدم والمطالبات مع الدليل. يحسب \"في الموقع\" ما وصل عبر طلبات المواد المرفوعة من بنود مواد العقد في جدول الكميات، وهو للاسترشاد فقط.",
+          "يُؤكَّد المورَّد والمركَّب في التقدم والمطالبات. \"في الموقع\" للاسترشاد: ما أوصلته طلبات المواد من جدول مواد العقد في جدول الكميات إلى الموقع.",
       'ur':
-          "فراہم اور نصب شدہ مقداریں پیش رفت اور کلیمز میں ثبوت کے ساتھ تصدیق ہوتی ہیں۔ \"سائٹ پر\" وہ گنتا ہے جو BOQ کی کنٹریکٹ میٹریل لائنوں سے بنی میٹریل ریکویسٹس کے ذریعے سائٹ پہنچا؛ یہ صرف رہنمائی ہے۔",
+          "فراہم اور نصب شدہ پیش رفت اور کلیمز میں تصدیق ہوتے ہیں۔ \"سائٹ پر\" رہنمائی ہے: BOQ کی کنٹریکٹ میٹریل شیٹ کی میٹریل ریکویسٹس سے جو سائٹ پہنچا۔",
       'hi':
-          "आपूर्ति और स्थापित मात्राएँ प्रगति और क्लेम में साक्ष्य के साथ पुष्टि होती हैं। \"साइट पर\" वह गिनता है जो BOQ की अनुबंध सामग्री लाइनों से बने सामग्री अनुरोधों से साइट पहुँचा; यह केवल मार्गदर्शन है।",
+          "आपूर्ति और स्थापित की पुष्टि प्रगति और क्लेम में होती है। \"साइट पर\" मार्गदर्शन है: BOQ की अनुबंध सामग्री शीट के सामग्री अनुरोधों से जो साइट पहुँचा।",
     },
     'v2mat_rates_note': {
-      'en':
-          "Rate is the line amount divided by its quantity, rounded to the fil; part quantities are worked out from the line amount, as on the invoice.",
-      'ar':
-          "السعر هو مبلغ البند مقسوماً على كميته ومقرّباً إلى الفلس؛ وتُحسب الكميات الجزئية من مبلغ البند كما في الفاتورة.",
-      'ur':
-          "ریٹ لائن کی رقم کو اس کی مقدار سے تقسیم کر کے فلس تک گول کیا جاتا ہے؛ جزوی مقداریں انوائس کی طرح لائن کی رقم سے نکالی جاتی ہیں۔",
-      'hi':
-          "दर लाइन की राशि को उसकी मात्रा से भाग देकर फ़िल तक पूर्णांकित है; आंशिक मात्राएँ इनवॉइस की तरह लाइन की राशि से निकाली जाती हैं।",
+      'en': "Rates are rounded to the fil; amounts are exact.",
+      'ar': "الأسعار مقرّبة إلى الفلس؛ والمبالغ دقيقة.",
+      'ur': "ریٹ فلس تک گول ہیں؛ رقمیں درست ہیں۔",
+      'hi': "दरें फ़िल तक पूर्णांकित हैं; राशियाँ सटीक हैं।",
+    },
+    'v2mat_open_boq': {
+      'en': "Open BOQ sheet",
+      'ar': "افتح جدول الكميات",
+      'ur': "BOQ شیٹ کھولیں",
+      'hi': "BOQ शीट खोलें",
+    },
+    'v2mat_kpi_none_delivered': {
+      'en': "Nothing delivered yet",
+      'ar': "لم يورَّد شيء بعد",
+      'ur': "ابھی کچھ فراہم نہیں ہوا",
+      'hi': "अभी कुछ आपूर्ति नहीं हुई",
+    },
+    'v2mat_kpi_none_installed': {
+      'en': "Nothing installed yet",
+      'ar': "لم يُركَّب شيء بعد",
+      'ur': "ابھی کچھ نصب نہیں ہوا",
+      'hi': "अभी कुछ स्थापित नहीं हुआ",
     },
     'v2mat_no_prices': {
       'en': "Prices are not shown to you.",

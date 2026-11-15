@@ -16,16 +16,21 @@ class YorksAccountsWorkspaceV2Deferred extends StatelessWidget {
     super.key,
     required this.projectId,
     required this.initialTab,
+    this.initialMaterialsBuildingId,
   });
 
   final String projectId;
   final YorksAccountsWorkspaceV2Tab initialTab;
+
+  /// The building Materials opens on (from a BOQ sheet's "Open in Accounts").
+  final String? initialMaterialsBuildingId;
 
   @override
   Widget build(BuildContext context) => _WorkspaceLoader(
     builder: () => workspace.YorksAccountsWorkspaceV2Screen(
       projectId: projectId,
       initialTab: initialTab,
+      initialMaterialsBuildingId: initialMaterialsBuildingId,
     ),
   );
 }
