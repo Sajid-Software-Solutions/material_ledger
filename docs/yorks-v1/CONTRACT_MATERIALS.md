@@ -129,4 +129,49 @@ carries `basis_kind`, which the constraint requires).
    replaced functions exactly and drops the new ones; the ties stay.
 3. Web built with `YORKS_V1_CONTRACT_MATERIALS=true` beside the other
    production flags.
-4. YRA-322 data: see the data script section (added with that PR).
+4. YRA-322 data: see below.
+
+## YRA-322 data
+
+`supabase/release/yra322_contract_materials_load.sql`, one transaction, acting
+as the Owner who imported the signed invoice INVOICE#02R.1, through the app's
+own commands (`v1_create_boq_group`, `v1_save_boq_worksheet`,
+`v1_save_accounts_material_row_links`, `v1_save_accounts_material_boq_links`,
+`v1_archive_boq_group`, `v1_rename_boq_group`), so every change carries the
+usual version checks, idempotency and audit:
+
+1. A "Contract Materials" sheet in DF3W, DF4W, DF6W and DF7W: Ref, Description,
+   Qty, Unit; 15 rows each, built from the Material Supply lines already in
+   Accounts and numbered as the invoice numbers them (A.1 … A.9, A.10.1 …
+   A.10.5, A.11; then B, C, D). No price is written to the BOQ.
+2. 60 ties, one per row.
+3. DF3W's VCD folder linked to A.7 on Material Supply.
+4. Tidy-up: the five "Test material" and five empty "Workshop Material"
+   folders archived (DF3W's Test material keeps its 40 rows, whose values sit
+   under columns removed earlier: an old duct-material list); DF4W's "AC Units"
+   renamed "Ductwork Materials". Recoverable with Restore and Rename.
+5. Checks before commit: four sheets of 15 lines, 60 ties to live rows, the one
+   folder link, the tidy-up, and 60 tied lines in the Accounts register.
+
+It refuses to run unless the contract has 4 buildings × 2 stages × 15 lines,
+the Owner is an active Admin, DF3W has its VCD folder, DF4W its duct folder,
+and none of the folders to archive has a live column, a Material Request
+source or a document. Re-running changes nothing; a sheet, tie or link
+someone changed by hand stops it. Keys and row IDs derive from the folder and
+its version, so a load after an undo writes afresh instead of replaying.
+
+- Read-only preflight: `supabase/preflight/yra322_contract_materials_preflight.sql`
+  (`ready`, `already_loaded`).
+- Read-only check after: `supabase/preflight/yra322_contract_materials_verify.sql`.
+- Undo (corrective, recoverable): `supabase/release/yra322_contract_materials_undo.sql`.
+
+Staging's project YRA-322 is a different test project (no contract, scopes
+"test"/"test-2"), so the load was rehearsed on an isolated local database
+holding a copy of production YRA-322's structure (the same four buildings and
+120 contract lines, Test material with 40 rows under removed columns, the
+Workshop Material duplicates, DF3W's 84-row VCD folder with a request from it,
+DF4W's 41-row duct folder): load, verify, re-run (no write: 22 audit events
+before and after), undo (everything back, the 40 rows kept), load after the
+undo, re-run (no write). The register then read AC Units supply AED 813,846.06
+at 135,641.01 a unit and installation AED 361,709.36 at 60,284.89, and
+Procurement's BOQ status carried requested and received quantities only.
