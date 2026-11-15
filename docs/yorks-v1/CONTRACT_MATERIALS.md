@@ -1,8 +1,10 @@
 # Contract materials — the invoice's lines in the BOQ and under Accounts
 
-Status: **approved 15 November 2026** (owner, "Approve as recommended");
-decision record [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 61.
-Built behind the default-off flag `YORKS_V1_CONTRACT_MATERIALS`.
+Status: **released to production 15 November 2026** (owner: "Approve as
+recommended", "Merge in order", "Merge #118, start staging", "Release
+production"); decision record [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md)
+section 61. Behind `YORKS_V1_CONTRACT_MATERIALS`, default off in the tracked
+build and on in the production web build.
 
 ## What it answers
 
@@ -175,3 +177,54 @@ before and after), undo (everything back, the 40 rows kept), load after the
 undo, re-run (no write). The register then read AC Units supply AED 813,846.06
 at 135,641.01 a unit and installation AED 361,709.36 at 60,284.89, and
 Procurement's BOQ status carried requested and received quantities only.
+
+## Release evidence (15 November 2026)
+
+Code: PRs #115, #116, #117 and #118, merged; main `849affb`. Gate on the
+merged stack: pgTAP 192 files / 6,348 tests all passing (isolated local
+stack); `flutter analyze` clean; `flutter test` 3,650 passed, 4 skipped;
+production-flag web build gzip 2,914,978 of 2,925,000; CI web build and
+ephemeral-signed APK built.
+
+Staging (`iqltcyimlqtcwyzlemwx`):
+- Preflight: both replaced functions matched 20261107160000. Bundle applied
+  (self-check passed); all seven functions match main by `md5(prosrc)`; the tie
+  table has RLS and no client grant; no function is executable by `anon`.
+- Smoke in one rolled-back transaction with the real staging accounts (a
+  temporary contract, Contract Materials sheet and two ties on the staging
+  test project): Admin read 1 building, 2 tied lines with prices; Project
+  Engineer prices and BOQ prices, may tie; Site Engineer no prices, may not
+  tie; Procurement refused on Accounts, requested/received only on the BOQ,
+  may not tie; Accountant prices, refused on the BOQ, may tie. Nothing
+  remained afterwards.
+
+Production (`czykuksmlwswjsgotrpo`):
+- Live web before: `dpl_8PQ4ZZy4gyYQz6yEPtyV5ArTpgG1`, `main.dart.js`
+  embedding `2e4db8d` (an ancestor of main).
+- A full comparison of every public function with main found drift unrelated
+  to this release and older than it: the 28 October 2026 reliability
+  migrations (`20261028125701` material search quality, `20261028133155`
+  submission diagnostic, `20261028131620` overview set-wise actions) are not
+  on production, and a few legacy and document functions differ. Nothing
+  this release uses or replaces is among them.
+- Bundle: preflight passed; applied; all seven functions match main.
+- YRA-322 load: preflight `ready`; load committed; verify: four Contract
+  Materials sheets of 15 lines (A, B, C, D numbering), 60 ties, VCD linked to
+  A.7 on Material Supply, DF4W "Ductwork Materials", ten folders archived, 21
+  audit events; the preflight now reports `already_loaded`.
+- The Owner's register read (rolled back): Material Supply per building AED
+  2,260,683.50; delivered at today's values DF3W and DF4W 1,630,158.32, DF6W
+  1,539,730.98, DF7W 1,494,517.31; invoiced on YRA32202R.1 1,549,624.36,
+  1,549,624.36, 1,463,664.36, 1,420,684.36; DF3W AC Units 6 of 6 at
+  135,641.01, invoiced and certified.
+- Web: built from a detached worktree at `849affb` with every production flag
+  and `YORKS_V1_CONTRACT_MATERIALS=true` (gzip 2,914,978); deployed
+  `dpl_2QUtuhXKs6GsbZQxGH4eGxg8g8Qs` with `--prod --skip-domain`; all 129
+  files matched the build by SHA-1; promoted. Live `main.dart.js`,
+  `index.html` and `flutter_bootstrap.js` equal the build and embed `849affb`;
+  the sign-in page loads with no console errors.
+- Not verified signed in: there is no production test login.
+
+Rollback: web, promote `dpl_8PQ4ZZy4gyYQz6yEPtyV5ArTpgG1`; data,
+`supabase/release/yra322_contract_materials_undo.sql`; database,
+`supabase/release/contract_materials_rollback.sql` (after the web rollback).

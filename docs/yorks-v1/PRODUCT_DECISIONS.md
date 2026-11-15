@@ -2937,6 +2937,10 @@ answer. The design, server contract and rollout are in
   `supabase/release/contract_materials_bundle.sql` (rollback and preflight
   beside it). YRA-322's sheets, ties and tidy-up are loaded by a reviewed,
   repeatable script, staging first, production only with the owner's yes.
+- **Released 15 November 2026.** The bundle is on staging and production,
+  YRA-322 is loaded, and the production web is built with
+  `YORKS_V1_CONTRACT_MATERIALS=true` beside the other module flags. Evidence
+  is in [`CONTRACT_MATERIALS.md`](CONTRACT_MATERIALS.md).
 
 ## Procurement preparation refinement — October 2026
 
