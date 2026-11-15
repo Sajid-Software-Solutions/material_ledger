@@ -1142,4 +1142,118 @@ abstract final class YorksV1BoqStrings {
     ur: 'ہر قابل تلاش میپنگ صرف ایک بار استعمال کریں۔',
     hi: 'प्रत्येक खोज योग्य मैपिंग केवल एक बार उपयोग करें।',
   );
+  static const contractStatus = TranslatableString(
+    en: 'Contract status',
+    ar: 'حالة العقد',
+    ur: 'کنٹریکٹ کی حالت',
+    hi: 'अनुबंध स्थिति',
+  );
+  static const contractSheet = TranslatableString(
+    en: 'Sheet',
+    ar: 'الجدول',
+    ur: 'شیٹ',
+    hi: 'शीट',
+  );
+  static const contractStatusNote = TranslatableString(
+    en: 'These lines are tied to the contract. Delivered and Installed are confirmed in Accounts › Progress & claims; Requested and On site count Material Requests raised from these lines.',
+    ar: 'هذه البنود مرتبطة بالعقد. يُؤكَّد المورَّد والمركَّب في الحسابات › التقدم والمطالبات؛ ويحسب المطلوب وفي الموقع طلبات المواد المرفوعة من هذه البنود.',
+    ur: 'یہ لائنیں کنٹریکٹ سے جڑی ہیں۔ فراہم اور نصب شدہ اکاؤنٹس › پیش رفت اور کلیمز میں تصدیق ہوتے ہیں؛ مطلوب اور سائٹ پر ان لائنوں سے بنی میٹریل ریکویسٹس گنتے ہیں۔',
+    hi: 'ये लाइनें अनुबंध से जुड़ी हैं। आपूर्ति और स्थापित की पुष्टि अकाउंट्स › प्रगति और क्लेम में होती है; अनुरोधित और साइट पर इन लाइनों से बने सामग्री अनुरोध गिनते हैं।',
+  );
+  static const contractStatusPriceNote = TranslatableString(
+    en: 'Rate and Amount come from the contract and are not stored in this sheet.',
+    ar: 'السعر والمبلغ من العقد ولا يُخزَّنان في هذا الجدول.',
+    ur: 'ریٹ اور رقم کنٹریکٹ سے آتے ہیں اور اس شیٹ میں محفوظ نہیں ہوتے۔',
+    hi: 'दर और राशि अनुबंध से आती हैं और इस शीट में संग्रहीत नहीं होतीं।',
+  );
+  static const contractRef = TranslatableString(
+    en: 'Ref',
+    ar: 'المرجع',
+    ur: 'حوالہ',
+    hi: 'संदर्भ',
+  );
+  static const contractDescription = TranslatableString(
+    en: 'Description',
+    ar: 'الوصف',
+    ur: 'تفصیل',
+    hi: 'विवरण',
+  );
+  static const contractQty = TranslatableString(
+    en: 'Qty',
+    ar: 'الكمية',
+    ur: 'مقدار',
+    hi: 'मात्रा',
+  );
+  static const contractUnit = TranslatableString(
+    en: 'Unit',
+    ar: 'الوحدة',
+    ur: 'یونٹ',
+    hi: 'इकाई',
+  );
+  static const contractRate = TranslatableString(
+    en: 'Rate',
+    ar: 'السعر',
+    ur: 'ریٹ',
+    hi: 'दर',
+  );
+  static const contractAmount = TranslatableString(
+    en: 'Amount',
+    ar: 'المبلغ',
+    ur: 'رقم',
+    hi: 'राशि',
+  );
+  static const contractRequested = TranslatableString(
+    en: 'Requested',
+    ar: 'المطلوب',
+    ur: 'مطلوب',
+    hi: 'अनुरोधित',
+  );
+  static const contractOnSite = TranslatableString(
+    en: 'On site',
+    ar: 'في الموقع',
+    ur: 'سائٹ پر',
+    hi: 'साइट पर',
+  );
+  static const contractDelivered = TranslatableString(
+    en: 'Delivered',
+    ar: 'المورَّد',
+    ur: 'فراہم شدہ',
+    hi: 'आपूर्ति',
+  );
+  static const contractInstalled = TranslatableString(
+    en: 'Installed',
+    ar: 'المركَّب',
+    ur: 'نصب شدہ',
+    hi: 'स्थापित',
+  );
+  static const contractNotDelivered = TranslatableString(
+    en: 'Not delivered',
+    ar: 'لم يورَّد',
+    ur: 'فراہم نہیں ہوا',
+    hi: 'आपूर्ति नहीं',
+  );
+  static const contractNotStarted = TranslatableString(
+    en: 'Not started',
+    ar: 'لم يبدأ',
+    ur: 'شروع نہیں ہوا',
+    hi: 'शुरू नहीं',
+  );
+  static const contractDeliveredAll = TranslatableString(
+    en: 'Delivered',
+    ar: 'ورِّد بالكامل',
+    ur: 'مکمل فراہم',
+    hi: 'पूरी आपूर्ति',
+  );
+  static const contractInstalledAll = TranslatableString(
+    en: 'Installed',
+    ar: 'رُكِّب',
+    ur: 'نصب ہو گیا',
+    hi: 'स्थापित हुआ',
+  );
+  static const contractPartOf = TranslatableString(
+    en: '{done} of {total}',
+    ar: '{done} من {total}',
+    ur: '{total} میں سے {done}',
+    hi: '{total} में से {done}',
+  );
 }

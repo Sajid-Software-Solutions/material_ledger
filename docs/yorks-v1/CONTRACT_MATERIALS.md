@@ -111,6 +111,14 @@ carries `basis_kind`, which the constraint requires).
 - Tab: `lib/features/accounts/presentation/v2/accounts_v2_materials_tab.dart`,
   route `/yorks/projects/:projectId/accounts/materials`; tab hidden and the
   link falls back to Summary while the flag is off.
+- BOQ: `YorksV1BoqContractStatusRepository` and
+  `yorksV1BoqContractStatusProvider` (kept apart from the worksheet
+  repository; a failed or switched-off read returns nothing, so the sheet is
+  never blocked). A folder whose rows are tied shows a "Contract status ·
+  Sheet" toggle above the grid and opens on the status
+  (`lib/features/projects/presentation/widgets/yorks_v1_boq_contract_status_view.dart`):
+  a full-width table on desktop, one card per line at 360px. Editing stays on
+  the Sheet.
 
 ## Rollout
 
