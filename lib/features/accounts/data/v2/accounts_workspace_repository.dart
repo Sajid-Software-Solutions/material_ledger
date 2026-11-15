@@ -12,6 +12,7 @@ import '../../domain/v2/claims_list_models.dart';
 import '../../domain/v2/variations_models.dart';
 import '../../domain/v2/client_invoice_document_models.dart';
 import '../../domain/v2/commercial_setup_read_models.dart';
+import '../../domain/v2/material_register_models.dart';
 import '../../domain/v2/material_sources_models.dart';
 import '../../domain/v2/pdc_register_models.dart';
 import '../accounts_repository.dart' show YorksAccountsRpcClient;
@@ -61,6 +62,18 @@ final class YorksAccountsWorkspaceRepository {
       parameters: {'p_project_id': projectId},
     );
     return YorksAccountsMaterialSources.fromJson(json);
+  }
+
+  /// Each building's contract lines with what is delivered, installed and on
+  /// site; prices only when the server sends them (Accounts › Materials).
+  Future<YorksAccountsMaterialRegister> getMaterialRegister(
+    String projectId,
+  ) async {
+    final json = await _client.invoke(
+      functionName: 'v1_get_accounts_material_register',
+      parameters: {'p_project_id': projectId},
+    );
+    return YorksAccountsMaterialRegister.fromJson(json);
   }
 
   /// Replaces the project's item-to-BOQ-folder links in one step.

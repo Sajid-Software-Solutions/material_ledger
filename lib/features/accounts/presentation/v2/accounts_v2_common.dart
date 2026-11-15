@@ -128,6 +128,7 @@ String accountsV2TodayIso() {
 enum YorksAccountsWorkspaceV2Tab {
   summary('v2_tab_summary', Icons.dashboard_outlined),
   contract('v2_tab_contract', Icons.description_outlined),
+  materials('v2_tab_materials', Icons.inventory_2_outlined),
   claims('v2_tab_claims', Icons.trending_up_outlined),
   invoices('v2_tab_invoices', Icons.receipt_long_outlined),
   supplierBills('v2_tab_supplier_bills', Icons.local_shipping_outlined),
@@ -145,6 +146,7 @@ YorksAccountsWorkspaceV2Tab yorksAccountsV2TabForPath(
   String path,
 ) => switch (path.split('/').last) {
   'contract' => YorksAccountsWorkspaceV2Tab.contract,
+  'materials' => YorksAccountsWorkspaceV2Tab.materials,
   'claims' || 'billing' => YorksAccountsWorkspaceV2Tab.claims,
   'client-invoices' || 'receipts-pdc' => YorksAccountsWorkspaceV2Tab.invoices,
   'supplier-bills' => YorksAccountsWorkspaceV2Tab.supplierBills,

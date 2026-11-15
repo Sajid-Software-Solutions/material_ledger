@@ -35,6 +35,7 @@ class YorksV1FeatureFlags {
     bool workforceCenter = false,
     bool peopleRecords = false,
     bool companyDocuments = false,
+    bool contractMaterials = false,
   }) : _foundation = foundation,
        _projects = projects,
        _projectSetup = projectSetup,
@@ -57,7 +58,8 @@ class YorksV1FeatureFlags {
        _workforceAttendanceV2 = workforceAttendanceV2,
        _workforceCenter = workforceCenter,
        _peopleRecords = peopleRecords,
-       _companyDocuments = companyDocuments;
+       _companyDocuments = companyDocuments,
+       _contractMaterials = contractMaterials;
 
   const YorksV1FeatureFlags.fromEnvironment()
     : _foundation = const bool.fromEnvironment(
@@ -145,6 +147,10 @@ class YorksV1FeatureFlags {
       _companyDocuments = const bool.fromEnvironment(
         'YORKS_V1_COMPANY_DOCUMENTS',
         defaultValue: false,
+      ),
+      _contractMaterials = const bool.fromEnvironment(
+        'YORKS_V1_CONTRACT_MATERIALS',
+        defaultValue: false,
       );
 
   final bool _foundation;
@@ -170,6 +176,7 @@ class YorksV1FeatureFlags {
   final bool _workforceCenter;
   final bool _peopleRecords;
   final bool _companyDocuments;
+  final bool _contractMaterials;
 
   bool get foundation => _foundation;
   bool get projects => foundation && _projects;
@@ -265,6 +272,14 @@ class YorksV1FeatureFlags {
   /// `20261114140000_company_documents_foundation.sql` is applied. The server
   /// enforces `company_documents.*` on every call.
   bool get companyDocuments => foundation && _companyDocuments;
+
+  /// Contract materials (PRODUCT_DECISIONS.md section 61): the Accounts ›
+  /// Materials tab and the BOQ's contract line status. Builds on Accounts
+  /// Workspace V2. Default off until
+  /// `20261115120000_accounts_contract_materials.sql` is applied and the owner
+  /// accepts it. The server enforces every Accounts and BOQ capability
+  /// regardless of this flag.
+  bool get contractMaterials => accountsWorkspaceV2 && _contractMaterials;
 
   /// The one supported Yorks V1 R35 operational chain. Release builds must
   /// fail closed if a caller explicitly disables any dependency in this chain.

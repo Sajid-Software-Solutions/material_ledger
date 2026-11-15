@@ -9454,14 +9454,17 @@ class _ProjectAccountsEmbed extends ConsumerWidget {
       yorksV1FeatureFlagsProvider.select((flags) => flags.accountsWorkspaceV2),
     );
     if (useV2) {
+      // V1 has no Contract or Materials tab to map from, so their deep links
+      // are read directly.
+      final path =
+          GoRouter.maybeOf(context)?.routeInformationProvider.value.uri.path ??
+          '';
       return YorksAccountsWorkspaceV2Deferred(
         projectId: projectId,
-        // V1 has no Contract tab to map from, so its deep link is read directly.
-        initialTab:
-            GoRouter.maybeOf(context)?.routeInformationProvider.value.uri.path
-                    .endsWith('/accounts/contract') ==
-                true
+        initialTab: path.endsWith('/accounts/contract')
             ? YorksAccountsWorkspaceV2Tab.contract
+            : path.endsWith('/accounts/materials')
+            ? YorksAccountsWorkspaceV2Tab.materials
             : _mapTab(initialTab),
       );
     }
