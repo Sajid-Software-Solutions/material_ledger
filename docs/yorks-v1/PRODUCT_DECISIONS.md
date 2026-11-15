@@ -2810,6 +2810,52 @@ on, who confirms and reopens a month, hours, the month lock and staff never
 on sheets. Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 Attendance by role. Migration `20261115090000_workforce_attendance_by_role.sql`.
 
+## 59. Print a day, and attendance that reads the same for every role (owner request, 15 November 2026)
+
+After the attendance-by-role release the owner said "the attendance view is
+great now, maybe we can add print button as well" and asked for the module
+to be complete, clean and consistent for every role. Nothing about who may
+see or change attendance, hours, the month lock or confirmation changes, and
+there is no database change.
+
+- **Print the day.** Take attendance has a Print button on a saved day, for
+  anyone who may see that day (a Document Controller who only reads it
+  too). It prints the place's day as saved, never unsaved changes: while a
+  change is unsaved Print waits ("Save the day to print it"). The A4 sheet
+  carries the Material Request letterhead and names the place, the date, the
+  kind of day, who entered it and when (and who saved it last), and the
+  count present, absent and on leave. One line per labourer gives the
+  number, name and designation, the building (the project typed on the line
+  at the workshop), the status, the four times, hours, normal and holiday
+  overtime and who saved the line, with totals. Lines changed after entry
+  are listed with their reasons, and the foot says whether the month can
+  still change. A day nobody saved has no Print.
+- **One name for a place.** Every screen and print names a project's place
+  "YRA-322 · DF3W" and an internal place by its name ("Workshop"): the
+  Overview, My sites and Sites tables, Needs a look, the activity feed,
+  Month confirmation, Time sheets (its place list, its preview and its
+  print and Excel) and the printed day. A place no longer shows its project
+  a second time the other way round. A crew set up before places keeps its
+  own name and work label.
+- **The day fits a laptop.** On a desktop the day's grid fits a 1366px
+  screen beside the sidebar, edit and remove included; the labourer's name
+  takes the room that is left, and a narrower window scrolls sideways.
+- **A building only where someone worked.** A present (or not yet marked)
+  labourer is asked for the building; an absent, resting or on-leave one is
+  not, and shows a building only if one was saved.
+- **Month confirmation for those who watch it.** HR/PRO (who reopens but does
+  not confirm) is told that the reviewer confirms from the last day and is
+  reminded until confirmed, not "you will get a notification". A place's
+  month shows Days entered and its overtime, without a "Not entered" count
+  that a place never has (section 51).
+- **The time sheet on screen matches its print.** A place's empty days stay
+  blank on screen as on paper (section 52), the Project name column and the
+  place line read the same, and the weekly line reads "Site in-charge:
+  entered by …" on both.
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Print the day and one name for a place.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

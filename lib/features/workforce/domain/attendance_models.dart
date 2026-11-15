@@ -192,6 +192,22 @@ final class AttendanceCrew {
   /// One shared sheet for a project or an internal location.
   bool get isPlace => placeKind != null;
 
+  /// The place as every screen and print names it: "YRA-322 · DF3W" for a
+  /// project's place, else the sheet's name ("Workshop").
+  String get label {
+    final ref = projectRef;
+    final project = projectName;
+    if (placeKind == 'project' && ref != null && project != null) {
+      return '$ref · $project';
+    }
+    return name;
+  }
+
+  /// A second line under [label] only when it says something more: a crew
+  /// set up before places shows its work label; a place shows none.
+  String? get detail =>
+      isPlace || workLabel.isEmpty || workLabel == name ? null : workLabel;
+
   /// The building a new row starts with: the only building, else none.
   AttendanceBuilding? get defaultBuilding {
     final real = buildings.where((b) => !b.isCommon).toList();
@@ -1006,6 +1022,12 @@ final class AttendanceOverview {
 
   /// Null from a server before section 58.
   final AttendanceTodaySummary? todaySummary;
+
+  /// A place as every screen names it ([AttendanceCrew.label]); [fallback]
+  /// (the server's sheet name) for a place not in this overview.
+  String placeName(String crewId, String fallback) =>
+      crews.where((c) => c.crew.id == crewId).firstOrNull?.crew.label ??
+      fallback;
 }
 
 final class AttendanceSheetDay {

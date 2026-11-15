@@ -1020,6 +1020,12 @@ abstract final class AttendanceStrings {
     ur: 'آپ کو ہر دن منظور کرنے کی ضرورت نہیں۔ جو درج ہو وہ یہاں فوراً نظر آتا ہے؛ ضرورت ہو تو کسی دن میں دخل دیں۔ مہینے کے آخری دن تصدیق کی اطلاع ملے گی۔',
     hi: 'आपको हर दिन स्वीकृत करने की आवश्यकता नहीं। जो दर्ज होता है वह यहाँ तुरंत दिखता है; ज़रूरत हो तो किसी दिन हस्तक्षेप करें। माह के अंतिम दिन पुष्टि की सूचना मिलेगी।',
   );
+  static const confirmIntroWatch = _T(
+    en: 'Each place’s month as it is entered. The reviewer confirms it from the last day of the month, which locks it; you can reopen a confirmed month with a reason.',
+    ar: 'شهر كل مكان كما يُدخل. يؤكده المراجع من آخر يوم في الشهر فيُقفل؛ ويمكنك إعادة فتح شهر مؤكد مع ذكر السبب.',
+    ur: 'ہر جگہ کا مہینہ جیسے درج ہوتا ہے۔ جائزہ لینے والا مہینے کے آخری دن سے اس کی تصدیق کرتا ہے جس سے وہ مقفل ہو جاتا ہے؛ آپ وجہ بتا کر تصدیق شدہ مہینہ دوبارہ کھول سکتے ہیں۔',
+    hi: 'हर स्थान का माह जैसे दर्ज होता है। समीक्षक माह के अंतिम दिन से इसकी पुष्टि करता है, जिससे यह लॉक हो जाता है; आप कारण देकर पुष्टि किया गया माह फिर से खोल सकते हैं।',
+  );
   static const nextConfirmation = _T(
     en: 'Next confirmation: {date}. Until then, days stay open for the attendance taker to fill in and correct.',
     ar: 'التأكيد التالي: {date}. حتى ذلك الحين تبقى الأيام مفتوحة لمسجل الحضور للإدخال والتصحيح.',
@@ -1037,12 +1043,6 @@ abstract final class AttendanceStrings {
     ar: 'أيام مُدخلة',
     ur: 'درج دن',
     hi: 'दर्ज दिन',
-  );
-  static const notEnteredLabel = _T(
-    en: 'not entered',
-    ar: 'غير مُدخلة',
-    ur: 'درج نہیں',
-    hi: 'दर्ज नहीं',
   );
   static const worthALook = _T(
     en: 'Worth a look',
@@ -1092,6 +1092,12 @@ abstract final class AttendanceStrings {
     ur: '{n} دن درج نہیں: {list}',
     hi: '{n} दिन दर्ज नहीं: {list}',
   );
+  static const waitingForReviewer = _T(
+    en: 'Everything is entered. Waiting for the reviewer to confirm.',
+    ar: 'تم إدخال كل شيء. بانتظار تأكيد المراجع.',
+    ur: 'سب درج ہے۔ جائزہ لینے والے کی تصدیق کا انتظار ہے۔',
+    hi: 'सब दर्ज है। समीक्षक की पुष्टि की प्रतीक्षा है।',
+  );
   static const allEnteredLocks = _T(
     en: 'Everything is entered. Confirming locks the month.',
     ar: 'تم إدخال كل شيء. التأكيد يقفل الشهر.',
@@ -1134,6 +1140,12 @@ abstract final class AttendanceStrings {
     ur: '{month} دوبارہ کھل گیا۔ دن پھر درست کیے جا سکتے ہیں۔',
     hi: '{month} फिर खुला। दिन फिर सुधारे जा सकते हैं।',
   );
+  static const noReviewCrewsWatch = _T(
+    en: 'No place has a month to confirm.',
+    ar: 'لا يوجد مكان لديه شهر للتأكيد.',
+    ur: 'کسی جگہ کا کوئی مہینہ تصدیق کے لیے نہیں۔',
+    hi: 'किसी स्थान का कोई माह पुष्टि के लिए नहीं है।',
+  );
   static const noReviewCrews = _T(
     en: 'No place you confirm needs attention.',
     ar: 'لا يوجد مكان تؤكده يحتاج إلى انتباه.',
@@ -1149,6 +1161,18 @@ abstract final class AttendanceStrings {
     hi: 'कागज़ी टाइम शीट, दैनिक उपस्थिति से भरी। जब तक समीक्षक माह की पुष्टि न करे, आंकड़े बदल सकते हैं।',
   );
   static const print = _T(en: 'Print', ar: 'طباعة', ur: 'پرنٹ', hi: 'प्रिंट');
+  static const printDay = _T(
+    en: 'Print this day',
+    ar: 'طباعة هذا اليوم',
+    ur: 'یہ دن پرنٹ کریں',
+    hi: 'यह दिन प्रिंट करें',
+  );
+  static const printSaveFirst = _T(
+    en: 'Save the day to print it',
+    ar: 'احفظ اليوم لطباعته',
+    ur: 'پرنٹ کرنے کے لیے دن محفوظ کریں',
+    hi: 'प्रिंट करने के लिए दिन सहेजें',
+  );
   static const savePdf = _T(
     en: 'Save PDF',
     ar: 'حفظ PDF',
