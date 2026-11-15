@@ -56,6 +56,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
   YorksV1DomainException? _openError;
   bool _autoOpened = false;
 
+  /// The workshop's sheet once opened here, whatever name it was given.
+  String? _workshopCrewId;
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +131,12 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
       };
       if (!mounted) return;
       ref.invalidate(yorksAttendancePlacesProvider);
+      if (choice case AttendancePickLocation(
+        crewId: null,
+        name: attendanceWorkshopPlace,
+      )) {
+        _workshopCrewId = crew.id;
+      }
       setState(() => _opening = null);
       _open(crew.id, date);
     } on YorksV1DomainException catch (error) {
@@ -172,20 +181,27 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
 
   /// The Workshop In-Charge's attendance opens on the workshop unless he
   /// chooses a project (PRODUCT_DECISIONS section 58).
+  bool get _keepsWorkshop =>
+      ref.read(yorksV1CurrentRoleProvider) == YorksV1Role.workshopInCharge;
+
+  /// The workshop's sheet: the internal place with the workshop's key (not
+  /// any place whose name mentions a workshop), or the one opened here.
   String? _workshop(AttendancePlaces places) {
-    if (ref.read(yorksV1CurrentRoleProvider) != YorksV1Role.workshopInCharge) {
-      return null;
+    if (!_keepsWorkshop) return null;
+    final key = attendanceLocationKey(attendanceWorkshopPlace);
+    for (final location in places.locations) {
+      if (attendanceLocationKey(location.name) == key ||
+          location.crewId == _workshopCrewId) {
+        return location.crewId;
+      }
     }
-    final kept = [
-      for (final location in places.locations)
-        if (location.canTake) location,
-    ];
-    final named = kept.where(
-      (location) => location.name.toLowerCase().contains('workshop'),
-    );
-    if (named.isNotEmpty) return named.first.crewId;
-    return kept.length == 1 ? kept.single.crewId : null;
+    return null;
   }
+
+  /// The workshop is not open yet: the Workshop In-Charge opens it by
+  /// opening attendance, once.
+  bool _workshopToOpen(AttendancePlaces places) =>
+      _keepsWorkshop && places.canAddLocation && _workshop(places) == null;
 
   AttendancePlaceChoice? _onlyPlace(AttendancePlaces places) {
     final projects = [
@@ -221,9 +237,13 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
     final language = attendanceLanguage(ref);
     final placesAsync = ref.watch(yorksAttendancePlacesProvider);
     final places = placesAsync.valueOrNull;
+    final openWorkshop =
+        _crewId == null && places != null && _workshopToOpen(places);
     final crewId =
         _crewId ??
-        (places == null ? null : _workshop(places) ?? _remembered(places));
+        (places == null || openWorkshop
+            ? null
+            : _workshop(places) ?? _remembered(places));
     final date = _date ?? attendanceLocalToday();
 
     if (crewId != null) {
@@ -244,7 +264,9 @@ class _AttendanceTakeScreenState extends ConsumerState<AttendanceTakeScreen> {
         onRetry: () => ref.invalidate(yorksAttendancePlacesProvider),
       );
     }
-    final only = _onlyPlace(places);
+    final only = openWorkshop
+        ? const AttendancePickLocation(name: attendanceWorkshopPlace)
+        : _onlyPlace(places);
     if (only != null && !_autoOpened && _openError == null) {
       _autoOpened = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

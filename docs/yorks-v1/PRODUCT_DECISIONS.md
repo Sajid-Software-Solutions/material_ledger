@@ -2780,6 +2780,10 @@ owner approved the proposal with these answers:
   exactly as saved.
 - **The Workshop In-Charge also works on projects.** His attendance opens on
   the workshop by default and he may choose a project instead, as today.
+  The workshop is the internal place named Workshop (key
+  `location:workshop`), matched by that key and not by any name that
+  mentions a workshop; his attendance opens it the first time if nobody has
+  yet (15 November 2026).
 - **No notes are added.** Attendance stays simple: no day note and no new
   note field.
 - **Senior Mechanical Engineers and Project Managers** get the Project
@@ -2793,11 +2797,13 @@ owner approved the proposal with these answers:
   labourer and each labourer's time sheet), Time sheets, Attendance and,
   for Admin and HR/PRO, Confirm.
 
-- **The Workforce Center stays reachable** (review before merge, 15
-  November 2026, approved by the owner). With the Center on (section 38),
-  each role keeps its first screen; a link to a Center view always opens it;
-  the Site Engineer's Attendance screen has Crew requests and Request crew
-  buttons; the Workshop In-Charge has a Center tab after the Workshop.
+- **If the Workforce Center is turned on again** (review before merge, 15
+  November 2026). Production keeps it off (section 50), so none of this
+  shows; the 14 and 15 November production builds were wrongly made with it
+  on and showed it until rebuilt. With the Center on (section 38), each role
+  keeps its first screen; a link to a Center view always opens it; the Site
+  Engineer's Attendance screen has Crew requests and Request crew buttons;
+  the Workshop In-Charge has a Center tab after the Workshop.
 
 Unchanged: Site and Project Engineers keep attendance on projects they are
 on, who confirms and reopens a month, hours, the month lock and staff never

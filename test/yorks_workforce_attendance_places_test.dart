@@ -16,6 +16,7 @@ import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
+import 'package:material_ledger/features/workforce/domain/attendance_models.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/requests/crew_request_common.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
@@ -528,6 +529,140 @@ void main() {
       _otherPlaceId,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the workshop is found by its key, not by a name mentioning '
+      'a workshop', (tester) async {
+    _size(tester, const Size(360, 800));
+    final places = _places();
+    places['locations'] = [
+      // Listed first, and mentions a workshop: not the workshop.
+      {'crew_id': 'store', 'name': 'Workshop store', 'can_take': true},
+      {'crew_id': _otherPlaceId, 'name': '  workshop ', 'can_take': true},
+    ];
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) => places,
+      'v1_wf_get_day': (_) => _day(place: _workshopPlace()),
+    });
+    await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      role: YorksV1Role.workshopInCharge,
+    );
+    expect(
+      rpc.calls.firstWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+    expect(rpc.count('v1_wf_open_place'), 0);
+  });
+
+  testWidgets('with no workshop yet, the Workshop In-Charge opens it once', (
+    tester,
+  ) async {
+    _size(tester, const Size(360, 800));
+    var opened = false;
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) {
+        final places = _places();
+        places['locations'] = [
+          {'crew_id': 'store', 'name': 'Store', 'can_take': true},
+          if (opened)
+            {'crew_id': _otherPlaceId, 'name': 'Workshop', 'can_take': true},
+        ];
+        return places;
+      },
+      'v1_wf_open_place': (params) {
+        opened = true;
+        return _workshopPlace();
+      },
+      'v1_wf_get_day': (_) => _day(place: _workshopPlace()),
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      // The store was used last: the workshop still comes first.
+      preferences: {
+        'yorks.attendance.places.v1.actor-1': ['store'],
+      },
+      role: YorksV1Role.workshopInCharge,
+    );
+    expect(rpc.count('v1_wf_open_place'), 1);
+    expect(
+      rpc.calls.firstWhere((c) => c.$1 == 'v1_wf_open_place').$2['p_location'],
+      attendanceWorkshopPlace,
+    );
+    expect(
+      rpc.calls.lastWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+
+    // Back to the tab later: the open workshop, not opened again.
+    router.go('${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId');
+    await tester.pumpAndSettle();
+    router.go(RoutePaths.yorksV1WorkforceAttendance);
+    await tester.pumpAndSettle();
+    expect(rpc.count('v1_wf_open_place'), 1);
+    expect(
+      rpc.calls.lastWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a workshop the server named differently is kept once open', (
+    tester,
+  ) async {
+    // A place named "Workshop" may be stored as "Workshop · 1A2B3C" when an
+    // old crew already had the name; the server finds it by its key.
+    _size(tester, const Size(360, 800));
+    final rpc = _FakeRpc({
+      'v1_wf_list_places': (_) {
+        final places = _places();
+        places['locations'] = [
+          {
+            'crew_id': _otherPlaceId,
+            'name': 'Workshop · 1A2B3C',
+            'can_take': true,
+          },
+        ];
+        return places;
+      },
+      'v1_wf_open_place': (_) => _workshopPlace(),
+      'v1_wf_get_day': (_) => _day(place: _workshopPlace()),
+    });
+    final router = await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      role: YorksV1Role.workshopInCharge,
+    );
+    expect(rpc.count('v1_wf_open_place'), 1);
+    router.go('${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId');
+    await tester.pumpAndSettle();
+    router.go(RoutePaths.yorksV1WorkforceAttendance);
+    await tester.pumpAndSettle();
+    expect(rpc.count('v1_wf_open_place'), 1);
+    expect(
+      rpc.calls.lastWhere((c) => c.$1 == 'v1_wf_get_day').$2['p_team_id'],
+      _otherPlaceId,
+    );
+  });
+
+  testWidgets('without the right to add a place, no workshop is opened', (
+    tester,
+  ) async {
+    _size(tester, const Size(360, 800));
+    final places = _places(addLocation: false, second: false);
+    final rpc = _FakeRpc({'v1_wf_list_places': (_) => places});
+    await _pump(
+      tester,
+      rpc,
+      RoutePaths.yorksV1WorkforceAttendance,
+      role: YorksV1Role.workshopInCharge,
+    );
+    expect(rpc.count('v1_wf_open_place'), 0);
   });
 
   testWidgets('other roles keep the place used last', (tester) async {
