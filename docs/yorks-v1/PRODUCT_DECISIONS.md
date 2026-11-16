@@ -2960,6 +2960,9 @@ answer. The design, server contract and rollout are in
   - A building or stage that a link asks a tab to open now holds through the
     tab's first load. Before, it was lost whenever the tab still had to load,
     including the Overview's link into Progress & claims.
+  - Released to production on 16 November 2026: PR #121, main `276a4b5`
+    (owner: "Merge and release"). The evidence is in
+    [`CONTRACT_MATERIALS.md`](CONTRACT_MATERIALS.md).
 
 ## Procurement preparation refinement — October 2026
 
