@@ -270,9 +270,6 @@ class _BuildingGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
     return Container(
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.line)),
@@ -401,7 +398,11 @@ class _BuildingGroup extends StatelessWidget {
             ),
           ),
           AnimatedSize(
-            duration: duration,
+            // Not Duration.zero under reduced motion: a zero-length size
+            // change re-lays the building out inside its own layout.
+            // Flutter already runs animations at 5% (one frame) when the
+            // device asks for reduced motion.
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: expanded
