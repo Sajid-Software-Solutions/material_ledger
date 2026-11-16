@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
+import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
@@ -215,6 +216,7 @@ Future<void> _pump(
   String location, {
   YorksV1FeatureFlags? featureFlags,
   YorksV1Role? role,
+  ThemeData? theme,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final preferences = await SharedPreferences.getInstance();
@@ -264,7 +266,7 @@ Future<void> _pump(
           ),
         ),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(theme: theme, routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();
@@ -1040,8 +1042,14 @@ void main() {
         find.byKey(const ValueKey('attendance-editor-actions')),
       );
       expect(actions.bottom, closeTo(640, 1), reason: 'pinned to the bottom');
-      // Entering a time box selects its time, so typing replaces it.
-      await tester.tap(find.byKey(const ValueKey('attendance-editor-in')));
+      // Entering a time box selects its time, so typing replaces it. The
+      // key holds the box and the clock line under it: tap the box.
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-in')),
+          matching: find.byType(TextField),
+        ),
+      );
       await tester.pumpAndSettle();
       final field = tester.widget<TextField>(
         find.descendant(
@@ -1059,6 +1067,238 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    // The clock under each time box (PRODUCT_DECISIONS section 62).
+    Future<void> openEditor(
+      WidgetTester tester,
+      Size size, {
+      ThemeData? theme,
+    }) async {
+      _size(tester, size);
+      await _pump(tester, _FakeRpc(day()), dayAt, theme: theme);
+      final more = find.byKey(const ValueKey('attendance-pill-more-w1'));
+      // Phones open a worker from the pills, desktop from the row's pencil.
+      await tester.tap(
+        more.evaluate().isNotEmpty ? more : find.byTooltip('Edit Gul Zaman'),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    String boxText(WidgetTester tester, String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(TextField),
+          ),
+        )
+        .controller!
+        .text;
+
+    testWidgets('a time is set on the clock: the dial, in 12-hour time', (
+      tester,
+    ) async {
+      // A phone set to 24-hour time still gets AM and PM, as the app writes.
+      tester.platformDispatcher.alwaysUse24HourFormatTestValue = true;
+      addTearDown(tester.platformDispatcher.clearAlwaysUse24HourTestValue);
+      await openEditor(tester, const Size(360, 800));
+      expect(boxText(tester, 'attendance-editor-out'), '5p');
+
+      final clock = find.byKey(const ValueKey('attendance-editor-out-clock'));
+      expect(clock, findsOneWidget);
+      expect(
+        find.descendant(of: clock, matching: find.text('5 PM')),
+        findsOneWidget,
+      );
+      final size = tester.getSize(clock);
+      expect(size.height, greaterThanOrEqualTo(44));
+      expect(size.width, greaterThanOrEqualTo(44));
+      expect(find.byTooltip('Choose Out on the clock'), findsOneWidget);
+
+      await tester.tap(clock);
+      await tester.pumpAndSettle();
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      expect(find.text('Out · Gul Zaman'), findsOneWidget);
+      expect(find.text('PM'), findsOneWidget);
+      expect(find.text('AM'), findsOneWidget);
+
+      // The dial's own switch to typing the hour and minute.
+      await tester.tap(find.byTooltip('Switch to text input mode'));
+      await tester.pumpAndSettle();
+      final boxes = find.descendant(
+        of: find.byType(TimePickerDialog),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(boxes.at(0), '5');
+      await tester.enterText(boxes.at(1), '45');
+      await tester.tap(find.text('PM'));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TimePickerDialog), findsNothing);
+      expect(boxText(tester, 'attendance-editor-out'), '5:45p');
+      expect(
+        find.descendant(of: clock, matching: find.text('5:45 PM')),
+        findsOneWidget,
+      );
+      // 6:30 AM to 5:45 PM less a 30 minute break: 10.75 hours.
+      expect(find.text('10.8'), findsOneWidget);
+      expect(find.text('2.8'), findsOneWidget);
+
+      // Typing still works beside the clock, and the Out-at chips too.
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-out')),
+          matching: find.byType(TextField),
+        ),
+        '6',
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: clock, matching: find.text('6 PM')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-out-at-1140')),
+      );
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-editor-out'), '7p');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('closing the clock keeps the time; a typo is fixed on it', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(360, 800));
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-in-clock')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-editor-in'), '6:30a');
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-in')),
+          matching: find.byType(TextField),
+        ),
+        '99',
+      );
+      await tester.pumpAndSettle();
+      final clock = find.byKey(const ValueKey('attendance-editor-in-clock'));
+      expect(
+        find.descendant(of: clock, matching: find.text('Not a time')),
+        findsOneWidget,
+      );
+      // The clock opens at the place's usual start and puts it right.
+      await tester.tap(clock);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-editor-in'), '6:30a');
+      expect(
+        find.descendant(of: clock, matching: find.text('6:30 AM')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reduced motion: the clock opens without its animation', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await openEditor(tester, const Size(360, 800));
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-out-clock')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      final route = ModalRoute.of(
+        tester.element(find.byType(TimePickerDialog)),
+      )!;
+      expect(route.animation!.value, 1, reason: 'no fade or zoom to wait for');
+      await tester.pumpAndSettle();
+      // The Save bar under the day appears without a zero-length size
+      // animation re-laying itself out.
+      expect(find.byKey(const ValueKey('attendance-save-bar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('every time box of the desktop editor has its clock', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(1280, 860));
+      for (final box in ['in', 'break', 'back', 'out']) {
+        expect(
+          find.byKey(ValueKey('attendance-editor-$box-clock')),
+          findsOneWidget,
+          reason: box,
+        );
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-break-clock')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(TimePickerDialog), findsOneWidget);
+      expect(find.text('Break · Gul Zaman'), findsOneWidget);
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-editor-break'), '12:30p');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the usual shift is set on the clock too', (tester) async {
+      _size(tester, const Size(360, 800));
+      await _pump(tester, _FakeRpc(day()), dayAt);
+      await tester.tap(find.textContaining('6:30 AM – 5 PM').first);
+      await tester.pumpAndSettle();
+      final clock = find.byKey(const ValueKey('attendance-shift-out-clock'));
+      expect(clock, findsOneWidget);
+      await tester.tap(clock);
+      await tester.pumpAndSettle();
+      expect(find.text('Usual shift at this place · Out'), findsOneWidget);
+      await tester.tap(find.byTooltip('Switch to text input mode'));
+      await tester.pumpAndSettle();
+      final boxes = find.descendant(
+        of: find.byType(TimePickerDialog),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(boxes.at(0), '3');
+      await tester.enterText(boxes.at(1), '00');
+      await tester.tap(find.text('PM'));
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-shift-out'), '3p');
+      expect(
+        find.descendant(of: clock, matching: find.text('3 PM')),
+        findsOneWidget,
+      );
+    });
+
+    // Screenshots in the app's own theme, as production shows the dial.
+    for (final (name, size) in [
+      ('phone', const Size(360, 800)),
+      ('desktop', const Size(1280, 860)),
+    ]) {
+      testWidgets('$name editor and its clock, screenshots', (tester) async {
+        await openEditor(tester, size, theme: AppTheme.light);
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/attendance_clock_${name}_editor.png'),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('attendance-editor-out-clock')),
+        );
+        await tester.pumpAndSettle();
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('goldens/attendance_clock_${name}_dial.png'),
+        );
+      });
+    }
 
     Future<_FakeRpc> pumpCrews(
       WidgetTester tester,

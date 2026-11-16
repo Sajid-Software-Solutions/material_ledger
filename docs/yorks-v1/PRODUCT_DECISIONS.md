@@ -2961,6 +2961,35 @@ answer. The design, server contract and rollout are in
     tab's first load. Before, it was lost whenever the tab still had to load,
     including the Overview's link into Progress & claims.
 
+## 62. Attendance times on the clock (owner request, 16 November 2026)
+
+The owner asked that attendance times "can be selected using the clock you
+know", after typing "3.30" for an Out time on a phone. Nothing about hours,
+saving, access or the month changes, and there is no database change.
+
+- Every time box of the worker's editor (the sheet on a phone, the dialog on
+  a desktop) has a clock line under it showing the time it reads ("6:30 AM",
+  red "Not a time" when it cannot be read). Tapping it opens the standard
+  clock dial, which has its own switch to typing the hour and minute. The
+  usual shift at a place (In and Out) has the same clock.
+- The dial is always in 12-hour time with AM and PM, as the app writes
+  times, even on a phone set to 24-hour time. It is titled with the box and
+  the worker ("Out · Gul Zaman"); an empty box opens at the place's usual
+  time.
+- A picked time is written into the box as the app writes it ("5:45p").
+  With its AM or PM it reads as exactly the picked time whatever the box
+  before it says, so the time-entry rules and the hours rule are unchanged.
+  Typing ("630", "5", "3.30") and the Out at chips work as before.
+- The clock line is a 44px target, and the dial's short animations follow
+  the device's reduce-motion setting. The Save bar under a day no longer
+  re-lays itself out during its own layout when reduce motion is on.
+- The desktop day grid keeps typing in its cells, for the keyboard; the
+  pencil on each row opens the worker's editor with the clock. That pencil
+  now says "Edit" and the worker's name instead of "Edit crew".
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Times on the clock.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

@@ -1486,7 +1486,19 @@ class _ShiftDialogState extends State<_ShiftDialog> {
                 controller: _start,
                 hint: formatAttendanceTime(start.minutes),
                 error: !start.ok,
+                language: language,
                 onChanged: (_) => setState(() {}),
+                caption: start.ok
+                    ? formatAttendanceTime(start.minutes)
+                    : AS.t(AS.notATime, language),
+                clock: AttendanceClock(
+                  title:
+                      '${AS.t(AS.shiftTitle, language)} · '
+                      '${AS.t(AS.colIn, language)}',
+                  current: start.minutes,
+                  fallback: widget.start,
+                ),
+                clockKey: const ValueKey('attendance-shift-in-clock'),
               ),
             ),
             const SizedBox(width: 10),
@@ -1498,7 +1510,19 @@ class _ShiftDialogState extends State<_ShiftDialog> {
                 hint: formatAttendanceTime(finish.minutes),
                 error: !finish.ok,
                 last: true,
+                language: language,
                 onChanged: (_) => setState(() {}),
+                caption: finish.ok
+                    ? formatAttendanceTime(finish.minutes)
+                    : AS.t(AS.notATime, language),
+                clock: AttendanceClock(
+                  title:
+                      '${AS.t(AS.shiftTitle, language)} · '
+                      '${AS.t(AS.colOut, language)}',
+                  current: finish.minutes,
+                  fallback: widget.finish,
+                ),
+                clockKey: const ValueKey('attendance-shift-out-clock'),
               ),
             ),
           ],

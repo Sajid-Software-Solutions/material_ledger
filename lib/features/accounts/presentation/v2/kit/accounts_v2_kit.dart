@@ -2507,10 +2507,12 @@ class _AccountsV2BottomBarHostState extends State<AccountsV2BottomBarHost> {
                 : widget.child,
             ValueListenableBuilder<(Object, Widget)?>(
               valueListenable: _bar,
+              // Not Duration.zero under reduced motion: a zero-length size
+              // change re-lays the bar out inside its own layout. Flutter
+              // already runs animations at 5% (one frame) when the device
+              // asks for reduced motion.
               builder: (context, bar, _) => AnimatedSize(
-                duration: MediaQuery.of(context).disableAnimations
-                    ? Duration.zero
-                    : const Duration(milliseconds: 160),
+                duration: const Duration(milliseconds: 160),
                 alignment: Alignment.topCenter,
                 child: bar == null
                     ? const SizedBox(width: double.infinity)

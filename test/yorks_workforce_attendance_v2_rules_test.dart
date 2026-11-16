@@ -36,6 +36,18 @@ void main() {
       expect(parseAttendanceTime('7:75').ok, isFalse);
     });
 
+    // A time set on the clock is written back as "5:45p" (PRODUCT_DECISIONS
+    // section 62): with its AM/PM it reads as exactly the picked time,
+    // whatever the box before it says, so the hours rule is unchanged.
+    test('every time picked on the clock reads back exactly', () {
+      for (var minute = 0; minute < 24 * 60; minute++) {
+        final text = formatAttendanceTimeInput(minute);
+        for (final after in [null, 0, 390, 719, 720, 1020, 1439]) {
+          expect(_t(text, after: after), minute, reason: '$text after $after');
+        }
+      }
+    });
+
     test('formats like the paper sheet', () {
       expect(formatAttendanceTime(390), '6:30 AM');
       expect(formatAttendanceTime(1020), '5 PM');
