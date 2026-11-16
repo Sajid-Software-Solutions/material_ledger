@@ -2990,6 +2990,40 @@ saving, access or the month changes, and there is no database change.
 Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 Times on the clock.
 
+## 63. The attendance worker editor on a phone (owner request, 16 November 2026)
+
+After the clock went live (section 62), the owner sent a phone screenshot of
+the worker's editor and asked to "super optamized it and make sure the UX is
+great on mobile as well. make it clean, working and perfect." Nothing about
+hours, saving, access or the month changes, and there is no database change.
+
+- The clock is inside each time box, at its end: a 44px target as tall as
+  the box. The line under each box, which repeated the time ("6:30a" in the
+  box, "6:30 AM" under it), is gone. A time the box cannot read turns the box
+  red, and once the box is left its label says so ("In · Not a time"). It
+  does not say so while "63" is on its way to "630".
+- In and Out sit side by side, wide enough for the clock on a 360px phone.
+  Break and Back show under them only when there is a break. "Add break"
+  adds the place's usual break (12:30 to 1 PM when it has none) and "No
+  break" removes it, so the break has one way in. The long typing hint is
+  now the heading "Time".
+- Present, Absent (and Rest day on a holiday) and Leave fit one row. The
+  four kinds of leave open as a list from the Leave chip, which then names
+  the kind chosen ("Sick leave").
+- Next on the phone keyboard goes In, Out, Break and Back without stopping
+  at the clocks, so the keyboard stays up. Choosing on the dial leaves the
+  box being typed in, so the keyboard does not come back when the dial
+  closes.
+- With the keyboard up, the box being typed in and Done stay in sight. The
+  whole editor, Done included, fits a 360 × 800 phone.
+- Arabic and Urdu read right to left, with the clock at the box's end (its
+  left). The Out at times read "3 PM", not "PM 3".
+- The usual-shift dialog and the desktop editor use the same boxes. The
+  desktop day grid keeps typing in its cells.
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+The worker editor on a phone.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

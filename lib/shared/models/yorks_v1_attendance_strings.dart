@@ -752,12 +752,6 @@ abstract final class AttendanceStrings {
     ur: 'پروجیکٹ',
     hi: 'प्रोजेक्ट',
   );
-  static const timeHint = _T(
-    en: 'Time · type 630, 1230, 1, 5 or tap the clock',
-    ar: 'الوقت · اكتب 630، 1230، 1، 5 أو اضغط على الساعة',
-    ur: 'وقت · لکھیں 630، 1230، 1، 5 یا گھڑی دبائیں',
-    hi: 'समय · लिखें 630, 1230, 1, 5 या घड़ी दबाएँ',
-  );
   static const pickOnClock = _T(
     en: 'Choose {field} on the clock',
     ar: 'اختر {field} على الساعة',

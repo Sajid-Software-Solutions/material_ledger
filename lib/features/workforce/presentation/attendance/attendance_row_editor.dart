@@ -102,6 +102,10 @@ class _RowEditorState extends State<_RowEditor> {
   String? _scopeId;
   String? _scopeName;
 
+  /// The Break and Back boxes show only with a break, so the break has one
+  /// way in: Add break and No break above the times.
+  bool _showBreak = false;
+
   bool get _projectPlace =>
       widget.day.crew.placeKind == 'project' &&
       widget.day.crew.buildings.isNotEmpty;
@@ -131,6 +135,23 @@ class _RowEditorState extends State<_RowEditor> {
     _project.text = _row.workLabel ?? widget.day.crew.workLabel;
     _scopeId = _row.workScopeId;
     _scopeName = _row.workScopeName;
+    _showBreak = _row.breakStart != null || _row.breakFinish != null;
+  }
+
+  /// Adds the place's usual break (12:30 to 1 PM when it has none), or
+  /// drops the break.
+  void _toggleBreak() {
+    setState(() {
+      if (_showBreak) {
+        _break.clear();
+        _back.clear();
+      } else {
+        final crew = widget.day.crew;
+        _break.text = formatAttendanceTimeInput(crew.breakStart ?? 750);
+        _back.text = formatAttendanceTimeInput(crew.breakFinish ?? 780);
+      }
+      _showBreak = !_showBreak;
+    });
   }
 
   @override
@@ -201,6 +222,66 @@ class _RowEditorState extends State<_RowEditor> {
     Navigator.of(context).pop((row: _current(), move: move));
   }
 
+  /// The four kinds of leave as one chip: "Leave", or the kind chosen,
+  /// opening the list of kinds under it.
+  Widget _leaveChip(AttendanceRow row, List<AttendanceStatus> statuses) {
+    final language = _language;
+    final onLeave = row.status?.isLeave ?? false;
+    final label = onLeave
+        ? attendanceStatusLabel(row.status).active(language)
+        : AS.t(AS.colLeaveDays, language);
+    // One node for screen readers: a button, selected while on leave, that
+    // opens the list (the menu adds "expanded").
+    return Semantics(
+      container: true,
+      button: true,
+      selected: onLeave,
+      child: PopupMenuButton<AttendanceStatus>(
+        key: const ValueKey('attendance-editor-status-leave'),
+        tooltip: label,
+        position: PopupMenuPosition.under,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        popUpAnimationStyle: MediaQuery.disableAnimationsOf(context)
+            ? AnimationStyle.noAnimation
+            : null,
+        onSelected: _setStatus,
+        itemBuilder: (context) => [
+          for (final status in statuses)
+            if (status.isLeave)
+              CheckedPopupMenuItem<AttendanceStatus>(
+                key: ValueKey('attendance-editor-status-${status.code}'),
+                value: status,
+                checked: row.status == status,
+                child: Text(
+                  attendanceStatusLabel(status).active(language),
+                  style: v2Style(
+                    14,
+                    weight: row.status == status
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: row.status == status
+                        ? AccountsV2Colors.pri
+                        : AccountsV2Colors.ink,
+                  ),
+                ),
+              ),
+        ],
+        // The chip is only drawn: the menu button takes the tap.
+        child: IgnorePointer(
+          child: ExcludeSemantics(
+            child: AttendanceChoiceChip(
+              label: label,
+              selected: onLeave,
+              dropdown: true,
+              onPressed: null,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final language = _language;
@@ -218,8 +299,8 @@ class _RowEditorState extends State<_RowEditor> {
       AttendanceStatus.unpaidLeave,
     ];
 
-    // Type the time, or tap the clock under the box to set it on the dial
-    // (PRODUCT_DECISIONS section 62); both are read the same way.
+    // Type the time, or tap the clock in the box to set it on the dial
+    // (PRODUCT_DECISIONS sections 62 and 63); both are read the same way.
     Widget timeField(
       String label,
       TextEditingController controller,
@@ -236,9 +317,6 @@ class _RowEditorState extends State<_RowEditor> {
         last: last,
         language: language,
         onChanged: (_) => setState(() {}),
-        caption: parsed.ok
-            ? formatAttendanceTime(parsed.minutes)
-            : AS.t(AS.notATime, language),
         clock: AttendanceClock(
           title: '$label · ${row.worker.name}',
           current: parsed.minutes,
@@ -430,30 +508,51 @@ class _RowEditorState extends State<_RowEditor> {
             ),
           ),
       const SizedBox(height: 12),
+      // One row on a phone: the four kinds of leave share one chip and its
+      // list (PRODUCT_DECISIONS section 63).
       Wrap(
         spacing: 6,
         runSpacing: 6,
         children: [
           for (final status in statuses)
-            AttendanceChoiceChip(
-              key: ValueKey('attendance-editor-status-${status.code}'),
-              label: attendanceStatusLabel(status).active(language),
-              selected: row.status == status,
-              onPressed: () => _setStatus(status),
-            ),
+            if (!status.isLeave)
+              AttendanceChoiceChip(
+                key: ValueKey('attendance-editor-status-${status.code}'),
+                label: attendanceStatusLabel(status).active(language),
+                selected: row.status == status,
+                onPressed: () => _setStatus(status),
+              ),
+          _leaveChip(row, statuses),
         ],
       ),
       if (present) ...[
-        const SizedBox(height: 14),
-        Text(
-          AS.t(AS.timeHint, language),
-          style: v2Style(12, weight: FontWeight.w600),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                AS.t(AS.paperTime, language),
+                style: v2Style(12, weight: FontWeight.w600),
+              ),
+            ),
+            AccountsV2Button(
+              key: const ValueKey('attendance-editor-toggle-break'),
+              kind: AccountsV2ButtonKind.ghost,
+              size: AccountsV2ButtonSize.small,
+              icon: _showBreak ? 'x' : 'plus',
+              label: _showBreak
+                  ? AS.t(AS.noBreak, language)
+                  : AS.t(AS.addBreak, language),
+              onPressed: _toggleBreak,
+            ),
+          ],
         ),
         const SizedBox(height: 6),
+        // In and Out side by side, wide enough for the clock in each box;
+        // the break under them. An empty box's clock opens at the place's
+        // usual time. Next goes In, Out, Break, Back.
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // An empty box's clock opens at the place's usual time.
             timeField(
               AS.t(AS.colIn, language),
               _in,
@@ -461,33 +560,40 @@ class _RowEditorState extends State<_RowEditor> {
               'attendance-editor-in',
               fallback: day.crew.shiftStart,
             ),
-            const SizedBox(width: 6),
-            timeField(
-              AS.t(AS.colBreak, language),
-              _break,
-              _pBreak,
-              'attendance-editor-break',
-              fallback: day.crew.breakStart ?? 750,
-            ),
-            const SizedBox(width: 6),
-            timeField(
-              AS.t(AS.colBack, language),
-              _back,
-              _pBack,
-              'attendance-editor-back',
-              fallback: day.crew.breakFinish ?? 780,
-            ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             timeField(
               AS.t(AS.colOut, language),
               _out,
               _pOut,
               'attendance-editor-out',
               fallback: day.crew.shiftFinish,
-              last: true,
+              last: !_showBreak,
             ),
           ],
         ),
+        if (_showBreak) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              timeField(
+                AS.t(AS.colBreak, language),
+                _break,
+                _pBreak,
+                'attendance-editor-break',
+                fallback: day.crew.breakStart ?? 750,
+              ),
+              const SizedBox(width: 8),
+              timeField(
+                AS.t(AS.colBack, language),
+                _back,
+                _pBack,
+                'attendance-editor-back',
+                fallback: day.crew.breakFinish ?? 780,
+                last: true,
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         Wrap(
           spacing: 6,
@@ -502,30 +608,12 @@ class _RowEditorState extends State<_RowEditor> {
               AttendanceChoiceChip(
                 key: ValueKey('attendance-editor-out-at-$minute'),
                 label: formatAttendanceTime(minute),
+                textDirection: TextDirection.ltr,
                 selected: _pOut.minutes == minute,
                 onPressed: () => setState(
                   () => _out.text = formatAttendanceTimeInput(minute),
                 ),
               ),
-            AttendanceChoiceChip(
-              key: const ValueKey('attendance-editor-toggle-break'),
-              label: _break.text.isEmpty
-                  ? AS.t(AS.addBreak, language)
-                  : AS.t(AS.noBreak, language),
-              onPressed: () => setState(() {
-                if (_break.text.isEmpty) {
-                  _break.text = formatAttendanceTimeInput(
-                    day.crew.breakStart ?? 750,
-                  );
-                  _back.text = formatAttendanceTimeInput(
-                    day.crew.breakFinish ?? 780,
-                  );
-                } else {
-                  _break.clear();
-                  _back.clear();
-                }
-              }),
-            ),
           ],
         ),
         const SizedBox(height: 10),

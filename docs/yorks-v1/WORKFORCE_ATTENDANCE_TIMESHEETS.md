@@ -206,7 +206,36 @@ Flutter's animation controllers. `AccountsV2BottomBarHost` keeps its 160ms
 size animation under reduced motion (Flutter runs it at 5%) instead of a
 zero duration, which re-dirtied its layout during layout. Goldens:
 `attendance_clock_{phone,desktop}_{editor,dial}.png` and
-`attendance_v2_phone_editor.png`.
+`attendance_v2_phone_editor.png`. Section 63 later moved the clock into the
+box and removed `AttendanceClockButton` (below).
+
+### The worker editor on a phone (16 November 2026, `PRODUCT_DECISIONS.md` section 63)
+
+Presentation only. `AttendanceTimeField` puts its clock in the kit field's
+suffix: a private `_ClockIcon` (44px wide, as tall as the field: 44px on a
+phone, 36px elsewhere), passed with `AccountsV2TextField.suffixConstraints`,
+a new optional parameter, because Flutter's default suffix is a 48px square.
+The clock cannot take focus (`canRequestFocus: false`), so the keyboard's
+Next and Tab go box to box, and a test sends Next from In through Out, Break
+and Back. Before opening the dial, `_pick` unfocuses a text box being typed
+in, so the keyboard stays down after the dial. An unreadable box keeps the
+red border and fill; its label becomes "{label} · Not a time" when the box
+is not focused.
+
+The worker editor (`attendance_row_editor.dart`) shows In | Out, then
+Break | Back only while `_showBreak` (set from the row, toggled by the ghost
+"Add break" / "No break" button beside the "Time" heading, which reuses
+`AS.paperTime`). Leave statuses share one `PopupMenuButton` of
+`CheckedPopupMenuItem`s under a chip (`AttendanceChoiceChip.dropdown`) that
+reads "Leave" (`AS.colLeaveDays`) or the kind chosen. The chip is drawn only
+(`IgnorePointer`, `ExcludeSemantics`, no tap) inside one semantics button,
+and the menu opens without animation under reduced motion. The Out at chips
+set `AttendanceChoiceChip.textDirection` to left to right. `AS.timeHint` was
+removed. Tests cover the one-row statuses, the clock's size and end side in
+both directions, Next order, the break toggle, the Leave list and its
+semantics, the keyboard (viewInsets 320 at 360 × 740) and Hindi, Urdu and
+Arabic. Goldens: `attendance_editor_phone_{no_break,leave,keyboard,urdu}.png`
+and `attendance_shift_phone.png`, with the section 62 goldens updated.
 
 ## Authority and boundary
 
