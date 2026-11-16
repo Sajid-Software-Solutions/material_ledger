@@ -4,7 +4,8 @@ Status: **released to production 15 November 2026** (owner: "Approve as
 recommended", "Merge in order", "Merge #118, start staging", "Release
 production"); decision record [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md)
 section 61. Behind `YORKS_V1_CONTRACT_MATERIALS`, default off in the tracked
-build and on in the production web build.
+build and on in the production web build. The same-day refinements (PR #121)
+were released on 16 November 2026 (owner: "Merge and release").
 
 ## What it answers
 
@@ -245,3 +246,38 @@ Production (`czykuksmlwswjsgotrpo`):
 Rollback: web, promote `dpl_8PQ4ZZy4gyYQz6yEPtyV5ArTpgG1`; data,
 `supabase/release/yra322_contract_materials_undo.sql`; database,
 `supabase/release/contract_materials_rollback.sql` (after the web rollback).
+
+## Refinements release evidence (16 November 2026)
+
+Code: PR #121 is screens only, with no SQL, data or permission change.
+- Main is `276a4b5`, GitHub's merge of the reviewed `2d694c9`; the two
+  trees are identical.
+- Before the merge, main and the PR branch were restored to their reviewed
+  commits after an unauthorised force-push. The release tree was checked
+  free of that change.
+- Gate on `2d694c9`: `flutter analyze` clean; `flutter test` 3,662 passed and
+  4 skipped; CI web build and ephemeral-signed APK built.
+
+Production (`czykuksmlwswjsgotrpo`):
+- Live web before: `dpl_2QUtuhXKs6GsbZQxGH4eGxg8g8Qs`, embedding `849affb`,
+  an ancestor of main.
+- Database: no step needed.
+  - No migration or edge-function file changed between `849affb` and
+    `276a4b5`.
+  - The seven contract-materials functions on production still match main by
+    `md5(prosrc)`.
+- Web build: from a detached worktree at `276a4b5`, with every production
+  flag and `YORKS_V1_CONTRACT_MATERIALS=true`. gzip 2,915,698 of 2,925,000.
+- Deploy: `dpl_CBHmAz8G9HKbJPRkJ4xfyBb9rhJn`, with `--prod --skip-domain`.
+  - All 128 files matched the build by SHA-1.
+  - It has one fewer deferred part than the previous release.
+  - Then promoted.
+- Live checks:
+  - `main.dart.js`, `index.html`, `flutter_bootstrap.js` and
+    `flutter_service_worker.js` equal the build and embed `276a4b5`.
+  - The root, Accounts › Materials (with and without `?building=`) and BOQ
+    deep links return 200.
+  - The sign-in page loads with no console errors.
+- Not verified signed in: there is no production test login.
+
+Rollback: web only; promote `dpl_2QUtuhXKs6GsbZQxGH4eGxg8g8Qs`.
