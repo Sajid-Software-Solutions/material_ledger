@@ -1734,9 +1734,11 @@ class _PeriodCardState extends State<_PeriodCard> {
         children: [
           Semantics(button: true, expanded: widget.expanded, child: header),
           AnimatedSize(
-            duration: reduceMotion
-                ? Duration.zero
-                : const Duration(milliseconds: 180),
+            // Not Duration.zero under reduced motion: a zero-length size
+            // change re-lays the card out inside its own layout. Flutter
+            // already runs animations at 5% (one frame) when the device
+            // asks for reduced motion.
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: body,

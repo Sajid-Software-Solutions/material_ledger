@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,6 +71,58 @@ void main() {
       );
     },
   );
+
+  for (final size in const [Size(1440, 900), Size(360, 800)]) {
+    testWidgets(
+      'reduced motion: buildings open and close without a layout error '
+      'at ${size.width.toInt()}px',
+      (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        await _pumpWorkbench(tester, size);
+        final df4w = find.text('DF4W').first;
+
+        // DF3W closes while DF4W opens.
+        await tester.ensureVisible(df4w);
+        await tester.pumpAndSettle();
+        await tester.tap(df4w);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(
+          tester
+              .renderObjectList<RenderAnimatedSize>(find.byType(AnimatedSize))
+              .where((size) => size.isAnimating),
+          isEmpty,
+          reason: 'reduced motion runs the size change in one frame',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('accounts-building-expanded-df3w')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('accounts-building-expanded-df4w')),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(df4w);
+        await tester.pumpAndSettle();
+        await tester.tap(df4w);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('accounts-building-expanded-df4w')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<void> _pumpWorkbench(WidgetTester tester, Size size) async {

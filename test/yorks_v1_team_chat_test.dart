@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ledger/app/push_bridge.dart';
@@ -238,6 +239,41 @@ void main() {
     expect(find.byTooltip('Show conversation details'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'reduced motion: the details panel hides and shows without a layout error',
+    (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      // The panel docks only on a wide screen; a phone opens it as a sheet.
+      await _setViewport(tester, const Size(1366, 768));
+      await _pumpChat(tester, preferences, selected: true);
+
+      await tester.tap(find.byTooltip('Hide conversation details'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(
+        tester
+            .renderObjectList<RenderAnimatedSize>(find.byType(AnimatedSize))
+            .where((size) => size.isAnimating),
+        isEmpty,
+        reason: 'reduced motion runs the size change in one frame',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Participants'), findsNothing);
+
+      await tester.tap(find.byTooltip('Show conversation details'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(find.text('Participants'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('conversation search finds and reveals a recent message', (
     tester,

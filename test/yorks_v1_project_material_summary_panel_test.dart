@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -166,6 +167,55 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  for (final size in const [Size(1366, 900), Size(360, 800)]) {
+    testWidgets(
+      'reduced motion: a month closes and opens without a layout error '
+      'at ${size.width.toInt()}px',
+      (tester) async {
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
+        await _pump(tester, repository: _SummaryRepository(), size: size);
+        // The latest month opens by default.
+        final month = find.byKey(
+          const ValueKey('material-summary-month-2026-11-01'),
+        );
+        final header = find.descendant(
+          of: month,
+          matching: find.text('November 2026'),
+        );
+        await tester.ensureVisible(header);
+        await tester.pumpAndSettle();
+        final openHeight = tester.getSize(month).height;
+
+        await tester.tap(header);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(
+          tester
+              .renderObjectList<RenderAnimatedSize>(find.byType(AnimatedSize))
+              .where((size) => size.isAnimating),
+          isEmpty,
+          reason: 'reduced motion runs the size change in one frame',
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getSize(month).height, lessThan(openHeight));
+
+        await tester.ensureVisible(header);
+        await tester.pumpAndSettle();
+        await tester.tap(header);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pumpAndSettle();
+        expect(tester.getSize(month).height, openHeight);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('Arabic secondary language renders the summary', (tester) async {
     await _pump(
