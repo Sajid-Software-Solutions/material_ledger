@@ -186,6 +186,28 @@ Tests: `test/yorks_workforce_attendance_print_test.dart` and the
 screen" groups. Goldens updated: `attendance_places_*_day`,
 `attendance_roles_*`, `attendance_v2_desktop_{take,overview,my_sites,doc_status}`.
 
+### Times on the clock (16 November 2026, `PRODUCT_DECISIONS.md` section 62)
+
+Presentation only. `AttendanceTimeField` (`attendance_inputs.dart`) takes an
+`AttendanceClock` (title, the time the box reads with the box before it as
+context, and where an empty box opens) and then shows `AttendanceClockButton`
+under the box: the clock and the time read, a 44px target, red "Not a time"
+when unreadable. `showAttendanceClock` opens Flutter's `showTimePicker` in
+dial mode with its switch to typed entry, forced to 12-hour time
+(`alwaysUse24HourFormat: false`) and titled "Out · Gul Zaman". The pick is
+written back with `formatAttendanceTimeInput` ("5:45p"); a test checks that
+`parseAttendanceTime` reads every minute of the day back exactly after any
+previous box. Used by the worker editor (In, Break, Back, Out; empty boxes
+open at the place's shift start, break start or 12:30 PM, break end or
+1 PM, and shift finish) and the usual-shift dialog. The desktop grid's cells
+stay typed; their row pencil (now "Edit {name}") opens the editor. The
+dial's animations follow the platform's reduce-motion setting through
+Flutter's animation controllers. `AccountsV2BottomBarHost` keeps its 160ms
+size animation under reduced motion (Flutter runs it at 5%) instead of a
+zero duration, which re-dirtied its layout during layout. Goldens:
+`attendance_clock_{phone,desktop}_{editor,dial}.png` and
+`attendance_v2_phone_editor.png`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

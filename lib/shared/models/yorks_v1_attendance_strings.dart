@@ -753,10 +753,16 @@ abstract final class AttendanceStrings {
     hi: 'प्रोजेक्ट',
   );
   static const timeHint = _T(
-    en: 'Time · type 630, 1230, 1, 5',
-    ar: 'الوقت · اكتب 630، 1230، 1، 5',
-    ur: 'وقت · لکھیں 630، 1230، 1، 5',
-    hi: 'समय · लिखें 630, 1230, 1, 5',
+    en: 'Time · type 630, 1230, 1, 5 or tap the clock',
+    ar: 'الوقت · اكتب 630، 1230، 1، 5 أو اضغط على الساعة',
+    ur: 'وقت · لکھیں 630، 1230، 1، 5 یا گھڑی دبائیں',
+    hi: 'समय · लिखें 630, 1230, 1, 5 या घड़ी दबाएँ',
+  );
+  static const pickOnClock = _T(
+    en: 'Choose {field} on the clock',
+    ar: 'اختر {field} على الساعة',
+    ur: 'گھڑی پر {field} چنیں',
+    hi: 'घड़ी पर {field} चुनें',
   );
   static const notATime = _T(
     en: 'Not a time',
@@ -1316,6 +1322,12 @@ abstract final class AttendanceStrings {
     ar: 'طاقم جديد',
     ur: 'نیا عملہ',
     hi: 'नया दल',
+  );
+  static const editLine = _T(
+    en: 'Edit {name}',
+    ar: 'تعديل {name}',
+    ur: '{name} میں ترمیم',
+    hi: '{name} संपादित करें',
   );
   static const editCrew = _T(
     en: 'Edit crew',

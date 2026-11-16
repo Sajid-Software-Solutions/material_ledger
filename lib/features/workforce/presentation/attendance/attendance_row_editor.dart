@@ -218,35 +218,33 @@ class _RowEditorState extends State<_RowEditor> {
       AttendanceStatus.unpaidLeave,
     ];
 
+    // Type the time, or tap the clock under the box to set it on the dial
+    // (PRODUCT_DECISIONS section 62); both are read the same way.
     Widget timeField(
       String label,
       TextEditingController controller,
       AttendanceParsedTime parsed,
       String key, {
+      required int fallback,
       bool last = false,
     }) => Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AttendanceTimeField(
-            key: ValueKey(key),
-            label: label,
-            controller: controller,
-            error: !parsed.ok,
-            last: last,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            parsed.ok
-                ? formatAttendanceTime(parsed.minutes)
-                : AS.t(AS.notATime, language),
-            style: v2Style(
-              11,
-              color: parsed.ok ? AccountsV2Colors.mut : AccountsV2Colors.bad,
-            ),
-          ),
-        ],
+      child: AttendanceTimeField(
+        key: ValueKey(key),
+        label: label,
+        controller: controller,
+        error: !parsed.ok,
+        last: last,
+        language: language,
+        onChanged: (_) => setState(() {}),
+        caption: parsed.ok
+            ? formatAttendanceTime(parsed.minutes)
+            : AS.t(AS.notATime, language),
+        clock: AttendanceClock(
+          title: '$label · ${row.worker.name}',
+          current: parsed.minutes,
+          fallback: fallback,
+        ),
+        clockKey: ValueKey('$key-clock'),
       ),
     );
 
@@ -334,6 +332,7 @@ class _RowEditorState extends State<_RowEditor> {
       TextEditingController controller,
       AttendanceParsedTime parsed,
       String key, {
+      required int fallback,
       bool last,
     })
     timeField,
@@ -454,11 +453,13 @@ class _RowEditorState extends State<_RowEditor> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // An empty box's clock opens at the place's usual time.
             timeField(
               AS.t(AS.colIn, language),
               _in,
               _pIn,
               'attendance-editor-in',
+              fallback: day.crew.shiftStart,
             ),
             const SizedBox(width: 6),
             timeField(
@@ -466,6 +467,7 @@ class _RowEditorState extends State<_RowEditor> {
               _break,
               _pBreak,
               'attendance-editor-break',
+              fallback: day.crew.breakStart ?? 750,
             ),
             const SizedBox(width: 6),
             timeField(
@@ -473,6 +475,7 @@ class _RowEditorState extends State<_RowEditor> {
               _back,
               _pBack,
               'attendance-editor-back',
+              fallback: day.crew.breakFinish ?? 780,
             ),
             const SizedBox(width: 6),
             timeField(
@@ -480,6 +483,7 @@ class _RowEditorState extends State<_RowEditor> {
               _out,
               _pOut,
               'attendance-editor-out',
+              fallback: day.crew.shiftFinish,
               last: true,
             ),
           ],
@@ -1161,7 +1165,8 @@ class _GridRowState extends State<_GridRow> {
           SizedBox(
             width: AttendanceGrid._action,
             child: IconButton(
-              tooltip: AS.t(AS.editCrew, language),
+              // Opens this worker's line, with the clock for each time.
+              tooltip: AS.t(AS.editLine, language, {'name': row.worker.name}),
               onPressed: widget.onOpenEditor,
               icon: const Icon(Icons.edit_outlined, size: 18),
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
