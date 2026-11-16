@@ -1241,6 +1241,7 @@ class AccountsV2TextField extends StatelessWidget {
     this.enabled = true,
     this.error = false,
     this.suffix,
+    this.suffixConstraints,
     this.onTap,
     this.readOnly = false,
     this.focusNode,
@@ -1261,6 +1262,10 @@ class AccountsV2TextField extends StatelessWidget {
   final bool enabled;
   final bool error;
   final Widget? suffix;
+
+  /// The [suffix]'s size. Flutter's default is a 48px square, taller than
+  /// the field itself.
+  final BoxConstraints? suffixConstraints;
   final VoidCallback? onTap;
   final bool readOnly;
   final FocusNode? focusNode;
@@ -1316,6 +1321,7 @@ class AccountsV2TextField extends StatelessWidget {
             hintText: hint,
             hintStyle: v2Style(14, color: AccountsV2Colors.mut2),
             suffixIcon: suffix,
+            suffixIconConstraints: suffixConstraints,
             fillColor: enabled ? null : AccountsV2Colors.bg,
           ),
     );
