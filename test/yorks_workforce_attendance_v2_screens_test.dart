@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ledger/app/router.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import 'package:material_ledger/features/workforce/application/attendance_providers.dart';
 import 'package:material_ledger/features/workforce/data/attendance_repository.dart';
 import 'package:material_ledger/features/workforce/data/workforce_repository.dart';
@@ -18,6 +19,7 @@ import 'package:material_ledger/features/workforce/presentation/attendance/atten
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_overview_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_sheets_screen.dart';
 import 'package:material_ledger/features/workforce/presentation/attendance/attendance_take_screen.dart';
+import 'package:material_ledger/shared/models/app_language.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
@@ -217,8 +219,11 @@ Future<void> _pump(
   YorksV1FeatureFlags? featureFlags,
   YorksV1Role? role,
   ThemeData? theme,
+  AppLanguage? language,
 }) async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    if (language != null) 'selected_language': language.code,
+  });
   final preferences = await SharedPreferences.getInstance();
   final router = GoRouter(
     initialLocation: location,
@@ -266,7 +271,19 @@ Future<void> _pump(
           ),
         ),
       ],
-      child: MaterialApp.router(theme: theme, routerConfig: router),
+      child: MaterialApp.router(
+        theme: theme,
+        routerConfig: router,
+        // Arabic and Urdu read right to left, as the app's locale makes them.
+        builder: language == null
+            ? null
+            : (context, child) => Directionality(
+                textDirection: language.isRtl
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
+                child: child!,
+              ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -1042,8 +1059,8 @@ void main() {
         find.byKey(const ValueKey('attendance-editor-actions')),
       );
       expect(actions.bottom, closeTo(640, 1), reason: 'pinned to the bottom');
-      // Entering a time box selects its time, so typing replaces it. The
-      // key holds the box and the clock line under it: tap the box.
+      // Entering a time box selects its time, so typing replaces it. Tap
+      // the text, not the clock at the box's end.
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('attendance-editor-in')),
@@ -1068,14 +1085,21 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    // The clock under each time box (PRODUCT_DECISIONS section 62).
+    // The clock in each time box (PRODUCT_DECISIONS sections 62 and 63).
     Future<void> openEditor(
       WidgetTester tester,
       Size size, {
       ThemeData? theme,
+      AppLanguage? language,
     }) async {
       _size(tester, size);
-      await _pump(tester, _FakeRpc(day()), dayAt, theme: theme);
+      await _pump(
+        tester,
+        _FakeRpc(day()),
+        dayAt,
+        theme: theme,
+        language: language,
+      );
       final more = find.byKey(const ValueKey('attendance-pill-more-w1'));
       // Phones open a worker from the pills, desktop from the row's pencil.
       await tester.tap(
@@ -1083,6 +1107,15 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
+
+    TextInputAction? nextKey(WidgetTester tester, String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(TextField),
+          ),
+        )
+        .textInputAction;
 
     String boxText(WidgetTester tester, String key) => tester
         .widget<TextField>(
@@ -1094,6 +1127,16 @@ void main() {
         .controller!
         .text;
 
+    /// Text in the editor itself, not the day behind it.
+    Finder inEditor(Finder finder) => find.descendant(
+      of: find.byKey(const ValueKey('attendance-editor-scroll')),
+      matching: finder,
+    );
+
+    /// The text box being typed in, if any: the keyboard is up for it.
+    EditableText? typingIn() => FocusManager.instance.primaryFocus?.context
+        ?.findAncestorWidgetOfExactType<EditableText>();
+
     testWidgets('a time is set on the clock: the dial, in 12-hour time', (
       tester,
     ) async {
@@ -1103,17 +1146,27 @@ void main() {
       await openEditor(tester, const Size(360, 800));
       expect(boxText(tester, 'attendance-editor-out'), '5p');
 
+      // The clock is inside the Out box, a 44px target.
       final clock = find.byKey(const ValueKey('attendance-editor-out-clock'));
-      expect(clock, findsOneWidget);
       expect(
-        find.descendant(of: clock, matching: find.text('5 PM')),
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-out')),
+          matching: clock,
+        ),
         findsOneWidget,
       );
-      final size = tester.getSize(clock);
-      expect(size.height, greaterThanOrEqualTo(44));
-      expect(size.width, greaterThanOrEqualTo(44));
+      expect(tester.getSize(clock), const Size(44, 44));
       expect(find.byTooltip('Choose Out on the clock'), findsOneWidget);
 
+      // Typing in In, then the Out clock.
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-in')),
+          matching: find.byType(TextField),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(typingIn(), isNotNull);
       await tester.tap(clock);
       await tester.pumpAndSettle();
       expect(find.byType(TimePickerDialog), findsOneWidget);
@@ -1136,13 +1189,11 @@ void main() {
 
       expect(find.byType(TimePickerDialog), findsNothing);
       expect(boxText(tester, 'attendance-editor-out'), '5:45p');
-      expect(
-        find.descendant(of: clock, matching: find.text('5:45 PM')),
-        findsOneWidget,
-      );
+      // The keyboard does not come back after the dial: In was left.
+      expect(typingIn(), isNull);
       // 6:30 AM to 5:45 PM less a 30 minute break: 10.75 hours.
-      expect(find.text('10.8'), findsOneWidget);
-      expect(find.text('2.8'), findsOneWidget);
+      expect(inEditor(find.text('10.8')), findsOneWidget);
+      expect(inEditor(find.text('2.8')), findsOneWidget);
 
       // Typing still works beside the clock, and the Out-at chips too.
       await tester.enterText(
@@ -1153,10 +1204,9 @@ void main() {
         '6',
       );
       await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: clock, matching: find.text('6 PM')),
-        findsOneWidget,
-      );
+      // "6" after a 6:30 AM start is 6 PM: 11 hours less the break.
+      expect(inEditor(find.text('11')), findsOneWidget);
+      expect(inEditor(find.text('3')), findsOneWidget);
       await tester.tap(
         find.byKey(const ValueKey('attendance-editor-out-at-1140')),
       );
@@ -1185,21 +1235,30 @@ void main() {
         '99',
       );
       await tester.pumpAndSettle();
-      final clock = find.byKey(const ValueKey('attendance-editor-in-clock'));
+      // While typing ("63" on the way to "630") the box only turns red;
+      // once it is left, its label says why and Done waits.
+      expect(find.text('In · Not a time'), findsNothing);
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(find.text('In · Not a time'), findsOneWidget);
       expect(
-        find.descendant(of: clock, matching: find.text('Not a time')),
-        findsOneWidget,
+        tester
+            .widget<AccountsV2Button>(
+              find.byKey(const ValueKey('attendance-editor-done')),
+            )
+            .onPressed,
+        isNull,
       );
       // The clock opens at the place's usual start and puts it right.
-      await tester.tap(clock);
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-in-clock')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
       expect(boxText(tester, 'attendance-editor-in'), '6:30a');
-      expect(
-        find.descendant(of: clock, matching: find.text('6:30 AM')),
-        findsOneWidget,
-      );
+      expect(find.text('In · Not a time'), findsNothing);
+      expect(find.text('In'), findsOneWidget);
     });
 
     testWidgets('reduced motion: the clock opens without its animation', (
@@ -1255,8 +1314,20 @@ void main() {
       await _pump(tester, _FakeRpc(day()), dayAt);
       await tester.tap(find.textContaining('6:30 AM – 5 PM').first);
       await tester.pumpAndSettle();
+      // The same clock inside each box as the worker's editor.
       final clock = find.byKey(const ValueKey('attendance-shift-out-clock'));
-      expect(clock, findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-shift-out')),
+          matching: clock,
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getSize(clock), const Size(44, 44));
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_shift_phone.png'),
+      );
       await tester.tap(clock);
       await tester.pumpAndSettle();
       expect(find.text('Usual shift at this place · Out'), findsOneWidget);
@@ -1272,10 +1343,315 @@ void main() {
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
       expect(boxText(tester, 'attendance-shift-out'), '3p');
+      expect(tester.takeException(), isNull);
+    });
+
+    // The editor on a phone (PRODUCT_DECISIONS section 63).
+    testWidgets('a phone editor: one row of statuses, the clock in each box', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(360, 800));
+      // Present, Absent and Leave sit on one row.
+      final tops = {
+        for (final key in ['P', 'A', 'leave'])
+          tester
+              .getRect(find.byKey(ValueKey('attendance-editor-status-$key')))
+              .top,
+      };
+      expect(tops, hasLength(1));
+      // In and Out side by side, the break under them; each box has its
+      // clock at its end, as tall as the box, and the time shows once.
+      final inBox = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-in')),
+      );
+      final outBox = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-out')),
+      );
+      final breakBox = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-break')),
+      );
+      expect(inBox.top, outBox.top);
+      expect(breakBox.top, greaterThan(inBox.bottom));
+      expect(inBox.width, greaterThan(140), reason: 'two boxes a row at 360');
+      for (final box in ['in', 'out', 'break', 'back']) {
+        final field = tester.getRect(
+          find.byKey(ValueKey('attendance-editor-$box')),
+        );
+        final clock = tester.getRect(
+          find.byKey(ValueKey('attendance-editor-$box-clock')),
+        );
+        expect(clock.size, const Size(44, 44), reason: box);
+        expect(clock.right, closeTo(field.right, 1.5), reason: box);
+        expect(clock.top, greaterThanOrEqualTo(field.top), reason: box);
+        expect(clock.bottom, lessThanOrEqualTo(field.bottom), reason: box);
+      }
+      for (final caption in ['6:30 AM', '12:30 PM', '1 PM', 'Not a time']) {
+        expect(find.text(caption), findsNothing, reason: caption);
+      }
+      // Next goes In, Out, Break and Back; Back shows Done.
+      expect(nextKey(tester, 'attendance-editor-in'), TextInputAction.next);
+      expect(nextKey(tester, 'attendance-editor-out'), TextInputAction.next);
+      expect(nextKey(tester, 'attendance-editor-break'), TextInputAction.next);
+      expect(nextKey(tester, 'attendance-editor-back'), TextInputAction.done);
+      // Everything to the Done bar fits a 360 x 800 phone.
+      final note = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-note')),
+      );
+      final actions = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-actions')),
+      );
+      expect(note.bottom, lessThanOrEqualTo(actions.top));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Next on the keyboard goes box to box, past the clocks', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(360, 800));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-in')),
+          matching: find.byType(TextField),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final box in ['out', 'break', 'back']) {
+        await tester.testTextInput.receiveAction(TextInputAction.next);
+        await tester.pumpAndSettle();
+        final typing = typingIn();
+        expect(typing, isNotNull, reason: 'the keyboard stays up for $box');
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey('attendance-editor-$box')),
+            matching: find.byWidget(typing!),
+          ),
+          findsOneWidget,
+          reason: box,
+        );
+      }
+    });
+
+    testWidgets('the break has one way in: No break, then Add break', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(360, 800));
+      final toggle = find.byKey(
+        const ValueKey('attendance-editor-toggle-break'),
+      );
+      expect(tester.getSize(toggle).height, greaterThanOrEqualTo(44));
       expect(
-        find.descendant(of: clock, matching: find.text('3 PM')),
+        find.descendant(of: toggle, matching: find.text('No break')),
         findsOneWidget,
       );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('attendance-editor-break')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-editor-back')),
+        findsNothing,
+      );
+      // 6:30 AM to 5 PM without the break; Out is now the last box.
+      expect(inEditor(find.text('10.5')), findsOneWidget);
+      expect(nextKey(tester, 'attendance-editor-out'), TextInputAction.done);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_editor_phone_no_break.png'),
+      );
+
+      // Add break brings back the place's usual break.
+      expect(
+        find.descendant(of: toggle, matching: find.text('Add break')),
+        findsOneWidget,
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(boxText(tester, 'attendance-editor-break'), '12:30p');
+      expect(boxText(tester, 'attendance-editor-back'), '1p');
+      expect(inEditor(find.text('10')), findsOneWidget);
+      expect(nextKey(tester, 'attendance-editor-out'), TextInputAction.next);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the four kinds of leave share one chip and its list', (
+      tester,
+    ) async {
+      // The app's own theme, as production draws the list.
+      await openEditor(tester, const Size(360, 800), theme: AppTheme.light);
+      final leave = find.byKey(
+        const ValueKey('attendance-editor-status-leave'),
+      );
+      expect(tester.getSize(leave).height, greaterThanOrEqualTo(44));
+      expect(
+        find.descendant(of: leave, matching: find.text('Leave')),
+        findsOneWidget,
+      );
+      // Read as one button that opens a list, with no second, dead tap.
+      final semantics = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(leave),
+        isSemantics(
+          isButton: true,
+          hasTapAction: true,
+          isSelected: false,
+          tooltip: 'Leave',
+        ),
+      );
+      semantics.dispose();
+      await tester.tap(leave);
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_editor_phone_leave.png'),
+      );
+      for (final kind in [
+        'Annual leave',
+        'Sick leave',
+        'Official leave',
+        'Unpaid leave',
+      ]) {
+        expect(find.text(kind), findsOneWidget, reason: kind);
+      }
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('attendance-editor-status-SL')))
+            .height,
+        greaterThanOrEqualTo(44),
+      );
+      await tester.tap(find.text('Sick leave'));
+      await tester.pumpAndSettle();
+      // The chip names the kind chosen; a day on leave has no times.
+      expect(
+        find.descendant(of: leave, matching: find.text('Sick leave')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('attendance-editor-in')), findsNothing);
+      expect(find.text('Time'), findsNothing);
+
+      // Done saves it and moves to the next worker.
+      await tester.tap(find.byKey(const ValueKey('attendance-editor-done')));
+      await tester.pumpAndSettle();
+      expect(inEditor(find.text('Waqar Ahmed')), findsOneWidget);
+      await tester.tap(find.byTooltip('Cancel'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-row-w1')),
+          matching: find.text('Sick leave'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('reduced motion: the leave list opens at once', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await openEditor(tester, const Size(360, 800));
+      await tester.tap(
+        find.byKey(const ValueKey('attendance-editor-status-leave')),
+      );
+      await tester.pump();
+      final route = ModalRoute.of(tester.element(find.text('Annual leave')))!;
+      expect(route.animation!.value, 1);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with the keyboard up, the box and Done stay in sight', (
+      tester,
+    ) async {
+      await openEditor(tester, const Size(360, 740));
+      // The lowest box, then the keyboard opens over the lower half.
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('attendance-editor-back')),
+          matching: find.byType(TextField),
+        ),
+      );
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      final actions = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-actions')),
+      );
+      expect(actions.bottom, closeTo(740 - 320, 1), reason: 'above the keys');
+      final box = tester.getRect(
+        find.byKey(const ValueKey('attendance-editor-back')),
+      );
+      expect(box.top, greaterThanOrEqualTo(0));
+      expect(box.bottom, lessThanOrEqualTo(actions.top));
+      expect(typingIn(), isNotNull);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/attendance_editor_phone_keyboard.png'),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final language in [AppLanguage.urdu, AppLanguage.arabic]) {
+      testWidgets('${language.name}: right to left, the clock at the end', (
+        tester,
+      ) async {
+        await openEditor(tester, const Size(360, 800), language: language);
+        final inBox = tester.getRect(
+          find.byKey(const ValueKey('attendance-editor-in')),
+        );
+        final outBox = tester.getRect(
+          find.byKey(const ValueKey('attendance-editor-out')),
+        );
+        expect(inBox.left, greaterThan(outBox.left), reason: 'In on the right');
+        for (final box in ['in', 'out', 'break', 'back']) {
+          final field = tester.getRect(
+            find.byKey(ValueKey('attendance-editor-$box')),
+          );
+          final clock = tester.getRect(
+            find.byKey(ValueKey('attendance-editor-$box-clock')),
+          );
+          expect(clock.left, closeTo(field.left, 1.5), reason: box);
+          expect(clock.size, const Size(44, 44), reason: box);
+        }
+        // Times read "3 PM", not "PM 3".
+        expect(
+          tester
+              .widget<Text>(
+                find.descendant(
+                  of: find.byKey(
+                    const ValueKey('attendance-editor-out-at-900'),
+                  ),
+                  matching: find.byType(Text),
+                ),
+              )
+              .textDirection,
+          TextDirection.ltr,
+        );
+        if (language == AppLanguage.urdu) {
+          await expectLater(
+            find.byType(MaterialApp),
+            matchesGoldenFile('goldens/attendance_editor_phone_urdu.png'),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('Hindi fits the same phone editor', (tester) async {
+      await openEditor(
+        tester,
+        const Size(360, 800),
+        language: AppLanguage.hindi,
+      );
+      expect(
+        find.byKey(const ValueKey('attendance-editor-in-clock')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     // Screenshots in the app's own theme, as production shows the dial.

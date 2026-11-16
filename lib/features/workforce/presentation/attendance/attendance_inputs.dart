@@ -3,9 +3,9 @@
 /// every screen:
 ///
 /// * time boxes with a number keyboard and Next, which select their time
-///   when entered so typing replaces it, and a clock under each one that
+///   when entered so typing replaces it, and a clock inside each one that
 ///   sets the time on the standard dial instead (PRODUCT_DECISIONS
-///   section 62);
+///   sections 62 and 63);
 /// * a searchable worker picker — a tall sheet on phones, a dialog
 ///   elsewhere — that adds several workers in one go;
 /// * the phone's quick-action tiles.
@@ -65,66 +65,49 @@ Future<int?> showAttendanceClock(
   return picked == null ? null : picked.hour * 60 + picked.minute;
 }
 
-/// The line under a time box: a clock and the time it reads ("6:30 AM"),
-/// red "Not a time" when it cannot be read. Tapping opens the clock; the
-/// whole line is at least a 44px target.
-class AttendanceClockButton extends StatelessWidget {
-  const AttendanceClockButton({
+/// The clock at the end of a time box (PRODUCT_DECISIONS section 63): a
+/// 44px-wide target as tall as the box, which opens the standard dial.
+class _ClockIcon extends StatelessWidget {
+  const _ClockIcon({
     super.key,
-    required this.text,
     required this.tooltip,
+    required this.height,
     required this.onPressed,
     this.error = false,
   });
 
-  final String text;
   final String tooltip;
+  final double height;
   final VoidCallback? onPressed;
   final bool error;
 
   @override
   Widget build(BuildContext context) {
-    final color = error ? AccountsV2Colors.bad : AccountsV2Colors.mut;
     return Tooltip(
       message: tooltip,
       child: Semantics(
         button: true,
         enabled: onPressed != null,
         label: tooltip,
-        value: text,
         excludeSemantics: true,
-        child: InkWell(
+        child: InkResponse(
           onTap: onPressed,
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 16,
-                    color: error
-                        ? AccountsV2Colors.bad
-                        : onPressed == null
-                        ? AccountsV2Colors.mut2
-                        : AccountsV2Colors.pri,
-                  ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: v2Style(
-                        11.5,
-                        weight: error ? FontWeight.w600 : FontWeight.w500,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                ],
+          radius: 20,
+          // Next and Tab go box to box, keeping the keyboard up; the clock
+          // is for a finger or a mouse, and screen readers still reach it.
+          canRequestFocus: false,
+          child: SizedBox(
+            width: 44,
+            height: height,
+            child: Center(
+              child: AccountsV2Icon(
+                'clock',
+                size: 18,
+                color: onPressed == null
+                    ? AccountsV2Colors.mut2
+                    : error
+                    ? AccountsV2Colors.bad
+                    : AccountsV2Colors.pri,
               ),
             ),
           ),
@@ -136,9 +119,11 @@ class AttendanceClockButton extends StatelessWidget {
 
 /// A time box ("630", "5", "17:30", "5p"). Phones get a number keyboard with
 /// Next; entering the box selects its time, so typing replaces it. With a
-/// [clock], the line under the box shows the time it reads and opens the
-/// standard clock; a picked time is written back as "5:45p", which reads as
-/// exactly that time whatever the box before it says.
+/// [clock], a clock at the end of the box opens the standard dial; a picked
+/// time is written back as "5:45p", which reads as exactly that time
+/// whatever the box before it says. A box that cannot be read is red, and
+/// its label says "Not a time" once it is left (not while typing "63" on
+/// the way to "630").
 class AttendanceTimeField extends StatefulWidget {
   const AttendanceTimeField({
     super.key,
@@ -150,7 +135,6 @@ class AttendanceTimeField extends StatefulWidget {
     this.hint,
     this.last = false,
     this.clock,
-    this.caption,
     this.clockKey,
     this.language = AppLanguage.english,
   });
@@ -165,11 +149,8 @@ class AttendanceTimeField extends StatefulWidget {
   /// The last box of a row: the keyboard shows Done instead of Next.
   final bool last;
 
-  /// Shows the clock line under the box.
+  /// Puts the clock at the end of the box.
   final AttendanceClock? clock;
-
-  /// The clock line's text: the time read, or "Not a time".
-  final String? caption;
   final Key? clockKey;
   final AppLanguage language;
 
@@ -195,6 +176,8 @@ class _AttendanceTimeFieldState extends State<AttendanceTimeField> {
   }
 
   void _onFocus() {
+    // The label names a bad time once the box is left.
+    if (widget.error) setState(() {});
     if (!_focus.hasFocus) return;
     _selectAll();
     // A tap that gives focus places the caret in the same frame; select
@@ -213,6 +196,13 @@ class _AttendanceTimeFieldState extends State<AttendanceTimeField> {
   }
 
   Future<void> _pick(AttendanceClock clock) async {
+    // Choosing on the dial is not typing: leave the box being typed in, so
+    // the keyboard does not come back when the dial closes.
+    final typing = FocusManager.instance.primaryFocus;
+    if (typing?.context?.findAncestorWidgetOfExactType<EditableText>() !=
+        null) {
+      typing!.unfocus();
+    }
     final picked = await showAttendanceClock(
       context,
       initial: clock.current ?? clock.fallback,
@@ -231,29 +221,12 @@ class _AttendanceTimeFieldState extends State<AttendanceTimeField> {
   @override
   Widget build(BuildContext context) {
     final clock = widget.clock;
-    final box = _box();
-    if (clock == null) return box;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        box,
-        AttendanceClockButton(
-          key: widget.clockKey,
-          text: widget.caption ?? formatAttendanceTime(clock.current),
-          error: widget.error,
-          tooltip: AS.t(AS.pickOnClock, widget.language, {
-            'field': widget.label,
-          }),
-          onPressed: widget.enabled ? () => _pick(clock) : null,
-        ),
-      ],
-    );
-  }
-
-  Widget _box() {
+    // The kit's field height: 44px on phones, 36px elsewhere.
+    final height = AccountsV2Breakpoints.isPhone(context) ? 44.0 : 36.0;
     return AccountsV2TextField(
-      label: widget.label,
+      label: widget.error && !_focus.hasFocus
+          ? '${widget.label} · ${AS.t(AS.notATime, widget.language)}'
+          : widget.label,
       controller: widget.controller,
       onChanged: widget.onChanged,
       error: widget.error,
@@ -265,6 +238,20 @@ class _AttendanceTimeFieldState extends State<AttendanceTimeField> {
       textInputAction: widget.last
           ? TextInputAction.done
           : TextInputAction.next,
+      suffix: clock == null
+          ? null
+          : _ClockIcon(
+              key: widget.clockKey,
+              height: height,
+              error: widget.error,
+              tooltip: AS.t(AS.pickOnClock, widget.language, {
+                'field': widget.label,
+              }),
+              onPressed: widget.enabled ? () => _pick(clock) : null,
+            ),
+      suffixConstraints: clock == null
+          ? null
+          : BoxConstraints.tightFor(width: 44, height: height),
     );
   }
 }
@@ -715,7 +702,7 @@ class AttendanceActionTiles extends StatelessWidget {
 
 // ─── Choice chips ────────────────────────────────────────────────────────────
 
-/// A choice in the worker editor (status, Out at, a break, an overtime
+/// A choice in the worker editor (status, Out at, a building, an overtime
 /// note), drawn like the status pills: a bordered rounded box, blue when
 /// chosen, a 44px tap target on phones.
 class AttendanceChoiceChip extends StatelessWidget {
@@ -724,11 +711,19 @@ class AttendanceChoiceChip extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.selected = false,
+    this.dropdown = false,
+    this.textDirection,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool selected;
+
+  /// A caret after the label: the chip opens a list.
+  final bool dropdown;
+
+  /// Left to right for a time, so Arabic and Urdu read "3 PM", not "PM 3".
+  final TextDirection? textDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -763,12 +758,17 @@ class AttendanceChoiceChip extends StatelessWidget {
                   ],
                   Text(
                     label,
+                    textDirection: textDirection,
                     style: v2Style(
                       13,
                       weight: FontWeight.w600,
                       color: foreground,
                     ),
                   ),
+                  if (dropdown) ...[
+                    const SizedBox(width: 4),
+                    AccountsV2Icon('caret', size: 14, color: foreground),
+                  ],
                 ],
               ),
             ),

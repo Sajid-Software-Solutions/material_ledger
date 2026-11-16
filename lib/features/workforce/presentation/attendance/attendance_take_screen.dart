@@ -1488,9 +1488,6 @@ class _ShiftDialogState extends State<_ShiftDialog> {
                 error: !start.ok,
                 language: language,
                 onChanged: (_) => setState(() {}),
-                caption: start.ok
-                    ? formatAttendanceTime(start.minutes)
-                    : AS.t(AS.notATime, language),
                 clock: AttendanceClock(
                   title:
                       '${AS.t(AS.shiftTitle, language)} · '
@@ -1512,9 +1509,6 @@ class _ShiftDialogState extends State<_ShiftDialog> {
                 last: true,
                 language: language,
                 onChanged: (_) => setState(() {}),
-                caption: finish.ok
-                    ? formatAttendanceTime(finish.minutes)
-                    : AS.t(AS.notATime, language),
                 clock: AttendanceClock(
                   title:
                       '${AS.t(AS.shiftTitle, language)} · '
