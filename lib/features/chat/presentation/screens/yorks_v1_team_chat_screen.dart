@@ -432,7 +432,10 @@ class _ConversationListPane extends ConsumerWidget {
                     style: AppTypography.titleMedium,
                   ),
                 ),
-                _CountBadge(count: state.unreadCount),
+                _CountBadge(
+                  key: const ValueKey('chat-total-unread-badge'),
+                  count: state.unreadCount,
+                ),
                 const SizedBox(width: 6),
                 if (needsAlertSetup) ...[
                   _ChatIconButton(
@@ -3902,23 +3905,29 @@ class _ChatIconButton extends StatelessWidget {
 }
 
 class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.count});
+  const _CountBadge({super.key, required this.count});
   final int count;
 
   @override
   Widget build(BuildContext context) {
     if (count <= 0) return const SizedBox.shrink();
+    // The factors keep the pill sized to its label. A plain `alignment`
+    // would stretch it to the full height of a fixed-height row, such as
+    // the list header.
     return Container(
       constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
       padding: const EdgeInsets.symmetric(horizontal: 5),
-      alignment: Alignment.center,
       decoration: const BoxDecoration(
         color: AppColors.blue,
         borderRadius: BorderRadius.all(Radius.circular(10)),
       ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        style: AppTypography.labelSmall.copyWith(color: Colors.white),
+      child: Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          style: AppTypography.labelSmall.copyWith(color: Colors.white),
+        ),
       ),
     );
   }
