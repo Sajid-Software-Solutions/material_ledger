@@ -387,6 +387,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final viewport in <({String name, Size size, bool selected})>[
+    (name: 'desktop 1366x768', size: const Size(1366, 768), selected: true),
+    (name: 'mobile 360x800', size: const Size(360, 800), selected: false),
+  ]) {
+    testWidgets(
+      'header unread badge is a 20px pill on ${viewport.name}, not row height',
+      (tester) async {
+        await _setViewport(tester, viewport.size);
+        await _pumpChat(tester, preferences, selected: viewport.selected);
+
+        final badge = find.byKey(const ValueKey('chat-total-unread-badge'));
+        expect(
+          find.descendant(of: badge, matching: find.text('5')),
+          findsOneWidget,
+        );
+        final size = tester.getSize(badge);
+        expect(size.height, 20);
+        expect(size.width, greaterThanOrEqualTo(size.height));
+        expect(
+          tester.getCenter(badge).dy,
+          closeTo(tester.getCenter(find.text('Team Chat')).dy, 0.5),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final evidence in <({String name, Size size, bool selected})>[
     (name: 'desktop_1366x768', size: const Size(1366, 768), selected: true),
     (name: 'tablet_900x1024', size: const Size(900, 1024), selected: true),
