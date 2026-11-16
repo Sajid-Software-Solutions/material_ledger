@@ -4569,6 +4569,7 @@ class _WorksheetBody extends ConsumerWidget {
             language: language,
             editable: editable,
             showEditActions: showEditActions,
+            statusView: showContractStatus,
             excelEnabled: excelEnabled,
             state: state,
             onTitleChanged: controller.updateTitle,
@@ -4644,6 +4645,16 @@ class _WorksheetBody extends ConsumerWidget {
                     status: contractStatus,
                     language: language,
                     compact: compact,
+                    // Whoever may read this project's Accounts (the server
+                    // sent its quantities) can open this building there.
+                    onOpenAccounts: contractStatus.canViewProgress
+                        ? () => context.push(
+                            RoutePaths.yorksV1ProjectAccountsMaterialsPath(
+                              worksheet.group.projectId,
+                              buildingScopeId: scopeId,
+                            ),
+                          )
+                        : null,
                   )
                 : YorksV1BoqSpreadsheet(
                     worksheet: worksheet,
@@ -5014,6 +5025,7 @@ class _WorksheetHeader extends StatelessWidget {
     required this.language,
     required this.editable,
     required this.showEditActions,
+    this.statusView = false,
     required this.excelEnabled,
     required this.state,
     required this.onTitleChanged,
@@ -5032,6 +5044,10 @@ class _WorksheetHeader extends StatelessWidget {
   final AppLanguage language;
   final bool editable;
   final bool showEditActions;
+
+  /// The read-only Contract status is showing: actions that only change the
+  /// sheet (add, import, save) stay out of the way unless edits are pending.
+  final bool statusView;
   final bool excelEnabled;
   final YorksV1BoqWorksheetState state;
   final ValueChanged<String> onTitleChanged;
@@ -5049,6 +5065,9 @@ class _WorksheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _worksheetStatusCopy(state.status);
     final statusColor = _worksheetStatusColor(state.status);
+    final pendingEdits =
+        state.hasUnsavedChanges || state.status == YorksV1BoqSyncStatus.saving;
+    final showSave = showEditActions && (!statusView || pendingEdits);
     if (YorksMobileUi.isActive(context)) {
       return _MobileWorksheetHeader(
         worksheet: worksheet,
@@ -5056,10 +5075,12 @@ class _WorksheetHeader extends StatelessWidget {
         statusColor: statusColor,
         editable: editable,
         showEditActions: showEditActions,
+        statusView: statusView,
+        showSave: showSave,
         saving: state.status == YorksV1BoqSyncStatus.saving,
         onTitleChanged: onTitleChanged,
         onAddMaterial: onAddMaterial,
-        onImport: excelEnabled ? onImport : null,
+        onImport: excelEnabled && !statusView ? onImport : null,
         onExport: excelEnabled ? onExport : null,
         onPrint: onPrint,
         onOpenDocuments: onOpenDocuments,
@@ -5096,7 +5117,7 @@ class _WorksheetHeader extends StatelessWidget {
                 icon: const Icon(YorksDataTransferIcons.exportData),
                 label: Text(YorksV1BoqStrings.exportWorkbook.primary),
               ),
-            if (excelEnabled && onImport != null)
+            if (excelEnabled && onImport != null && !statusView)
               OutlinedButton.icon(
                 key: const ValueKey('boq-import-workbook'),
                 onPressed: state.status == YorksV1BoqSyncStatus.saving
@@ -5112,8 +5133,9 @@ class _WorksheetHeader extends StatelessWidget {
                 icon: const Icon(Icons.print_outlined),
                 label: Text(YorksV1BoqStrings.printBoq.primary),
               ),
-            if (showEditActions)
+            if (showSave)
               FilledButton.icon(
+                key: const ValueKey('boq-save-worksheet'),
                 onPressed:
                     state.status == YorksV1BoqSyncStatus.saving || !editable
                     ? null
@@ -5159,6 +5181,8 @@ class _MobileWorksheetHeader extends StatelessWidget {
     required this.statusColor,
     required this.editable,
     required this.showEditActions,
+    this.statusView = false,
+    required this.showSave,
     required this.saving,
     required this.onTitleChanged,
     required this.onSave,
@@ -5176,6 +5200,8 @@ class _MobileWorksheetHeader extends StatelessWidget {
   final Color statusColor;
   final bool editable;
   final bool showEditActions;
+  final bool statusView;
+  final bool showSave;
   final bool saving;
   final ValueChanged<String> onTitleChanged;
   final Future<void> Function() onSave;
@@ -5261,13 +5287,26 @@ class _MobileWorksheetHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _MobileWorksheetAction(
-                key: const ValueKey('boq-mobile-add-material'),
-                label: YorksV1BoqStrings.addMaterial.primary,
-                icon: Icons.add_rounded,
-                primary: true,
-                onPressed: onAddMaterial,
-              ),
+              // On the Contract status the sheet cannot be edited, so the
+              // request is the action at hand.
+              child: statusView
+                  ? (showCreateRequestFromFolder
+                        ? _MobileWorksheetAction(
+                            key: const ValueKey(
+                              'boq-create-request-from-folder',
+                            ),
+                            label: YorksV1BoqStrings.sendWholeGroup.primary,
+                            icon: Icons.assignment_outlined,
+                            onPressed: onCreateRequestFromFolder,
+                          )
+                        : const SizedBox.shrink())
+                  : _MobileWorksheetAction(
+                      key: const ValueKey('boq-mobile-add-material'),
+                      label: YorksV1BoqStrings.addMaterial.primary,
+                      icon: Icons.add_rounded,
+                      primary: true,
+                      onPressed: onAddMaterial,
+                    ),
             ),
             const SizedBox(width: AppSpacing.sm),
             PopupMenuButton<_MobileWorksheetMenuAction>(
@@ -5336,23 +5375,24 @@ class _MobileWorksheetHeader extends StatelessWidget {
             ),
           ],
         ),
-        if (showEditActions || showCreateRequestFromFolder) ...[
+        if (showSave || (showCreateRequestFromFolder && !statusView)) ...[
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
             height: AppSpacing.massive,
             child: Row(
               children: [
-                if (showEditActions)
+                if (showSave)
                   Expanded(
                     child: FilledButton.icon(
+                      key: const ValueKey('boq-save-worksheet'),
                       onPressed: saving || !editable ? null : onSave,
                       icon: const Icon(Icons.save_outlined, size: 18),
                       label: Text(YorksV1BoqStrings.saveWorksheet.primary),
                     ),
                   ),
-                if (showEditActions && showCreateRequestFromFolder)
+                if (showSave && showCreateRequestFromFolder && !statusView)
                   const SizedBox(width: AppSpacing.sm),
-                if (showCreateRequestFromFolder)
+                if (showCreateRequestFromFolder && !statusView)
                   Expanded(
                     child: OutlinedButton.icon(
                       key: const ValueKey('boq-create-request-from-folder'),

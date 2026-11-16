@@ -18,13 +18,17 @@ import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_co
 import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_materials_tab.dart';
 import 'package:material_ledger/features/accounts/presentation/v2/yorks_accounts_workspace_v2_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_feature_flags.dart';
+import 'package:material_ledger/shared/models/yorks_v1_permission_management.dart';
+import 'package:material_ledger/shared/models/yorks_v1_role.dart';
 import 'package:material_ledger/shared/providers/language_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_feature_flags_provider.dart';
 import 'package:material_ledger/shared/providers/yorks_v1_identity_provider.dart';
+import 'package:material_ledger/shared/providers/yorks_v1_permission_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_ledger/shared/models/app_language.dart';
 
 import 'support/accounts_v2_golden_fonts.dart';
+import 'support/yorks_v1_permission_test_support.dart';
 
 const _en = AppLanguage.english;
 
@@ -139,7 +143,14 @@ List<Map<String, dynamic>> _linesA() => [
     'display_order': 3,
     'boq_row_id': 'row-3',
     'boq_group_id': 'grp-a',
-    'site': null,
+    // A lump-sum line whose rows came in another unit: a share of the line.
+    'site': {
+      'basis': 'share',
+      'delivered_qty': '0.6200',
+      'deliveries': 3,
+      'last_delivery_reference': 'DO-108',
+      'last_delivery_date': '2026-10-09',
+    },
     'stages': [
       _stage(
         'material_supply',
@@ -392,7 +403,9 @@ Future<void> _pump(
   WidgetTester tester,
   Size size,
   YorksAccountsMaterialRegister register, {
-  VoidCallback? onOpenClaims,
+  AccountsV2OpenClaims? onOpenClaims,
+  ValueChanged<String>? onOpenBoqSheet,
+  String? initialBuildingScopeId,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -407,7 +420,9 @@ Future<void> _pump(
           child: AccountsV2MaterialsTab(
             register: register,
             language: _en,
+            initialBuildingScopeId: initialBuildingScopeId,
             onOpenClaims: onOpenClaims,
+            onOpenBoqSheet: onOpenBoqSheet,
           ),
         ),
       ),
@@ -511,12 +526,14 @@ void main() {
     testWidgets('desktop with values: prices, invoices and states', (
       tester,
     ) async {
-      var opened = false;
+      (String?, String)? claims;
+      String? boqSheet;
       await _pump(
         tester,
         const Size(1440, 1400),
         YorksAccountsMaterialRegister.fromJson(_registerJson()),
-        onOpenClaims: () => opened = true,
+        onOpenClaims: (building, stage) => claims = (building, stage),
+        onOpenBoqSheet: (groupId) => boqSheet = groupId,
       );
       expect(tester.takeException(), isNull);
       expect(find.text('A · Block A — Material Supply'), findsOneWidget);
@@ -531,8 +548,15 @@ void main() {
       expect(find.text('20 of 55'), findsOneWidget);
       expect(find.text('Part delivered'), findsNWidgets(2));
       expect(find.text('AED 33,181.82'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('v2mat_open_claims')));
-      expect(opened, isTrue);
+      // A lump-sum line's On site reads as a share, like its delivery.
+      expect(find.text('62%'), findsOneWidget);
+      expect(find.text('0.62'), findsNothing);
+      // Each building's sheet opens Progress & claims on that building and
+      // stage, and its BOQ sheet.
+      await tester.tap(find.byKey(const ValueKey('v2mat_open_claims_b1')));
+      expect(claims, ('b1', 'material_supply'));
+      await tester.tap(find.byKey(const ValueKey('v2mat_open_boq_b1')));
+      expect(boqSheet, 'grp-a');
 
       await tester.tap(find.byKey(const ValueKey('v2mat_stage_installation')));
       await tester.pumpAndSettle();
@@ -541,9 +565,55 @@ void main() {
       expect(find.text('2 of 6'), findsOneWidget);
       expect(find.text('ON SITE'), findsNothing);
 
+      await tester.tap(find.byKey(const ValueKey('v2mat_open_claims_b1')));
+      expect(claims, ('b1', 'installation'));
+
       await tester.tap(find.byKey(const ValueKey('v2mat_building_all')));
       await tester.pumpAndSettle();
       expect(find.text('B · Block B — Installation'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('v2mat_open_claims_b2')),
+        findsOneWidget,
+      );
+      // Block B has no Contract Materials sheet yet: nothing to open.
+      expect(find.byKey(const ValueKey('v2mat_open_boq_b2')), findsNothing);
+      expect(find.byKey(const ValueKey('v2mat_open_boq_b1')), findsOneWidget);
+    });
+
+    testWidgets('opens on the building a BOQ sheet asked for', (tester) async {
+      await _pump(
+        tester,
+        const Size(1440, 1400),
+        YorksAccountsMaterialRegister.fromJson(_registerJson()),
+        initialBuildingScopeId: 'b2',
+      );
+      expect(find.text('B · Block B — Material Supply'), findsOneWidget);
+      expect(find.text('A · Block A — Material Supply'), findsNothing);
+      // Nothing delivered there yet, which the KPI says plainly.
+      expect(find.text('Nothing delivered yet'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('v2mat_stage_installation')));
+      await tester.pumpAndSettle();
+      expect(find.text('Nothing installed yet'), findsOneWidget);
+
+      // An unknown building falls back to the first.
+      await tester.pumpWidget(const SizedBox());
+      await _pump(
+        tester,
+        const Size(1440, 1400),
+        YorksAccountsMaterialRegister.fromJson(_registerJson()),
+        initialBuildingScopeId: 'gone',
+      );
+      expect(find.text('A · Block A — Material Supply'), findsOneWidget);
+    });
+
+    testWidgets('no links without a way to follow them', (tester) async {
+      await _pump(
+        tester,
+        const Size(1440, 1400),
+        YorksAccountsMaterialRegister.fromJson(_registerJson()),
+      );
+      expect(find.byKey(const ValueKey('v2mat_open_claims_b1')), findsNothing);
+      expect(find.byKey(const ValueKey('v2mat_open_boq_b1')), findsNothing);
     });
 
     testWidgets('Site Engineer: quantities and states, never a price', (
@@ -588,6 +658,12 @@ void main() {
       );
       expect(find.text('A.2  Motorized Fire Dampers'), findsOneWidget);
       expect(find.textContaining('Invoiced 20 · CM01'), findsOneWidget);
+      expect(find.text('On site 62%'), findsOneWidget);
+      // The building choices stay on one line and scroll sideways.
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('v2mat_building_all'))).dy,
+        tester.getTopLeft(find.byKey(const ValueKey('v2mat_building_0'))).dy,
+      );
     });
 
     testWidgets('empty contract', (tester) async {
@@ -620,7 +696,12 @@ void main() {
   });
 
   group('workspace', () {
-    Future<void> pumpWorkspace(WidgetTester tester, bool flagOn) async {
+    Future<void> pumpWorkspace(
+      WidgetTester tester,
+      bool flagOn, {
+      YorksV1Role? role,
+      Set<String>? capabilities,
+    }) async {
       tester.view.physicalSize = const Size(1440, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -629,7 +710,16 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          yorksV1CurrentRoleProvider.overrideWithValue(null),
+          yorksV1CurrentRoleProvider.overrideWithValue(role),
+          if (capabilities != null)
+            yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+              (ref) => YorksV1TestPermissionController(
+                yorksV1TrustedFeaturePermissionState(
+                  role: role ?? YorksV1Role.admin,
+                  capabilities: capabilities,
+                ),
+              ),
+            ),
           yorksAccountsPermissionEpochProvider.overrideWithValue((
             revision: 1,
             trusted: true,
@@ -686,6 +776,99 @@ void main() {
       expect(find.text('A · Block A — Material Supply'), findsOneWidget);
     });
 
+    testWidgets('Open BOQ sheet: only for someone who may read the BOQ', (
+      tester,
+    ) async {
+      const boqLink = ValueKey('v2mat_open_boq_b1');
+      await pumpWorkspace(
+        tester,
+        true,
+        role: YorksV1Role.projectEngineer,
+        capabilities: {YorksV1CapabilityKeys.boqView},
+      );
+      expect(find.byKey(boqLink), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('v2mat_open_claims_b1')),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      await pumpWorkspace(
+        tester,
+        true,
+        role: YorksV1Role.siteEngineer,
+        capabilities: const {},
+      );
+      expect(find.byKey(boqLink), findsNothing);
+
+      // An Accountant never reads the BOQ, whatever a snapshot says.
+      await tester.pumpWidget(const SizedBox());
+      await pumpWorkspace(
+        tester,
+        true,
+        role: YorksV1Role.accountant,
+        capabilities: {YorksV1CapabilityKeys.boqView},
+      );
+      expect(find.byKey(boqLink), findsNothing);
+    });
+
+    testWidgets('a deep link opens Materials on its building', (tester) async {
+      tester.view.physicalSize = const Size(1440, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          yorksV1CurrentRoleProvider.overrideWithValue(null),
+          yorksAccountsPermissionEpochProvider.overrideWithValue((
+            revision: 1,
+            trusted: true,
+            stale: false,
+            revisionSignalHealthy: true,
+          )),
+          yorksAccountsWorkspaceRepositoryProvider.overrideWithValue(
+            YorksAccountsWorkspaceRepository(_FakeClient(_registerJson())),
+          ),
+          yorksV1FeatureFlagsProvider.overrideWithValue(
+            YorksV1FeatureFlags(
+              foundation: true,
+              projects: true,
+              boq: true,
+              excel: true,
+              requests: true,
+              arrangement: true,
+              logistics: true,
+              returnsDocuments: true,
+              documents: true,
+              accounts: true,
+              accountsWorkspaceV2: true,
+              contractMaterials: true,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(
+              body: YorksAccountsWorkspaceV2Screen(
+                projectId: 'p1',
+                initialTab: YorksAccountsWorkspaceV2Tab.materials,
+                initialMaterialsBuildingId: 'b2',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('B · Block B — Material Supply'), findsOneWidget);
+    });
+
     testWidgets('with the flag off, there is no Materials tab', (tester) async {
       await pumpWorkspace(tester, false);
       expect(find.text(accountsV2Text(_en, 'v2_tab_materials')), findsNothing);
@@ -708,7 +891,8 @@ void main() {
           YorksAccountsMaterialRegister.fromJson(
             _registerJson(values: c.value.$2),
           ),
-          onOpenClaims: () {},
+          onOpenClaims: (_, _) {},
+          onOpenBoqSheet: (_) {},
         );
         await expectLater(
           find.byType(MaterialApp),

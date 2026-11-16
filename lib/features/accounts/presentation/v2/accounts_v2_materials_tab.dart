@@ -6,7 +6,7 @@
 /// Material Requests and, for someone who may see commercial values, the
 /// line's rate, amount and what has been invoiced. Read-only: quantities are
 /// confirmed on Progress & claims; the BOQ's Contract Materials sheet raises
-/// the requests.
+/// the requests. Each building's sheet links to both.
 ///
 /// Everything shown comes from the server projection. Money is shown only when
 /// the server sent it; the screen never decides that from a role.
@@ -20,19 +20,31 @@ import '../../domain/v2/material_register_models.dart';
 import 'accounts_v2_common.dart';
 import 'kit/accounts_v2_kit.dart';
 
+/// Opens Progress & claims on one building (null: all of them) and stage.
+typedef AccountsV2OpenClaims =
+    void Function(String? buildingScopeId, String stageKey);
+
 class AccountsV2MaterialsTab extends StatefulWidget {
   const AccountsV2MaterialsTab({
     super.key,
     required this.register,
     required this.language,
+    this.initialBuildingScopeId,
     this.onOpenClaims,
+    this.onOpenBoqSheet,
   });
 
   final YorksAccountsMaterialRegister register;
   final AppLanguage language;
 
+  /// The building to open on (a BOQ sheet's "Open in Accounts").
+  final String? initialBuildingScopeId;
+
   /// Opens Progress & claims, where quantities are confirmed.
-  final VoidCallback? onOpenClaims;
+  final AccountsV2OpenClaims? onOpenClaims;
+
+  /// Opens a BOQ folder by id; null when the viewer cannot read the BOQ.
+  final ValueChanged<String>? onOpenBoqSheet;
 
   @override
   State<AccountsV2MaterialsTab> createState() => _AccountsV2MaterialsTabState();
@@ -42,6 +54,18 @@ class _AccountsV2MaterialsTabState extends State<AccountsV2MaterialsTab> {
   /// The building shown, by position in the register; -1 shows all of them.
   int _building = 0;
   String? _stageKey;
+
+  @override
+  void initState() {
+    super.initState();
+    final focus = widget.initialBuildingScopeId;
+    if (focus != null) {
+      final index = widget.register.buildings.indexWhere(
+        (b) => b.projectScopeId == focus,
+      );
+      if (index >= 0) _building = index;
+    }
+  }
 
   String _t(String key) => accountsV2Text(widget.language, key);
 
@@ -113,17 +137,18 @@ class _AccountsV2MaterialsTabState extends State<AccountsV2MaterialsTab> {
             stageKey: stage,
             stageLabel: stageLabel,
             values: register.canViewValues,
+            onOpenClaims: widget.onOpenClaims == null
+                ? null
+                : () => widget.onOpenClaims!(building.projectScopeId, stage),
+            onOpenBoqSheet: switch ((
+              widget.onOpenBoqSheet,
+              _sheetGroupId(building),
+            )) {
+              (final open?, final groupId?) => () => open(groupId),
+              _ => null,
+            },
           ),
         AccountsV2Note(
-          trailing: widget.onOpenClaims == null
-              ? null
-              : AccountsV2Button(
-                  key: const ValueKey('v2mat_open_claims'),
-                  label: _t('v2mat_open_claims'),
-                  icon: 'chart',
-                  size: AccountsV2ButtonSize.small,
-                  onPressed: widget.onOpenClaims,
-                ),
           child: Text(
             register.canViewValues
                 ? '${_t('v2mat_note_how')} ${_t('v2mat_rates_note')}'
@@ -133,6 +158,19 @@ class _AccountsV2MaterialsTabState extends State<AccountsV2MaterialsTab> {
       ],
     );
   }
+}
+
+/// The BOQ folder holding most of a building's tied lines (its Contract
+/// Materials sheet), or null when none is tied.
+String? _sheetGroupId(YorksAccountsRegisterBuilding building) {
+  final counts = <String, int>{};
+  for (final line in building.lines) {
+    final groupId = line.boqGroupId;
+    if (groupId == null || groupId.isEmpty) continue;
+    counts[groupId] = (counts[groupId] ?? 0) + 1;
+  }
+  if (counts.isEmpty) return null;
+  return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
 }
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
@@ -210,18 +248,33 @@ class _ChoiceGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Phones keep the choices on one line and scroll it sideways.
+    final phone = AccountsV2Breakpoints.isPhone(context);
+    final box = Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: AccountsV2Colors.cardBorder),
+      ),
+      child: phone
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (i, child) in children.indexed) ...[
+                  if (i > 0) const SizedBox(width: 2),
+                  child,
+                ],
+              ],
+            )
+          : Wrap(spacing: 2, runSpacing: 2, children: children),
+    );
     return Semantics(
       container: true,
       label: label,
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: AccountsV2Colors.cardBorder),
-        ),
-        child: Wrap(spacing: 2, runSpacing: 2, children: children),
-      ),
+      child: phone
+          ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: box)
+          : box,
     );
   }
 }
@@ -372,7 +425,13 @@ class _Kpis extends StatelessWidget {
           icon: 'coins',
           label: _t('v2mat_kpi_not_invoiced'),
           value: format.money(notInvoiced),
-          caption: !notInvoiced.isPositive
+          caption: !doneAmount.isPositive
+              ? _t(
+                  supply
+                      ? 'v2mat_kpi_none_delivered'
+                      : 'v2mat_kpi_none_installed',
+                )
+              : !notInvoiced.isPositive
               ? _t('v2mat_kpi_all_invoiced')
               : ready
               ? _t('v2mat_kpi_next_claim')
@@ -517,6 +576,8 @@ class _Sheet extends StatelessWidget {
     required this.stageKey,
     required this.stageLabel,
     required this.values,
+    this.onOpenClaims,
+    this.onOpenBoqSheet,
   });
 
   final AppLanguage language;
@@ -526,6 +587,8 @@ class _Sheet extends StatelessWidget {
   final String stageKey;
   final String stageLabel;
   final bool values;
+  final VoidCallback? onOpenClaims;
+  final VoidCallback? onOpenBoqSheet;
 
   String _t(String key) => accountsV2Text(language, key);
 
@@ -544,6 +607,7 @@ class _Sheet extends StatelessWidget {
       if (values && cell?.stageValue != null) format.money(cell!.stageValue),
     ].join(' · ');
     final phone = AccountsV2Breakpoints.isPhone(context);
+    final scope = building.projectScopeId;
     return AccountsV2Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -553,6 +617,24 @@ class _Sheet extends StatelessWidget {
             tone: _supply ? AccountsV2Tone.blue : AccountsV2Tone.green,
             title: '$letter · ${building.shortName} — $stageLabel',
             subtitle: subtitle,
+            actions: [
+              if (onOpenClaims != null)
+                AccountsV2Button(
+                  key: ValueKey('v2mat_open_claims_$scope'),
+                  label: _t('v2mat_open_claims'),
+                  icon: 'chart',
+                  size: AccountsV2ButtonSize.small,
+                  onPressed: onOpenClaims,
+                ),
+              if (onOpenBoqSheet != null)
+                AccountsV2Button(
+                  key: ValueKey('v2mat_open_boq_$scope'),
+                  label: _t('v2mat_open_boq'),
+                  icon: 'box',
+                  size: AccountsV2ButtonSize.small,
+                  onPressed: onOpenBoqSheet,
+                ),
+            ],
           ),
           if (phone)
             _PhoneLines(
@@ -652,7 +734,9 @@ class _Sheet extends StatelessWidget {
               Tooltip(
                 message: line.site?.lastDeliveryReference ?? '',
                 child: Text(
-                  line.site == null ? '—' : _qty(line.site!.deliveredQty),
+                  line.site == null
+                      ? '—'
+                      : _part(line.site!.deliveredQty, stage),
                   style: v2Style(
                     12.5,
                     tabular: true,
@@ -826,7 +910,7 @@ class _PhoneLines extends StatelessWidget {
                   if (stageKey == 'material_supply' &&
                       (line.site?.deliveredQty.isPositive ?? false))
                     AccountsV2Chip(
-                      '${accountsV2Text(language, 'v2mat_on_site')} ${_qty(line.site!.deliveredQty)}',
+                      '${accountsV2Text(language, 'v2mat_on_site')} ${_part(line.site!.deliveredQty, stage)}',
                       tone: AccountsV2ChipTone.warn,
                     ),
                   if (stage.needsReview)

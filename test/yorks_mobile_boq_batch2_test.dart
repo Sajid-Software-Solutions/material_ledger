@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ledger/core/constants/constants.dart';
 import 'package:material_ledger/core/theme/app_theme.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_boq_screens.dart';
@@ -937,6 +938,116 @@ void main() {
       expect(find.byType(YorksV1BoqSpreadsheet), findsOneWidget);
     });
 
+    testWidgets('the Contract status keeps sheet-only actions away', (
+      tester,
+    ) async {
+      final overrides = [
+        yorksV1BoqContractStatusProvider(
+          _groupId,
+        ).overrideWith((ref) async => status),
+      ];
+      await _setViewport(tester, const Size(1366, 900));
+      await _pumpWorksheet(tester, overrides: overrides);
+      // Nothing on the status can be edited: no import, no save; the
+      // request still can be raised.
+      expect(find.byKey(const ValueKey('boq-import-workbook')), findsNothing);
+      expect(find.byKey(const ValueKey('boq-save-worksheet')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('boq-create-request-from-folder')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('boq-export-workbook')), findsOneWidget);
+      await tester.tap(find.text(YorksV1BoqStrings.contractSheet.primary));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('boq-import-workbook')), findsOneWidget);
+      expect(find.byKey(const ValueKey('boq-save-worksheet')), findsOneWidget);
+
+      // Phones: the request takes the place of Add material.
+      await tester.pumpWidget(const SizedBox());
+      await _setViewport(tester, const Size(360, 800));
+      await _pumpWorksheet(tester, overrides: overrides);
+      expect(
+        find.byKey(const ValueKey('boq-mobile-add-material')),
+        findsNothing,
+      );
+      final request = find.byKey(
+        const ValueKey('boq-create-request-from-folder'),
+      );
+      expect(request, findsOneWidget);
+      expect(
+        tester.getSize(request).height,
+        greaterThanOrEqualTo(AppSpacing.minTapTarget),
+      );
+      expect(find.byKey(const ValueKey('boq-save-worksheet')), findsNothing);
+      await tester.tap(find.text(YorksV1BoqStrings.contractSheet.primary));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('boq-mobile-add-material')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Open in Accounts opens this building in Materials', (
+      tester,
+    ) async {
+      await _setViewport(tester, const Size(1366, 900));
+      await _pumpWorksheet(
+        tester,
+        routed: true,
+        overrides: [
+          yorksV1BoqContractStatusProvider(
+            _groupId,
+          ).overrideWith((ref) async => status),
+        ],
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('boq-contract-open-accounts')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'accounts /yorks/projects/$_projectId/accounts/materials'
+          '?building=$_df3wScopeId',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('no Open in Accounts for someone who cannot read Accounts', (
+      tester,
+    ) async {
+      await _setViewport(tester, const Size(1366, 900));
+      await _pumpWorksheet(
+        tester,
+        role: YorksV1Role.procurement,
+        overrides: [
+          yorksV1BoqContractStatusProvider(_groupId).overrideWith(
+            (ref) async => YorksV1BoqContractStatus.fromJson(const {
+              'group_id': _groupId,
+              'can_view_progress': false,
+              'can_view_values': false,
+              'rows': [
+                {
+                  'boq_row_id': 'row-1',
+                  'project_scope_id': 'scope',
+                  'item_key': '1',
+                  'requested_qty': '4',
+                  'received_qty': '2',
+                  'deliveries': 1,
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+      expect(find.byKey(const ValueKey('boq-contract-status')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('boq-contract-open-accounts')),
+        findsNothing,
+      );
+    });
+
     testWidgets('a folder without contract lines keeps only the sheet', (
       tester,
     ) async {
@@ -1013,6 +1124,7 @@ Future<_BoqHarness> _pumpWorksheet(
   bool canManageCommercials = false,
   YorksV1BoqWorksheet? importWorksheet,
   List<Override> overrides = const [],
+  bool routed = false,
 }) async {
   final effectiveRepository =
       repository ??
@@ -1047,17 +1159,45 @@ Future<_BoqHarness> _pumpWorksheet(
     ],
   );
   addTearDown(container.dispose);
+  // Routed: the worksheet inside a router with a stand-in Accounts page, so a
+  // test can follow the sheet's links.
+  final router = routed
+      ? GoRouter(
+          initialLocation: '/yorks/projects/$_projectId/boq/$_groupId',
+          routes: [
+            GoRoute(
+              path: '/yorks/projects/:projectId/boq/:groupId',
+              builder: (context, state) => const YorksV1BoqWorksheetScreen(
+                projectId: _projectId,
+                groupId: _groupId,
+              ),
+            ),
+            GoRoute(
+              path: '/yorks/projects/:projectId/accounts/materials',
+              builder: (context, state) =>
+                  Scaffold(body: Text('accounts ${state.uri}')),
+            ),
+          ],
+        )
+      : null;
+  if (router != null) addTearDown(router.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        home: const YorksV1BoqWorksheetScreen(
-          projectId: _projectId,
-          groupId: _groupId,
-        ),
-      ),
+      child: router != null
+          ? MaterialApp.router(
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              routerConfig: router,
+            )
+          : MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              home: const YorksV1BoqWorksheetScreen(
+                projectId: _projectId,
+                groupId: _groupId,
+              ),
+            ),
     ),
   );
   await tester.pumpAndSettle();

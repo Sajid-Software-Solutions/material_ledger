@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_common.dart';
+import 'package:material_ledger/features/accounts/presentation/v2/accounts_v2_deferred.dart';
 import 'package:material_ledger/features/projects/presentation/screens/yorks_v1_projects_screen.dart';
 import 'package:material_ledger/shared/models/yorks_v1_boq.dart';
 import 'package:material_ledger/shared/models/yorks_v1_domain_error.dart';
@@ -334,6 +336,92 @@ void main() {
     },
   );
 
+  testWidgets('a BOQ sheet link opens Accounts › Materials on its building', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    Future<YorksAccountsWorkspaceV2Deferred> open(String location) async {
+      final router = GoRouter(
+        initialLocation: location,
+        routes: [
+          GoRoute(
+            path: '/yorks/projects/:projectId/accounts/materials',
+            builder: (context, state) => const Scaffold(
+              body: YorksV1ProjectWorkspaceScreen(
+                projectId: 'project-1',
+                initialTab: YorksV1ProjectWorkspaceTab.accounts,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/yorks/projects/:projectId/accounts/overview',
+            builder: (context, state) => const Scaffold(
+              body: YorksV1ProjectWorkspaceScreen(
+                projectId: 'project-1',
+                initialTab: YorksV1ProjectWorkspaceTab.accounts,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(preferences),
+            yorksV1FeatureFlagsProvider.overrideWithValue(
+              _contractMaterialsFlags,
+            ),
+            yorksV1CurrentPermissionSnapshotProvider.overrideWith(
+              (ref) => YorksV1TestPermissionController(
+                yorksV1TrustedFeaturePermissionState(
+                  capabilities: {
+                    ...yorksV1EnforcedFeatureActionCapabilities,
+                    YorksV1CapabilityKeys.viewProjectAccounts,
+                  },
+                ),
+              ),
+            ),
+            yorksV1CurrentRoleProvider.overrideWithValue(YorksV1Role.admin),
+            yorksV1AuthUserIdProvider.overrideWithValue('auth-user'),
+            yorksV1ProjectPortfolioProvider.overrideWith(
+              (ref) async => [_portfolioItem],
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      // The workspace itself loads later; the hand-over is what matters.
+      await tester.pump();
+      await tester.pump();
+      return tester.widget<YorksAccountsWorkspaceV2Deferred>(
+        find.byType(YorksAccountsWorkspaceV2Deferred),
+      );
+    }
+
+    final linked = await open(
+      '/yorks/projects/project-1/accounts/materials?building=scope-b2',
+    );
+    expect(linked.initialTab, YorksAccountsWorkspaceV2Tab.materials);
+    expect(linked.initialMaterialsBuildingId, 'scope-b2');
+
+    // Only the Materials address names a building.
+    await tester.pumpWidget(const SizedBox());
+    final other = await open(
+      '/yorks/projects/project-1/accounts/overview?building=scope-b2',
+    );
+    expect(other.initialTab, isNot(YorksAccountsWorkspaceV2Tab.materials));
+    expect(other.initialMaterialsBuildingId, isNull);
+    await tester.pumpWidget(const SizedBox());
+    // Let the unmounted workspace's load timers run out.
+    await tester.pump(const Duration(minutes: 1));
+  });
+
   testWidgets('Accounts reopens after visiting another project tab', (
     tester,
   ) async {
@@ -465,6 +553,21 @@ const _accountsEnabledFlags = YorksV1FeatureFlags(
   returnsDocuments: true,
   documents: true,
   accounts: true,
+);
+
+const _contractMaterialsFlags = YorksV1FeatureFlags(
+  foundation: true,
+  projects: true,
+  boq: true,
+  excel: true,
+  requests: true,
+  arrangement: true,
+  logistics: true,
+  returnsDocuments: true,
+  documents: true,
+  accounts: true,
+  accountsWorkspaceV2: true,
+  contractMaterials: true,
 );
 
 final _portfolioItem = YorksV1ProjectPortfolioItem(

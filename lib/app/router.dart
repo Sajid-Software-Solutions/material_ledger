@@ -319,6 +319,17 @@ abstract final class RoutePaths {
       '/yorks/projects/$projectId/accounts';
   static String yorksV1ProjectAccountsOverviewPath(String projectId) =>
       '/yorks/projects/$projectId/accounts/overview';
+
+  /// Accounts › Materials, optionally opened on one building.
+  static String yorksV1ProjectAccountsMaterialsPath(
+    String projectId, {
+    String? buildingScopeId,
+  }) => Uri(
+    path: '/yorks/projects/$projectId/accounts/materials',
+    queryParameters: buildingScopeId == null
+        ? null
+        : {'building': buildingScopeId},
+  ).toString();
   static String yorksV1ProjectAccountsBillingPath(String projectId) =>
       '/yorks/projects/$projectId/accounts/billing';
   static String yorksV1ProjectAccountsInvoicesPath(String projectId) =>
