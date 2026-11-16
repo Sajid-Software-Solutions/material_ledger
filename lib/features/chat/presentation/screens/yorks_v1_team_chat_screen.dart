@@ -224,9 +224,12 @@ class _YorksV1TeamChatScreenState extends ConsumerState<YorksV1TeamChatScreen> {
                     ClipRect(
                       child: AnimatedSize(
                         alignment: AlignmentDirectional.centerEnd,
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 160),
+                        // Not Duration.zero under reduced motion: a
+                        // zero-length size change re-lays the panel out
+                        // inside its own layout. Flutter already runs
+                        // animations at 5% (one frame) when the device asks
+                        // for reduced motion.
+                        duration: const Duration(milliseconds: 160),
                         curve: Curves.easeOutCubic,
                         child: showInfo
                             ? Row(
