@@ -3,7 +3,9 @@
 /// every screen:
 ///
 /// * time boxes with a number keyboard and Next, which select their time
-///   when entered so typing replaces it;
+///   when entered so typing replaces it, and a clock under each one that
+///   sets the time on the standard dial instead (PRODUCT_DECISIONS
+///   section 62);
 /// * a searchable worker picker — a tall sheet on phones, a dialog
 ///   elsewhere — that adds several workers in one go;
 /// * the phone's quick-action tiles.
@@ -15,12 +17,128 @@ import '../../../../shared/models/app_language.dart';
 import '../../../accounts/presentation/v2/kit/accounts_v2_kit.dart';
 import '../../domain/attendance_models.dart';
 import '../../domain/attendance_search.dart';
+import '../../domain/attendance_time.dart';
 import 'attendance_common.dart';
 
 // ─── Time box ────────────────────────────────────────────────────────────────
 
+/// What a time box's clock sets: the time shown at the top of the dial, the
+/// time the box reads now and where the dial opens when the box is empty or
+/// not a time.
+final class AttendanceClock {
+  const AttendanceClock({
+    required this.title,
+    required this.fallback,
+    this.current,
+  });
+
+  /// Which time is being set ("Out · Gul Zaman").
+  final String title;
+
+  /// The box's time as read now, with the box before it as context.
+  final int? current;
+
+  /// Minutes from midnight the dial opens at when [current] is null.
+  final int fallback;
+}
+
+/// The standard clock for one time (PRODUCT_DECISIONS section 62): Flutter's
+/// dial, with its own switch to typing the hour and minute, always in
+/// 12-hour time as the app writes times. Its short animations follow the
+/// device's reduce-motion setting. Resolves to minutes from midnight, or
+/// null when closed.
+Future<int?> showAttendanceClock(
+  BuildContext context, {
+  required int initial,
+  required String title,
+}) async {
+  final minutes = initial.clamp(0, 24 * 60 - 1);
+  final picked = await showTimePicker(
+    context: context,
+    initialTime: TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+    helpText: title,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+      child: child!,
+    ),
+  );
+  return picked == null ? null : picked.hour * 60 + picked.minute;
+}
+
+/// The line under a time box: a clock and the time it reads ("6:30 AM"),
+/// red "Not a time" when it cannot be read. Tapping opens the clock; the
+/// whole line is at least a 44px target.
+class AttendanceClockButton extends StatelessWidget {
+  const AttendanceClockButton({
+    super.key,
+    required this.text,
+    required this.tooltip,
+    required this.onPressed,
+    this.error = false,
+  });
+
+  final String text;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final bool error;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = error ? AccountsV2Colors.bad : AccountsV2Colors.mut;
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: tooltip,
+        value: text,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 16,
+                    color: error
+                        ? AccountsV2Colors.bad
+                        : onPressed == null
+                        ? AccountsV2Colors.mut2
+                        : AccountsV2Colors.pri,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: v2Style(
+                        11.5,
+                        weight: error ? FontWeight.w600 : FontWeight.w500,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A time box ("630", "5", "17:30", "5p"). Phones get a number keyboard with
-/// Next; entering the box selects its time, so typing replaces it.
+/// Next; entering the box selects its time, so typing replaces it. With a
+/// [clock], the line under the box shows the time it reads and opens the
+/// standard clock; a picked time is written back as "5:45p", which reads as
+/// exactly that time whatever the box before it says.
 class AttendanceTimeField extends StatefulWidget {
   const AttendanceTimeField({
     super.key,
@@ -31,6 +149,10 @@ class AttendanceTimeField extends StatefulWidget {
     this.enabled = true,
     this.hint,
     this.last = false,
+    this.clock,
+    this.caption,
+    this.clockKey,
+    this.language = AppLanguage.english,
   });
 
   final String label;
@@ -42,6 +164,14 @@ class AttendanceTimeField extends StatefulWidget {
 
   /// The last box of a row: the keyboard shows Done instead of Next.
   final bool last;
+
+  /// Shows the clock line under the box.
+  final AttendanceClock? clock;
+
+  /// The clock line's text: the time read, or "Not a time".
+  final String? caption;
+  final Key? clockKey;
+  final AppLanguage language;
 
   @override
   State<AttendanceTimeField> createState() => _AttendanceTimeFieldState();
@@ -82,8 +212,46 @@ class _AttendanceTimeFieldState extends State<AttendanceTimeField> {
     );
   }
 
+  Future<void> _pick(AttendanceClock clock) async {
+    final picked = await showAttendanceClock(
+      context,
+      initial: clock.current ?? clock.fallback,
+      title: clock.title,
+    );
+    if (picked == null || !mounted) return;
+    // With its AM/PM the text reads back as exactly the picked time.
+    final text = formatAttendanceTimeInput(picked);
+    widget.controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    widget.onChanged?.call(text);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final clock = widget.clock;
+    final box = _box();
+    if (clock == null) return box;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        box,
+        AttendanceClockButton(
+          key: widget.clockKey,
+          text: widget.caption ?? formatAttendanceTime(clock.current),
+          error: widget.error,
+          tooltip: AS.t(AS.pickOnClock, widget.language, {
+            'field': widget.label,
+          }),
+          onPressed: widget.enabled ? () => _pick(clock) : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _box() {
     return AccountsV2TextField(
       label: widget.label,
       controller: widget.controller,
