@@ -60,3 +60,8 @@ verify_jwt = true
 
 [functions.finalize-chat-attachment]
 verify_jwt = true
+
+# Attendance terminals call this themselves and cannot sign in. The database
+# answers only registered serial numbers, and only while the receiver is on.
+[functions.attendance-terminal]
+verify_jwt = false

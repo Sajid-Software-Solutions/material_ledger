@@ -60,6 +60,11 @@ select is(
     'v1_workforce_shift_templates',
     'v1_workforce_team_schedule_links',
     'v1_workforce_teams',
+    'v1_workforce_terminal_punches',
+    'v1_workforce_terminal_rejects',
+    'v1_workforce_terminal_requests',
+    'v1_workforce_terminal_settings',
+    'v1_workforce_terminals',
     'v1_workforce_timesheet_allocation_revisions',
     'v1_workforce_timesheet_allocation_sets',
     'v1_workforce_timesheet_allocations',
@@ -68,7 +73,7 @@ select is(
     'v1_workforce_worker_assignments',
     'v1_workforce_workers'
   ]::name[],
-  'T13 freezes the exact accepted Workforce relation inventory, including attendance V2'
+  'T13 freezes the exact accepted Workforce relation inventory, including attendance V2 and attendance terminals'
 );
 
 select ok(
@@ -120,9 +125,12 @@ select is(
   array[
     'v1_workforce_day_rows',
     'v1_workforce_monthly_correction_contexts',
-    'v1_workforce_public_holidays'
+    'v1_workforce_public_holidays',
+    -- A 30-day diagnostic log of terminal calls; the punch log itself is
+    -- append-only (PRODUCT_DECISIONS section 64).
+    'v1_workforce_terminal_requests'
   ]::name[],
-  'Only the correction context, day-only rows and public holidays are exempt from retained-row hard-delete guards'
+  'Only the correction context, day-only rows, public holidays and the terminal diagnostic log are exempt from retained-row hard-delete guards'
 );
 
 select is(

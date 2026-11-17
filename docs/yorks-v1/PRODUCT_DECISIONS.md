@@ -3024,6 +3024,53 @@ hours, saving, access or the month changes, and there is no database change.
 Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
 The worker editor on a phone.
 
+## 64. Attendance terminals: the receiver and the punch log (owner request, 17 November 2026)
+
+The owners are thinking of biometric attendance for labour, starting at the
+warehouse (the Workshop place) and then one site at a time. On 16 November
+the owner said the present flow stays: "the current attendance flow and
+manual entry + editing will be available but the terminal would be able to
+just enter or register a user automatically while being there". On 17
+November the owner asked to "prepare everything and have kind of api that we
+will setup in a device without affecting our in app changes".
+
+This section covers that request only: the address a terminal is given and
+what Yorks keeps of what it sends. Nothing about who may see or change
+attendance, hours, saving, the month lock or any screen changes, and the app
+is not rebuilt.
+
+- **A terminal calls Yorks.** A terminal is given one web address and from
+  then on sends its check-ins and check-outs by itself (ZKTeco attendance
+  push). The address is its own small site, apart from the Yorks app.
+- **Only registered terminals, and only when switched on.** A terminal is
+  registered by its serial number, with a name and the place it serves. One
+  switch turns the receiver on or off for all of them. It ships off with no
+  terminal registered.
+- **A punch log that never changes.** Every punch is kept once, exactly as
+  the terminal reported it: the terminal, the place it served then, the
+  terminal's user ID and the time. A punch sent again is not stored twice. A
+  line that cannot be read is kept as it arrived. The terminal is told "OK"
+  only after its lines are kept, so nothing is lost when a call fails.
+- **Attendance only.** The terminal is asked to send attendance and nothing
+  else. Anything else it sends (names, fingerprints, faces, photos) is
+  counted and discarded: Yorks stores no biometric data.
+- **Not in the app yet.** No role reads or writes any of this from the app.
+  Terminals are registered and checked from the database by the developer
+  until the register is built with its audit history.
+- **Attendance days are untouched.** The punch log is not read by any day,
+  line, month or report. A terminal's user ID is not yet matched to a
+  labourer.
+
+Not decided here, each needing its own decision before it is built: which
+terminal is bought; what a check-in does to a place's day; how a terminal
+user ID is matched to a labourer; who manages terminals in the app; notice
+and consent for labourers.
+
+Design, runbook and what one real terminal still has to prove:
+[`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md). Migration
+`20261117090000_workforce_attendance_terminals.sql`; Edge Function
+`attendance-terminal`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
