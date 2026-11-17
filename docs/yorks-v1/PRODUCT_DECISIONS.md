@@ -3066,6 +3066,14 @@ terminal is bought; what a check-in does to a place's day; how a terminal
 user ID is matched to a labourer; who manages terminals in the app; notice
 and consent for labourers.
 
+**In production from 18 November 2026.** The owner asked to "prepare our side
+of system as much as we can so our last step would be to connect the terminal
+only" and then said "Yes, go live". After a rehearsal on staging the release,
+the Edge Function and the terminals' address (`yorks-terminals.vercel.app`)
+were put in production and the receiver switched on, with only a simulator
+terminal registered, which serves no place. A real terminal is still refused
+until it is registered. Nothing in the app or in attendance changed.
+
 Design, runbook and what one real terminal still has to prove:
 [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md). Migration
 `20261117090000_workforce_attendance_terminals.sql`; Edge Function
