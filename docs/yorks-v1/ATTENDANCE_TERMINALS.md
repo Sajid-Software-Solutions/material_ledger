@@ -1,8 +1,11 @@
 # Attendance terminals: the receiver and the punch log
 
-Status: **built; rehearsed end to end on staging (18 November 2026); not in
-production yet (waiting for the owner's OK); not yet proven against a real
-terminal.**
+Status: **live in production since 18 November 2026 (owner's go-ahead):
+receiver on, only a simulator terminal registered. Not yet proven against a
+real terminal.**
+
+The terminals' address is **`yorks-terminals.vercel.app`**. What is left is
+"Terminal day" below.
 
 Decision: [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 64 (owner
 request, 17 November 2026). Attendance itself is described in
@@ -163,11 +166,17 @@ address and removes the token file `link` leaves behind. The address is then
 give it a domain the company owns: a terminal keeps whatever address is typed
 into it.
 
-Nothing answers yet: the receiver is off.
+A fresh project answers nothing yet: its receiver is off until step 2.
 
-Staging has all of this already: project `yorks-r35-staging`, address
-`https://yorks-terminals-staging.vercel.app`, receiver on, one simulator
-terminal `SIM-0001` with no place. Use it to rehearse anything.
+Both projects have all of this already, each with the receiver on and one
+simulator terminal `SIM-0001` with no place:
+
+| Project | Terminals' address |
+|---|---|
+| Production | `https://yorks-terminals.vercel.app` |
+| Staging (`yorks-r35-staging`) | `https://yorks-terminals-staging.vercel.app` |
+
+Rehearse on staging rather than production: every punch is kept for good.
 
 ### 2. Prove the path without a terminal
 
@@ -190,13 +199,13 @@ simulator terminal.
 
 ### 3. Terminal day
 
-Once steps 1 and 2 are done in production, a new terminal takes three steps
+Steps 1 and 2 are done in production, so a new terminal takes three steps
 and a few minutes.
 
 **a. Set the terminal.** Set its date and time. Then Menu, COMM., Cloud
 Server Setting: Server mode **ADMS**; Enable Domain Name **on**; Server
-Address **the terminals' address** (no `https://`, no path); Server Port
-**443**; HTTPS **on**; Enable Proxy Server **off**.
+Address **`yorks-terminals.vercel.app`** (no `https://`, no path); Server
+Port **443**; HTTPS **on**; Enable Proxy Server **off**.
 
 **b. Register it.** It is refused until it is registered, and each refusal
 is logged with its serial number, so the number need not be typed. See who
@@ -388,8 +397,23 @@ Staging rehearsal, 18 November 2026 (project `yorks-r35-staging`, Postgres
 | Time to answer one call, warm | About 0.5 s at the function, about 1.1 s through the address (measured from Pakistan) |
 | Plain HTTP, TLS 1.0, TLS 1.1 | Redirected (308) or refused; TLS 1.2 accepted |
 
-Production had the same before-check and nothing else: the release was not
-applied there.
+Production, 18 November 2026, on the owner's "Yes, go live" (project
+`yorks-godownpro-demo`, Postgres 17.6):
+
+| Step | Result |
+|---|---|
+| Before | No terminal table or function; 5 attendance days and 10 lines; 8 schedules |
+| Release bundle | Applied with its self-check; five tables with row level security, receiver off, no right for `anon` or `authenticated`; 9 schedules |
+| Function deployed, receiver off | Handshake and upload 503, at the function and through the address |
+| Terminals' address | Vercel project `yorks-terminals`, `https://yorks-terminals.vercel.app` |
+| Simulator registered with no place, receiver switched on | Done from the database |
+| Simulator through the address | 14 of 14 |
+| Database after the replay | 4 punches under user ID 999001 with no place, 1 unreadable line kept, no simulated name or template anywhere; still 5 attendance days and 10 lines; no labourer is numbered `WR-999001` |
+| Acceptance check on the simulator | Runs read-only; same result as on staging |
+| Time to answer one call, warm | About 0.8 s through the address (measured from Pakistan) |
+
+The receiver is left on, so a real terminal needs only "Terminal day". Until
+one is registered, every caller but the simulator is refused.
 
 Release: `supabase/release/attendance_terminals_bundle.sql`; rollback:
 `supabase/release/attendance_terminals_rollback.sql`.
