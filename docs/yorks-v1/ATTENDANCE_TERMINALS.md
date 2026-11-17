@@ -1,7 +1,8 @@
 # Attendance terminals: the receiver and the punch log
 
-Status: **built and tested locally; receiver off; not deployed; not yet
-proven against a real terminal.**
+Status: **built; rehearsed end to end on staging (18 November 2026); not in
+production yet (waiting for the owner's OK); not yet proven against a real
+terminal.**
 
 Decision: [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 64 (owner
 request, 17 November 2026). Attendance itself is described in
@@ -145,7 +146,7 @@ npx supabase@latest db query --remote=<ref> --yes -f supabase/release/attendance
 ```
 
 ```bash
-npx supabase@latest functions deploy attendance-terminal --project-ref <ref>
+npx supabase@latest functions deploy attendance-terminal --remote=<ref> --yes
 ```
 
 ```bash
@@ -153,15 +154,20 @@ SUPABASE_URL=https://<ref>.supabase.co ./tool/attendance_terminal_gateway.sh
 ```
 
 ```bash
-npx vercel deploy build/attendance-terminal-gateway --prod
+cd build/attendance-terminal-gateway && npx vercel@latest link --yes --project yorks-terminals && npx vercel@latest deploy --prod --yes && rm -f .env.local
 ```
 
 The last command creates (the first time) a Vercel project for the terminals'
-address. Give it a name such as `yorks-terminals` and, before a second
-terminal is installed, a domain the company owns: a terminal keeps whatever
-address is typed into it.
+address and removes the token file `link` leaves behind. The address is then
+`https://yorks-terminals.vercel.app`. Before a second terminal is installed,
+give it a domain the company owns: a terminal keeps whatever address is typed
+into it.
 
 Nothing answers yet: the receiver is off.
+
+Staging has all of this already: project `yorks-r35-staging`, address
+`https://yorks-terminals-staging.vercel.app`, receiver on, one simulator
+terminal `SIM-0001` with no place. Use it to rehearse anything.
 
 ### 2. Prove the path without a terminal
 
@@ -182,25 +188,69 @@ Then:
 Fourteen checks should pass. Its punches stay in the log for good, under the
 simulator terminal.
 
-### 3. Register the real terminal
+### 3. Terminal day
 
-The serial number is on the terminal's label and under Menu, System Info,
-Device Info.
+Once steps 1 and 2 are done in production, a new terminal takes three steps
+and a few minutes.
+
+**a. Set the terminal.** Set its date and time. Then Menu, COMM., Cloud
+Server Setting: Server mode **ADMS**; Enable Domain Name **on**; Server
+Address **the terminals' address** (no `https://`, no path); Server Port
+**443**; HTTPS **on**; Enable Proxy Server **off**.
+
+**b. Register it.** It is refused until it is registered, and each refusal
+is logged with its serial number, so the number need not be typed. See who
+is waiting:
 
 ```sql
-select public.v1_wf_register_terminal('<SERIAL>', 'Workshop gate', 'location:workshop');
+select serial_number, count(*) as calls, max(received_at) as last_call
+from public.v1_workforce_terminal_requests
+where outcome = 'unknown_terminal' and received_at > now() - interval '1 hour'
+group by serial_number order by last_call desc;
 ```
 
-A project's place is `project:<project id>`. Registering the same serial
-number again renames or moves the terminal and switches it back on; punches
-already stored keep the place they were made at.
+Register the one that just called, with its name and place:
 
-### 4. Set the terminal
+```sql
+select public.v1_wf_register_terminal(
+  (select serial_number from public.v1_workforce_terminal_requests
+   where outcome = 'unknown_terminal' and received_at > now() - interval '15 minutes'
+   order by received_at desc limit 1),
+  'Workshop gate', 'location:workshop');
+```
 
-Menu, COMM., Cloud Server Setting: Server mode **ADMS**; Enable Domain Name
-**on**; Server Address **the terminals' address** (no `https://`, no path);
-Server Port **443**; HTTPS **on**; Enable Proxy Server **off**. Set the
-terminal's date and time first.
+The serial number is also on the terminal's label and under Menu, System
+Info, Device Info, if you prefer to type it. A project's place is
+`project:<project id>`. Registering the same serial number again renames or
+moves the terminal and switches it back on; punches already stored keep the
+place they were made at. The terminal tries again by itself within a minute
+or two and is then answered.
+
+**c. Run the acceptance check.** Open
+`tool/attendance_terminal_acceptance.sql`, put the serial number on its
+marked line and run it. Twelve lines, each PASS, WAIT or FAIL with what to do
+next. WAIT lines walk through the test: check in once, then unplug the
+network, check in three times, wait 15 minutes and plug it back in. The
+terminal is accepted when all twelve read PASS. (Against the simulator, lines
+7 to 9 read FAIL on purpose: it sends an unreadable line, a fingerprint and
+an access-control call to prove they are handled.)
+
+### 4. What to ask the supplier, in writing
+
+The terminals' address answers only this, measured on 18 November 2026:
+
+- **HTTPS, TLS 1.2 or newer.** TLS 1.0 and 1.1 are refused, and plain HTTP
+  is redirected to HTTPS.
+- **A domain name with the server name sent (SNI).** Without it the address
+  presents a certificate for a different name.
+- **Attendance (T&A) push firmware**, set by "Cloud Server Setting", not the
+  access-control dialect.
+- **Answers without a fixed length** ("chunked"). ZKTeco's protocol document
+  allows them.
+
+So the question for the exact model and firmware is: "Does it push
+attendance (ADMS, T&A push) to our own domain name over HTTPS with TLS 1.2
+and SNI?"
 
 ### 5. Check
 
@@ -229,14 +279,9 @@ left join public.v1_workforce_workers w
 order by p.received_at desc limit 30;
 ```
 
-The acceptance test for a real terminal:
-
-1. A check-in appears in the punch log within seconds.
-2. Unplug the network, check in three times, wait an hour, plug it back in:
-   all three arrive, once each.
-3. The terminal's clock agrees with Abu Dhabi time after a day.
-4. `v1_workforce_terminal_rejects` is empty and no request has
-   `table_name` other than `ATTLOG` and `options`.
+`tool/attendance_terminal_acceptance.sql` runs all of this as one check
+(step 3c). One thing it cannot see in an afternoon: whether the terminal's
+clock still agrees with Abu Dhabi time after a week. Run it again then.
 
 ### 6. Switch off, roll back
 
@@ -274,11 +319,14 @@ set extra_option_lines = array['ServerVer=2.4.1', 'PushProtVer=2.4.1'];
 
 ## What is not proven
 
-The message format comes from ZKTeco's published protocol summaries and a
-maintained open-source receiver, not from a terminal on the bench. One real
-unit has to settle:
+Everything on the Yorks side is proven on staging, including the hop through
+the terminals' address. What is left is the terminal itself. The message
+format comes from ZKTeco's published protocol summaries and a maintained
+open-source receiver, not from a terminal on the bench. One real unit has to
+settle:
 
-- that its firmware can call an HTTPS address on Vercel at all;
+- that its firmware can call an HTTPS address with TLS 1.2 and SNI;
+- that it reads an answer sent without a fixed length;
 - that `TransFlag=100000000000` makes it send attendance and nothing else;
 - that punches made offline arrive after it reconnects;
 - how slow a `Delay` it accepts, and whether its clock follows the server.
@@ -302,7 +350,8 @@ that is why nothing reads the log yet.
 |---|---|---|
 | Protocol and receiver | `npx deno@latest test supabase/functions/attendance-terminal/` | Routing, line splitting, the handshake text, every refusal, "OK only after storing", no body in any call or log |
 | Database | `supabase test db` (`yorks_workforce_attendance_terminals.test.sql`) | Off by default, registration, duplicates, unreadable lines, stamps, wrong clocks, append-only, the refusal cap, clean-up, no right for Project Engineer, Site Engineer, Procurement, Admin or a visitor, attendance untouched |
-| Whole path | `./tool/attendance_terminal_simulator.sh` against a local stack | The function, the API and the database together |
+| Whole path | `./tool/attendance_terminal_simulator.sh` against a local stack or staging | The address, the function, the API and the database together |
+| A real terminal | `tool/attendance_terminal_acceptance.sql` in the SQL editor | Twelve read-only checks: registered, heard from, handshake, a check-in, the clock, unreadable lines, attendance only, the dialect, wrong clocks, the outage test, stored once |
 
 Evidence, 17 November 2026, on a private local stack (Supabase CLI 3.2.0,
 Postgres 15, the real Edge Function runtime and API gateway):
@@ -323,6 +372,24 @@ after 30 days.
 
 No Dart, web or Android file changed, so the Flutter analyze, test, web and
 APK gates do not apply to this slice.
+
+Staging rehearsal, 18 November 2026 (project `yorks-r35-staging`, Postgres
+17.6, the hosted Edge Function runtime, Vercel):
+
+| Step | Result |
+|---|---|
+| Before: name clashes and what the release depends on, staging and production | None; everything present on both |
+| Release bundle on staging | Applied; five tables with row level security, receiver off, no right for `anon` or `authenticated`, schedule present |
+| Function deployed, receiver off | Handshake 503; no sign-in needed |
+| Simulator straight at the function | 14 of 14 |
+| Simulator through `https://yorks-terminals-staging.vercel.app` | 14 of 14: the address passes on GET, POST bodies and query values |
+| Database after both runs | 8 punches stored once each, 1 unreadable line kept once, no simulated name or template anywhere |
+| Acceptance check on the simulator | Runs read-only; flags the simulator's three deliberate oddities and waits for the outage test |
+| Time to answer one call, warm | About 0.5 s at the function, about 1.1 s through the address (measured from Pakistan) |
+| Plain HTTP, TLS 1.0, TLS 1.1 | Redirected (308) or refused; TLS 1.2 accepted |
+
+Production had the same before-check and nothing else: the release was not
+applied there.
 
 Release: `supabase/release/attendance_terminals_bundle.sql`; rollback:
 `supabase/release/attendance_terminals_rollback.sql`.
