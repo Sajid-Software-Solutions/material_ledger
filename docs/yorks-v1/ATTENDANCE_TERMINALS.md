@@ -2,8 +2,8 @@
 
 Status: **live in production since 18 November 2026 (owner's go-ahead):
 receiver on, only a simulator terminal registered. Not yet proven against a
-real terminal.** "A check-in on the day" (section 65, below) is built and
-tested locally; it is not on staging or production.
+real terminal.** "A check-in on the day" (section 65, below) is on staging
+since 18 November 2026 (every terminal watching); it is not on production.
 
 The terminals' address is **`yorks-terminals.vercel.app`**. What is left is
 "Terminal day" below.
@@ -240,6 +240,16 @@ terminal line or terminal-only day exists).
 | `tool/test_attendance_terminal_concurrency.py` (separate sessions) | A terminal waits for a save then adds only the missing labourer; a save waits for a terminal and keeps its line with no conflict; a save holding the day 4.5 s does not hold the terminal (answered in about 2 s, line added next upload); 400 check-ins on two terminals with keepers saving: no lost, doubled or unapplied line, no deadlock, no conflict for a lone keeper |
 | Bundle on a main-shaped database, again, rollback, bundle again | Applied; rerun harmless; rollback restored main's exact function text; reapplied |
 | Bundle against a drifted function | Refused, nothing changed |
+
+Staging, 18 November 2026, on the owner's "Yes, staging" (`yorks-r35-staging`,
+Postgres 17.6):
+
+| Step | Result |
+|---|---|
+| Before | The eight functions the bundle replaces matched main exactly; no attendance day or line; one simulator terminal, no place |
+| Release bundle | Applied with its preflight and self-check; the eight functions now match this release; one `v1_wf_save_day`, for signed-in people only; switch and re-apply for the service role only |
+| Simulator through `https://yorks-terminals-staging.vercel.app` | 14 of 14, answered as before |
+| Database after | The simulator's check-ins decided once as `no_place`, watching; still no attendance day or line |
 
 The pgTAP file covers Project Engineer, Site Engineer, Procurement, Admin,
 the Accountant and HR/PRO for matching, reading and saving; each finding;
