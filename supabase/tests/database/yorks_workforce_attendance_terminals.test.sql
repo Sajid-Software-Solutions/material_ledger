@@ -213,12 +213,14 @@ select is(
   jsonb_build_object(
     'serial_number', 'SIM-0001', 'terminal_name', 'Test gate',
     'place_key', current_setting('at.key1'), 'is_active', true,
+    -- Every terminal starts watching (PRODUCT_DECISIONS section 65).
+    'attendance_mode', 'watch',
     'utc_offset_minutes', 240, 'resend_all_requested', false,
     'device_name', null, 'firmware_version', null, 'push_version', null,
     'first_seen_at', null, 'last_seen_at', null, 'last_handshake_at', null,
     'last_punch_received_at', null, 'record_version', 1
   ),
-  'A terminal is registered by serial number for a place, in Abu Dhabi time'
+  'A terminal is registered by serial number for a place, in Abu Dhabi time, watching'
 );
 select is(
   public.v1_wf_terminal_handshake('SIM-0001', '{}'::jsonb) ->> 'outcome',
@@ -590,6 +592,7 @@ select is(
   jsonb_build_object(
     'serial_number', 'SIM-0001', 'terminal_name', 'Store gate',
     'place_key', current_setting('at.key2'), 'is_active', true,
+    'attendance_mode', 'watch',
     'utc_offset_minutes', 240, 'resend_all_requested', false,
     'device_name', null, 'firmware_version', 'Ver 8.0.4.2-20200710',
     'push_version', '2.4.1',

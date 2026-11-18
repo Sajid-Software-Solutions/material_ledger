@@ -245,6 +245,15 @@ changes: the punch log is not read by any day, line, month, hours or screen,
 and `v1_wf_save_day` is untouched. The receiver ships switched off. Design
 and runbook: [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md).
 
+Since `PRODUCT_DECISIONS.md` section 65 (18 November 2026), a terminal
+switched to adding puts a confirmed labourer's first check-in on its place's
+day as Present on the usual shift (at most 8 hours), saved as the
+terminal's. Such a line never raises the day's `record_version`;
+`v1_wf_save_day` keeps it unless the new optional
+`p_removed_terminal_worker_ids` names it (with a reason). Every terminal
+starts watching. See "A check-in on the day" in
+[`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md).
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

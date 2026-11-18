@@ -2,7 +2,8 @@
 
 Status: **live in production since 18 November 2026 (owner's go-ahead):
 receiver on, only a simulator terminal registered. Not yet proven against a
-real terminal.**
+real terminal.** "A check-in on the day" (section 65, below) is on staging
+since 18 November 2026 (every terminal watching); it is not on production.
 
 The terminals' address is **`yorks-terminals.vercel.app`**. What is left is
 "Terminal day" below.
@@ -25,12 +26,11 @@ Yorks answers in the terminal's own format and keeps every punch in a log.
 | Keep every punch once, exactly as the terminal reported it | Change, merge or delete a punch |
 | Keep an attendance line it cannot read, as it arrived | Tell a terminal "OK" for a line it did not keep |
 | Count what else a terminal sends, by kind | Store a face, fingerprint, photo or name |
-| Note when each terminal was last heard from | Touch an attendance day, line, month, hours or screen |
+| Note when each terminal was last heard from | Change or remove a line a person saved |
 
-The last row is the point of this slice: the app is unchanged. No route,
-screen, flag or Dart file is added, and taking attendance works exactly as
-before. Putting a checked-in labourer on a place's day is a later slice with
-its own decision.
+The receiver itself adds nothing to a day. Since section 65, a terminal that
+is switched to adding puts a checked-in labourer on its place's day: see "A
+check-in on the day" below. Every terminal starts watching.
 
 ## The path
 
@@ -132,9 +132,133 @@ or writes any of this from the app. The Edge Function calls
 with audit events, belongs to the next slice; until then the terminal table's
 `record_version` and timestamps are the only trace of who changed what.
 
-A terminal's user ID is stored as sent. It is not yet matched to a labourer
-anywhere. The intended match is the digits of the worker number (`WR-000418`
-is 418); the query in "Check" below shows it as a guide only.
+A terminal's user ID is stored as sent. It counts for a labourer only once
+HR/PRO or Admin has confirmed the match (see "A check-in on the day").
+
+## A check-in on the day (section 65)
+
+Decision: [`PRODUCT_DECISIONS.md`](PRODUCT_DECISIONS.md) section 65 (owner,
+18 November 2026). Migration
+`20261118090000_workforce_terminal_attendance.sql`. Server only: no Dart, web
+or Android file changes, and the app in production keeps working as it is.
+
+### What a check-in does
+
+After the receiver stores a terminal's check-ins, each labourer's first
+check-in of the day at the terminal's place is decided once:
+
+| Finding | Meaning | Line added |
+|---|---|---|
+| `add` | Present on the place's usual shift with its break, at most 8 worked hours, no overtime; the project's only building, else none | Only while the terminal adds |
+| `on_day` | Already on that place's day | No (never changed) |
+| `rest_day` | Rest day or public holiday | No |
+| `elsewhere` | Has a line at another place that day | No |
+| `outside_shift` | First check-in more than 2 hours before the usual start, or after the usual finish | No |
+| `month_confirmed` | The place's month is confirmed | No |
+| `staff` | People category staff | No |
+| `unmatched` | The ID is not confirmed for anyone | No |
+| `removed_by_hand` | A person removed the labourer from that day | No |
+| `no_place` | The terminal serves no place | No |
+| `not_active` | The labourer is not active | No |
+| `late` / `clock` | More than 7 days old / dated in the future or a wrong clock | No |
+| `error` | The line could not be written; tried again with the next upload | Later |
+
+Each decision is one row in `v1_workforce_terminal_days` (terminal, day,
+user ID): the labourer, first and last check-in, count, finding, whether it
+added the line and whether the terminal was watching. `v1_wf_get_day`
+returns `terminal` (whether a terminal at the place adds, and every
+check-in that is not a line) and, on each line, `by_terminal`,
+`terminal_name`, `check_in_minute`, `check_out_minute` and `check_ins`. The
+times never change the sheet.
+
+### Lines and days the terminal writes
+
+- A terminal's line has no person (`updated_by_auth_user_id` null) and names
+  its terminal (`terminal_id`). The table refuses a terminal line that is
+  not Present or is over 8 hours.
+- A day a terminal opens has no person and `entered_by_terminal_id`, at
+  `record_version` 0. Every reader names the terminal where there is no
+  person (`v1_wf_saved_by`): the day, the line, the overview, the monthly
+  sheet and the labourer's time sheet.
+- A terminal line never raises `record_version`, so a keeper's save never
+  conflicts because of one. The first person to save the day enters it.
+- `v1_wf_save_day` keeps a terminal line the app did not send. It goes only
+  when named in the new optional `p_removed_terminal_worker_ids`, with a
+  reason. Changing its times or building needs none; marking it absent,
+  rest or leave needs one. Once a person saves a change the line is theirs.
+- A labourer a person removes is kept in the sheet's
+  `hand_removed_worker_ids`; a terminal does not add them to that day again.
+- The terminal takes `v1_wf_save_day`'s locks in the same order (the day,
+  then each labourer's day), plus the month's, and waits at most 2 seconds:
+  after that the check-in stays stored, the terminal still gets `OK`, and
+  the line is tried again with its next upload.
+
+### Matching
+
+`v1_wf_list_terminal_users()` (HR/PRO and Admin) lists active labourers
+with the ID their number gives (`WR-000418` is 418) and any confirmed ID,
+and the IDs terminals sent that nobody is matched to, with the labourer
+proposed. `v1_wf_confirm_terminal_users([{device_user_id, worker_id}],
+key)` confirms up to 500 at once; `v1_wf_end_terminal_user(id, reason,
+key)` ends a wrong one. Both write audit events. One ID per labourer and one
+labourer per ID; staff and inactive labourers are refused. Matches live in
+`v1_workforce_terminal_users` and are ended, never deleted.
+
+### Switching a terminal to adding
+
+From the SQL editor, on the owner's word, once its check-ins have been
+watched:
+
+```sql
+select public.v1_wf_set_terminal_mode('<SERIAL>', 'add');    -- or 'watch'
+select public.v1_wf_terminal_apply_day('<SERIAL>', '<date>'); -- decide a day again
+```
+
+Adding starts with the next check-in. Registering a terminal at another
+place (or none) puts it back to watching. What it would have done while
+watching:
+
+```sql
+select day.work_date, day.device_user_id, w.worker_number, day.finding,
+  day.added, day.watching, day.first_punched_at_local, day.last_punched_at_local
+from public.v1_workforce_terminal_days day
+left join public.v1_workforce_workers w on w.id = day.worker_id
+order by day.work_date desc, day.first_punched_at_local;
+```
+
+Release: `supabase/release/terminal_attendance_bundle.sql` (checks first
+that the eight functions it replaces are main's, and stops changing nothing
+if not); rollback: `supabase/release/terminal_attendance_rollback.sql`
+(every terminal back to watching, main's functions back; refuses while a
+terminal line or terminal-only day exists).
+
+### Tests and evidence (18 November 2026, private local stack)
+
+| Check | Result |
+|---|---|
+| `supabase db reset` then `supabase test db` | 194 files, 6,647 tests, all passed (`yorks_workforce_terminal_attendance.test.sql`: 206) |
+| `tool/test_attendance_terminal_concurrency.py` (separate sessions) | A terminal waits for a save then adds only the missing labourer; a save waits for a terminal and keeps its line with no conflict; a save holding the day 4.5 s does not hold the terminal (answered in about 2 s, line added next upload); 400 check-ins on two terminals with keepers saving: no lost, doubled or unapplied line, no deadlock, no conflict for a lone keeper |
+| Bundle on a main-shaped database, again, rollback, bundle again | Applied; rerun harmless; rollback restored main's exact function text; reapplied |
+| Bundle against a drifted function | Refused, nothing changed |
+
+Staging, 18 November 2026, on the owner's "Yes, staging" (`yorks-r35-staging`,
+Postgres 17.6):
+
+| Step | Result |
+|---|---|
+| Before | The eight functions the bundle replaces matched main exactly; no attendance day or line; one simulator terminal, no place |
+| Release bundle | Applied with its preflight and self-check; the eight functions now match this release; one `v1_wf_save_day`, for signed-in people only; switch and re-apply for the service role only |
+| Simulator through `https://yorks-terminals-staging.vercel.app` | 14 of 14, answered as before |
+| Database after | The simulator's check-ins decided once as `no_place`, watching; still no attendance day or line |
+
+The pgTAP file covers Project Engineer, Site Engineer, Procurement, Admin,
+the Accountant and HR/PRO for matching, reading and saving; each finding;
+idempotency (a check-in sent twice adds one line); the 8-hour cap; by hand
+wins; and a line that fails never failing the terminal. GitHub Actions does
+not run on this repository, so no CI check ran.
+
+Not built: the check-in times and listed check-ins in the app, the terminal
+register screen, alerts when a terminal goes quiet.
 
 ## Runbook
 
@@ -361,11 +485,11 @@ settle:
 - that punches made offline arrive after it reconnects;
 - how slow a `Delay` it accepts, and whether its clock follows the server.
 
-Also not built yet: matching a terminal user ID to a labourer, the in-app
-terminal register, anything on an attendance day, alerts when a terminal goes
-quiet, and authentication stronger than the serial number. Anyone who knew a
-registered serial number and the address could add false punches to the log;
-that is why nothing reads the log yet.
+Also not built yet: the in-app terminal register, alerts when a terminal
+goes quiet, and authentication stronger than the serial number. Anyone who
+knew a registered serial number and the address could add false punches to
+the log; that is one reason every terminal starts watching and a check-in
+adds only a usual-shift line for a confirmed labourer.
 
 ## Limits to plan for
 

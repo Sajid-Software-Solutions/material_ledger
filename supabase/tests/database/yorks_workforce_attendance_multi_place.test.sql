@@ -600,7 +600,7 @@ select ok(
     'public.v1_wf_elsewhere_json(uuid,date,uuid)', 'execute')
   and not has_function_privilege('authenticated',
     'public.v1_wf_is_labour(uuid)', 'execute')
-  and not has_function_privilege('anon', 'public.v1_wf_save_day(uuid,date,jsonb,bigint,text,uuid)', 'execute'),
+  and not has_function_privilege('anon', 'public.v1_wf_save_day(uuid,date,jsonb,bigint,text,uuid,uuid[])', 'execute'),
   'The helpers are internal and anonymous callers have nothing'
 );
 
