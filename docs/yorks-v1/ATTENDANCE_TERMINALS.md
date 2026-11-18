@@ -3,7 +3,8 @@
 Status: **live in production since 18 November 2026 (owner's go-ahead):
 receiver on, only a simulator terminal registered. Not yet proven against a
 real terminal.** "A check-in on the day" (section 65, below) is on staging
-since 18 November 2026 (every terminal watching); it is not on production.
+since 18 November 2026 and on production since 19 November 2026, with every
+terminal watching: no terminal adds to a day until one is switched to adding.
 
 The terminals' address is **`yorks-terminals.vercel.app`**. What is left is
 "Terminal day" below.
@@ -250,6 +251,20 @@ Postgres 17.6):
 | Release bundle | Applied with its preflight and self-check; the eight functions now match this release; one `v1_wf_save_day`, for signed-in people only; switch and re-apply for the service role only |
 | Simulator through `https://yorks-terminals-staging.vercel.app` | 14 of 14, answered as before |
 | Database after | The simulator's check-ins decided once as `no_place`, watching; still no attendance day or line |
+
+Production, 19 November 2026, on the owner's "Yes, production"
+(`yorks-godownpro-demo`, Postgres 17.6), from main at `de07a10`:
+
+| Step | Result |
+|---|---|
+| Before | The eight functions the bundle replaces matched main exactly; 5 attendance days and 10 lines, all saved by a person; 4 punches; one simulator terminal, no place; 9 schedules |
+| Release bundle | Applied with its preflight and self-check; the eight functions now match this release; one `v1_wf_save_day`, for signed-in people only; switch and re-apply for the service role only; the two new tables have row level security and no right for `anon` or `authenticated` |
+| Database after | The 5 days and 10 lines unchanged (same fingerprint, new columns aside); no line or day from a terminal; `SIM-0001` watching; no match or check-in decided yet; still 9 schedules |
+| Terminals' address | Simulator handshake answered (200); an unknown serial refused (403) |
+
+No new punch was sent on production, so the check-in path itself was proven
+on staging and the local stack only. The rollback was not run on staging or
+production.
 
 The pgTAP file covers Project Engineer, Site Engineer, Procurement, Admin,
 the Accountant and HR/PRO for matching, reading and saving; each finding;
