@@ -237,6 +237,14 @@ semantics, the keyboard (viewInsets 320 at 360 × 740) and Hindi, Urdu and
 Arabic. Goldens: `attendance_editor_phone_{no_break,leave,keyboard,urdu}.png`
 and `attendance_shift_phone.png`, with the section 62 goldens updated.
 
+### Attendance terminals (17 November 2026, `PRODUCT_DECISIONS.md` section 64)
+
+A biometric terminal can send its check-ins to Yorks, which keeps them in an
+append-only punch log (`v1_workforce_terminal_punches`). Nothing above
+changes: the punch log is not read by any day, line, month, hours or screen,
+and `v1_wf_save_day` is untouched. The receiver ships switched off. Design
+and runbook: [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md).
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

@@ -64,6 +64,7 @@ explicit V7-to-V1 conflict resolution.
 | [`R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md`](R39_ACCOUNTS_WORKSPACE_V2_INTEGRATION_PLAN.md) | Approved point-to-point rebuild of the per-project Accounts workspace into six job-shaped tabs; server/Flutter design, decisions D1–D14, phased PRs behind default-off `YORKS_V1_ACCOUNTS_WORKSPACE_V2` ([prototype](designs/accounts-workspace-v2-prototype.html)) |
 | [`CONTRACT_MATERIALS.md`](CONTRACT_MATERIALS.md) | Contract lines per building in the BOQ (Contract Materials sheet) and Accounts › Materials: ties, states, who sees prices, server reads, rollout and YRA-322 data (section 61) |
 | [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md) | Approved Workforce authority through independently accepted T13 plus the reinstated T14 staging contract, including RLS, rollout and rollback |
+| [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md) | Biometric attendance terminals: the receiver, the punch log, the runbook and what a real terminal still has to prove |
 | [`WORKER_RECORDS.md`](WORKER_RECORDS.md) | Worker employment records in User Management: capabilities, protected relations, release and rollback |
 | [`PEOPLE_RECORDS.md`](PEOPLE_RECORDS.md) | People records for PR, Accountant and Admin: documents, passes, expiry, tracker import/export |
 | [`COMPANY_DOCUMENTS.md`](COMPANY_DOCUMENTS.md) | Company documents: licences, permits, vehicles, insurance and CICPA contracts |
