@@ -195,7 +195,28 @@ Then:
 ```
 
 Fourteen checks should pass. Its punches stay in the log for good, under the
-simulator terminal.
+simulator terminal. For that reason the simulator refuses an address that is
+not staging or a local stack unless `--live` is added.
+
+The simulator also plays a labourer or a whole day, which is how the rest of
+the feature can be tried before any terminal is bought. On staging:
+
+```bash
+./tool/attendance_terminal_simulator.sh --base-url https://yorks-terminals-staging.vercel.app --serial SIM-0001 --check-in --pin 418
+```
+
+```bash
+./tool/attendance_terminal_simulator.sh --base-url https://yorks-terminals-staging.vercel.app --serial SIM-0001 --day --pins 1-40
+```
+
+`--pin` is the terminal user ID: the digits of the worker number, so
+`WR-000418` is 418. `--check-out` is the same for leaving, and `--at` sets
+the time. `--day` plays yesterday (or `--date`) for the listed IDs on a 06:30
+to 14:30 shift (`--shift`): most arrive on time, about one in ten late; some
+stay late, leave early, forget to check out or punch twice; a few do not
+come; and the first upload is sent twice. It prints what it played, and the
+same `--seed` plays the same day again. `--dry-run` prints the lines without
+sending anything.
 
 ### 3. Terminal day
 
@@ -360,6 +381,7 @@ that is why nothing reads the log yet.
 | Protocol and receiver | `npx deno@latest test supabase/functions/attendance-terminal/` | Routing, line splitting, the handshake text, every refusal, "OK only after storing", no body in any call or log |
 | Database | `supabase test db` (`yorks_workforce_attendance_terminals.test.sql`) | Off by default, registration, duplicates, unreadable lines, stamps, wrong clocks, append-only, the refusal cap, clean-up, no right for Project Engineer, Site Engineer, Procurement, Admin or a visitor, attendance untouched |
 | Whole path | `./tool/attendance_terminal_simulator.sh` against a local stack or staging | The address, the function, the API and the database together |
+| A labourer, or a working day | The simulator with `--check-in`, `--check-out` or `--day` | Realistic punches for chosen worker numbers; on staging a 30-labourer day stored 58 punches and matched its own summary, and a replay stored nothing new |
 | A real terminal | `tool/attendance_terminal_acceptance.sql` in the SQL editor | Twelve read-only checks: registered, heard from, handshake, a check-in, the clock, unreadable lines, attendance only, the dialect, wrong clocks, the outage test, stored once |
 
 Evidence, 17 November 2026, on a private local stack (Supabase CLI 3.2.0,
