@@ -60,10 +60,12 @@ select is(
     'v1_workforce_shift_templates',
     'v1_workforce_team_schedule_links',
     'v1_workforce_teams',
+    'v1_workforce_terminal_days',
     'v1_workforce_terminal_punches',
     'v1_workforce_terminal_rejects',
     'v1_workforce_terminal_requests',
     'v1_workforce_terminal_settings',
+    'v1_workforce_terminal_users',
     'v1_workforce_terminals',
     'v1_workforce_timesheet_allocation_revisions',
     'v1_workforce_timesheet_allocation_sets',
@@ -73,7 +75,7 @@ select is(
     'v1_workforce_worker_assignments',
     'v1_workforce_workers'
   ]::name[],
-  'T13 freezes the exact accepted Workforce relation inventory, including attendance V2 and attendance terminals'
+  'T13 freezes the exact accepted Workforce relation inventory, including attendance V2, attendance terminals and what a terminal check-in does to a day'
 );
 
 select ok(
@@ -306,7 +308,13 @@ insert into t13_authenticated_rpc_inventory(signature) values
   ('v1_wf_list_workers()'),
   ('v1_wf_reopen_month(p_team_id uuid, p_month date, p_reason text, p_idempotency_key uuid)'),
   ('v1_wf_save_crew(p_payload jsonb, p_expected_version bigint, p_idempotency_key uuid)'),
-  ('v1_wf_save_day(p_team_id uuid, p_work_date date, p_rows jsonb, p_expected_version bigint, p_change_reason text, p_idempotency_key uuid)'),
+  -- One more optional argument: the terminal lines the app names as removed
+  -- (PRODUCT_DECISIONS.md section 65).
+  ('v1_wf_save_day(p_team_id uuid, p_work_date date, p_rows jsonb, p_expected_version bigint, p_change_reason text, p_idempotency_key uuid, p_removed_terminal_worker_ids uuid[])'),
+  -- Matching a terminal user ID to a labourer: HR/PRO and Admin (section 65).
+  ('v1_wf_confirm_terminal_users(p_matches jsonb, p_idempotency_key uuid)'),
+  ('v1_wf_end_terminal_user(p_device_user_id text, p_reason text, p_idempotency_key uuid)'),
+  ('v1_wf_list_terminal_users()'),
   ('v1_wf_save_public_holiday(p_holiday_date date, p_holiday_name text, p_remove boolean)'),
   ('v1_wf_set_crew_members(p_team_id uuid, p_add_worker_ids uuid[], p_remove_worker_ids uuid[], p_idempotency_key uuid)'),
   -- Configuration workspace reads the public-holiday count (section 39).

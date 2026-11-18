@@ -581,7 +581,7 @@ reset role;
 select ok(
   not has_table_privilege('authenticated', 'public.v1_workforce_day_rows', 'select')
   and not has_table_privilege('anon', 'public.v1_workforce_day_sheets', 'select')
-  and not has_function_privilege('anon', 'public.v1_wf_save_day(uuid,date,jsonb,bigint,text,uuid)', 'execute')
+  and not has_function_privilege('anon', 'public.v1_wf_save_day(uuid,date,jsonb,bigint,text,uuid,uuid[])', 'execute')
   and not has_function_privilege('authenticated', 'public.v1_wf_crew_access(uuid)', 'execute'),
   'Attendance tables and helpers are reachable only through the commands'
 );

@@ -3079,6 +3079,80 @@ Design, runbook and what one real terminal still has to prove:
 `20261117090000_workforce_attendance_terminals.sql`; Edge Function
 `attendance-terminal`.
 
+## 65. Attendance terminals: a check-in puts the labourer on the day (owner decisions, 18 November 2026)
+
+Section 64 left open what a check-in does to a place's day and how a
+terminal user ID is matched to a labourer. On 18 November 2026 the owner
+confirmed the four proposals below, each as proposed. They affect pay, so
+they are recorded here before anything is built on them.
+
+Taking attendance by hand does not change: adding labourers, editing,
+removing, saving, reasons for another person's line, hours, the month lock
+and who may do what all stay as they are. This slice is on the server only;
+the app is not rebuilt. Every terminal starts watching, so nothing is added
+to any day until a terminal is switched to adding.
+
+- **A check-in adds the labourer.** The labourer's first check-in of the day
+  on a place's terminal puts them on that place's day as Present on the
+  place's usual shift with its usual break, exactly as Add workers does, and
+  never for more than 8 hours. A terminal never creates overtime. A late
+  check-in (say 10:00 on a 06:30 shift) still gets the usual shift until
+  someone edits the line. On a project with one building the line names it;
+  with several, the building is left for the keeper.
+- **The real times are kept, and do not change the sheet.** The day's first
+  and last check-in times are kept with the line. They are for the keeper to
+  compare; they never write themselves onto the sheet.
+- **Listed for the keeper, never added.** A check-in is kept and listed, and
+  no line is added, when:
+  1. the day is a rest day or a public holiday (every hour would be holiday
+     overtime);
+  2. the labourer already has a line at another place that day;
+  3. the first check-in is more than two hours before the usual start, or
+     after the usual finish;
+  4. the place's month is confirmed;
+  5. the person is staff;
+  6. the terminal user ID is not matched to a labourer;
+  7. a person removed the labourer from that day;
+  8. the terminal serves no place;
+  9. the labourer is not active;
+  10. the check-in reaches Yorks more than seven days after it was made, or
+      its date is in the future (a wrong terminal clock).
+
+  A person can still add any of them by hand.
+- **By hand wins.** A terminal only ever adds a missing line: it never
+  changes or removes one. Once a person changes a terminal's line it is that
+  person's line. A labourer a person removed from a day is not added to it
+  again by a terminal. Changing a terminal line's times or building needs no
+  reason. Removing the line, or marking the labourer not present (absent, a
+  rest day or a leave), needs a reason, which is kept in the day's change
+  list.
+- **Saved as the terminal's.** A terminal's line names the terminal as who
+  saved it, never a person. A day a terminal opened names the terminal as
+  who entered it until a person first saves that day.
+- **Matching, confirmed once.** A terminal user ID is matched to the labourer
+  whose number has the same digits (418 is `WR-000418`). A match counts only
+  after HR/PRO or Admin has confirmed it, once; each confirmation is kept in
+  the audit trail. Until then that ID's check-ins are only listed. A wrong
+  match is ended with a reason, also audited. A labourer has one terminal ID
+  and an ID one labourer. Staff are not matched.
+- **Watching first.** Each terminal either watches or adds, and starts
+  watching. While it watches, Yorks records for every check-in what it would
+  have done and adds nothing. A terminal moved to another place watches
+  again. The switch is made from the database by the developer, on the
+  owner's word, until the terminal register is built.
+- **The keeper's work is safe.** A terminal's line never makes a keeper's
+  save fail and never discards what they have typed. A save from an app that
+  has not yet seen a terminal's line keeps that line.
+
+Not decided here, each needing its own decision before it is built: who
+manages terminals in the app; notice and consent for labourers; alerts when
+a terminal goes quiet. Showing the check-in times beside a line, the listed
+check-ins and the terminal register in the app are a later release.
+
+Design and tests: [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md), "A
+check-in on the day". Migration
+`20261118090000_workforce_terminal_attendance.sql`.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:
