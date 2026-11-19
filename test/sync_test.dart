@@ -65,7 +65,9 @@ void main() {
   });
 
   Future<void> enqueue(String docId, {bool transactional = false}) async {
-    now = now.add(const Duration(seconds: 1)); // distinct createdAt for ordering
+    now = now.add(
+      const Duration(seconds: 1),
+    ); // distinct createdAt for ordering
     await engine.enqueue(
       collection: 'materialRequests',
       docId: docId,
@@ -124,38 +126,41 @@ void main() {
       expect(outbox.ops, isEmpty);
     });
 
-    test('repeated offline writes to one record coalesce to the latest snapshot', () async {
-      // Models two partial dispatches of the same request while offline: the
-      // second write must NOT be dropped (zero loss) and must NOT create a
-      // second op/document (zero duplicates) — the queue holds one op carrying
-      // the latest cumulative state.
-      conn.setOnline(false);
-      now = now.add(const Duration(seconds: 1));
-      await engine.enqueue(
-        collection: 'materialRequests',
-        docId: 'req-D',
-        kind: 'request.dispatch',
-        label: 'Dispatch',
-        payload: {'id': 'req-D', 'dispatched': 5},
-      );
-      now = now.add(const Duration(seconds: 1));
-      await engine.enqueue(
-        collection: 'materialRequests',
-        docId: 'req-D',
-        kind: 'request.dispatch',
-        label: 'Dispatch',
-        payload: {'id': 'req-D', 'dispatched': 12}, // cumulative latest
-      );
+    test(
+      'repeated offline writes to one record coalesce to the latest snapshot',
+      () async {
+        // Models two partial dispatches of the same request while offline: the
+        // second write must NOT be dropped (zero loss) and must NOT create a
+        // second op/document (zero duplicates) — the queue holds one op carrying
+        // the latest cumulative state.
+        conn.setOnline(false);
+        now = now.add(const Duration(seconds: 1));
+        await engine.enqueue(
+          collection: 'materialRequests',
+          docId: 'req-D',
+          kind: 'request.dispatch',
+          label: 'Dispatch',
+          payload: {'id': 'req-D', 'dispatched': 5},
+        );
+        now = now.add(const Duration(seconds: 1));
+        await engine.enqueue(
+          collection: 'materialRequests',
+          docId: 'req-D',
+          kind: 'request.dispatch',
+          label: 'Dispatch',
+          payload: {'id': 'req-D', 'dispatched': 12}, // cumulative latest
+        );
 
-      expect(outbox.ops.length, 1); // coalesced, not duplicated
-      expect(outbox.ops.first.payload['dispatched'], 12); // latest wins
+        expect(outbox.ops.length, 1); // coalesced, not duplicated
+        expect(outbox.ops.first.payload['dispatched'], 12); // latest wins
 
-      conn.setOnline(true);
-      await engine.flush();
-      expect(backend.applyCount, 1);
-      expect(backend.server['req-D']!['dispatched'], 12); // server has latest
-      expect(outbox.ops, isEmpty);
-    });
+        conn.setOnline(true);
+        await engine.flush();
+        expect(backend.applyCount, 1);
+        expect(backend.server['req-D']!['dispatched'], 12); // server has latest
+        expect(outbox.ops, isEmpty);
+      },
+    );
 
     test('a fresh write resets a dead-lettered op and lets it re-sync', () async {
       // First write hits a permanent failure and is dead-lettered.
@@ -196,46 +201,74 @@ void main() {
   });
 
   group('Mid-write disconnection (retry to success)', () {
-    test('transient failure keeps the op and retries until confirmed', () async {
-      backend.failTransientTimes = 1; // first apply "disconnects" mid-write
-      await enqueue('req-M');
+    test(
+      'transient failure keeps the op and retries until confirmed',
+      () async {
+        backend.failTransientTimes = 1; // first apply "disconnects" mid-write
+        await enqueue('req-M');
 
-      // Failed once, still queued, backed off.
-      expect(backend.server, isEmpty);
-      expect(outbox.ops.length, 1);
-      expect(outbox.ops.first.attempts, 1);
-      expect(outbox.ops.first.status, SyncOpStatus.pending);
+        // Failed once, still queued, backed off.
+        expect(backend.server, isEmpty);
+        expect(outbox.ops.length, 1);
+        expect(outbox.ops.first.attempts, 1);
+        expect(outbox.ops.first.status, SyncOpStatus.pending);
 
-      // Within the backoff window it is not retried yet.
-      await engine.flush();
-      expect(backend.server, isEmpty);
+        // Within the backoff window it is not retried yet.
+        await engine.flush();
+        expect(backend.server, isEmpty);
 
-      // After the backoff window elapses, it succeeds.
-      now = now.add(const Duration(minutes: 5));
-      await engine.flush();
-      expect(backend.server.containsKey('req-M'), true);
-      expect(outbox.ops, isEmpty);
-      expect(backend.server.length, 1); // zero duplicates despite the retry
-    });
+        // After the backoff window elapses, it succeeds.
+        now = now.add(const Duration(minutes: 5));
+        await engine.flush();
+        expect(backend.server.containsKey('req-M'), true);
+        expect(outbox.ops, isEmpty);
+        expect(backend.server.length, 1); // zero duplicates despite the retry
+      },
+    );
   });
 
   group('Permanent failure (dead-letter + Retry, never dropped)', () {
-    test('permission denied is dead-lettered then recoverable via retry', () async {
-      backend.permanentDocIds.add('req-P');
-      await enqueue('req-P');
+    test(
+      'permission denied is dead-lettered then recoverable via retry',
+      () async {
+        backend.permanentDocIds.add('req-P');
+        await enqueue('req-P');
 
-      // Not applied, not dropped — surfaced as failed for a Retry action.
+        // Not applied, not dropped — surfaced as failed for a Retry action.
+        expect(backend.server, isEmpty);
+        expect(outbox.ops.length, 1);
+        expect(outbox.ops.first.status, SyncOpStatus.failed);
+
+        // Permission fixed server-side; user taps Retry.
+        backend.permanentDocIds.remove('req-P');
+        final id = outbox.ops.first.id;
+        await engine.retry(id);
+
+        expect(backend.server.containsKey('req-P'), true);
+        expect(outbox.ops, isEmpty); // recovered, zero loss
+      },
+    );
+
+    test('a refused change can be discarded; a pending one cannot', () async {
+      backend.permanentDocIds.add('req-D');
+      await enqueue('req-D');
+      conn.setOnline(false);
+      await enqueue('req-Q'); // stays pending while offline
+      final failedId = outbox.ops
+          .firstWhere((o) => o.status == SyncOpStatus.failed)
+          .id;
+      final pendingId = outbox.ops
+          .firstWhere((o) => o.status == SyncOpStatus.pending)
+          .id;
+
+      expect(await engine.discard(pendingId), isFalse);
+      expect(await engine.discard('missing'), isFalse);
+      expect(await engine.discard(failedId), isTrue);
+
+      expect(outbox.ops.map((o) => o.docId), ['req-Q']);
       expect(backend.server, isEmpty);
-      expect(outbox.ops.length, 1);
-      expect(outbox.ops.first.status, SyncOpStatus.failed);
-
-      // Permission fixed server-side; user taps Retry.
-      backend.permanentDocIds.remove('req-P');
-      final id = outbox.ops.first.id;
-      await engine.retry(id);
-
-      expect(backend.server.containsKey('req-P'), true);
-      expect(outbox.ops, isEmpty); // recovered, zero loss
+      // Persisted: a fresh read of the queue no longer has the refused change.
+      expect(buildOutbox().ops.map((o) => o.docId), ['req-Q']);
     });
   });
 }

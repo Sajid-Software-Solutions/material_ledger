@@ -314,6 +314,42 @@ abstract final class YorksV1ProfileStrings {
     ur: 'سنک دوبارہ کریں',
     hi: 'सिंक फिर प्रयास करें',
   );
+  static const retryChange = TranslatableString(
+    en: 'Retry',
+    ar: 'أعد المحاولة',
+    ur: 'دوبارہ کوشش',
+    hi: 'फिर प्रयास करें',
+  );
+  static const discardChange = TranslatableString(
+    en: 'Discard',
+    ar: 'تجاهل',
+    ur: 'رد کریں',
+    hi: 'हटाएं',
+  );
+  static const discardChangeTitle = TranslatableString(
+    en: 'Discard this change?',
+    ar: 'تجاهل هذا التغيير؟',
+    ur: 'یہ تبدیلی رد کریں؟',
+    hi: 'यह बदलाव हटाएं?',
+  );
+  static const discardChangeMessage = TranslatableString(
+    en: 'The server refused this change, so it was never saved. Discarding removes it from this device only. Make the change again if you still need it.',
+    ar: 'رفض الخادم هذا التغيير، لذلك لم يُحفظ أبداً. يؤدي التجاهل إلى إزالته من هذا الجهاز فقط. أعد إجراء التغيير إذا كنت لا تزال بحاجة إليه.',
+    ur: 'سرور نے یہ تبدیلی رد کر دی، اس لیے یہ کبھی محفوظ نہیں ہوئی۔ رد کرنا اسے صرف اس ڈیوائس سے ہٹاتا ہے۔ اگر اب بھی ضرورت ہو تو تبدیلی دوبارہ کریں۔',
+    hi: 'सर्वर ने यह बदलाव अस्वीकार कर दिया, इसलिए यह कभी सहेजा नहीं गया। हटाने से यह केवल इस डिवाइस से हटता है। ज़रूरत हो तो बदलाव फिर से करें।',
+  );
+  static const keepChange = TranslatableString(
+    en: 'Keep',
+    ar: 'احتفظ',
+    ur: 'رکھیں',
+    hi: 'रखें',
+  );
+  static const changeDiscarded = TranslatableString(
+    en: 'Change discarded',
+    ar: 'تم تجاهل التغيير',
+    ur: 'تبدیلی رد کر دی گئی',
+    hi: 'बदलाव हटा दिया गया',
+  );
   static const accountCardSemantic = TranslatableString(
     en: 'Verified Yorks account identity',
     ar: 'هوية حساب يوركس الموثقة',

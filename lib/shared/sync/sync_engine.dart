@@ -150,6 +150,20 @@ class SyncEngine {
     await flush();
   }
 
+  /// Remove one dead-lettered op the server will never accept, after the user
+  /// confirmed losing it. Only failed ops can be discarded: a pending op may
+  /// still commit, so it is left alone. Returns whether an op was removed.
+  Future<bool> discard(String id) async {
+    final op = _outbox.ops.where((e) => e.id == id).firstOrNull;
+    if (op == null || op.status != SyncOpStatus.failed) return false;
+    await _outbox.remove(id);
+    _observability?.logEvent(
+      'sync_failed_change_discarded',
+      params: {'collection': op.collection, 'kind': op.kind},
+    );
+    return true;
+  }
+
   /// Re-queue every dead-lettered op (user tapped "Retry all" on the banner).
   Future<void> retryAll() async {
     final failedIds = [
