@@ -20,7 +20,13 @@ import 'package:material_ledger/shared/providers/yorks_v1_my_profile_workspace_p
 import 'package:material_ledger/shared/providers/yorks_v1_workspace_status_provider.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_my_profile_repository.dart';
 import 'package:material_ledger/shared/repositories/yorks_v1_my_profile_workspace_repository.dart';
+import 'package:material_ledger/shared/repositories/storage.dart';
 import 'package:material_ledger/shared/services/app_config_service.dart';
+import 'package:material_ledger/shared/sync/connectivity_service.dart';
+import 'package:material_ledger/shared/sync/mutation_op.dart';
+import 'package:material_ledger/shared/sync/outbox.dart';
+import 'package:material_ledger/shared/sync/sync_backend.dart';
+import 'package:material_ledger/shared/sync/sync_engine.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _actor = '10000000-0000-4000-8000-000000000004';
@@ -184,6 +190,74 @@ void main() {
     },
   );
 
+  testWidgets('sync sheet names each refused change and discards it only '
+      'after confirmation', (tester) async {
+    await _setViewport(tester, const Size(360, 800));
+    final preferences = await SharedPreferences.getInstance();
+    final outbox = OutboxNotifier(
+      LocalStorage(preferences).collection<MutationOp>(
+        'sync_outbox_v1',
+        toJson: (o) => o.toJson(),
+        fromJson: MutationOp.fromJson,
+      ),
+    );
+    final engine = SyncEngine(
+      backend: const _RefusingBackend(),
+      outbox: outbox,
+      connectivity: DefaultConnectivity(),
+    );
+    await engine.enqueue(
+      collection: 'materialRequests',
+      docId: 'req-1',
+      kind: 'request.update',
+      label: 'Material request MR-0042',
+      payload: const {'id': 'req-1'},
+    );
+    expect(outbox.ops.single.status, SyncOpStatus.failed);
+
+    await _pumpProfile(
+      tester,
+      extraOverrides: [
+        outboxProvider.overrideWith((_) => outbox),
+        syncEngineProvider.overrideWithValue(engine),
+      ],
+    );
+    await tester.scrollUntilVisible(
+      find.text('Workspace sync'),
+      350,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.text('Workspace sync'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Workspace sync'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sync status'), findsOneWidget);
+    expect(find.text('Material request MR-0042'), findsOneWidget);
+    expect(find.text('permission-denied'), findsOneWidget);
+    expect(
+      tester.getSize(find.widgetWithText(TextButton, 'Discard')).height,
+      greaterThanOrEqualTo(44),
+    );
+
+    // Keep leaves the change queued.
+    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard this change?'), findsOneWidget);
+    await tester.tap(find.text('Keep'));
+    await tester.pumpAndSettle();
+    expect(outbox.ops, hasLength(1));
+
+    // Confirmed discard removes it and the card goes away.
+    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Discard'));
+    await tester.pumpAndSettle();
+    expect(outbox.ops, isEmpty);
+    expect(find.text('Material request MR-0042'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('profile picker uses centralized copy and selected semantics', (
     tester,
   ) async {
@@ -310,6 +384,7 @@ Future<void> _pumpProfile(
   double textScale = 1,
   bool disableAnimations = false,
   bool settle = true,
+  List<Override> extraOverrides = const [],
 }) async {
   final preferences = await SharedPreferences.getInstance();
   await tester.pumpWidget(
@@ -330,6 +405,7 @@ Future<void> _pumpProfile(
         appVersionProvider.overrideWithValue(
           const AppVersionInfo(version: '1.0.0', build: 35),
         ),
+        ...extraOverrides,
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -511,4 +587,12 @@ Directory _flutterCacheDirectory() {
     directory = directory.parent;
   }
   throw StateError('Could not locate the Flutter cache from the test runner');
+}
+
+class _RefusingBackend implements SyncBackend {
+  const _RefusingBackend();
+
+  @override
+  Future<void> apply(MutationOp op) async =>
+      throw const PermanentSyncException('permission-denied');
 }
