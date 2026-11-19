@@ -29,6 +29,7 @@ import '../../../../shared/providers/yorks_v1_people_provider.dart';
 import '../../../../shared/providers/yorks_v1_workspace_status_provider.dart';
 import '../../../../shared/services/app_config_service.dart';
 import '../../../../shared/sync/connectivity_service.dart';
+import '../../../../shared/sync/mutation_op.dart';
 import '../../../../shared/sync/sync_engine.dart';
 import '../../../../shared/widgets/yorks_sign_out_action.dart';
 import '../../../people_records/presentation/people_kit.dart'
@@ -1013,6 +1014,10 @@ class _WorkspaceSyncSheet extends ConsumerWidget {
                   ),
                 ),
                 if (hasFailure) ...[
+                  for (final op in failed) ...[
+                    const SizedBox(height: 10),
+                    _FailedChangeCard(op: op, language: language),
+                  ],
                   const SizedBox(height: 14),
                   SizedBox(
                     height: AppSpacing.minTapTarget,
@@ -1029,6 +1034,112 @@ class _WorkspaceSyncSheet extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One change the server refused: what it was, why, and Retry or Discard.
+/// Discard asks first, because the change was never saved anywhere else.
+class _FailedChangeCard extends ConsumerWidget {
+  const _FailedChangeCard({required this.op, required this.language});
+
+  final MutationOp op;
+  final AppLanguage language;
+
+  Future<void> _discard(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(YorksV1ProfileStrings.discardChangeTitle.active(language)),
+        content: Text(
+          YorksV1ProfileStrings.discardChangeMessage.active(language),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(YorksV1ProfileStrings.keepChange.active(language)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(YorksV1ProfileStrings.discardChange.active(language)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final removed = await ref.read(syncEngineProvider).discard(op.id);
+    if (!removed || !context.mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(YorksV1ProfileStrings.changeDiscarded.active(language)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final error = op.lastError ?? '';
+    return YorksMobileCard(
+      key: ValueKey('failed-change-${op.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.sync_problem_rounded,
+                size: 18,
+                color: AppColors.error,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: Text(op.label, style: AppTypography.titleSmall)),
+            ],
+          ),
+          if (error.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              error,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: AppSpacing.sm,
+              children: [
+                SizedBox(
+                  height: AppSpacing.minTapTarget,
+                  child: TextButton(
+                    onPressed: () => _discard(context, ref),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                    ),
+                    child: Text(
+                      YorksV1ProfileStrings.discardChange.active(language),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: AppSpacing.minTapTarget,
+                  child: OutlinedButton(
+                    onPressed: () => ref.read(syncEngineProvider).retry(op.id),
+                    child: Text(
+                      YorksV1ProfileStrings.retryChange.active(language),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
