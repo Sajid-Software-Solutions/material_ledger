@@ -3153,6 +3153,35 @@ Design and tests: [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md), "A
 check-in on the day". Migration
 `20261118090000_workforce_terminal_attendance.sql`.
 
+## 66. Check-in times beside the line (owner request, 19 November 2026)
+
+After watching simulated check-ins reach the Workshop's day on a phone, the
+owner asked to "show the check-in times in the app too". This is the first
+of the app changes section 65 left for later. Nothing about who may see or
+change attendance, hours, saving, the month or the terminal rules changes,
+and there is no database change: the server already sends the times.
+
+- **Under the line.** A labourer with a check-in at the place that day shows
+  a second line under the name, on a phone and in the desktop day grid:
+  "Checked in 6:22 AM · out 2:36 PM", or "Checked in 7:41 AM" when there is
+  only one check-in. "Out" is the day's last check-in at the place. A line
+  without a check-in shows nothing.
+- **Amber when they differ.** The line turns amber when the first check-in
+  is more than 15 minutes after the line's In, or the last check-in is more
+  than 15 minutes before or after its Out. Moving the line's times closer
+  makes it grey again. It never changes the line's times, hours or overtime.
+- **Any line, any saver.** The times show on a line the terminal added and on
+  one a person added or changed, so a keeper can compare what was typed with
+  what the terminal saw.
+- Times read left to right inside Arabic and Urdu, as the clock does
+  (section 63).
+
+Still later: the list of check-ins that were not added, the terminal register
+in the app, and check-in times on prints and time sheets.
+
+Design: [`WORKFORCE_ATTENDANCE_TIMESHEETS.md`](WORKFORCE_ATTENDANCE_TIMESHEETS.md)
+Check-in times beside the line.
+
 ## Procurement preparation refinement — October 2026
 
 The owner's later usability direction simplifies Project MR arrangement:

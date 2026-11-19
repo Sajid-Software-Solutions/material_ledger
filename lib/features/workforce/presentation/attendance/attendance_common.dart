@@ -846,3 +846,66 @@ class CrewDocumentBadge extends ConsumerWidget {
     );
   }
 }
+
+/// A labourer's check-ins at the place's terminal, under the line
+/// (PRODUCT_DECISIONS section 66): "Checked in 6:22 AM · out 2:36 PM". Amber
+/// when they are more than 15 minutes from the line's In or Out. Nothing when
+/// the labourer has no check-in that day.
+class AttendanceCheckInLine extends StatelessWidget {
+  const AttendanceCheckInLine({
+    super.key,
+    required this.day,
+    required this.row,
+    required this.language,
+  });
+
+  final AttendanceDay day;
+  final AttendanceRow row;
+  final AppLanguage language;
+
+  /// A time kept left to right inside Arabic and Urdu text ("6:22 AM", not
+  /// "AM 6:22").
+  static String _time(int minutes) =>
+      '\u2066${formatAttendanceTime(minutes)}\u2069';
+
+  @override
+  Widget build(BuildContext context) {
+    final checkIn = day.checkIns[row.worker.id];
+    if (checkIn == null) return const SizedBox.shrink();
+    final text = checkIn.last == null
+        ? AS.t(AS.checkedIn, language, {'in': _time(checkIn.first)})
+        : AS.t(AS.checkedInOut, language, {
+            'in': _time(checkIn.first),
+            'out': _time(checkIn.last!),
+          });
+    final present = row.status == AttendanceStatus.present;
+    final differs = present && checkIn.differsFrom(row.start, row.finish);
+    final color = differs ? AccountsV2Colors.warn : AccountsV2Colors.mut;
+    final line = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.fingerprint_rounded, size: 14, color: color),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: v2Style(
+              11.5,
+              color: color,
+              weight: differs ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+    return Semantics(
+      container: true,
+      label: differs ? '$text. ${AS.t(AS.checkInDiffers, language)}' : text,
+      excludeSemantics: true,
+      child: differs
+          ? Tooltip(message: AS.t(AS.checkInDiffers, language), child: line)
+          : line,
+    );
+  }
+}

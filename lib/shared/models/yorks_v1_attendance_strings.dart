@@ -1888,6 +1888,26 @@ abstract final class AttendanceStrings {
     ur: '{by} نے محفوظ کیا',
     hi: '{by} ने सहेजा',
   );
+
+  /// A labourer's check-ins at the place's terminal, beside the line.
+  static const checkedIn = _T(
+    en: 'Checked in {in}',
+    ar: 'سجّل الحضور {in}',
+    ur: 'حاضری لگائی {in}',
+    hi: 'हाज़िरी लगाई {in}',
+  );
+  static const checkedInOut = _T(
+    en: 'Checked in {in} · out {out}',
+    ar: 'سجّل الحضور {in} · الانصراف {out}',
+    ur: 'حاضری لگائی {in} · روانگی {out}',
+    hi: 'हाज़िरी लगाई {in} · निकले {out}',
+  );
+  static const checkInDiffers = _T(
+    en: 'Check-in times differ from the line by more than 15 minutes',
+    ar: 'أوقات البصمة تختلف عن السطر بأكثر من 15 دقيقة',
+    ur: 'حاضری کے اوقات قطار سے 15 منٹ سے زیادہ مختلف ہیں',
+    hi: 'हाज़िरी के समय पंक्ति से 15 मिनट से अधिक अलग हैं',
+  );
   static const loadingDate = _T(
     en: 'Loading {date}…',
     ar: 'جارٍ تحميل {date}…',
