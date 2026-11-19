@@ -12,10 +12,19 @@ import 'sync_backend.dart';
 
 const _uuid = Uuid();
 
+/// Collections whose queued writes are best-effort copies, not the user's own
+/// work. In-app notifications are a fan-out of an event that already
+/// happened: the server refuses a copy addressed to someone the sender cannot
+/// see (row-level security), and no Retry can change that. Such a refusal is
+/// dropped and logged instead of parked as "Changes need attention".
+const syncBestEffortCollections = {'notifications'};
+
 /// Drains the outbox against a [SyncBackend] with ordered, idempotent,
 /// exponentially-backed-off retries. Flushes on enqueue, on reconnect, and on a
-/// periodic timer. Never drops a write: transient failures retry indefinitely;
-/// permanent failures are dead-lettered (status=failed) and surfaced with Retry.
+/// periodic timer. Never drops a write of the user's work: transient failures
+/// retry indefinitely; permanent failures are dead-lettered (status=failed)
+/// and surfaced with Retry. The one exception is a permanent refusal of a
+/// [syncBestEffortCollections] copy, which is dropped and logged.
 class SyncEngine {
   SyncEngine({
     required SyncBackend backend,
@@ -46,6 +55,7 @@ class SyncEngine {
   /// left over from a previous session. Not started in unit tests (they drive
   /// [flush] directly).
   void start() {
+    unawaited(_dropRefusedBestEffort());
     _connSub = _connectivity.onChange.listen((online) {
       if (online) flush();
     });
@@ -101,6 +111,11 @@ class SyncEngine {
           await _backend.apply(op);
           await _outbox.remove(op.id); // confirmed → leaves the queue
         } on PermanentSyncException catch (e, stack) {
+          if (syncBestEffortCollections.contains(op.collection)) {
+            await _outbox.remove(op.id);
+            _logBestEffortDrop(op);
+            continue;
+          }
           await _outbox.update(
             op.copyWith(status: SyncOpStatus.failed, lastError: e.message),
           );
@@ -128,6 +143,26 @@ class SyncEngine {
       _flushing = false;
     }
   }
+
+  /// Older app versions parked refused best-effort copies as failed; clear
+  /// them so the workspace label reflects only the user's own work.
+  Future<void> _dropRefusedBestEffort() async {
+    final refused = [
+      for (final op in _outbox.ops)
+        if (op.status == SyncOpStatus.failed &&
+            syncBestEffortCollections.contains(op.collection))
+          op,
+    ];
+    for (final op in refused) {
+      await _outbox.remove(op.id);
+      _logBestEffortDrop(op);
+    }
+  }
+
+  void _logBestEffortDrop(MutationOp op) => _observability?.logEvent(
+    'sync_best_effort_refused_dropped',
+    params: {'collection': op.collection, 'kind': op.kind},
+  );
 
   /// Re-queue a dead-lettered op (user tapped Retry). Never loses it.
   Future<void> retry(String id) async {
