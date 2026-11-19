@@ -1274,4 +1274,116 @@ void main() {
       });
     }
   });
+
+  group('check-ins from the place\'s terminal (section 66)', () {
+    Map<String, Object?> terminalRow(
+      String id,
+      String name, {
+      int? checkIn,
+      int? checkOut,
+    }) => {
+      ..._row(id, name, mine: false),
+      'updated_by': 'Workshop gate',
+      'by_terminal': true,
+      'terminal_name': 'Workshop gate',
+      'check_in_minute': checkIn,
+      'check_out_minute': checkOut,
+      'check_ins': checkIn == null ? 0 : (checkOut == null ? 1 : 2),
+    };
+
+    Map<String, FutureOr<Map<String, dynamic>> Function(Map<String, Object?>)>
+    handlers() => {
+      'v1_wf_list_places': (_) => _places(),
+      'v1_wf_get_day': (_) => _day(
+        saved: true,
+        rows: [
+          // On time, left on time: grey.
+          terminalRow('w1', 'Gul Zaman', checkIn: 382, checkOut: 876),
+          // Arrived 07:41 on a 06:30 line: amber.
+          terminalRow('w2', 'Waqar Ahmed', checkIn: 461),
+          // Added by hand, never checked in: nothing.
+          _row('w3', 'Ravi Kumar'),
+        ],
+      ),
+    };
+    const day =
+        '${RoutePaths.yorksV1WorkforceAttendance}?crew=$_placeId&date=$_date';
+
+    Color colorOf(WidgetTester tester, String text) =>
+        tester.widget<Text>(find.text(text)).style!.color!;
+
+    for (final size in const [Size(360, 800), Size(1366, 900)]) {
+      testWidgets('each line shows its check-ins at ${size.width.toInt()}px', (
+        tester,
+      ) async {
+        _size(tester, size);
+        await _pump(tester, _FakeRpc(handlers()), day);
+        const onTime =
+            'Checked in \u20666:22 AM\u2069 · out \u20662:36 PM\u2069';
+        const late = 'Checked in \u20667:41 AM\u2069';
+        expect(find.text(onTime), findsOneWidget);
+        expect(find.text(late), findsOneWidget);
+        expect(find.textContaining('Checked in'), findsNWidgets(2));
+        expect(colorOf(tester, onTime), AccountsV2Colors.mut);
+        expect(colorOf(tester, late), AccountsV2Colors.warn);
+        expect(find.textContaining('Saved by Workshop gate'), findsNWidgets(2));
+        expect(
+          find.bySemanticsLabel(
+            RegExp('Checked in .*7:41 AM.*differ from the line'),
+          ),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets('a line moved to the check-in time is no longer amber', (
+      tester,
+    ) async {
+      _size(tester, const Size(360, 800));
+      final rows = handlers();
+      rows['v1_wf_get_day'] = (_) => _day(
+        saved: true,
+        rows: [
+          {
+            ...terminalRow('w2', 'Waqar Ahmed', checkIn: 461),
+            'start_minute': 460,
+            'finish_minute': 940,
+          },
+        ],
+      );
+      await _pump(tester, _FakeRpc(rows), day);
+      expect(
+        colorOf(tester, 'Checked in \u20667:41 AM\u2069'),
+        AccountsV2Colors.mut,
+      );
+    });
+
+    test('check-ins are read from a line and compared with its times', () {
+      expect(AttendanceCheckIn.fromRowJson({'check_in_minute': null}), isNull);
+      final one = AttendanceCheckIn.fromRowJson({
+        'check_in_minute': 382,
+        'check_out_minute': 382,
+        'check_ins': 2,
+      })!;
+      expect((one.first, one.last, one.count), (382, null, 2));
+      final both = AttendanceCheckIn.fromRowJson({
+        'check_in_minute': 382,
+        'check_out_minute': 1004,
+      })!;
+      // 06:22 to 16:44 on a 06:30 to 14:30 line: left well after Out.
+      expect(both.differsFrom(390, 870), isTrue);
+      // Within 15 minutes either side.
+      expect(
+        const AttendanceCheckIn(first: 404, last: 884).differsFrom(390, 870),
+        isFalse,
+      );
+      // Left 25 minutes early.
+      expect(
+        const AttendanceCheckIn(first: 380, last: 845).differsFrom(390, 870),
+        isTrue,
+      );
+      // A line without times is never amber.
+      expect(both.differsFrom(null, null), isFalse);
+    });
+  });
 }

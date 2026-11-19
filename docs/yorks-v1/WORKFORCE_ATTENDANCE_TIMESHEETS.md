@@ -254,6 +254,21 @@ terminal's. Such a line never raises the day's `record_version`;
 starts watching. See "A check-in on the day" in
 [`ATTENDANCE_TERMINALS.md`](ATTENDANCE_TERMINALS.md).
 
+### Check-in times beside the line (19 November 2026, `PRODUCT_DECISIONS.md` section 66)
+
+Presentation only. `AttendanceDay.checkIns` maps each worker id to an
+`AttendanceCheckIn` (first and last check-in minute, count), read from the
+`check_in_minute`, `check_out_minute` and `check_ins` keys `v1_wf_row_json`
+already returns (migration `20261118090000`). It lives on the day, not on
+`AttendanceRow`, so drafts, saving and conflict handling are unchanged.
+`AttendanceCheckInLine` (`attendance_common.dart`) draws it under the worker's
+subtitle in Take attendance and in the desktop `AttendanceGrid`: a fingerprint
+icon and `AS.checkedIn` / `AS.checkedInOut`, amber with `AS.checkInDiffers`
+as tooltip and spoken label when `AttendanceCheckIn.differsFrom` finds more
+than 15 minutes against the edited line's In or Out. Times are wrapped in
+left-to-right isolates for Arabic and Urdu. Tests: the "check-ins from the
+place's terminal" group in `test/yorks_workforce_attendance_places_test.dart`.
+
 ## Authority and boundary
 
 This document records the source-grounded T00 audit, accepted T01 foundation

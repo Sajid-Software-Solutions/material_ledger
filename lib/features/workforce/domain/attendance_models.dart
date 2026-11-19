@@ -821,6 +821,7 @@ final class AttendanceDay {
     this.lastSavedAt,
     this.previousSameTypeDate,
     this.question,
+    this.checkIns = const {},
   });
 
   factory AttendanceDay.fromJson(Map<String, dynamic> json) => AttendanceDay(
@@ -850,6 +851,10 @@ final class AttendanceDay {
     ],
     access: AttendanceCrewAccess.fromJson(_map(json['access'])),
     month: AttendanceMonth.fromJson(_map(json['month'])),
+    checkIns: {
+      for (final row in _maps(json['rows']))
+        _s(_map(row['worker'])['id']): ?AttendanceCheckIn.fromRowJson(row),
+    },
   );
 
   final AttendanceCrew crew;
@@ -876,11 +881,52 @@ final class AttendanceDay {
   final AttendanceCrewAccess access;
   final AttendanceMonth month;
 
+  /// Each labourer's check-ins at this place on this day, by worker id, from
+  /// the place's attendance terminal (PRODUCT_DECISIONS section 66). They are
+  /// shown beside the line and never change it.
+  final Map<String, AttendanceCheckIn> checkIns;
+
   /// The taker may edit until the month is confirmed.
   bool get editable => access.take && !locked && !isFuture;
 
   /// Changing a day someone else entered needs a reason.
   bool get changeNeedsReason => saved && !enteredByMe;
+}
+
+/// A labourer's first and last check-in at a place on a day, from its
+/// attendance terminal. Shown beside the line; never the line's times.
+final class AttendanceCheckIn {
+  const AttendanceCheckIn({required this.first, this.last, this.count = 1});
+
+  /// Null when the line has no check-in.
+  static AttendanceCheckIn? fromRowJson(Map<String, dynamic> json) {
+    final first = _ni(json['check_in_minute']);
+    if (first == null) return null;
+    final last = _ni(json['check_out_minute']);
+    return AttendanceCheckIn(
+      first: first,
+      last: last != null && last > first ? last : null,
+      count: _ni(json['check_ins']) ?? 1,
+    );
+  }
+
+  /// Minutes after midnight of the first and the last check-in.
+  final int first;
+  final int? last;
+  final int count;
+
+  /// How far the check-ins are from the line's times, beyond 15 minutes:
+  /// arrived after the line's In, or last checked in well before or after
+  /// its Out. False when the line has no times.
+  bool differsFrom(int? start, int? finish) {
+    const slack = 15;
+    if (start != null && first > start + slack) return true;
+    final out = last;
+    if (finish != null && out != null) {
+      if (out < finish - slack || out > finish + slack) return true;
+    }
+    return false;
+  }
 }
 
 final class AttendanceFeedItem {

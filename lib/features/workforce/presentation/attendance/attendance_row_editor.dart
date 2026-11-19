@@ -1119,6 +1119,11 @@ class _GridRowState extends State<_GridRow> {
                               : AccountsV2Colors.vio,
                         ),
                       ),
+                      AttendanceCheckInLine(
+                        day: widget.day,
+                        row: row,
+                        language: language,
+                      ),
                       // Where else the worker is today, or what clashes.
                       for (final line in attendancePlaceLines(row, language))
                         Tooltip(
