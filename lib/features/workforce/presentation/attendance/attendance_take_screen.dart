@@ -1839,6 +1839,7 @@ class _WorkerCard extends StatelessWidget {
           ].where((part) => part.isNotEmpty).join(' · '),
           style: v2Style(11.5, color: AccountsV2Colors.mut),
         ),
+        AttendanceCheckInLine(day: day, row: row, language: language),
         if (showBuilding && attendanceAsksBuilding(row, day.crew, language))
           AttendanceBuildingChip(
             key: ValueKey('attendance-row-building-$id'),
