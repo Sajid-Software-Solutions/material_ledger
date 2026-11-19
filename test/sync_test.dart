@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:material_ledger/shared/repositories/storage.dart';
+import 'package:material_ledger/shared/services/observability_service.dart';
 import 'package:material_ledger/shared/sync/connectivity_service.dart';
 import 'package:material_ledger/shared/sync/mutation_op.dart';
 import 'package:material_ledger/shared/sync/outbox.dart';
@@ -227,6 +228,87 @@ void main() {
     );
   });
 
+  group('Best-effort notification copies', () {
+    test('a refused notification copy is dropped, not parked', () async {
+      final events = <String>[];
+      engine = SyncEngine(
+        backend: backend,
+        outbox: outbox,
+        connectivity: conn,
+        clock: () => now,
+        observability: _RecordingObservability(events),
+      );
+      backend.permanentDocIds.addAll({'notif-1', 'req-N'});
+      await engine.enqueue(
+        collection: 'notifications',
+        docId: 'notif-1',
+        kind: 'notification.create',
+        label: 'Notification',
+        payload: const {'id': 'notif-1'},
+      );
+      await enqueue('req-N');
+
+      // The notification is gone; the user's own refused work stays visible.
+      expect(outbox.ops.map((o) => o.docId), ['req-N']);
+      expect(outbox.ops.single.status, SyncOpStatus.failed);
+      expect(events, ['sync_best_effort_refused_dropped']);
+    });
+
+    test('a transient notification failure still retries', () async {
+      backend.failTransientTimes = 1;
+      await engine.enqueue(
+        collection: 'notifications',
+        docId: 'notif-2',
+        kind: 'notification.create',
+        label: 'Notification',
+        payload: const {'id': 'notif-2'},
+      );
+      expect(outbox.ops.single.status, SyncOpStatus.pending);
+      now = now.add(const Duration(minutes: 5));
+      await engine.flush();
+      expect(backend.server.containsKey('notif-2'), isTrue);
+      expect(outbox.ops, isEmpty);
+    });
+
+    test('start clears notification copies an older build parked', () async {
+      final at = DateTime(2026, 1, 1);
+      await outbox.enqueue(
+        MutationOp(
+          id: 'op-old-notif',
+          idempotencyKey: 'notifications:notif-3',
+          collection: 'notifications',
+          docId: 'notif-3',
+          kind: 'notification.read',
+          label: 'Notification',
+          payload: const {'id': 'notif-3'},
+          createdAt: at,
+        ),
+      );
+      await outbox.enqueue(
+        MutationOp(
+          id: 'op-old-req',
+          idempotencyKey: 'materialRequests:req-O',
+          collection: 'materialRequests',
+          docId: 'req-O',
+          kind: 'request.update',
+          label: 'Material request',
+          payload: const {'id': 'req-O'},
+          createdAt: at,
+        ),
+      );
+      for (final op in [...outbox.ops]) {
+        await outbox.update(op.copyWith(status: SyncOpStatus.failed));
+      }
+
+      engine.start();
+      await Future<void>.delayed(Duration.zero);
+      engine.dispose();
+
+      expect(outbox.ops.map((o) => o.docId), ['req-O']);
+      expect(buildOutbox().ops.map((o) => o.docId), ['req-O']);
+    });
+  });
+
   group('Permanent failure (dead-letter + Retry, never dropped)', () {
     test(
       'permission denied is dead-lettered then recoverable via retry',
@@ -271,4 +353,22 @@ void main() {
       expect(buildOutbox().ops.map((o) => o.docId), ['req-Q']);
     });
   });
+}
+
+class _RecordingObservability implements ObservabilityService {
+  _RecordingObservability(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<void> recordError(
+    Object error,
+    StackTrace? stack, {
+    bool fatal = false,
+    String? reason,
+  }) async {}
+
+  @override
+  void logEvent(String name, {Map<String, Object?> params = const {}}) =>
+      events.add(name);
 }

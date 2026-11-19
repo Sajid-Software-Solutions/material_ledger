@@ -172,7 +172,10 @@ SyncBackend.apply(op)   ← LocalSyncBackend now │ Firestore/REST later
   (e.g. permission denied) dead-letters them (`status = failed`) for a Retry;
   on anything else (transient/timeout) keeps and backs off
   (`2^attempts`, capped 64s). Flushes on enqueue, on reconnect, and on a 5s
-  heartbeat. `retry(id)` / `retryAll()` recover dead-letters.
+  heartbeat. `retry(id)` / `retryAll()` recover dead-letters; `discard(id)`
+  removes one after the user confirms. A permanent refusal of a best-effort
+  copy (`syncBestEffortCollections`, today only `notifications`) is dropped and
+  logged instead, and `start()` clears such copies left failed by older builds.
 - **`ConnectivityService`** (`connectivityProvider`, `isOnlineProvider`) —
   abstracted reachability. `DefaultConnectivity` ships now (toggleable via the
   dev "Simulate offline" switch in Settings); `PlusConnectivity`
