@@ -65,3 +65,15 @@ are additive and remain backward compatible with that build.
 
 All future schema work must use the repository timestamps and be applied only
 after `supabase migration list --linked` confirms the histories remain aligned.
+
+## Later finding (15 November 2026)
+
+Two of the history-only repairs above recorded function changes that never ran
+on production. The legacy baseline `20260724000000` was marked applied without
+running. Production kept its hand-applied July helpers and grants, and never
+received the `app_legacy_*` helpers. `20260803224536` was marked applied after
+an existence check of its functions, and its `v1_can_confirm_material_return`
+change is missing. Production also holds compacted copies of four function
+bodies from the timestamp-shifted scripts. See
+[PRODUCTION_FUNCTION_DRIFT_2026-11-15.md](PRODUCTION_FUNCTION_DRIFT_2026-11-15.md)
+for the full comparison and the prepared alignment bundle.
